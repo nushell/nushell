@@ -5,7 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub struct Select;
@@ -197,7 +197,7 @@ fn select(
     columns: Vec<CellPath>,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let mut unique_rows: HashSet<usize> = HashSet::new();
+    let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
     let mut new_columns = vec![];
 
@@ -227,7 +227,6 @@ fn select(
     let mut unique_rows: Vec<usize> = unique_rows.into_iter().collect();
 
     let input = if !unique_rows.is_empty() {
-        unique_rows.sort_unstable();
         // let skip = call.has_flag("skip");
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
