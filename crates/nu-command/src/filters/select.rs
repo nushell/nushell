@@ -224,7 +224,6 @@ fn select(
         };
     }
     let columns = new_columns;
-    let mut unique_rows: Vec<usize> = unique_rows.into_iter().collect();
 
     let input = if !unique_rows.is_empty() {
         // let skip = call.has_flag("skip");
@@ -334,7 +333,7 @@ fn select(
 
 struct NthIterator {
     input: PipelineIterator,
-    rows: Vec<usize>,
+    rows: BTreeSet<usize>,
     current: usize,
 }
 
@@ -345,7 +344,7 @@ impl Iterator for NthIterator {
         loop {
                 if let Some(row) = self.rows.first() {
                     if self.current == *row {
-                        self.rows.remove(0);
+                        self.rows.pop_first();
                         self.current += 1;
                         return self.input.next();
                     } else {
