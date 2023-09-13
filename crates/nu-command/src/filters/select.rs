@@ -218,7 +218,11 @@ fn select(
                     unique_rows.insert(*val);
                 }
             }
-            _ => new_columns.push(column),
+            _ => {
+                if !new_columns.contains(&column) {
+                    new_columns.push(column)
+                }
+            }
         };
     }
     let columns = new_columns;
