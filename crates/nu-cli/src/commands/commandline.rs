@@ -1,9 +1,9 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::IntoPipelineData;
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -24,6 +24,11 @@ impl Command for Commandline {
                 "cursor",
                 "Set or get the current cursor position",
                 Some('c'),
+            )
+            .switch(
+                "cursor-end",
+                "Set the current cursor position to the end of the buffer",
+                Some('e'),
             )
             .switch(
                 "append",
@@ -104,8 +109,11 @@ impl Command for Commandline {
             }
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            let repl = engine_state.repl_state.lock().expect("repl state mutex");
-            if call.has_flag("cursor") {
+            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+            if call.has_flag("cursor-end") {
+                repl.cursor_pos = repl.buffer.graphemes(true).count();
+                Ok(Value::nothing(call.head).into_pipeline_data())
+            } else if call.has_flag("cursor") {
                 let char_pos = repl
                     .buffer
                     .grapheme_indices(true)
