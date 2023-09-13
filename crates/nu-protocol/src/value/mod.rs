@@ -2649,20 +2649,6 @@ impl Value {
             (Value::CustomValue { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
-            (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*lhs {
-                    res.push_str(rhs)
-                }
-                Ok(Value::string(res, span))
-            }
-            (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*rhs {
-                    res.push_str(lhs)
-                }
-                Ok(Value::string(res, span))
-            }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),

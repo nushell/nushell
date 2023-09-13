@@ -134,7 +134,7 @@ def show-pretty-test [indent: int = 4] {
     let test = $in
 
     [
-        (" " * $indent)
+        (1..$indent | map {" "} | str join)
         (match $test.result {
             "pass" => { ansi green },
             "skip" => { ansi yellow },
