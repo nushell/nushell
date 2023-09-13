@@ -322,5 +322,5 @@ export def repeat [
         return []
     }
 
-    ..($n - 1) | each { $item }
+    1..$n | each { $item }
 }
