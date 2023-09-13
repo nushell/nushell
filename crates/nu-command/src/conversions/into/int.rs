@@ -169,7 +169,7 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Convert decimal to integer",
+                description: "Convert float to integer",
                 example: "5.9 | into int",
                 result: Some(Value::test_int(5)),
             },

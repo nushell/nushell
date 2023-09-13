@@ -107,7 +107,7 @@ impl Command for SubCommand {
                 result: None,
             },
             Example {
-                description: "convert a decimal to a nushell binary primitive",
+                description: "convert a float to a nushell binary primitive",
                 example: "1.234 | into binary",
                 result: Some(Value::binary(
                     1.234f64.to_ne_bytes().to_vec(),
