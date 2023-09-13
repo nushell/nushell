@@ -185,6 +185,10 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                     ),
                 );
             }
+            #[cfg(target_os = "macos")]
+            {
+                record.push("cwd", Value::string(proc.cwd(), span));
+            }
         }
 
         output.push(Value::record(record, span));
