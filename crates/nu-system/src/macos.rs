@@ -221,7 +221,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                             break;
                         }
                         let env_str = get_unchecked_str(cp, start);
-                        if env_str.starts_with("PWD=") {
+                        if let Some(pwd) = env_str.strip_prefix("PWD=") {
                             cwd = PathBuf::from(&env_str[4..])
                         }
                         env.push(env_str);
