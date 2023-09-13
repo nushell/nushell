@@ -122,7 +122,7 @@ pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     }
 }
 
-fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<Value>> {
+fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<Value>> {
     if !cols.is_empty() {
         create_table_for_record(cols, &records)
     } else if cols.is_empty() && records.is_empty() {

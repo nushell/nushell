@@ -11,11 +11,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "into decimal"
+        "into float"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("into decimal")
+        Signature::build("into float")
             .input_output_types(vec![
                 (Type::Int, Type::Float),
                 (Type::String, Type::Float),
@@ -38,15 +38,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "deprecated: convert data into a floating point number."
-    }
-
-    fn extra_usage(&self) -> &str {
-        "Use `into float` instead"
+        "Convert data into floating point number."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "number", "floating"]
+        vec!["convert", "number", "floating", "decimal"]
     }
 
     fn run(
@@ -56,16 +52,6 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        nu_protocol::report_error_new(
-            engine_state,
-            &ShellError::GenericError(
-                "Deprecated command".into(),
-                "`into decimal` is deprecated and will be removed in 0.86.".into(),
-                Some(call.head),
-                Some("Use `into float` instead".into()),
-                vec![],
-            ),
-        );
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -75,23 +61,20 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Convert string to float in table",
-                example: "[[num]; ['5.01']] | into decimal num",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["num".to_string()],
-                        vals: vec![Value::test_float(5.01)],
-                    })],
-                    Span::test_data(),
-                )),
+                example: "[[num]; ['5.01']] | into float num",
+                result: Some(Value::test_list(vec![Value::test_record(Record {
+                    cols: vec!["num".to_string()],
+                    vals: vec![Value::test_float(5.01)],
+                })])),
             },
             Example {
-                description: "Convert string to float",
-                example: "'1.345' | into decimal",
+                description: "Convert string to floating point number",
+                example: "'1.345' | into float",
                 result: Some(Value::test_float(1.345)),
             },
             Example {
                 description: "Coerce list of ints and floats to float",
-                example: "[4 -5.9] | into decimal",
+                example: "[4 -5.9] | into float",
                 result: Some(Value::test_list(vec![
                     Value::test_float(4.0),
                     Value::test_float(-5.9),
@@ -99,7 +82,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert boolean to float",
-                example: "true | into decimal",
+                example: "true | into float",
                 result: Some(Value::test_float(1.0)),
             },
         ]
@@ -172,10 +155,10 @@ mod tests {
 
     #[test]
     fn communicates_parsing_error_given_an_invalid_decimallike_string() {
-        let decimal_str = Value::test_string("11.6anra");
+        let invalid_str = Value::test_string("11.6anra");
 
         let actual = action(
-            &decimal_str,
+            &invalid_str,
             &CellPathOnlyArgs::from(vec![]),
             Span::test_data(),
         );
@@ -184,11 +167,11 @@ mod tests {
     }
 
     #[test]
-    fn int_to_decimal() {
-        let decimal_str = Value::test_int(10);
+    fn int_to_float() {
+        let input_int = Value::test_int(10);
         let expected = Value::test_float(10.0);
         let actual = action(
-            &decimal_str,
+            &input_int,
             &CellPathOnlyArgs::from(vec![]),
             Span::test_data(),
         );

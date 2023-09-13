@@ -5,13 +5,11 @@ use nu_protocol::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, ProfilingConfig, Stack},
-    record, DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    PipelineMetadata, Range, Record, ShellError, Span, Spanned, Unit, Value, VarId,
-    ENV_VARIABLE_ID,
+    engine::{EngineState, Stack},
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
-use std::time::Instant;
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -1016,13 +1014,6 @@ pub fn eval_block(
 
     let num_pipelines = block.len();
 
-    let mut input_metadata = if stack.profiling_config.should_debug() {
-        stack.profiling_config.enter_block();
-        input.metadata()
-    } else {
-        None
-    };
-
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
 
@@ -1035,12 +1026,6 @@ pub fn eval_block(
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
                     )));
-
-            let start_time = if stack.profiling_config.should_debug() {
-                Some(Instant::now())
-            } else {
-                None
-            };
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1059,34 +1044,6 @@ pub fn eval_block(
                         )),
                 redirect_stderr,
             );
-
-            let end_time = if stack.profiling_config.should_debug() {
-                Some(Instant::now())
-            } else {
-                None
-            };
-
-            if let (Some(start_time), Some(end_time), Some(input_metadata)) =
-                (start_time, end_time, input_metadata.as_deref_mut())
-            {
-                let element_span = pipeline.elements[i].span();
-                let element_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(pipeline.elements[i].span()),
-                )
-                .to_string();
-
-                collect_profiling_metadata(
-                    pipeline_idx,
-                    i,
-                    element_str,
-                    element_span,
-                    start_time,
-                    end_time,
-                    &stack.profiling_config,
-                    &eval_result,
-                    input_metadata,
-                );
-            }
 
             match (eval_result, redirect_stderr) {
                 (Ok((pipeline_data, _)), true) => {
@@ -1112,9 +1069,6 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                     if output.1 {
-                        if stack.profiling_config.should_debug() {
-                            stack.profiling_config.leave_block();
-                        }
                         return Ok(input);
                     }
                 }
@@ -1148,12 +1102,7 @@ pub fn eval_block(
         }
     }
 
-    if stack.profiling_config.should_debug() {
-        stack.profiling_config.leave_block();
-        Ok(input.set_metadata(input_metadata))
-    } else {
-        Ok(input)
-    }
+    Ok(input)
 }
 
 pub fn eval_subexpression(
@@ -1207,87 +1156,4 @@ pub fn eval_variable(
 
 fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn collect_profiling_metadata(
-    pipeline_idx: usize,
-    element_idx: usize,
-    element_str: String,
-    element_span: Span,
-    start_time: Instant,
-    end_time: Instant,
-    profiling_config: &ProfilingConfig,
-    eval_result: &Result<(PipelineData, bool), ShellError>,
-    input_metadata: &mut PipelineMetadata,
-) {
-    let element_str = Value::string(element_str, element_span);
-    let time_ns = (end_time - start_time).as_nanos() as i64;
-
-    let span_record = record! {
-        "start" => Value::int(element_span.start as i64, element_span),
-        "end" => Value::int(element_span.end as i64, element_span),
-    };
-
-    let mut record = record! {
-        "pipeline_idx" => Value::int(pipeline_idx as i64, element_span),
-        "element_idx" => Value::int(element_idx as i64, element_span),
-        "depth" => Value::int(profiling_config.depth, element_span),
-        "span" => Value::record(span_record, element_span),
-    };
-
-    if profiling_config.collect_source {
-        record.push("source", element_str);
-    }
-
-    if profiling_config.collect_values {
-        let value = match &eval_result {
-            Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-            Ok((PipelineData::ListStream(..), ..)) => Value::string("list-stream", element_span),
-            Ok((PipelineData::ExternalStream { .. }, ..)) => {
-                Value::string("raw stream", element_span)
-            }
-            Ok((PipelineData::Empty, ..)) => Value::nothing(element_span),
-            Err(err) => Value::error(err.clone(), element_span),
-        };
-
-        record.push("value", value);
-    }
-
-    record.push("time", Value::duration(time_ns, element_span));
-
-    let record = Value::record(record, element_span);
-
-    let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
-        pipeline_data.metadata()
-    } else {
-        None
-    };
-
-    if let PipelineMetadata {
-        data_source: DataSource::Profiling(tgt_vals),
-    } = input_metadata
-    {
-        tgt_vals.push(record);
-    } else {
-        *input_metadata = PipelineMetadata {
-            data_source: DataSource::Profiling(vec![record]),
-        };
-    }
-
-    if let Some(PipelineMetadata {
-        data_source: DataSource::Profiling(element_vals),
-    }) = element_metadata.map(|m| *m)
-    {
-        if let PipelineMetadata {
-            data_source: DataSource::Profiling(tgt_vals),
-        } = input_metadata
-        {
-            tgt_vals.extend(element_vals);
-        } else {
-            *input_metadata = PipelineMetadata {
-                data_source: DataSource::Profiling(element_vals),
-            };
-        }
-    }
 }

@@ -128,7 +128,7 @@ fn from_ods(
 
     let mut dict = IndexMap::new();
 
-    let mut sheet_names = ods.sheet_names().to_owned();
+    let mut sheet_names = ods.sheet_names();
     if !sel_sheets.is_empty() {
         sheet_names.retain(|e| sel_sheets.contains(e));
     }

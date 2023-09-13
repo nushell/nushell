@@ -144,7 +144,7 @@ impl Highlighter for NuHighlighter {
 fn split_span_by_highlight_positions(
     line: &str,
     span: Span,
-    highlight_positions: &Vec<usize>,
+    highlight_positions: &[usize],
     global_span_offset: usize,
 ) -> Vec<(Span, bool)> {
     let mut start = span.start;

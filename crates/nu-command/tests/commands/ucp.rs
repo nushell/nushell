@@ -8,6 +8,11 @@ use nu_test_support::playground::Playground;
 
 use std::path::Path;
 
+#[cfg(not(target_os = "windows"))]
+const PATH_SEPARATOR: &str = "/";
+#[cfg(target_os = "windows")]
+const PATH_SEPARATOR: &str = "\\";
+
 fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
     nu!("open -r {} | to text | hash md5", file).out
 }
@@ -392,15 +397,14 @@ fn copy_to_non_existing_dir() {
 fn copy_to_non_existing_dir_impl(progress: bool) {
     Playground::setup("ucp_test_11", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("empty_file")]);
-
         let progress_flag = if progress { "-p" } else { "" };
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ucp {} empty_file ~/not_a_dir/",
-            progress_flag
+            "ucp {} empty_file ~/not_a_dir{}",
+            progress_flag,
+            PATH_SEPARATOR,
         );
-        // assert!(actual.err.contains("failed to access"));
         assert!(actual.err.contains("is not a directory"));
     });
 }
@@ -508,20 +512,26 @@ fn copy_identical_file() {
 }
 
 fn copy_identical_file_impl(progress: bool) {
-    Playground::setup("ucp_test_15", |_dirs, sandbox| {
+    Playground::setup("ucp_test_15", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("same.txt")]);
 
         let progress_flag = if progress { "-p" } else { "" };
 
         let actual = nu!(
-            cwd: sandbox.cwd(),
+            cwd: dirs.test(),
             "ucp {} same.txt same.txt",
             progress_flag,
         );
         // assert!(actual.err.contains("Copy aborted"));
-        assert!(actual
-            .err
-            .contains("'same.txt' and 'same.txt' are the same file"));
+        let msg = format!(
+            "'{}' and '{}' are the same file",
+            dirs.test().join("same.txt").display(),
+            dirs.test().join("same.txt").display(),
+        );
+        // debug messages in CI
+        if !actual.err.contains(&msg) {
+            panic!("stderr was: {}", actual.err);
+        }
     });
 }
 
@@ -548,7 +558,7 @@ fn copy_ignores_ansi_impl(progress: bool) {
 }
 
 //apparently on windows error msg is different, but linux(where i test) is fine.
-//fix later
+//fix later FIXME
 #[cfg(unix)]
 #[test]
 fn copy_file_not_exists_dst() {
@@ -556,6 +566,7 @@ fn copy_file_not_exists_dst() {
     copy_file_not_exists_dst_impl(true);
 }
 
+#[cfg(unix)]
 fn copy_file_not_exists_dst_impl(progress: bool) {
     Playground::setup("ucp_test_17", |_dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("valid.txt")]);
@@ -610,7 +621,9 @@ static TEST_COPY_TO_FOLDER: &str = "hello_dir/";
 static TEST_COPY_TO_FOLDER_FILE: &str = "hello_dir/hello_world.txt";
 static TEST_COPY_FROM_FOLDER: &str = "hello_dir_with_file/";
 static TEST_COPY_FROM_FOLDER_FILE: &str = "hello_dir_with_file/hello_world.txt";
+#[cfg(not(target_os = "macos"))]
 static TEST_COPY_TO_FOLDER_NEW: &str = "hello_dir_new";
+#[cfg(not(target_os = "macos"))]
 static TEST_COPY_TO_FOLDER_NEW_FILE: &str = "hello_dir_new/hello_world.txt";
 
 #[test]
@@ -920,15 +933,15 @@ fn test_cp_verbose_default() {
 
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp --verbose {} ucp_test_31/{}",
+        "ucp --verbose {} {}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
         assert!(actual.out.contains(
             format!(
-                "'{}' -> 'ucp_test_31/{}'",
+                "'{}' -> '{}'",
                 src.display(),
-                TEST_HELLO_WORLD_DEST
+                dirs.root().join(TEST_HELLO_WORLD_DEST).display()
             )
             .as_str(),
         ));
@@ -948,5 +961,17 @@ fn test_cp_only_source_no_dest() {
             .err
             .contains("Missing destination path operand after"));
         assert!(actual.err.contains(TEST_HELLO_WORLD_SOURCE));
+    });
+}
+
+#[test]
+fn test_cp_with_vars() {
+    Playground::setup("ucp_test_33", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("input")]);
+        nu!(
+        cwd: dirs.test(),
+        "let src = 'input'; let dst = 'target'; ucp $src $dst",
+        );
+        assert!(dirs.test().join("target").exists());
     });
 }

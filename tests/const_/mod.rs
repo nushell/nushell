@@ -332,7 +332,7 @@ fn describe_const() {
 
 #[test]
 fn ignore_const() {
-    let actual = nu!("const x = (echo spam | ignore); $x == null");
+    let actual = nu!(r#"const x = ("spam" | ignore); $x == null"#);
     assert_eq!(actual.out, "true");
 }
 
@@ -340,4 +340,17 @@ fn ignore_const() {
 fn version_const() {
     let actual = nu!("const x = (version); $x");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn if_const() {
+    let actual = nu!("const x = (if 2 < 3 { 'yes!' }); $x");
+    assert_eq!(actual.out, "yes!");
+
+    let actual = nu!("const x = (if 5 < 3 { 'yes!' } else { 'no!' }); $x");
+    assert_eq!(actual.out, "no!");
+
+    let actual =
+        nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
+    assert_eq!(actual.out, "no!");
 }

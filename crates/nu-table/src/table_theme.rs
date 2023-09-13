@@ -63,7 +63,7 @@ impl TableTheme {
         }
     }
 
-    pub fn resturctured() -> TableTheme {
+    pub fn restructured() -> TableTheme {
         Self {
             theme: Style::re_structured_text().into(),
             full_theme: Style::re_structured_text().into(),

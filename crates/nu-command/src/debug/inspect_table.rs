@@ -235,7 +235,7 @@ mod util {
         }
     }
 
-    fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<String>> {
+    fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<String>> {
         if !cols.is_empty() {
             create_table_for_record(cols, &records)
         } else if cols.is_empty() && records.is_empty() {

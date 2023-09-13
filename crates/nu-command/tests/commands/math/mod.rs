@@ -498,11 +498,3 @@ fn append_binary_values() {
     ));
     assert_eq!(actual.out, "0x[01020304]");
 }
-
-#[test]
-fn int_multiple_list() {
-    let actual = nu!(pipeline(r#"3 * [1 2] | to nuon"#));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
-    let actual = nu!(pipeline(r#"[1 2] * 3 | to nuon"#));
-    assert_eq!(actual.out, "[1, 2, 1, 2, 1, 2]");
-}

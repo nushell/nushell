@@ -101,7 +101,7 @@ criterion = "0.5"
 pretty_assertions = "1.4"
 rstest = { version = "0.18", default-features = false }
 serial_test = "2.0"
-tempfile = "3.7"
+tempfile = "3.8"
 
 [features]
 plugin = [

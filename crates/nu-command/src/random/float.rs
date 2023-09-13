@@ -12,11 +12,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "random decimal"
+        "random float"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("random decimal")
+        Signature::build("random float")
             .input_output_types(vec![(Type::Nothing, Type::Float)])
             .allow_variants_without_examples(true)
             .optional("range", SyntaxShape::Range, "Range of values")
@@ -24,15 +24,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "deprecated: Generate a random float within a range [min..max]."
-    }
-
-    fn extra_usage(&self) -> &str {
-        "Use `random float` instead"
+        "Generate a random float within a range [min..max]."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["generate", "float"]
+        vec!["generate"]
     }
 
     fn run(
@@ -42,46 +38,36 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        nu_protocol::report_error_new(
-            engine_state,
-            &ShellError::GenericError(
-                "Deprecated command".into(),
-                "`random decimal` is deprecated and will be removed in 0.86.".into(),
-                Some(call.head),
-                Some("Use `random float instead".into()),
-                vec![],
-            ),
-        );
-        decimal(engine_state, stack, call)
+        float(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Generate a default float value between 0 and 1",
-                example: "random decimal",
+                example: "random float",
                 result: None,
             },
             Example {
                 description: "Generate a random float less than or equal to 500",
-                example: "random decimal ..500",
+                example: "random float ..500",
                 result: None,
             },
             Example {
                 description: "Generate a random float greater than or equal to 100000",
-                example: "random decimal 100000..",
+                example: "random float 100000..",
                 result: None,
             },
             Example {
                 description: "Generate a random float between 1.0 and 1.1",
-                example: "random decimal 1.0..1.1",
+                example: "random float 1.0..1.1",
                 result: None,
             },
         ]
     }
 }
 
-fn decimal(
+fn float(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
