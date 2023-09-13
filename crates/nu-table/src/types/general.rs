@@ -6,7 +6,7 @@ use crate::{
     clean_charset,
     common::{
         create_nu_table_config, get_empty_style, get_header_style, get_index_style,
-        get_value_style, NuText, INDEX_COLUMN_NAME,
+        get_leading_trailing_space_style, get_value_style, NuText, INDEX_COLUMN_NAME,
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
@@ -59,6 +59,10 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
+
+    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
+        table.set_trail_lead_style(style, style);
+    }
 
     let mut out = TableOutput::new(table, false, true);
 
@@ -121,6 +125,10 @@ fn to_table_with_header(
     table.set_header_style(get_header_style(opts.style_computer));
     table.set_index_style(get_index_style(opts.style_computer));
 
+    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
+        table.set_trail_lead_style(style, style);
+    }
+
     for (i, text) in headers.iter().enumerate() {
         table.insert((0, i), text.to_owned());
     }
@@ -159,6 +167,10 @@ fn to_table_with_no_header(
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), with_index as usize + 1);
     table.set_index_style(get_index_style(opts.style_computer));
+
+    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
+        table.set_trail_lead_style(style, style);
+    }
 
     for (row, item) in input.iter().enumerate() {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {

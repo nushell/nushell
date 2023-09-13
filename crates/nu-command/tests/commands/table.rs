@@ -2664,3 +2664,25 @@ fn table_collapse_padding_zero() {
          ╰─┴─┴─╯"
     );
 }
+
+#[test]
+fn table_leading_trailing_space_bg() {
+    let actual = nu!(
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭───┬───────┬───────┬────────────────╮│ # │   a   │   b   │      c         │├───┼───────┼───────┼────────────────┤│ 0 │   1   │     2 │ 3              ││ 1 │   4   │ hello │ [list 3 items] ││   │       │ world │                │╰───┴───────┴───────┴────────────────╯"
+    );
+}
+
+#[test]
+fn table_leading_trailing_space_bg_expand() {
+    let actual = nu!(
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --expand"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭───┬───────┬───────┬───────────────────────╮│ # │   a   │   b   │         c             │├───┼───────┼───────┼───────────────────────┤│ 0 │   1   │     2 │ 3                     ││ 1 │   4   │ hello │ ╭───┬───────────────╮ ││   │       │ world │ │ 0 │   1           │ ││   │       │       │ │ 1 │             2 │ ││   │       │       │ │ 2 │ ╭───┬───────╮ │ ││   │       │       │ │   │ │ 0 │     1 │ │ ││   │       │       │ │   │ │ 1 │   2   │ │ ││   │       │       │ │   │ │ 2 │     3 │ │ ││   │       │       │ │   │ ╰───┴───────╯ │ ││   │       │       │ ╰───┴───────────────╯ │╰───┴───────┴───────┴───────────────────────╯"
+    );
+}
