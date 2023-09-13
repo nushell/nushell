@@ -342,19 +342,19 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-                if let Some(row) = self.rows.first() {
-                    if self.current == *row {
-                        self.rows.pop_first();
-                        self.current += 1;
-                        return self.input.next();
-                    } else {
-                        self.current += 1;
-                        let _ = self.input.next();
-                        continue;
-                    }
+            if let Some(row) = self.rows.first() {
+                if self.current == *row {
+                    self.rows.pop_first();
+                    self.current += 1;
+                    return self.input.next();
                 } else {
-                    return None;
+                    self.current += 1;
+                    let _ = self.input.next();
+                    continue;
                 }
+            } else {
+                return None;
+            }
         }
     }
 }
