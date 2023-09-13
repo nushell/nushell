@@ -949,12 +949,8 @@ fn colorize_lead_trail_space(
             if let Some(color) = &lead {
                 buf = RE_LEADING
                     .replace_all(cell.as_ref(), |cap: &Captures| {
-                        format!(
-                            "{}{}{}",
-                            color.get_prefix(),
-                            cap.get(1).unwrap().as_str(),
-                            color.get_suffix()
-                        )
+                        let spaces = cap.get(1).expect("valid").as_str();
+                        format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
                     })
                     .into_owned();
             }
@@ -962,12 +958,8 @@ fn colorize_lead_trail_space(
             if let Some(color) = &trail {
                 buf = RE_TRAILING
                     .replace_all(buf.as_ref(), |cap: &Captures| {
-                        format!(
-                            "{}{}{}",
-                            color.get_prefix(),
-                            cap.get(1).unwrap().as_str(),
-                            color.get_suffix()
-                        )
+                        let spaces = cap.get(1).expect("valid").as_str();
+                        format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
                     })
                     .into_owned();
             }
