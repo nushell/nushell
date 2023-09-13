@@ -214,9 +214,7 @@ fn select(
                         Vec::new(),
                     ));
                 }
-                if !unique_rows.contains(val) {
-                    unique_rows.insert(*val);
-                }
+                unique_rows.insert(*val);
             }
             _ => {
                 if !new_columns.contains(&column) {
