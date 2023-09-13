@@ -214,16 +214,9 @@ fn select(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains(val) {
-                    return Err(ShellError::GenericError(
-                        "Select can't get the same row twice".into(),
-                        "duplicated row index".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                if !unique_rows.contains(val) {
+                    unique_rows.insert(*val);
                 }
-                unique_rows.insert(*val);
             }
             _ => new_columns.push(column),
         };
