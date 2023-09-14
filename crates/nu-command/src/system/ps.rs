@@ -143,6 +143,7 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                 // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
                 record.push("priority", Value::int(proc_stat.priority, span));
                 record.push("process_threads", Value::int(proc_stat.num_threads, span));
+                record.push("cwd", Value::string(proc.cwd(), span));
             }
             #[cfg(windows)]
             {
@@ -183,6 +184,10 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                         span,
                     ),
                 );
+            }
+            #[cfg(target_os = "macos")]
+            {
+                record.push("cwd", Value::string(proc.cwd(), span));
             }
         }
 

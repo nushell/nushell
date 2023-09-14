@@ -46,6 +46,20 @@ fn mut_pipeline_allows_in() {
     assert_eq!(actual.out, "21");
 }
 
+#[test]
+fn let_pipeline_redirects_internals() {
+    let actual = nu!(r#"let x = echo 'bar'; $x | str length"#);
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn let_pipeline_redirects_externals() {
+    let actual = nu!(r#"let x = nu --testbin cococo 'bar'; $x | str length"#);
+
+    assert_eq!(actual.out, "3");
+}
+
 #[ignore]
 #[test]
 fn let_with_external_failed() {

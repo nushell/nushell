@@ -95,12 +95,12 @@ impl Command for SubCommand {
                 result: Some(Value::bool(true, span)),
             },
             Example {
-                description: "convert decimal to boolean",
+                description: "convert float to boolean",
                 example: "0.3 | into bool",
                 result: Some(Value::bool(true, span)),
             },
             Example {
-                description: "convert decimal string to boolean",
+                description: "convert float string to boolean",
                 example: "'0.0' | into bool",
                 result: Some(Value::bool(false, span)),
             },

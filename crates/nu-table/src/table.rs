@@ -927,3 +927,18 @@ impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for 
         }
     }
 }
+
+struct StripColorFromRow(usize);
+
+impl TableOption<NuRecords, CompleteDimensionVecRecords<'_>, ColoredConfig> for StripColorFromRow {
+    fn change(
+        self,
+        recs: &mut NuRecords,
+        _: &mut ColoredConfig,
+        _: &mut CompleteDimensionVecRecords<'_>,
+    ) {
+        for cell in &mut recs[self.0] {
+            *cell = CellInfo::new(strip_ansi_unlikely(cell.as_ref()).into_owned());
+        }
+    }
+}
