@@ -9,8 +9,8 @@ use tabled::grid::config::Position;
 use crate::{
     common::{
         create_nu_table_config, error_sign, get_header_style, get_index_style,
-        get_leading_trailing_space_style, load_theme_from_config, nu_value_to_string,
-        nu_value_to_string_clean, wrap_text, NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
+        load_theme_from_config, nu_value_to_string, nu_value_to_string_clean, wrap_text, NuText,
+        StringResult, TableResult, INDEX_COLUMN_NAME,
     },
     string_width, NuTable, NuTableCell, TableOpts, TableOutput,
 };
@@ -178,10 +178,6 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         table.set_index_style(get_index_style(cfg.opts.style_computer));
         set_data_styles(&mut table, data_styles);
 
-        if let Some(style) = get_leading_trailing_space_style(cfg.opts.style_computer).color_style {
-            table.set_trail_lead_style(style, style);
-        }
-
         return Ok(Some(TableOutput::new(table, false, with_index)));
     }
 
@@ -341,10 +337,6 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
     set_data_styles(&mut table, data_styles);
 
-    if let Some(style) = get_leading_trailing_space_style(cfg.opts.style_computer).color_style {
-        table.set_trail_lead_style(style, style);
-    }
-
     Ok(Some(TableOutput::new(table, true, with_index)))
 }
 
@@ -394,10 +386,6 @@ fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
     let mut table = NuTable::from(data);
     table.set_index_style(get_key_style(&cfg));
     table.set_indent(cfg.opts.indent.0, cfg.opts.indent.1);
-
-    if let Some(style) = get_leading_trailing_space_style(cfg.opts.style_computer).color_style {
-        table.set_trail_lead_style(style, style);
-    }
 
     let out = TableOutput::new(table, false, true);
 
