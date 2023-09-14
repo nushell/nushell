@@ -282,7 +282,7 @@ fn select_single_row_with_variable() {
 
 #[test]
 fn select_range() {
-    let actual = nu!("[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 1..2 | to nuon");
+    let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 1..2 | to nuon");
 
     assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
 }
