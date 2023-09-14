@@ -129,7 +129,6 @@ produce a table, a list will produce a list, and a record will produce a record.
                     let valiter = val.into_range_iter(engine_state.ctrlc.clone())?;
 
                     for value in valiter {
-                        dbg!(&value);
                         match value {
                             Value::Int { val, .. } => {
                                 let cv = CellPath {
@@ -143,9 +142,12 @@ produce a table, a list will produce a list, and a record will produce a record.
                             }
                             x => {
                                 let span = x.span();
+                                let msg = format!(
+                                    "The value expected was Int, but got: {}",
+                                    x.get_type()
+                                );
                                 return Err(ShellError::TypeMismatch {
-                                    err_message: "The value expected was Int, but got: {}"
-                                        .to_string(),
+                                    err_message: msg,
                                     span,
                                 });
                             }
