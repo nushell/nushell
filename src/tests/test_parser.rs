@@ -410,7 +410,7 @@ fn ends_with_operator_succeeds() -> TestResult {
 
 #[test]
 fn proper_missing_param() -> TestResult {
-    fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
+    fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing argument: w")
 }
 
 #[test]

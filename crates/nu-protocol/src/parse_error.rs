@@ -337,7 +337,7 @@ pub enum ParseError {
 
     #[error("Missing required positional argument.")]
     #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
-    MissingPositional(String, #[label("missing {0}")] Span, String),
+    MissingPositional(String, #[label("missing argument: {0}")] Span, String),
 
     #[error("Missing argument to `{1}`.")]
     #[diagnostic(code(nu::parser::keyword_missing_arg))]
