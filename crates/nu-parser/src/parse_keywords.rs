@@ -2947,9 +2947,8 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         custom_completion: None,
                     };
 
-                    let mut idx = 0;
                     let Some(mut opt_type_spans) =
-                      PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                      PointedSpanArray::new_from_range(spans, 1..(span.0),0) else {
                        continue; // This checks span.0 > 1
                     } ;
                     let (lvalue, explicit_type) =
@@ -3047,8 +3046,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 if !(item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1) {
                     continue;
                 }
-                let mut idx = 0;
-                let Some(mut inner_spans) = PointedSpanArray::new(spans,& mut idx) else {
+                let Some(mut inner_spans) = PointedSpanArray::new(spans,0) else {
                      continue; // Only checks spans.len() > span.0
                     } ;
                 let rvalue = parse_multispan_value(
@@ -3064,9 +3062,8 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                     ));
                 }
 
-                let mut idx = 0;
                 let Some(mut opt_type_spans) =
-                     PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                     PointedSpanArray::new_from_range(spans, 1..(span.0),0) else {
                        continue; // This checks span.0 > 1
                 } ;
 
@@ -3208,9 +3205,8 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         custom_completion: None,
                     };
 
-                    let mut idx = 0;
                     let Some(mut opt_type_spans) =
-                      PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                      PointedSpanArray::new_from_range(spans, 1..(span.0),0) else {
                        continue; // This checks span.0 > 1
                     } ;
                     let (lvalue, explicit_type) =

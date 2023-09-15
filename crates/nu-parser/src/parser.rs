@@ -30,7 +30,10 @@ use crate::parse_keywords::{
 
 use itertools::Itertools;
 use log::trace;
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    ops::DerefMut,
+};
 use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
@@ -339,13 +342,15 @@ pub fn parse_external_call(
     }
 }
 
-fn parse_long_flag(
+fn parse_long_flag<I>(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    spans_idx: &mut usize,
+    spans: &mut PointedSpanArray<I>,
     sig: &Signature,
-) -> (Option<Spanned<String>>, Option<Expression>) {
-    let arg_span = spans[*spans_idx];
+) -> (Option<Spanned<String>>, Option<Expression>)
+where
+    I: DerefMut<Target = usize>,
+{
+    let arg_span = spans.current();
     let arg_contents = working_set.get_span_contents(arg_span);
 
     if arg_contents.starts_with(b"--") {
@@ -371,10 +376,9 @@ fn parse_long_flag(
                             }),
                             Some(arg),
                         )
-                    } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let arg = parse_value(working_set, *arg, arg_shape);
+                    } else if spans.try_advance() {
+                        let arg = parse_value(working_set, spans.current(), arg_shape);
 
-                        *spans_idx += 1;
                         (
                             Some(Spanned {
                                 item: long_name,
@@ -435,14 +439,16 @@ fn parse_long_flag(
     }
 }
 
-fn parse_short_flags(
+fn parse_short_flags<I>(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    spans_idx: &mut usize,
+    spans: &mut PointedSpanArray<I>,
     positional_idx: usize,
     sig: &Signature,
-) -> Option<Vec<Flag>> {
-    let arg_span = spans[*spans_idx];
+) -> Option<Vec<Flag>>
+where
+    I: DerefMut<Target = usize>,
+{
+    let arg_span = spans.current();
 
     let arg_contents = working_set.get_span_contents(arg_span);
 
@@ -555,13 +561,17 @@ fn first_kw_idx(
     (None, spans.len())
 }
 
-fn calculate_end_span(
+fn calculate_end_span<I>(
     working_set: &StateWorkingSet,
     signature: &Signature,
-    spans: &[Span],
-    spans_idx: usize,
+    spans_both: &PointedSpanArray<I>,
     positional_idx: usize,
-) -> usize {
+) -> usize
+where
+    I: DerefMut<Target = usize>,
+{
+    let spans = spans_both.get_slice();
+    let spans_idx = spans_both.get_idx();
     if signature.rest_positional.is_some() {
         spans.len()
     } else {
@@ -594,11 +604,14 @@ fn calculate_end_span(
     }
 }
 
-pub fn parse_multispan_value(
+pub fn parse_multispan_value<I>(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray,
+    spans: &mut PointedSpanArray<I>,
     shape: &SyntaxShape,
-) -> Expression {
+) -> Expression
+where
+    I: DerefMut<Target = usize>,
+{
     match shape {
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
@@ -771,7 +784,7 @@ fn attach_parser_info_builtin(working_set: &StateWorkingSet, name: &str, call: &
 pub fn parse_internal_call(
     working_set: &mut StateWorkingSet,
     command_span: Span,
-    spans: &[Span],
+    spans_raw: &[Span],
     decl_id: usize,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id);
@@ -790,10 +803,6 @@ pub fn parse_internal_call(
 
     // The index into the positional parameter in the definition
     let mut positional_idx = 0;
-
-    // The index into the spans of argument data given to parse
-    // Starting at the first argument
-    let mut spans_idx = 0;
 
     if let Some(alias) = decl.as_alias() {
         if let Expression {
@@ -822,184 +831,196 @@ pub fn parse_internal_call(
         working_set.enter_scope();
     }
 
-    while spans_idx < spans.len() {
-        let arg_span = spans[spans_idx];
+    // The index into the spans of argument data given to parse
+    // Starting at the first argument
+    if let Some(mut spans) = PointedSpanArray::new(spans_raw, 0) {
+        // The loop has "if spans.try_advance() { continue; } else { break; }" as the end of each branch
+        loop {
+            // spans = PointedSpanArray::new(spans_raw, &mut spans_idx).unwrap();
+            let arg_span = spans.current();
 
-        let starting_error_count = working_set.parse_errors.len();
-        // Check if we're on a long flag, if so, parse
-        let (long_name, arg) = parse_long_flag(working_set, spans, &mut spans_idx, &signature);
+            let starting_error_count = working_set.parse_errors.len();
+            // Check if we're on a long flag, if so, parse
+            let (long_name, arg) = parse_long_flag(working_set, &mut spans, &signature);
 
-        if let Some(long_name) = long_name {
-            // We found a long flag, like --bar
-            if working_set.parse_errors[starting_error_count..]
-                .iter()
-                .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                && signature.allows_unknown_args
-            {
-                working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+            if let Some(long_name) = long_name {
+                // We found a long flag, like --bar
+                if working_set.parse_errors[starting_error_count..]
+                    .iter()
+                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
+                    && signature.allows_unknown_args
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
 
-                call.add_unknown(arg);
-            } else {
-                call.add_named((long_name, None, arg));
+                    call.add_unknown(arg);
+                } else {
+                    call.add_named((long_name, None, arg));
+                }
+
+                if spans.try_advance() {
+                    continue;
+                } else {
+                    break;
+                }
             }
 
-            spans_idx += 1;
-            continue;
-        }
+            let starting_error_count = working_set.parse_errors.len();
 
-        let starting_error_count = working_set.parse_errors.len();
+            // Check if we're on a short flag or group of short flags, if so, parse
+            let short_flags =
+                parse_short_flags(working_set, &mut spans, positional_idx, &signature);
 
-        // Check if we're on a short flag or group of short flags, if so, parse
-        let short_flags = parse_short_flags(
-            working_set,
-            spans,
-            &mut spans_idx,
-            positional_idx,
-            &signature,
-        );
+            if let Some(mut short_flags) = short_flags {
+                if short_flags.is_empty() {
+                    // workaround for completions (PR #6067)
+                    short_flags.push(Flag {
+                        long: "".to_string(),
+                        short: Some('a'),
+                        arg: None,
+                        required: false,
+                        desc: "".to_string(),
+                        var_id: None,
+                        default_value: None,
+                    })
+                }
 
-        if let Some(mut short_flags) = short_flags {
-            if short_flags.is_empty() {
-                // workaround for completions (PR #6067)
-                short_flags.push(Flag {
-                    long: "".to_string(),
-                    short: Some('a'),
-                    arg: None,
-                    required: false,
-                    desc: "".to_string(),
-                    var_id: None,
-                    default_value: None,
-                })
-            }
+                if working_set.parse_errors[starting_error_count..]
+                    .iter()
+                    .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
+                    && signature.allows_unknown_args
+                {
+                    working_set.parse_errors.truncate(starting_error_count);
+                    let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
 
-            if working_set.parse_errors[starting_error_count..]
-                .iter()
-                .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                && signature.allows_unknown_args
-            {
-                working_set.parse_errors.truncate(starting_error_count);
-                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                    call.add_unknown(arg);
+                } else {
+                    for flag in short_flags {
+                        if let Some(arg_shape) = flag.arg {
+                            let old_span = spans.current();
+                            if spans.try_advance() {
+                                // NOTE: We are not advancing the span here. Is that intentional?
+                                let arg = parse_value(working_set, spans.current(), &arg_shape);
 
-                call.add_unknown(arg);
-            } else {
-                for flag in short_flags {
-                    if let Some(arg_shape) = flag.arg {
-                        if let Some(arg) = spans.get(spans_idx + 1) {
-                            let arg = parse_value(working_set, *arg, &arg_shape);
-
-                            if flag.long.is_empty() {
-                                if let Some(short) = flag.short {
+                                if flag.long.is_empty() {
+                                    if let Some(short) = flag.short {
+                                        call.add_named((
+                                            Spanned {
+                                                item: String::new(),
+                                                span: old_span,
+                                            },
+                                            Some(Spanned {
+                                                item: short.to_string(),
+                                                span: old_span,
+                                            }),
+                                            Some(arg),
+                                        ));
+                                    }
+                                } else {
                                     call.add_named((
                                         Spanned {
-                                            item: String::new(),
-                                            span: spans[spans_idx],
+                                            item: flag.long.clone(),
+                                            span: spans.current(),
                                         },
-                                        Some(Spanned {
-                                            item: short.to_string(),
-                                            span: spans[spans_idx],
-                                        }),
+                                        None,
                                         Some(arg),
                                     ));
                                 }
                             } else {
+                                working_set.error(ParseError::MissingFlagParam(
+                                    arg_shape.to_string(),
+                                    arg_span,
+                                ))
+                            }
+                        } else if flag.long.is_empty() {
+                            if let Some(short) = flag.short {
                                 call.add_named((
                                     Spanned {
-                                        item: flag.long.clone(),
-                                        span: spans[spans_idx],
+                                        item: String::new(),
+                                        span: spans.current(),
                                     },
+                                    Some(Spanned {
+                                        item: short.to_string(),
+                                        span: spans.current(),
+                                    }),
                                     None,
-                                    Some(arg),
                                 ));
                             }
-                            spans_idx += 1;
                         } else {
-                            working_set.error(ParseError::MissingFlagParam(
-                                arg_shape.to_string(),
-                                arg_span,
-                            ))
-                        }
-                    } else if flag.long.is_empty() {
-                        if let Some(short) = flag.short {
                             call.add_named((
                                 Spanned {
-                                    item: String::new(),
-                                    span: spans[spans_idx],
+                                    item: flag.long.clone(),
+                                    span: spans.current(),
                                 },
-                                Some(Spanned {
-                                    item: short.to_string(),
-                                    span: spans[spans_idx],
-                                }),
+                                None,
                                 None,
                             ));
                         }
-                    } else {
-                        call.add_named((
-                            Spanned {
-                                item: flag.long.clone(),
-                                span: spans[spans_idx],
-                            },
-                            None,
-                            None,
-                        ));
                     }
+                }
+
+                if spans.try_advance() {
+                    continue;
+                } else {
+                    break;
                 }
             }
 
-            spans_idx += 1;
-            continue;
-        }
+            // Parse a positional arg if there is one
+            if let Some(positional) = signature.get_positional(positional_idx) {
+                let end = calculate_end_span(working_set, &signature, &spans, positional_idx);
 
-        // Parse a positional arg if there is one
-        if let Some(positional) = signature.get_positional(positional_idx) {
-            let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
+                let end = if spans_raw.len() > spans.get_idx() && end == spans.get_idx() {
+                    end + 1
+                } else {
+                    end
+                };
 
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
+                let current_span = spans.current();
 
-            let Some(mut spans_til_end) =
-                PointedSpanArray::new_from_range(spans, ..end, &mut spans_idx)
-            else {
-                working_set.error(ParseError::MissingPositional(
-                    positional.name.clone(),
-                    Span::new(spans[spans_idx].end, spans[spans_idx].end),
-                    signature.call_signature(),
-                ));
+                let Some(mut spans_til_end) =
+                spans.sub_span(..end) else {
+                    working_set.error(ParseError::MissingPositional(
+                        positional.name.clone(),
+                        Span::new(current_span.end, current_span.end),
+                        signature.call_signature(),
+                    ));
+                    positional_idx += 1;
+                    continue;
+                };
+                let arg = parse_multispan_value(working_set, &mut spans_til_end, &positional.shape);
+
+                let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+                    working_set.error(ParseError::TypeMismatch(
+                        positional.shape.to_type(),
+                        arg.ty,
+                        arg.span,
+                    ));
+                    Expression::garbage(arg.span)
+                } else {
+                    arg
+                };
+                call.add_positional(arg);
                 positional_idx += 1;
-                continue;
-            };
+            } else if signature.allows_unknown_args {
+                let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
 
-            let arg = parse_multispan_value(working_set, &mut spans_til_end, &positional.shape);
-
-            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
-                working_set.error(ParseError::TypeMismatch(
-                    positional.shape.to_type(),
-                    arg.ty,
-                    arg.span,
-                ));
-                Expression::garbage(arg.span)
+                call.add_unknown(arg);
             } else {
-                arg
-            };
-            call.add_positional(arg);
-            positional_idx += 1;
-        } else if signature.allows_unknown_args {
-            let arg = parse_value(working_set, arg_span, &SyntaxShape::Any);
+                call.add_positional(Expression::garbage(arg_span));
+                working_set.error(ParseError::ExtraPositional(
+                    signature.call_signature(),
+                    arg_span,
+                ))
+            }
 
-            call.add_unknown(arg);
-        } else {
-            call.add_positional(Expression::garbage(arg_span));
-            working_set.error(ParseError::ExtraPositional(
-                signature.call_signature(),
-                arg_span,
-            ))
+            if spans.try_advance() {
+                continue;
+            } else {
+                break;
+            }
         }
-
-        spans_idx += 1;
-    }
+    };
 
     check_call(working_set, command_span, &signature, &call);
 
@@ -3055,11 +3076,14 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 }
 
-pub fn parse_var_with_opt_type(
+pub fn parse_var_with_opt_type<I>(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray,
+    spans: &mut PointedSpanArray<I>,
     mutable: bool,
-) -> (Expression, Option<Type>) {
+) -> (Expression, Option<Type>)
+where
+    I: DerefMut<Target = usize>,
+{
     let bytes = working_set.get_span_contents(spans.current()).to_vec();
 
     if bytes.contains(&b' ')
@@ -3926,12 +3950,10 @@ pub fn parse_list_expression(
 
     if !output.block.is_empty() {
         for arg in &output.block[0].commands {
-            let mut spans_idx = 0;
-
             let LiteElement::Command(_, command) = arg else {
                 continue;
             };
-            let Some(mut parts_with_idx) = PointedSpanArray::new(&command.parts, &mut spans_idx) else {
+            let Some(mut parts_with_idx) = PointedSpanArray::new(&command.parts, 0) else {
                 continue;
             };
             while parts_with_idx.try_advance() {
@@ -4357,7 +4379,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             let mut start = 0;
             let guard_span_vec = tokens.iter().map(|tok| tok.span).collect_vec();
             let Some(mut guard_spans) =
-                PointedSpanArray::new(
+                PointedSpanArray::<&mut usize>::new_inner(
                     &guard_span_vec,
                  &mut start)  else {
                     // When might this be empty?
@@ -4393,9 +4415,8 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             break;
         };
 
-        let mut idx = 0;
         let single_span = [out_at_pos.span];
-        let Some(mut out_spans) = PointedSpanArray::new(&single_span, &mut idx) else { unreachable!()};
+        let Some(mut out_spans) = PointedSpanArray::new(&single_span, 0) else { unreachable!()};
         let result = parse_multispan_value(
             working_set,
             &mut out_spans,
