@@ -1,4 +1,4 @@
-use crate::table_theme::TableTheme;
+use crate::{convert_style, table_theme::TableTheme};
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
@@ -41,8 +41,6 @@ struct Styles {
     index: AnsiColor<'static>,
     header: AnsiColor<'static>,
     data: EntityMap<AnsiColor<'static>>,
-    space_lead: Option<AnsiColor<'static>>,
-    space_trail: Option<AnsiColor<'static>>,
     data_is_set: bool,
 }
 
@@ -140,15 +138,12 @@ impl NuTable {
         self.alignments.data = convert_alignment(style.alignment);
     }
 
-    pub fn set_trail_lead_style(&mut self, head: Style, tail: Style) {
-        let style_head = AnsiColor::from(convert_style(head));
-        let style_tail = AnsiColor::from(convert_style(tail));
-        self.styles.space_trail = Some(style_tail);
-        self.styles.space_lead = Some(style_head);
-    }
-
     pub fn set_indent(&mut self, left: usize, right: usize) {
         self.indent = (left, right);
+    }
+
+    pub fn get_records_mut(&mut self) -> &mut NuRecords {
+        &mut self.data
     }
 
     /// Converts a table to a String.
@@ -235,7 +230,7 @@ fn build_table(
 }
 
 fn draw_table(
-    mut data: NuRecords,
+    data: NuRecords,
     alignments: Alignments,
     styles: Styles,
     widths: Vec<usize>,
@@ -248,12 +243,6 @@ fn draw_table(
     let with_footer = with_header && cfg.with_footer;
     let sep_color = cfg.split_color;
     let border_header = cfg.header_on_border;
-
-    colorize_lead_trail_space(
-        &mut data,
-        styles.space_lead.clone(),
-        styles.space_trail.clone(),
-    );
 
     let data: Vec<Vec<_>> = data.into();
     let mut table = Builder::from(data).build();
@@ -727,10 +716,6 @@ impl<R, D> TableOption<R, D, ColoredConfig> for SetAlignment {
     }
 }
 
-fn convert_style(style: Style) -> Color {
-    Color::new(style.prefix().to_string(), style.suffix().to_string())
-}
-
 struct SetDimensions(Vec<usize>);
 
 impl<R> TableOption<R, CompleteDimensionVecRecords<'_>, ColoredConfig> for SetDimensions {
@@ -926,51 +911,6 @@ fn remove_row(recs: &mut NuRecords, row: usize) -> Vec<String> {
     recs.remove_row(row);
 
     columns
-}
-
-fn colorize_lead_trail_space(
-    data: &mut NuRecords,
-    lead: Option<AnsiColor<'_>>,
-    trail: Option<AnsiColor<'_>>,
-) {
-    use fancy_regex::Captures;
-    use fancy_regex::Regex;
-    use once_cell::sync::Lazy;
-
-    static RE_LEADING: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?m)(?P<beginsp>^\s+)").expect("error with leading space regex"));
-    static RE_TRAILING: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?m)(?P<endsp>\s+$)").expect("error with trailing space regex"));
-
-    if lead.is_none() && trail.is_none() {
-        return;
-    }
-
-    for row in data.iter_mut() {
-        for cell in row {
-            let mut buf = cell.as_ref().to_owned();
-
-            if let Some(color) = &lead {
-                buf = RE_LEADING
-                    .replace_all(cell.as_ref(), |cap: &Captures| {
-                        let spaces = cap.get(1).expect("valid").as_str();
-                        format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
-                    })
-                    .into_owned();
-            }
-
-            if let Some(color) = &trail {
-                buf = RE_TRAILING
-                    .replace_all(buf.as_ref(), |cap: &Captures| {
-                        let spaces = cap.get(1).expect("valid").as_str();
-                        format!("{}{}{}", color.get_prefix(), spaces, color.get_suffix())
-                    })
-                    .into_owned();
-            }
-
-            *cell = CellInfo::new(buf);
-        }
-    }
 }
 
 struct StripColorFromRow(usize);
