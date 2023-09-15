@@ -205,6 +205,7 @@ fn too_few_arguments() -> TestResult {
     let cases = [
         "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
         "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
     ];
 
     let expected = "Missing required positional argument.";
