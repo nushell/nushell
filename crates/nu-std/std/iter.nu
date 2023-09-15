@@ -220,3 +220,50 @@ export def zip-into-record [ # -> table<any>
     | append ($other | into record)
     | headers
 }
+
+# compute the cartesian product of any number of lists
+#
+# basically, if you give `iter cartesian product` *n* lists, from *i_1* to *i_n*,
+# it will compute recursively the cartesian product of the first one with the
+# `iter cartesian product` of the rest, i.e. if we call CP the two-set cartesian
+# product and ICP the multi cartesian product here, we have
+#
+#     *ICP(i_1, i_2, ..., i_n) == CP(i_1, ICP(i_2, ..., i_n))*
+#
+# # Example
+#```nushell
+# use std ["assert equal" "iter iter cartesian product"]
+#
+# let res = (
+#     iter cartesian product [1, 2] [3, 4]
+# )
+#
+# assert equal $res [
+#     [1, 3],
+#     [1, 4],
+#     [2, 3],
+#     [2, 4],
+# ]
+# ```
+export def "cartesian product" [
+    ...iters: list<any>  # the iterables you want the cartesian product of
+]: nothing -> list<list<any>> {
+    def aux [a: list<list<any>>]: nothing -> list<list<any>> {
+        if ($a | is-empty) {
+            return []
+        }
+
+        let head = $a | first
+        let tail = aux ($a | skip 1)
+
+        if ($head | is-empty) {
+            return $tail
+        } else if ($tail | is-empty) {
+            return $head
+        }
+
+        $head | each {|h| $tail | each {|t| [$h, $t]}} | flatten | each { flatten }
+    }
+
+    aux $iters
+}
