@@ -225,14 +225,10 @@ pub fn check_call(working_set: &mut StateWorkingSet, command: Span, sig: &Signat
 }
 
 pub fn check_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> Option<&'a Span> {
-    let command_len = if !spans.is_empty() {
-        if working_set.get_span_contents(spans[0]) == b"export" {
-            2
-        } else {
-            1
-        }
+    let command_len = if working_set.get_span_contents(*spans.get(0)?) == b"export" {
+        2
     } else {
-        return None;
+        1
     };
 
     if spans.len() == 1 {
@@ -5087,13 +5083,18 @@ pub fn parse_expression(
     is_subexpression: bool,
 ) -> Expression {
     trace!("parsing: expression");
+    let Some(&head) = spans.get(0) else {
+        let err = ParseError::InternalError("parse_expression got 0 spans".into(), Span::new(0,1));
+        working_set.error(err);
+        return garbage(span(spans));
+    };
 
     let mut pos = 0;
     let mut shorthand = vec![];
 
-    while pos < spans.len() {
+    while let Some(&current_span) = spans.get(pos) {
         // Check if there is any environment shorthand
-        let name = working_set.get_span_contents(spans[pos]);
+        let name = working_set.get_span_contents(current_span);
 
         let split = name.splitn(2, |x| *x == b'=');
         let split: Vec<_> = split.collect();
@@ -5109,11 +5110,11 @@ pub fn parse_expression(
 
             let lhs = parse_string_strict(
                 working_set,
-                Span::new(spans[pos].start, spans[pos].start + point - 1),
+                Span::new(current_span.start, current_span.start + point - 1),
             );
-            let rhs = if spans[pos].start + point < spans[pos].end {
-                let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
-
+            let rhs = if let Some(rhs_span) =
+                Span::new_safe(current_span.start + point, current_span.end)
+            {
                 if working_set.get_span_contents(rhs_span).starts_with(b"$") {
                     parse_dollar_expr(working_set, rhs_span)
                 } else {
@@ -5140,15 +5141,17 @@ pub fn parse_expression(
         }
     }
 
-    if pos == spans.len() {
-        working_set.error(ParseError::UnknownCommand(spans[0]));
+    let Some(&keyword_span) = spans.get(pos) else {
+        working_set.error(ParseError::UnknownCommand(head));
         return garbage(span(spans));
-    }
+    };
 
-    let output = if is_math_expression_like(working_set, spans[pos]) {
+    // let remainder = &spans[pos..];
+
+    let output = if is_math_expression_like(working_set, keyword_span) {
         parse_math_expression(working_set, &spans[pos..], None)
     } else {
-        let bytes = working_set.get_span_contents(spans[pos]).to_vec();
+        let bytes = working_set.get_span_contents(keyword_span).to_vec();
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
@@ -5157,54 +5160,52 @@ pub fn parse_expression(
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
-                    spans[0],
+                    head,
                 ));
 
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], head, is_subexpression)
             }
             b"let" | b"const" | b"mut" => {
                 working_set.error(ParseError::AssignInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),
-                    String::from_utf8_lossy(match spans.len() {
-                        1..=3 => b"value",
-                        _ => working_set.get_span_contents(spans[3]),
+                    String::from_utf8_lossy(match spans.get(3) {
+                        None => b"value",
+                        Some(&span) => working_set.get_span_contents(span),
                     })
                     .to_string(),
-                    String::from_utf8_lossy(match spans.len() {
-                        1 => b"variable",
-                        _ => working_set.get_span_contents(spans[1]),
+                    String::from_utf8_lossy(match spans.get(1) {
+                        None => b"variable",
+                        Some(&span) => working_set.get_span_contents(span),
                     })
                     .to_string(),
-                    spans[0],
+                    head,
                 ));
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], head, is_subexpression)
             }
             b"overlay" => {
-                if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
-                    // whitelist 'overlay list'
-                    parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
-                } else {
-                    working_set.error(ParseError::BuiltinCommandInPipeline(
-                        "overlay".into(),
-                        spans[0],
-                    ));
+                match spans.get(1) {
+                    Some(&span) if working_set.get_span_contents(span) == b"list" => {
+                        // whitelist 'overlay list'
+                        parse_call(working_set, &spans[pos..], head, is_subexpression)
+                    }
+                    _ => {
+                        working_set
+                            .error(ParseError::BuiltinCommandInPipeline("overlay".into(), head));
 
-                    parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                        parse_call(working_set, &spans[pos..], head, is_subexpression)
+                    }
                 }
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
             #[cfg(feature = "plugin")]
             b"register" => {
-                working_set.error(ParseError::BuiltinCommandInPipeline(
-                    "plugin".into(),
-                    spans[0],
-                ));
+                working_set.error(ParseError::BuiltinCommandInPipeline("plugin".into(), head));
 
-                parse_call(working_set, &spans[pos..], spans[0], is_subexpression)
+                parse_call(working_set, &spans[pos..], head, is_subexpression)
             }
 
-            _ => parse_call(working_set, &spans[pos..], spans[0], is_subexpression),
+            _ => parse_call(working_set, &spans[pos..], head, is_subexpression),
         }
     };
 
