@@ -5,7 +5,6 @@ use crossterm::{
     style::Print,
     terminal::{self, ClearType},
 };
-use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -41,9 +40,9 @@ impl Command for Input {
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "prompt to show the user")
             .named(
-                "bytes-until-any",
+                "bytes-until",
                 SyntaxShape::String,
-                "read bytes (not text) until any of the given stop bytes is seen",
+                "read bytes (not text) until a stop byte",
                 Some('u'),
             )
             .named(
@@ -64,7 +63,7 @@ impl Command for Input {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
-        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until-any")?;
+        let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until")?;
         let suppress_output = call.has_flag("suppress-output");
         let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
@@ -80,6 +79,19 @@ impl Command for Input {
                 numchar.span,
             ));
         }
+
+        let byte_until = if let Some(bytes_until) = bytes_until {
+            if let Some(c) = bytes_until.bytes().next() {
+                Some(c)
+            } else {
+                let _ = crossterm::terminal::disable_raw_mode();
+                return Err(ShellError::IOError(
+                    "input can't stop on this byte".to_string(),
+                ));
+            }
+        } else {
+            None
+        };
 
         if let Some(prompt) = &prompt {
             print!("{prompt}");
@@ -115,8 +127,8 @@ impl Command for Input {
                                     continue;
                                 }
 
-                                if let Some(bytes_until) = bytes_until.as_ref() {
-                                    if bytes_until.bytes().contains(&(c as u8)) {
+                                if let Some(byte_until) = byte_until {
+                                    if c == byte_until as char {
                                         break;
                                     }
                                 }
