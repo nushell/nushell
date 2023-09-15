@@ -608,9 +608,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.27"
+version = "0.4.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f56b4c72906975ca04becb8a30e102dfecddd0c06181e3e95ddc444be28881f8"
+checksum = "7f2c685bad3eb3d45a01354cedb7d5faa66194d1d58ba6e267a8de788f79db38"
 dependencies = [
  "android-tzdata",
  "iana-time-zone",
@@ -4115,9 +4115,9 @@ dependencies = [
 
 [[package]]
 name = "pure-rust-locales"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b856d7d028ebb0011d78eded5bc9185932412f36c12c67930f222d6b407526b"
+checksum = "ed02a829e62dc2715ceb8afb4f80e298148e1345749ceb369540fe0eb3368432"
 
 [[package]]
 name = "pwd"
