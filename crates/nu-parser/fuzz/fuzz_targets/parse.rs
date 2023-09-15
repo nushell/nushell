@@ -3,9 +3,7 @@
 use libfuzzer_sys::fuzz_target;
 
 use nu_parser::*;
-use nu_protocol::{
-    engine::{EngineState, StateWorkingSet},
-};
+use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 fuzz_target!(|data: &[u8]| {
     let engine_state = EngineState::new();
