@@ -1,5 +1,4 @@
 use chrono::{FixedOffset, TimeZone};
-
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -299,7 +298,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     span,
                 )
             } else {
-                Value::int(val.timestamp_nanos(), span)
+                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), span)
             }
         }
         Value::Duration { val, .. } => Value::int(*val, span),
