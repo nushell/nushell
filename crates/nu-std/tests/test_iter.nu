@@ -132,3 +132,33 @@ def iter_zip_into_record [] {
         [rust    github  1]
     ]
 }
+
+#[test]
+def iter_cartesian_product [] {
+    # emptyness
+    assert equal (iter cartesian product [] []) []
+    assert equal (iter cartesian product []) []
+    assert equal (iter cartesian product) []
+
+    # symmetry
+    assert equal (iter cartesian product [1, 2] []) [1, 2]
+    assert equal (iter cartesian product [] [1, 2]) [1, 2]
+    # NOTE: iter cartesian product might not preserve the order of the elements produced
+    assert equal (
+        iter cartesian product [1, 2] [3, 4] | each { sort } | sort
+    ) (
+        iter cartesian product [3, 4] [1, 2] | each { sort } | sort
+    )
+
+    assert equal (
+        iter cartesian product [1, 2] [3, 4]
+    ) [
+        [1, 3], [1, 4], [2, 3], [2, 4]
+    ]
+
+    assert equal (
+        iter cartesian product [1, 2] [3, 4] [5, 6]
+    ) [
+        [1, 3, 5], [1, 3, 6], [1, 4, 5], [1, 4, 6], [2, 3, 5], [2, 3, 6], [2, 4, 5], [2, 4, 6]
+    ]
+}
