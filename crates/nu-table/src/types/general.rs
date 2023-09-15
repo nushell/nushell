@@ -3,10 +3,10 @@ use nu_engine::column::get_columns;
 use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
-    clean_charset,
+    clean_charset, colorize_space,
     common::{
         create_nu_table_config, get_empty_style, get_header_style, get_index_style,
-        get_leading_trailing_space_style, get_value_style, NuText, INDEX_COLUMN_NAME,
+        get_value_style, NuText, INDEX_COLUMN_NAME,
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
@@ -29,6 +29,8 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
             let left = opts.config.table_indent.left;
             let right = opts.config.table_indent.right;
             out.table.set_indent(left, right);
+
+            colorize_space(out.table.get_records_mut(), opts.style_computer);
 
             let table_config =
                 create_nu_table_config(opts.config, opts.style_computer, &out, false);
@@ -57,12 +59,10 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
         row.push(value);
     }
 
+    colorize_space(&mut data, opts.style_computer);
+
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
-
-    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
-        table.set_trail_lead_style(style, style);
-    }
 
     let mut out = TableOutput::new(table, false, true);
 
@@ -125,10 +125,6 @@ fn to_table_with_header(
     table.set_header_style(get_header_style(opts.style_computer));
     table.set_index_style(get_index_style(opts.style_computer));
 
-    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
-        table.set_trail_lead_style(style, style);
-    }
-
     for (i, text) in headers.iter().enumerate() {
         table.insert((0, i), text.to_owned());
     }
@@ -167,10 +163,6 @@ fn to_table_with_no_header(
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), with_index as usize + 1);
     table.set_index_style(get_index_style(opts.style_computer));
-
-    if let Some(style) = get_leading_trailing_space_style(opts.style_computer).color_style {
-        table.set_trail_lead_style(style, style);
-    }
 
     for (row, item) in input.iter().enumerate() {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
