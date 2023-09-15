@@ -54,23 +54,23 @@ impl<'a> SpanArray<'a> {
 // This is almost an iterator, can it actually be one?
 /// An array of spans and an index into that array
 #[derive(Debug)]
-pub struct PointedSpanArray<'a> {
+pub struct PointedSpanArray<'a, 'b> {
     inner: &'a [Span],
-    idx: usize,
+    idx: &'b mut usize,
 }
 
-impl<'a, 'b> PointedSpanArray<'a> {
+impl<'a, 'b> PointedSpanArray<'a, 'b> {
     #[inline]
     #[must_use]
-    pub fn new(value: &'a [Span], idx: usize) -> Option<Self> {
+    pub fn new(value: &'a [Span], idx: &'b mut usize) -> Option<Self> {
         // check valid index, otherwise return none
-        _ = value.get(idx)?;
+        _ = value.get(*idx)?;
         Some(PointedSpanArray { inner: value, idx })
     }
 
     #[inline]
     #[must_use]
-    pub fn new_from_range<I>(span: &'a [Span], range: I, idx: usize) -> Option<Self>
+    pub fn new_from_range<I>(span: &'a [Span], range: I, idx: &'b mut usize) -> Option<Self>
     where
         I: SliceIndex<[Span], Output = [Span]>,
     {
@@ -78,22 +78,19 @@ impl<'a, 'b> PointedSpanArray<'a> {
         let new_span = span.get(range)?;
         Self::new(new_span, idx)
     }
-    pub fn get_idx(&self) -> usize {
-        self.idx
-    }
 
     /// Get the span at the current index
     pub fn current(&self) -> Span {
         // debug_assert!(self.inner.len() > *self.idx, "expect spans > 0");
         // Safe, since the index is checked on construction
-        self.inner[self.idx]
+        self.inner[*self.idx]
     }
 
     /// Get the spans starting at the current index
     pub fn tail_inclusive(&self) -> SpanArray<'a> {
         // Safe, since the index is checked on construction
         SpanArray {
-            inner: &self.inner[self.idx..],
+            inner: &self.inner[*self.idx..],
         }
     }
 
@@ -119,8 +116,8 @@ impl<'a, 'b> PointedSpanArray<'a> {
     #[inline]
     #[must_use]
     pub fn try_advance(&mut self) -> bool {
-        if self.idx + 1 < self.inner.len() {
-            self.idx += 1;
+        if *self.idx + 1 < self.inner.len() {
+            *self.idx += 1;
             true
         } else {
             false
@@ -128,17 +125,17 @@ impl<'a, 'b> PointedSpanArray<'a> {
     }
 
     pub fn jump_to_end(&mut self) {
-        self.idx = self.inner.len() - 1;
+        *self.idx = self.inner.len() - 1;
     }
 
-    // pub fn is_at_end(&self) -> bool {
-    //     *self.idx == self.inner.len() - 1
-    // }
+    pub fn is_at_end(&self) -> bool {
+        *self.idx == self.inner.len() - 1
+    }
 
     #[inline]
     #[must_use]
     pub fn peek_next(&self) -> Option<Span> {
-        self.get_at(self.idx + 1)
+        self.get_at(*self.idx + 1)
     }
 
     // #[inline]
