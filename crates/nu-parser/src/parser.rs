@@ -737,7 +737,6 @@ pub fn parse_multispan_value(
         }
         _ => {
             // All other cases are single-span values
-            // TODO
             let arg_span = spans.current();
 
             parse_value(working_set, arg_span, shape)
@@ -962,9 +961,7 @@ pub fn parse_internal_call(
             };
 
             let Some(mut spans_til_end) =
-                spans.get(..end).and_then(|new_span|
-                PointedSpanArray::new(new_span, &mut spans_idx)
-                )
+                PointedSpanArray::new_from_range(spans, ..end, &mut spans_idx)
             else {
                 working_set.error(ParseError::MissingPositional(
                     positional.name.clone(),
@@ -3934,8 +3931,6 @@ pub fn parse_list_expression(
             let LiteElement::Command(_, command) = arg else {
                 continue;
             };
-            // TODO: Error below?
-            // Should need continue
             let Some(mut parts_with_idx) = PointedSpanArray::new(&command.parts, &mut spans_idx) else {
                 continue;
             };
@@ -4398,10 +4393,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             break;
         };
 
-        // TODO: This cannot fail, but still feels ugly
         let mut idx = 0;
         let single_span = [out_at_pos.span];
-        let Some(mut out_spans) = PointedSpanArray::new(&single_span, &mut idx) else { todo!()};
+        let Some(mut out_spans) = PointedSpanArray::new(&single_span, &mut idx) else { unreachable!()};
         let result = parse_multispan_value(
             working_set,
             &mut out_spans,
