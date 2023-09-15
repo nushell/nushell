@@ -1,4 +1,4 @@
-# Fuzzer for `nu-parser`
+# Fuzzer for `nu-path`
 
 - For detailed info, please look at [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz)
 
