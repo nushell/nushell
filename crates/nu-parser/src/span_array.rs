@@ -41,7 +41,7 @@ impl<'a> SpanArray<'a> {
     #[inline]
     #[must_use]
     pub fn get(self, index: usize) -> Option<Span> {
-        self.inner.get(index).map(|&x| x)
+        self.inner.get(index).copied()
     }
 
     #[inline]
@@ -50,7 +50,7 @@ impl<'a> SpanArray<'a> {
     where
         I: SliceIndex<[Span], Output = [Span]>,
     {
-        self.inner.get(index).and_then(|x| Self::new(x))
+        self.inner.get(index).and_then(Self::new)
     }
 }
 
@@ -145,7 +145,7 @@ where
 {
     #[inline]
     #[must_use]
-    pub fn sub_span<'d, I>(&mut self, range: I) -> Option<PointedSpanArray<'a, NestedRef<Idx>>>
+    pub fn sub_span<I>(&mut self, range: I) -> Option<PointedSpanArray<'a, NestedRef<Idx>>>
     where
         I: SliceIndex<[Span], Output = [Span]>,
     {
