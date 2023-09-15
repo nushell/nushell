@@ -4,4 +4,5 @@
 
 # Quick start guide
 - Install cargo-fuzz by `cargo install cargo-fuzz`
-- Run the fuzzer with `cargo fuzz run parse`
+- Make output directory `mkdir out`
+- Run the fuzzer with `cargo fuzz run parse out`
