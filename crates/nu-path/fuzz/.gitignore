@@ -2,3 +2,5 @@ target
 corpus
 artifacts
 coverage
+Cargo.lock
+out
