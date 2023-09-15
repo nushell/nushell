@@ -200,6 +200,23 @@ fn assignment_with_no_var() -> TestResult {
 }
 
 #[test]
+fn too_few_arguments() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/9072
+    let cases = [
+        "def a [b: bool, c: bool, d: float, e: float, f: float] {}; a true true 1 1",
+        "def a [b: bool, c: bool, d: float, e: float, f: float, g: float] {}; a true true 1 1",
+    ];
+
+    let expected = "Missing required positional argument.";
+
+    for case in cases {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
