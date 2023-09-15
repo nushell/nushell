@@ -291,7 +291,7 @@ mod range {
         assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
     }
 
-    // Should these two tests work? if negative vals would work this would translate to rows 1 0 4 3
+    // Should these two tests work? It would select 1 till the 2nd from last (-2, -1,0*) * for 0 you just leave blank
     #[test]
     #[ignore]
     fn positive_negative() {
@@ -299,28 +299,28 @@ mod range {
             "[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select 1..(-2) | to nuon"
         );
 
-        assert_eq!(
-            actual.out,
-            "[[a, b, c]; [4, 5, 6], [7, 8, 9], [10, 11, 12], [13, 14, 15]]"
-        );
+        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
     }
 
-    // TODO `select` could maybe take values from the end of the list.
     #[test]
     #[ignore]
     fn negative_negative() {
-        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select (-1)..(-2) | to nuon");
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select (-1)..(-2) | to nuon");
 
-        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "[[a, b, c]; [7, 8, 9], [10, 11, 12]]");
     }
 
-    // Should these two tests work?
     #[test]
     #[ignore]
     fn negative_positive() {
-        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select (-1)..2 | to nuon");
+        let actual = nu!(
+            "[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select (-1)..1 | to nuon"
+        );
 
-        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+        assert_eq!(
+            actual.out,
+            "[[a, b, c]; [4, 5, 6], [10, 11, 12], [13, 14, 15]]"
+        );
     }
 
     #[test]
@@ -334,7 +334,7 @@ mod range {
     #[test]
     #[ignore]
     fn infinity_negative() {
-        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select (-2).. | to nuon");
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select (-1).. | to nuon");
 
         assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
     }
@@ -342,17 +342,17 @@ mod range {
     #[test]
     #[ignore]
     fn ninfinity_positive() {
-        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..2 | to nuon");
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..1 | to nuon");
 
-        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+        assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [4, 5, 6]]");
     }
 
     #[test]
     #[ignore]
     fn ninfinity_negative() {
-        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..(-2) | to nuon");
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..(-1) | to nuon");
 
-        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+        assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [4, 5, 6]]");
     }
 
     #[test]
