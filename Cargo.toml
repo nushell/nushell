@@ -112,7 +112,7 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-default = ["plugin", "which-support", "trash-support", "sqlite"]
+default = ["plugin", "which-support", "trash-support", "sqlite", "mimalloc"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
