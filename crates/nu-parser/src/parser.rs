@@ -3,6 +3,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
+    span_array::PointedSpanArray,
     type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
 };
@@ -595,28 +596,27 @@ fn calculate_end_span(
 
 pub fn parse_multispan_value(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    spans_idx: &mut usize,
+    spans: &mut PointedSpanArray,
     shape: &SyntaxShape,
 ) -> Expression {
     match shape {
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            parse_var_with_opt_type(working_set, spans, spans_idx, false).0
+            parse_var_with_opt_type(working_set, spans, false).0
         }
         SyntaxShape::RowCondition => {
             trace!("parsing: row condition");
-            let arg = parse_row_condition(working_set, &spans[*spans_idx..]);
-            *spans_idx = spans.len() - 1;
+            let arg = parse_row_condition(working_set, spans.tail_inclusive().into());
+            spans.jump_to_end();
 
             arg
         }
         SyntaxShape::MathExpression => {
             trace!("parsing: math expression");
 
-            let arg = parse_math_expression(working_set, &spans[*spans_idx..], None);
-            *spans_idx = spans.len() - 1;
+            let arg = parse_math_expression(working_set, spans.tail_inclusive().into(), None);
+            spans.jump_to_end();
 
             arg
         }
@@ -625,7 +625,7 @@ pub fn parse_multispan_value(
             //let block_then_exp = shapes.as_slice() == [SyntaxShape::Block, SyntaxShape::Expression];
             for shape in shapes.iter() {
                 let starting_error_count = working_set.parse_errors.len();
-                let s = parse_multispan_value(working_set, spans, spans_idx, shape);
+                let s = parse_multispan_value(working_set, spans, shape);
 
                 if starting_error_count == working_set.parse_errors.len() {
                     return s;
@@ -657,7 +657,7 @@ pub fn parse_multispan_value(
                 //     err = err.or(e)
                 // }
             }
-            let span = spans[*spans_idx];
+            let span = spans.current();
 
             if working_set.parse_errors.is_empty() {
                 working_set.error(ParseError::ExpectedWithStringMsg(
@@ -673,16 +673,16 @@ pub fn parse_multispan_value(
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = parse_expression(working_set, &spans[*spans_idx..], false);
-            *spans_idx = spans.len() - 1;
+            let arg = parse_expression(working_set, spans.tail_inclusive().into(), false);
+            spans.jump_to_end();
 
             arg
         }
         SyntaxShape::Signature => {
             trace!("parsing: signature");
 
-            let sig = parse_full_signature(working_set, &spans[*spans_idx..]);
-            *spans_idx = spans.len() - 1;
+            let sig = parse_full_signature(working_set, spans.tail_inclusive().into());
+            spans.jump_to_end();
 
             sig
         }
@@ -692,7 +692,7 @@ pub fn parse_multispan_value(
                 String::from_utf8_lossy(keyword),
                 arg
             );
-            let arg_span = spans[*spans_idx];
+            let arg_span = spans.current();
 
             let arg_contents = working_set.get_span_contents(arg_span);
 
@@ -707,17 +707,17 @@ pub fn parse_multispan_value(
                 ))
             }
 
-            *spans_idx += 1;
-            if *spans_idx >= spans.len() {
+            let keyword_span = spans.current();
+            if !spans.try_advance() {
                 working_set.error(ParseError::KeywordMissingArgument(
                     arg.to_string(),
                     String::from_utf8_lossy(keyword).into(),
-                    Span::new(spans[*spans_idx - 1].end, spans[*spans_idx - 1].end),
+                    Span::new(spans.current().end, spans.current().end),
                 ));
                 return Expression {
                     expr: Expr::Keyword(
                         keyword.clone(),
-                        spans[*spans_idx - 1],
+                        spans.current(),
                         Box::new(Expression::garbage(arg_span)),
                     ),
                     span: arg_span,
@@ -725,8 +725,7 @@ pub fn parse_multispan_value(
                     custom_completion: None,
                 };
             }
-            let keyword_span = spans[*spans_idx - 1];
-            let expr = parse_multispan_value(working_set, spans, spans_idx, arg);
+            let expr = parse_multispan_value(working_set, spans, arg);
             let ty = expr.ty.clone();
 
             Expression {
@@ -738,7 +737,8 @@ pub fn parse_multispan_value(
         }
         _ => {
             // All other cases are single-span values
-            let arg_span = spans[*spans_idx];
+            // TODO
+            let arg_span = spans.current();
 
             parse_value(working_set, arg_span, shape)
         }
@@ -961,7 +961,11 @@ pub fn parse_internal_call(
                 end
             };
 
-            if spans[..end].is_empty() || spans_idx == end {
+            let Some(mut spans_til_end) =
+                spans.get(..end).and_then(|new_span|
+                PointedSpanArray::new(new_span, &mut spans_idx)
+                )
+            else {
                 working_set.error(ParseError::MissingPositional(
                     positional.name.clone(),
                     Span::new(spans[spans_idx].end, spans[spans_idx].end),
@@ -969,14 +973,9 @@ pub fn parse_internal_call(
                 ));
                 positional_idx += 1;
                 continue;
-            }
+            };
 
-            let arg = parse_multispan_value(
-                working_set,
-                &spans[..end],
-                &mut spans_idx,
-                &positional.shape,
-            );
+            let arg = parse_multispan_value(working_set, &mut spans_til_end, &positional.shape);
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                 working_set.error(ParseError::TypeMismatch(
@@ -3061,68 +3060,62 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
 
 pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
-    spans: &[Span],
-    spans_idx: &mut usize,
+    spans: &mut PointedSpanArray,
     mutable: bool,
 ) -> (Expression, Option<Type>) {
-    let bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+    let bytes = working_set.get_span_contents(spans.current()).to_vec();
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
         || bytes.contains(&b'\'')
         || bytes.contains(&b'`')
     {
-        working_set.error(ParseError::VariableNotValid(spans[*spans_idx]));
-        return (garbage(spans[*spans_idx]), None);
+        working_set.error(ParseError::VariableNotValid(spans.current()));
+        return (garbage(spans.current()), None);
     }
 
     if bytes.ends_with(b":") {
+        // Make sure we still have access after advancing the span idx
+        let prev_span = spans.current();
         // We end with colon, so the next span should be the type
-        if *spans_idx + 1 < spans.len() {
-            *spans_idx += 1;
-            let type_bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+        if spans.try_advance() {
+            let type_bytes = working_set.get_span_contents(spans.current()).to_vec();
 
-            let ty = parse_type(working_set, &type_bytes, spans[*spans_idx]);
+            let ty = parse_type(working_set, &type_bytes, spans.current());
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
             if !is_variable(&var_name) {
-                working_set.error(ParseError::Expected(
-                    "valid variable name",
-                    spans[*spans_idx - 1],
-                ));
-                return (garbage(spans[*spans_idx - 1]), None);
+                working_set.error(ParseError::Expected("valid variable name", prev_span));
+                return (garbage(prev_span), None);
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
+            let id = working_set.add_variable(var_name, prev_span, ty.clone(), mutable);
 
             (
                 Expression {
                     expr: Expr::VarDecl(id),
-                    span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
+                    span: span(&[prev_span, spans.current()]),
                     ty: ty.clone(),
                     custom_completion: None,
                 },
                 Some(ty),
             )
         } else {
-            let var_name = bytes[0..(bytes.len() - 1)].to_vec();
+            let var_name = bytes[..].to_vec();
 
             if !is_variable(&var_name) {
-                working_set.error(ParseError::Expected(
-                    "valid variable name",
-                    spans[*spans_idx],
-                ));
-                return (garbage(spans[*spans_idx]), None);
+                working_set.error(ParseError::Expected("valid variable name", spans.current()));
+                return (garbage(spans.current()), None);
             }
 
-            let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
+            let id = working_set.add_variable(var_name, spans.current(), Type::Any, mutable);
 
-            working_set.error(ParseError::MissingType(spans[*spans_idx]));
+            working_set.error(ParseError::MissingType(spans.current()));
             (
                 Expression {
                     expr: Expr::VarDecl(id),
-                    span: spans[*spans_idx],
+                    span: spans.current(),
                     ty: Type::Any,
                     custom_completion: None,
                 },
@@ -3133,24 +3126,25 @@ pub fn parse_var_with_opt_type(
         let var_name = bytes;
 
         if !is_variable(&var_name) {
-            working_set.error(ParseError::Expected(
-                "valid variable name",
-                spans[*spans_idx],
-            ));
-            return (garbage(spans[*spans_idx]), None);
+            working_set.error(ParseError::Expected("valid variable name", spans.current()));
+            return (garbage(spans.current()), None);
         }
+        // let next_span = spans.peek_next() else {
+        //     working_set.error(ParseError::Expected("valid variable name", spans.current()));
+        //     return (garbage(spans.current()), None);
+        // };
 
-        let id = working_set.add_variable(
-            var_name,
-            span(&spans[*spans_idx..*spans_idx + 1]),
-            Type::Any,
-            mutable,
-        );
+        // Question: Why was this
+        //    span(&spans[*spans_idx..*spans_idx + 1]),
+        // instead of the equivalent
+        //    spans[*spans_idx]
+
+        let id = working_set.add_variable(var_name, spans.current(), Type::Any, mutable);
 
         (
             Expression {
                 expr: Expr::VarDecl(id),
-                span: span(&spans[*spans_idx..*spans_idx + 1]),
+                span: spans.current(),
                 ty: Type::Any,
                 custom_completion: None,
             },
@@ -3937,27 +3931,26 @@ pub fn parse_list_expression(
         for arg in &output.block[0].commands {
             let mut spans_idx = 0;
 
-            if let LiteElement::Command(_, command) = arg {
-                while spans_idx < command.parts.len() {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &command.parts,
-                        &mut spans_idx,
-                        element_shape,
-                    );
+            let LiteElement::Command(_, command) = arg else {
+                continue;
+            };
+            // TODO: Error below?
+            // Should need continue
+            let Some(mut parts_with_idx) = PointedSpanArray::new(&command.parts, &mut spans_idx) else {
+                continue;
+            };
+            while parts_with_idx.try_advance() {
+                let arg = parse_multispan_value(working_set, &mut parts_with_idx, element_shape);
 
-                    if let Some(ref ctype) = contained_type {
-                        if *ctype != arg.ty {
-                            contained_type = Some(Type::Any);
-                        }
-                    } else {
-                        contained_type = Some(arg.ty.clone());
+                if let Some(ref ctype) = contained_type {
+                    if *ctype != arg.ty {
+                        contained_type = Some(Type::Any);
                     }
-
-                    args.push(arg);
-
-                    spans_idx += 1;
+                } else {
+                    contained_type = Some(arg.ty.clone());
                 }
+
+                args.push(arg);
             }
         }
     }
@@ -4367,12 +4360,16 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
             };
 
             let mut start = 0;
-            let guard = parse_multispan_value(
-                working_set,
-                &tokens.iter().map(|tok| tok.span).collect_vec(),
-                &mut start,
-                &SyntaxShape::MathExpression,
-            );
+            let guard_span_vec = tokens.iter().map(|tok| tok.span).collect_vec();
+            let Some(mut guard_spans) =
+                PointedSpanArray::new(
+                    &guard_span_vec,
+                 &mut start)  else {
+                    // When might this be empty?
+                    todo!();
+                } ;
+            let guard =
+                parse_multispan_value(working_set, &mut guard_spans, &SyntaxShape::MathExpression);
 
             pattern.guard = Some(guard);
             position += if found { start + 1 } else { start };
@@ -4390,7 +4387,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
         }
 
         // Finally, the value/expression/block that we will run to produce the result
-        if position >= output.len() {
+        let Some(out_at_pos) = output.get(position) else {
             working_set.error(ParseError::Mismatch(
                 "match result".into(),
                 "end of input".into(),
@@ -4399,12 +4396,15 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
             working_set.exit_scope();
             break;
-        }
+        };
 
+        // TODO: This cannot fail, but still feels ugly
+        let mut idx = 0;
+        let single_span = [out_at_pos.span];
+        let Some(mut out_spans) = PointedSpanArray::new(&single_span, &mut idx) else { todo!()};
         let result = parse_multispan_value(
             working_set,
-            &[output[position].span],
-            &mut 0,
+            &mut out_spans,
             &SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
         );
         position += 1;
@@ -5084,7 +5084,8 @@ pub fn parse_expression(
 ) -> Expression {
     trace!("parsing: expression");
     let Some(&head) = spans.get(0) else {
-        let err = ParseError::InternalError("parse_expression got 0 spans".into(), Span::new(0,1));
+        let err = ParseError::InternalError(
+            "parse_expression got 0 spans".into(), Span::unknown());
         working_set.error(err);
         return garbage(span(spans));
     };

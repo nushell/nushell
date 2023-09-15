@@ -1,6 +1,7 @@
 use crate::{
     parse_block,
     parser_path::ParserPath,
+    span_array::PointedSpanArray,
     type_check::{check_block_input_output, type_compatible},
 };
 use itertools::Itertools;
@@ -2947,9 +2948,12 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     };
 
                     let mut idx = 0;
-
+                    let Some(mut opt_type_spans) =
+                      PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                       continue; // This checks span.0 > 1
+                    } ;
                     let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                        parse_var_with_opt_type(working_set, &mut opt_type_spans, false);
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
@@ -3039,94 +3043,103 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // const x = 'f', = at least start from index 2
-                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
-                    let mut idx = span.0;
-
-                    let rvalue = parse_multispan_value(
-                        working_set,
-                        spans,
-                        &mut idx,
-                        &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                    );
-                    if idx < (spans.len() - 1) {
-                        working_set
-                            .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
-                    }
-
-                    let mut idx = 0;
-
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
-
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    // TODO: Remove the hard-coded variables, too error-prone
-                    if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
-
-                    let var_id = lvalue.as_var();
-                    let rhs_type = rvalue.ty.clone();
-
-                    if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
-                            working_set.error(ParseError::TypeMismatch(
-                                explicit_type.clone(),
-                                rhs_type.clone(),
-                                nu_protocol::span(&spans[(span.0 + 1)..]),
-                            ));
-                        }
-                    }
-
-                    if let Some(var_id) = var_id {
-                        if explicit_type.is_none() {
-                            working_set.set_variable_type(var_id, rhs_type);
-                        }
-
-                        match eval_constant(working_set, &rvalue) {
-                            Ok(val) => {
-                                // In case rhs is parsed as 'any' but is evaluated to a concrete
-                                // type:
-                                let const_type = val.get_type();
-
-                                if let Some(explicit_type) = &explicit_type {
-                                    if !type_compatible(explicit_type, &const_type) {
-                                        working_set.error(ParseError::TypeMismatch(
-                                            explicit_type.clone(),
-                                            const_type.clone(),
-                                            nu_protocol::span(&spans[(span.0 + 1)..]),
-                                        ));
-                                    }
-                                }
-
-                                working_set.set_variable_type(var_id, const_type);
-
-                                // Assign the constant value to the variable
-                                working_set.set_variable_const_val(var_id, val);
-                            }
-                            Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
-                        }
-                    }
-
-                    let call = Box::new(Call {
-                        decl_id,
-                        head: spans[0],
-                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
-                        redirect_stdout: true,
-                        redirect_stderr: false,
-                        parser_info: HashMap::new(),
-                    });
-
-                    return Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: nu_protocol::span(spans),
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]);
+                // TODO: Look over these checks if they are still needed
+                if !(item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1) {
+                    continue;
                 }
+                let mut idx = 0;
+                let Some(mut inner_spans) = PointedSpanArray::new(spans,& mut idx) else {
+                     continue; // Only checks spans.len() > span.0
+                    } ;
+                let rvalue = parse_multispan_value(
+                    working_set,
+                    &mut inner_spans,
+                    &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                );
+                if let Some(extra_arg) = inner_spans.peek_next() {
+                    // Why was clone not needed before?
+                    working_set.error(ParseError::ExtraPositional(
+                        call_signature.clone(),
+                        extra_arg,
+                    ));
+                }
+
+                let mut idx = 0;
+                let Some(mut opt_type_spans) =
+                     PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                       continue; // This checks span.0 > 1
+                } ;
+
+                let (lvalue, explicit_type) =
+                    parse_var_with_opt_type(working_set, &mut opt_type_spans, false);
+
+                let var_name = String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                    .trim_start_matches('$')
+                    .to_string();
+
+                // TODO: Remove the hard-coded variables, too error-prone
+                if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
+                    working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
+                }
+
+                let var_id = lvalue.as_var();
+                let rhs_type = rvalue.ty.clone();
+
+                if let Some(explicit_type) = &explicit_type {
+                    if !type_compatible(explicit_type, &rhs_type) {
+                        working_set.error(ParseError::TypeMismatch(
+                            explicit_type.clone(),
+                            rhs_type.clone(),
+                            nu_protocol::span(&spans[(span.0 + 1)..]),
+                        ));
+                    }
+                }
+
+                if let Some(var_id) = var_id {
+                    if explicit_type.is_none() {
+                        working_set.set_variable_type(var_id, rhs_type);
+                    }
+
+                    match eval_constant(working_set, &rvalue) {
+                        Ok(val) => {
+                            // In case rhs is parsed as 'any' but is evaluated to a concrete
+                            // type:
+                            let const_type = val.get_type();
+
+                            if let Some(explicit_type) = &explicit_type {
+                                if !type_compatible(explicit_type, &const_type) {
+                                    working_set.error(ParseError::TypeMismatch(
+                                        explicit_type.clone(),
+                                        const_type.clone(),
+                                        nu_protocol::span(&spans[(span.0 + 1)..]),
+                                    ));
+                                }
+                            }
+
+                            working_set.set_variable_type(var_id, const_type);
+
+                            // Assign the constant value to the variable
+                            working_set.set_variable_const_val(var_id, val);
+                        }
+                        Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
+                    }
+                }
+
+                let call = Box::new(Call {
+                    decl_id,
+                    head: spans[0],
+                    arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                    redirect_stdout: true,
+                    redirect_stderr: false,
+                    parser_info: HashMap::new(),
+                });
+
+                return Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: nu_protocol::span(spans),
+                    ty: Type::Any,
+                    custom_completion: None,
+                }]);
             }
         }
         let ParsedInternalCall { call, output } =
@@ -3196,9 +3209,12 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     };
 
                     let mut idx = 0;
-
+                    let Some(mut opt_type_spans) =
+                      PointedSpanArray::new_from_range(spans, 1..(span.0),& mut idx) else {
+                       continue; // This checks span.0 > 1
+                    } ;
                     let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
+                        parse_var_with_opt_type(working_set, &mut opt_type_spans, true);
 
                     let var_name =
                         String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
