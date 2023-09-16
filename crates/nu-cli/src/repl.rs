@@ -1,7 +1,7 @@
 use crate::{
     completions::NuCompleter,
     prompt_update,
-    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
+    reedline_config::{add_menus, add_transient_prompt, create_keybindings, KeybindingsMode},
     util::eval_source,
     NuHighlighter, NuValidator, NushellPrompt,
 };
@@ -303,11 +303,12 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            Reedline::create()
-        });
+        line_editor = add_menus(line_editor, engine_reference.clone(), stack, config)
+            .unwrap_or_else(|e| {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+                Reedline::create()
+            });
         perf(
             "reedline menus",
             start_time,
@@ -346,6 +347,8 @@ pub fn evaluate_repl(
             column!(),
             use_color,
         );
+
+        line_editor = add_transient_prompt(line_editor, config, engine_reference, stack);
 
         start_time = std::time::Instant::now();
         if config.sync_history_on_enter {

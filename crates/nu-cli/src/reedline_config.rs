@@ -1,5 +1,5 @@
 use super::DescriptionMenu;
-use crate::{menus::NuMenuCompleter, NuHelpCompleter};
+use crate::{menus::NuMenuCompleter, prompt_update, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -972,6 +972,19 @@ fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
         .chars()
         .next()
         .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), span))
+}
+
+pub(crate) fn add_transient_prompt(
+    line_editor: Reedline,
+    config: &Config,
+    engine_state: Arc<EngineState>,
+    stack: &Stack,
+) -> Reedline {
+    match stack.get_env_var(&engine_state, "ENABLE_TRANSIENT_PROMPT") {
+        Some(Value::Bool { val: true, .. }) => line_editor
+            .with_transient_prompt(prompt_update::transient_prompt(config, engine_state, stack)),
+        _ => line_editor,
+    }
 }
 
 #[cfg(test)]
