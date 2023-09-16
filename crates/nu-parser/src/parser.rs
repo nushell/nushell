@@ -590,13 +590,14 @@ where
                 kw_idx - positionals_between
             }
         } else {
+            let spans_remaining = spans.len() - spans_idx;
+            let positional_remaining = signature.required_positional.len() - positional_idx;
+            let non_positional_spans_remaining = spans_remaining - positional_remaining;
             // Make space for the remaining require positionals, if we can
             if signature.num_positionals_after(positional_idx) == 0 {
                 spans.len()
-            } else if positional_idx < signature.required_positional.len()
-                && spans.len() - spans_idx > (signature.required_positional.len() - positional_idx)
-            {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
+            } else if positional_remaining > 0 && non_positional_spans_remaining > 0 {
+                spans_idx + 1 + non_positional_spans_remaining
             } else {
                 spans_idx + 1
             }
@@ -900,7 +901,6 @@ pub fn parse_internal_call(
                         if let Some(arg_shape) = flag.arg {
                             let old_span = spans.current();
                             if spans.try_advance() {
-                                // NOTE: We are not advancing the span here. Is that intentional?
                                 let arg = parse_value(working_set, spans.current(), &arg_shape);
 
                                 if flag.long.is_empty() {
@@ -971,7 +971,8 @@ pub fn parse_internal_call(
             if let Some(positional) = signature.get_positional(positional_idx) {
                 let end = calculate_end_span(working_set, &signature, &spans, positional_idx);
 
-                let end = if spans_raw.len() > spans.get_idx() && end == spans.get_idx() {
+                let end = if end == spans.get_idx() {
+                    trace!("end is at span_idx, advancing one more");
                     end + 1
                 } else {
                     end
@@ -3152,15 +3153,6 @@ where
             working_set.error(ParseError::Expected("valid variable name", spans.current()));
             return (garbage(spans.current()), None);
         }
-        // let next_span = spans.peek_next() else {
-        //     working_set.error(ParseError::Expected("valid variable name", spans.current()));
-        //     return (garbage(spans.current()), None);
-        // };
-
-        // Question: Why was this
-        //    span(&spans[*spans_idx..*spans_idx + 1]),
-        // instead of the equivalent
-        //    spans[*spans_idx]
 
         let id = working_set.add_variable(var_name, spans.current(), Type::Any, mutable);
 
@@ -4387,13 +4379,13 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 PointedSpanArray::<&mut usize>::new_inner(
                     &guard_span_vec,
                  &mut start)  else {
-                    // When might this be empty?
-                    todo!();
+                    unreachable!("position < output.len() is a checked invarant");
                 } ;
             let guard =
                 parse_multispan_value(working_set, &mut guard_spans, &SyntaxShape::MathExpression);
 
             pattern.guard = Some(guard);
+            // Not entirely sure why `position + start + 1 < output.len()` is guaranteed when `found`
             position += if found { start + 1 } else { start };
             connector = working_set.get_span_contents(output[position].span);
         }
@@ -4421,7 +4413,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
         };
 
         let single_span = [out_at_pos.span];
-        let Some(mut out_spans) = PointedSpanArray::new(&single_span, 0) else { unreachable!()};
+        let Some(mut out_spans) = PointedSpanArray::new(&single_span, 0) else {
+            unreachable!("A singleton slice can never be empty")
+        };
         let result = parse_multispan_value(
             working_set,
             &mut out_spans,

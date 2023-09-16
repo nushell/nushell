@@ -3,9 +3,6 @@ use std::{
     slice::SliceIndex,
 };
 
-// use miette::SourceSpan;
-// use serde::{Deserialize, Serialize};
-
 use nu_protocol::Span;
 
 /// Arrays of spans that are guaranteed to be non-empty by construction
@@ -113,10 +110,6 @@ where
         }
     }
 
-    // pub fn get_last(self) -> Span {
-    //     self.inner[self.inner.len() - 1]
-    // }
-
     /// Get the value at an index
     #[inline]
     #[must_use]
@@ -129,13 +122,6 @@ where
     pub fn peek_next(&self) -> Option<Span> {
         self.get_at(*self.idx + 1)
     }
-
-    // /// Get the next n spans after the index
-    // #[inline]
-    // #[must_use]
-    // pub fn peek_n(self, number: usize) -> Option<Span> {
-    //     self.slice_arr(*self.idx..*self.idx + n)
-    // }
 }
 
 impl<'a, 'b, Idx: 'b> PointedSpanArray<'a, Idx>
@@ -166,22 +152,7 @@ where
     pub fn jump_to_end(&mut self) {
         *self.idx = self.inner.len() - 1;
     }
-
-    // pub fn is_at_end(&self) -> bool {
-    //     *self.idx == self.inner.len() - 1
-    // }
-
-    // #[inline]
-    // #[must_use]
-    // pub fn slice<I>(self, index: I) -> Option<Self>
-    // where
-    //     I: SliceIndex<[Span], Output = [Span]>,
-    // {
-    //     self.inner.get(index).and_then(|x| Self::new(x))
-    // }
 }
-
-// pub trait SpanIdx = DerefMut<Target = usize>;
 
 pub struct NestedUsize(usize);
 impl Deref for NestedUsize {
