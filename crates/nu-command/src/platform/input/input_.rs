@@ -1,7 +1,5 @@
 use crossterm::{
-    cursor,
-    event::{Event, KeyCode, KeyEventKind, KeyModifiers},
-    execute,
+    cursor, execute,
     style::Print,
     terminal::{self, ClearType},
 };
@@ -13,8 +11,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Type, Value,
 };
-use std::io::Write;
-use std::time::Duration;
+use std::io::{Read, Write};
 
 #[derive(Clone)]
 pub struct Input;
@@ -86,59 +83,36 @@ impl Command for Input {
             let _ = std::io::stdout().flush();
         }
 
-        let mut buf = String::new();
+        let mut b = [0u8; 1];
+        let mut buf = vec![];
 
         crossterm::terminal::enable_raw_mode()?;
-        // clear terminal events
-        while crossterm::event::poll(Duration::from_secs(0))? {
-            // If there's an event, read it to remove it from the queue
-            let _ = crossterm::event::read()?;
-        }
+        let mut stdin = std::io::stdin();
 
         loop {
             if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
                 break;
             }
-            match crossterm::event::read() {
-                Ok(Event::Key(k)) => match k.kind {
-                    KeyEventKind::Press | KeyEventKind::Repeat => {
-                        match k.code {
-                            // TODO: maintain keycode parity with existing command
-                            KeyCode::Char(c) => {
-                                if k.modifiers == KeyModifiers::ALT
-                                    || k.modifiers == KeyModifiers::CONTROL
-                                {
-                                    if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
-                                        crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError("SIGINT".to_string()));
-                                    }
-                                    continue;
-                                }
 
-                                if let Some(bytes_until) = bytes_until.as_ref() {
-                                    if bytes_until.bytes().contains(&(c as u8)) {
-                                        break;
-                                    }
-                                }
-                                buf.push(c);
-                            }
-                            KeyCode::Backspace => {
-                                let _ = buf.pop();
-                            }
-                            KeyCode::Enter => {
-                                break;
-                            }
-                            _ => continue,
-                        }
-                    }
-                    _ => continue,
-                },
-                Ok(_) => continue,
-                Err(event_error) => {
-                    crossterm::terminal::disable_raw_mode()?;
-                    return Err(event_error.into());
+            if let Err(err) = stdin.read_exact(&mut b) {
+                crossterm::terminal::disable_raw_mode()?;
+                return Err(ShellError::IOError(err.to_string()));
+            }
+
+            buf.push(b[0]);
+
+            if let Some(bytes_until) = bytes_until.as_ref() {
+                if bytes_until.bytes().contains(&b[0]) {
+                    break;
                 }
             }
+
+            // 03 symbolizes SIGINT/Ctrl+C
+            if buf.contains(&3) {
+                let _ = crossterm::terminal::disable_raw_mode();
+                return Err(ShellError::IOError("SIGINT".to_string()));
+            }
+
             if !suppress_output {
                 // clear the current line and print the current buffer
                 execute!(
@@ -149,14 +123,21 @@ impl Command for Input {
                 if let Some(prompt) = &prompt {
                     execute!(std::io::stdout(), Print(prompt.to_string()))?;
                 }
-                execute!(std::io::stdout(), Print(buf.to_string()))?;
+                if let Ok(s) = std::str::from_utf8(&buf) {
+                    execute!(std::io::stdout(), Print(s))?;
+                }
             }
         }
         crossterm::terminal::disable_raw_mode()?;
         if !suppress_output {
             std::io::stdout().write_all(b"\n")?;
         }
-        Ok(Value::string(buf, call.head).into_pipeline_data())
+
+        Ok(Value::Binary {
+            val: buf,
+            internal_span: call.head,
+        }
+        .into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
