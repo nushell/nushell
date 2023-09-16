@@ -963,7 +963,7 @@ pub fn parse_internal_call(
                 let end = calculate_end_span(working_set, &signature, &spans, positional_idx);
 
                 let end = if end == spans.get_idx() {
-                    // I belive this should be impossible, unless there's another bug in calculate_end_span
+                    // I believe this should be impossible, unless there's another bug in calculate_end_span
                     trace!("end is at span_idx, advancing one more");
                     end + 1
                 } else {
