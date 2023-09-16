@@ -1,5 +1,5 @@
 use std::{
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, RangeBounds},
     slice::SliceIndex,
 };
 
@@ -129,21 +129,11 @@ where
     Idx: Deref<Target = usize>,
     Idx: DerefMut<Target = usize>,
 {
-    /// Make a new span array of a prefix, sharing the index with the original
-    #[inline]
-    #[must_use]
-    pub fn prefix_span(&mut self, end: usize) -> Option<PointedSpanArray<'a, NestedRef<Idx>>> {
-        PointedSpanArray::new_inner(self.inner.get(..end)?, NestedRef(&mut self.idx))
-    }
-
-    // // Note: Illegal for non-prefix ranges, since they can't share an index
+    // /// Make a new span array of a prefix, sharing the index with the original
     // #[inline]
     // #[must_use]
-    // pub fn sub_span<I>(&mut self, range: I) -> Option<PointedSpanArray<'a, NestedRef<Idx>>>
-    // where
-    //     I: SliceIndex<[Span], Output = [Span]>,
-    // {
-    //     PointedSpanArray::new_inner(self.inner.get(range)?, NestedRef(&mut self.idx))
+    // pub fn prefix_span(&mut self, end: usize) -> Option<PointedSpanArray<'a, NestedRef<Idx>>> {
+    //     PointedSpanArray::new_inner(self.inner.get(..end)?, NestedRef(&mut self.idx))
     // }
 
     // TODO: Maybe return next value here
@@ -163,6 +153,27 @@ where
     }
 }
 
+impl<'a> PointedSpanArray<'a, NestedUsize> {
+    #[inline]
+    #[must_use]
+    pub fn with_sub_span<I, F, T>(&mut self, range: I, callback: F) -> Option<T>
+    where
+        I: SliceIndex<[Span], Output = [Span]>,
+        I: RangeBounds<usize>,
+        F: FnOnce(&mut PointedSpanArray<'a, NestedUsize>) -> T,
+    {
+        let start_idx = match range.start_bound() {
+            std::ops::Bound::Included(&n) => n,
+            std::ops::Bound::Excluded(&n) => n + 1,
+            std::ops::Bound::Unbounded => 0,
+        };
+        let new_idx = self.idx.0 - start_idx;
+        let mut sub_span = Self::new_from_range(self.inner, range, new_idx)?;
+        let result = callback(&mut sub_span);
+        self.idx.0 = start_idx + sub_span.idx.0;
+        Some(result)
+    }
+}
 pub struct NestedUsize(usize);
 impl Deref for NestedUsize {
     type Target = usize;

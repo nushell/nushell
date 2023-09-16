@@ -838,7 +838,6 @@ pub fn parse_internal_call(
     if let Some(mut spans) = PointedSpanArray::new(spans_raw, 0) {
         // The loop has "if spans.try_advance() { continue; } else { break; }" as the end of each branch
         loop {
-            // spans = PointedSpanArray::new(spans_raw, &mut spans_idx).unwrap();
             let arg_span = spans.current();
 
             let starting_error_count = working_set.parse_errors.len();
@@ -980,8 +979,9 @@ pub fn parse_internal_call(
 
                 let current_span = spans.current();
 
-                let Some(mut spans_til_end) =
-                spans.prefix_span(end) else {
+                let Some(arg) = spans.with_sub_span(..end, |spans_til_end| {
+                    parse_multispan_value(working_set, spans_til_end, &positional.shape)
+                }) else {
                     debug_assert!(end == 0 || spans.get_idx() == end);
                     working_set.error(ParseError::MissingPositional(
                         positional.name.clone(),
@@ -991,7 +991,6 @@ pub fn parse_internal_call(
                     positional_idx += 1;
                     continue;
                 };
-                let arg = parse_multispan_value(working_set, &mut spans_til_end, &positional.shape);
 
                 let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
                     working_set.error(ParseError::TypeMismatch(
@@ -4373,18 +4372,17 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 (&output[position..], false)
             };
 
-            let mut start = 0;
             let guard_span_vec = tokens.iter().map(|tok| tok.span).collect_vec();
             let Some(mut guard_spans) =
-                PointedSpanArray::<&mut usize>::new_inner(
-                    &guard_span_vec,
-                 &mut start)  else {
-                    unreachable!("position < output.len() is a checked invarant");
-                } ;
+                PointedSpanArray::new(&guard_span_vec, 0)
+            else {
+                unreachable!("position < output.len() is a checked invarant");
+            } ;
             let guard =
                 parse_multispan_value(working_set, &mut guard_spans, &SyntaxShape::MathExpression);
 
             pattern.guard = Some(guard);
+            let start = guard_spans.get_idx();
             // Not entirely sure why `position + start + 1 < output.len()` is guaranteed when `found`
             position += if found { start + 1 } else { start };
             connector = working_set.get_span_contents(output[position].span);
