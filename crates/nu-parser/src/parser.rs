@@ -744,7 +744,7 @@ fn calculate_end_span(
             if signature.num_positionals_after(positional_idx) == 0 {
                 spans.len()
             } else if positional_idx < signature.required_positional.len()
-                && spans.len() > (signature.required_positional.len() - positional_idx)
+                && spans.len() - spans_idx > (signature.required_positional.len() - positional_idx)
             {
                 spans.len() - (signature.required_positional.len() - positional_idx - 1)
             } else {
