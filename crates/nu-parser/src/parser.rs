@@ -584,13 +584,13 @@ where
                 kw_idx - positionals_between
             }
         } else {
-            let spans_remaining = spans.len() - spans_idx;
-            let positional_remaining = signature.required_positional.len() - positional_idx;
             // Make space for the remaining require positionals, if we can
             if signature.num_positionals_after(positional_idx) == 0 {
                 spans.len()
-            } else if positional_remaining > 0 && spans_remaining > positional_remaining {
-                spans_idx + 1 + spans_remaining - positional_remaining
+            } else if signature.required_positional.len() > positional_idx
+                && spans.len() - spans_idx > signature.required_positional.len() - positional_idx
+            {
+                1 + spans.len() - (signature.required_positional.len() - positional_idx)
             } else {
                 spans_idx + 1
             }
@@ -963,6 +963,7 @@ pub fn parse_internal_call(
                 let end = calculate_end_span(working_set, &signature, &spans, positional_idx);
 
                 let end = if end == spans.get_idx() {
+                    // I belive this should be impossible, unless there's another bug in calculate_end_span
                     trace!("end is at span_idx, advancing one more");
                     end + 1
                 } else {
