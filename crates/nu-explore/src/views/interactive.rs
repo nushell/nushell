@@ -20,7 +20,7 @@ use crate::{
 
 use super::{
     record::{RecordView, TableTheme},
-    util::nu_style_to_tui,
+    util::{lookup_tui_color, nu_style_to_tui},
     Layout, Orientation, View, ViewConfig,
 };
 
@@ -248,12 +248,10 @@ impl View for InteractiveView<'_> {
     }
 
     fn setup(&mut self, config: ViewConfig<'_>) {
+        self.border_color = lookup_tui_color(config.style_computer, "separator");
+
         if let Some(hm) = config.config.get("try").and_then(create_map) {
             let colors = get_color_map(&hm);
-
-            if let Some(color) = colors.get("border_color").copied() {
-                self.border_color = nu_style_to_tui(color);
-            }
 
             if let Some(color) = colors.get("highlighted_color").copied() {
                 self.highlighted_color = nu_style_to_tui(color);

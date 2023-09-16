@@ -149,3 +149,8 @@ fn deeply_nested_cell_path_short_circuits() -> TestResult {
         "null",
     )
 }
+
+#[test]
+fn cell_path_type() -> TestResult {
+    run_test("$.a.b | describe", "cell-path")
+}

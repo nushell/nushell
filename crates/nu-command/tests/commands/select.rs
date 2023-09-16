@@ -218,10 +218,17 @@ fn select_failed3() {
 }
 
 #[test]
-fn select_failed4() {
-    let actual = nu!("[{a: 1 b: 10}, {a:2, b:11}] | select 0 0");
+fn select_repeated_rows() {
+    let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 0 0 | to nuon");
 
-    assert!(actual.err.contains("Select can't get the same row twice"));
+    assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3]]");
+}
+
+#[test]
+fn select_repeated_column() {
+    let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select a a | to nuon");
+
+    assert_eq!(actual.out, "[[a]; [1], [4], [7]]");
 }
 
 #[test]

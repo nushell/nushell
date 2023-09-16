@@ -57,60 +57,50 @@ with 'transpose' first."#
         let stream_test_1 = vec![Value::test_int(2), Value::test_int(4), Value::test_int(6)];
 
         let stream_test_2 = vec![
-            Value::Nothing {
-                span: Span::test_data(),
-            },
+            Value::nothing(Span::test_data()),
             Value::test_string("found 2!"),
-            Value::Nothing {
-                span: Span::test_data(),
-            },
+            Value::nothing(Span::test_data()),
         ];
 
         vec![
             Example {
                 example: "[1 2 3] | each {|e| 2 * $e }",
                 description: "Multiplies elements in the list",
-                result: Some(Value::List {
-                    vals: stream_test_1,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(stream_test_1, Span::test_data())),
             },
             Example {
                 example: "{major:2, minor:1, patch:4} | values | each {|| into string }",
                 description: "Produce a list of values in the record, converted to string",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("2"),
                         Value::test_string("1"),
                         Value::test_string("4"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
                 description: "Produce a list that has \"two\" for each 2 in the input",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("two"), Value::test_string("two")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("two"), Value::test_string("two")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description:
                     "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("found 2 at 1!")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("found 2 at 1!")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
                 description: "Iterate over each element, keeping null results",
-                result: Some(Value::List {
-                    vals: stream_test_2,
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(stream_test_2, Span::test_data())),
             },
         ]
     }
@@ -157,6 +147,7 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
+                    let x_is_error = x.is_error();
                     match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
@@ -169,10 +160,8 @@ with 'transpose' first."#
                         Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error = chain_error_with_input(error, input_span);
-                            Some(Value::Error {
-                                error: Box::new(error),
-                            })
+                            let error = chain_error_with_input(error, x_is_error, input_span);
+                            Some(Value::error(error, input_span))
                         }
                     }
                 })
@@ -193,11 +182,7 @@ with 'transpose' first."#
                         Ok(x) => x,
                         Err(ShellError::Continue(v)) => return Some(Value::nothing(v)),
                         Err(ShellError::Break(_)) => return None,
-                        Err(err) => {
-                            return Some(Value::Error {
-                                error: Box::new(err),
-                            })
-                        }
+                        Err(err) => return Some(Value::error(err, span)),
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -207,6 +192,8 @@ with 'transpose' first."#
                     }
 
                     let input_span = x.span();
+                    let x_is_error = x.is_error();
+
                     match eval_block_with_early_return(
                         &engine_state,
                         &mut stack,
@@ -219,8 +206,8 @@ with 'transpose' first."#
                         Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
                         Err(ShellError::Break(_)) => None,
                         Err(error) => {
-                            let error = Box::new(chain_error_with_input(error, input_span));
-                            Some(Value::Error { error })
+                            let error = chain_error_with_input(error, x_is_error, input_span);
+                            Some(Value::error(error, input_span))
                         }
                     }
                 })

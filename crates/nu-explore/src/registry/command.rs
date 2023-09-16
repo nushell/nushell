@@ -72,10 +72,6 @@ where
         self.0.help()
     }
 
-    fn display_config_option(&mut self, group: String, key: String, value: String) -> bool {
-        self.0.display_config_option(group, key, value)
-    }
-
     fn parse(&mut self, args: &str) -> std::io::Result<()> {
         self.0.parse(args)
     }

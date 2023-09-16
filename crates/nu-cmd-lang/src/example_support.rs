@@ -10,7 +10,7 @@ pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
-    signature_input_output_types: &Vec<(Type, Type)>,
+    signature_input_output_types: &[(Type, Type)],
     signature_operates_on_cell_paths: bool,
 ) -> HashSet<(Type, Type)> {
     let mut witnessed_type_transformations = HashSet::<(Type, Type)>::new();

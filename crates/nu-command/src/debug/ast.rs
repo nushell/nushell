@@ -3,8 +3,8 @@ use nu_parser::parse;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -88,37 +88,38 @@ impl Command for Ast {
             };
 
             // Create a new output record, merging the block and error
-            let output_record = Value::Record {
-                cols: vec!["block".to_string(), "error".to_string()],
-                vals: vec![
-                    Value::string(block_json, *block_span),
-                    Value::string(error_json, Span::test_data()),
-                ],
-                span: pipeline.span,
-            };
+            let output_record = Value::record(
+                record! {
+                    "block" => Value::string(block_json, *block_span),
+                    "error" => Value::string(error_json, Span::test_data()),
+                },
+                pipeline.span,
+            );
             Ok(output_record.into_pipeline_data())
         } else {
-            let block_value = Value::String {
-                val: if minify {
+            let block_value = Value::string(
+                if minify {
                     format!("{block_output:?}")
                 } else {
                     format!("{block_output:#?}")
                 },
-                span: pipeline.span,
-            };
-            let error_value = Value::String {
-                val: if minify {
+                pipeline.span,
+            );
+            let error_value = Value::string(
+                if minify {
                     format!("{error_output:?}")
                 } else {
                     format!("{error_output:#?}")
                 },
-                span: pipeline.span,
-            };
-            let output_record = Value::Record {
-                cols: vec!["block".to_string(), "error".to_string()],
-                vals: vec![block_value, error_value],
-                span: pipeline.span,
-            };
+                pipeline.span,
+            );
+            let output_record = Value::record(
+                record! {
+                    "block" => block_value,
+                    "error" => error_value
+                },
+                pipeline.span,
+            );
             Ok(output_record.into_pipeline_data())
         }
     }

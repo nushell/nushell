@@ -80,6 +80,12 @@ fn ignores_duplicate_columns_rejected() {
 }
 
 #[test]
+fn ignores_duplicate_rows_rejected() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
 fn reject_record_from_raw_eval() {
     let actual = nu!(r#"{"a": 3} | reject a | describe"#);
 
@@ -142,4 +148,40 @@ fn reject_optional_column() {
 fn reject_optional_row() {
     let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
     assert_eq!(actual.out, "[[foo]; [bar]]");
+}
+
+#[test]
+fn reject_list_columns() {
+    let actual = nu!("let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(actual.out, "[[name]; [Cargo.toml], [Cargo.lock], [src]]");
+}
+
+#[test]
+fn reject_list_rows() {
+    let actual = nu!("let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, type, size]; [Cargo.lock, file, 10000000b]]"
+    );
+}
+
+#[test]
+fn rject_list_mixed() {
+    let actual = nu!("let arg = [ type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, size]; [Cargp.toml, 10000000b], [Cargo.lock, 10000000b]]"
+    );
+}
+
+#[test]
+fn reject_multiple_rows_ascending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn reject_multiple_rows_descending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
 }

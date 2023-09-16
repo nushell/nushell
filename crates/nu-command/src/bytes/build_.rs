@@ -33,10 +33,10 @@ impl Command for BytesBuild {
         vec![Example {
             example: "bytes build 0x[01 02] 0x[03] 0x[04]",
             description: "Builds binary data from 0x[01 02], 0x[03], 0x[04]",
-            result: Some(Value::Binary {
-                val: vec![0x01, 0x02, 0x03, 0x04],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::binary(
+                vec![0x01, 0x02, 0x03, 0x04],
+                Span::test_data(),
+            )),
         }]
     }
 
@@ -53,21 +53,17 @@ impl Command for BytesBuild {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
                 // Explicitly propagate errors instead of dropping them.
-                Value::Error { error } => return Err(*error),
+                Value::Error { error, .. } => return Err(*error),
                 other => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "only binary data arguments are supported".to_string(),
-                        span: other.expect_span(),
+                        span: other.span(),
                     })
                 }
             }
         }
 
-        Ok(Value::Binary {
-            val: output,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::binary(output, call.head).into_pipeline_data())
     }
 }
 

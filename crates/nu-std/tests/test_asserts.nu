@@ -19,7 +19,7 @@ def assert_not [] {
 #[test]
 def assert_equal [] {
     assert equal (1 + 2) 3
-    assert equal (0.1 + 0.2 | into string | into decimal) 0.3 # 0.30000000000000004 == 0.3
+    assert equal (0.1 + 0.2 | into string | into float) 0.3 # 0.30000000000000004 == 0.3
     assert error { assert equal 1 "foo" }
     assert error { assert equal (1 + 2) 4 }
 }

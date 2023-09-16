@@ -53,30 +53,29 @@ impl Command for SubCommand {
         vec![Example {
             description: "Apply the ceil function to a list of numbers",
             example: "[1.5 2.3 -3.1] | math ceil",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(-3)],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(
+                vec![Value::test_int(2), Value::test_int(3), Value::test_int(-3)],
+                Span::test_data(),
+            )),
         }]
     }
 }
 
 fn operate(value: Value, head: Span) -> Value {
+    let span = value.span();
     match value {
         Value::Int { .. } => value,
-        Value::Float { val, span } => Value::Int {
-            val: val.ceil() as i64,
-            span,
-        },
+        Value::Float { val, .. } => Value::int(val.ceil() as i64, span),
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "numeric".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

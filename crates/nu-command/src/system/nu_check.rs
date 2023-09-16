@@ -60,8 +60,9 @@ impl Command for NuCheck {
                 None, vec![]));
         }
 
+        let span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::Value(Value::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, .. }, ..) => {
                 let contents = Vec::from(val);
                 if is_all {
                     heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)

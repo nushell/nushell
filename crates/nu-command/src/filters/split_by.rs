@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -48,13 +48,13 @@ impl Command for SplitBy {
           { name: 'storm', lang: 'rs', 'year': '2021' }
         ]
     } | split-by lang"#,
-            result: Some(Value::Record {
+            result: Some(Value::test_record(Record {
                 cols: vec!["rb".to_string(), "rs".to_string()],
                 vals: vec![
-                    Value::Record {
+                    Value::test_record(Record {
                         cols: vec!["2019".to_string()],
-                        vals: vec![Value::List {
-                            vals: vec![Value::Record {
+                        vals: vec![Value::list(
+                            vec![Value::test_record(Record {
                                 cols: vec![
                                     "name".to_string(),
                                     "lang".to_string(),
@@ -65,17 +65,15 @@ impl Command for SplitBy {
                                     Value::test_string("rb"),
                                     Value::test_string("2019"),
                                 ],
-                                span: Span::test_data(),
-                            }],
-                            span: Span::test_data(),
-                        }],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
+                            })],
+                            Span::test_data(),
+                        )],
+                    }),
+                    Value::test_record(Record {
                         cols: vec!["2019".to_string(), "2021".to_string()],
                         vals: vec![
-                            Value::List {
-                                vals: vec![Value::Record {
+                            Value::list(
+                                vec![Value::test_record(Record {
                                     cols: vec![
                                         "name".to_string(),
                                         "lang".to_string(),
@@ -86,12 +84,11 @@ impl Command for SplitBy {
                                         Value::test_string("rs"),
                                         Value::test_string("2019"),
                                     ],
-                                    span: Span::test_data(),
-                                }],
-                                span: Span::test_data(),
-                            },
-                            Value::List {
-                                vals: vec![Value::Record {
+                                })],
+                                Span::test_data(),
+                            ),
+                            Value::list(
+                                vec![Value::test_record(Record {
                                     cols: vec![
                                         "name".to_string(),
                                         "lang".to_string(),
@@ -102,16 +99,13 @@ impl Command for SplitBy {
                                         Value::test_string("rs"),
                                         Value::test_string("2021"),
                                     ],
-                                    span: Span::test_data(),
-                                }],
-                                span: Span::test_data(),
-                            },
+                                })],
+                                Span::test_data(),
+                            ),
                         ],
-                        span: Span::test_data(),
-                    },
+                    }),
                 ],
-                span: Span::test_data(),
-            }),
+            })),
         }]
     }
 }
@@ -136,7 +130,7 @@ pub fn split_by(
                 item: v.as_string()?,
                 span: name,
             });
-            Ok(split(&splitter, input, name)?)
+            Ok(split(splitter.as_ref(), input, name)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(
@@ -150,7 +144,7 @@ pub fn split_by(
 }
 
 pub fn split(
-    column_name: &Option<Spanned<String>>,
+    column_name: Option<&Spanned<String>>,
     values: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -162,24 +156,21 @@ pub fn split(
 
     match grouper {
         Grouper::ByColumn(Some(column_name)) => {
-            let block =
-                Box::new(
-                    move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
-                        Some(group_key) => Ok(group_key.as_string()?),
-                        None => Err(ShellError::CantFindColumn {
-                            col_name: column_name.item.to_string(),
-                            span: column_name.span,
-                            src_span: row.span().unwrap_or(column_name.span),
-                        }),
-                    },
-                );
+            let block = move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
+                Some(group_key) => Ok(group_key.as_string()?),
+                None => Err(ShellError::CantFindColumn {
+                    col_name: column_name.item.to_string(),
+                    span: column_name.span,
+                    src_span: row.span(),
+                }),
+            };
 
-            data_split(values, &Some(block), span)
+            data_split(values, Some(&block), span)
         }
         Grouper::ByColumn(None) => {
-            let block = Box::new(move |_, row: &Value| row.as_string());
+            let block = move |_, row: &Value| row.as_string();
 
-            data_split(values, &Some(block), span)
+            data_split(values, Some(&block), span)
         }
     }
 }
@@ -187,7 +178,7 @@ pub fn split(
 #[allow(clippy::type_complexity)]
 fn data_group(
     values: &Value,
-    grouper: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+    grouper: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     span: Span,
 ) -> Result<Value, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
@@ -203,55 +194,52 @@ fn data_group(
         group.push(value);
     }
 
-    let mut cols = vec![];
-    let mut vals = vec![];
-
-    for (k, v) in groups {
-        cols.push(k.to_string());
-        vals.push(Value::List { vals: v, span });
-    }
-
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::record(
+        groups
+            .into_iter()
+            .map(|(k, v)| (k, Value::list(v, span)))
+            .collect(),
+        span,
+    ))
 }
 
 #[allow(clippy::type_complexity)]
 pub fn data_split(
     value: PipelineData,
-    splitter: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+    splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();
 
-    let mut cols = vec![];
-    let mut vals = vec![];
-
     match value {
-        PipelineData::Value(
-            Value::Record {
-                cols,
-                vals: grouped_rows,
-                span,
-            },
-            _,
-        ) => {
-            for (idx, list) in grouped_rows.iter().enumerate() {
-                match data_group(list, splitter, span) {
-                    Ok(grouped) => {
-                        if let Value::Record {
-                            vals: li,
-                            cols: sub_cols,
-                            ..
-                        } = grouped
-                        {
-                            for (inner_idx, subset) in li.iter().enumerate() {
-                                let s: &mut IndexMap<String, Value> =
-                                    splits.entry(sub_cols[inner_idx].clone()).or_default();
+        PipelineData::Value(v, _) => {
+            let span = v.span();
+            match v {
+                Value::Record { val: grouped, .. } => {
+                    for (idx, list) in grouped.vals.iter().enumerate() {
+                        match data_group(list, splitter, span) {
+                            Ok(grouped_vals) => {
+                                if let Value::Record { val: sub, .. } = grouped_vals {
+                                    for (inner_idx, subset) in sub.vals.iter().enumerate() {
+                                        let s: &mut IndexMap<String, Value> =
+                                            splits.entry(sub.cols[inner_idx].clone()).or_default();
 
-                                s.insert(cols[idx].clone(), subset.clone());
+                                        s.insert(grouped.cols[idx].clone(), subset.clone());
+                                    }
+                                }
                             }
+                            Err(reason) => return Err(reason),
                         }
                     }
-                    Err(reason) => return Err(reason),
+                }
+                _ => {
+                    return Err(ShellError::GenericError(
+                        "unsupported input".into(),
+                        "requires a table with one row for splitting".into(),
+                        Some(span),
+                        None,
+                        Vec::new(),
+                    ))
                 }
             }
         }
@@ -266,28 +254,12 @@ pub fn data_split(
         }
     }
 
-    for (k, rows) in splits {
-        cols.push(k.to_string());
+    let record = splits
+        .into_iter()
+        .map(|(k, rows)| (k, Value::record(rows.into_iter().collect(), span)))
+        .collect();
 
-        let mut sub_cols = vec![];
-        let mut sub_vals = vec![];
-
-        for (k, v) in rows {
-            sub_cols.push(k);
-            sub_vals.push(v);
-        }
-
-        vals.push(Value::Record {
-            cols: sub_cols,
-            vals: sub_vals,
-            span,
-        });
-    }
-
-    Ok(PipelineData::Value(
-        Value::Record { cols, vals, span },
-        None,
-    ))
+    Ok(PipelineData::Value(Value::record(record, span), None))
 }
 
 #[cfg(test)]

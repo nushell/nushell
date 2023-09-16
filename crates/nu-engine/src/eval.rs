@@ -2,29 +2,14 @@ use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, PathMember, PipelineElement, Redirection,
+        eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
+        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, ProfilingConfig, Stack},
-    DataSource, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, PipelineMetadata,
-    Range, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    engine::{EngineState, Stack},
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::time::Instant;
-use std::{collections::HashMap, path::PathBuf};
-use sysinfo::SystemExt;
-
-pub fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
-    match op {
-        Expression {
-            expr: Expr::Operator(operator),
-            ..
-        } => Ok(operator.clone()),
-        Expression { span, expr, .. } => Err(ShellError::UnknownOperator {
-            op_token: format!("{expr:?}"),
-            span: *span,
-        }),
-    }
-}
+use std::collections::HashMap;
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -33,7 +18,7 @@ pub fn eval_call(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
-        return Ok(Value::Nothing { span: call.head }.into_pipeline_data());
+        return Ok(Value::nothing(call.head).into_pipeline_data());
     }
     let decl = engine_state.get_decl(call.decl_id);
 
@@ -49,11 +34,7 @@ pub fn eval_call(
             caller_stack,
             decl.is_parser_keyword(),
         );
-        Ok(Value::String {
-            val: full_help,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(full_help, call.head).into_pipeline_data())
     } else if let Some(block_id) = decl.get_block_id() {
         let block = engine_state.get_block(block_id);
 
@@ -92,7 +73,7 @@ pub fn eval_call(
             }
 
             let span = if let Some(rest_item) = rest_items.first() {
-                rest_item.span()?
+                rest_item.span()
             } else {
                 call.head
             };
@@ -101,10 +82,7 @@ pub fn eval_call(
                 rest_positional
                     .var_id
                     .expect("Internal error: rest positional parameter lacks var_id"),
-                Value::List {
-                    vals: rest_items,
-                    span,
-                },
+                Value::list(rest_items, span),
             )
         }
 
@@ -145,7 +123,7 @@ pub fn eval_call(
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);
                     } else {
-                        callee_stack.add_var(var_id, Value::Nothing { span: call.head })
+                        callee_stack.add_var(var_id, Value::nothing(call.head))
                     }
                 }
             }
@@ -278,12 +256,9 @@ pub fn eval_expression(
         Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
         Expr::Int(i) => Ok(Value::int(*i, expr.span)),
         Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::Binary {
-            val: b.clone(),
-            span: expr.span,
-        }),
+        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
         Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            Value::Int { val, .. } => Ok(compute(val, unit.item, unit.span)),
+            Value::Int { val, .. } => compute(val, unit.item, unit.span),
             x => Err(ShellError::CantConvert {
                 to_type: "unit value".into(),
                 from_type: x.get_type().to_string(),
@@ -295,46 +270,40 @@ pub fn eval_expression(
             let from = if let Some(f) = from {
                 eval_expression(engine_state, stack, f)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::nothing(expr.span)
             };
 
             let next = if let Some(s) = next {
                 eval_expression(engine_state, stack, s)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::nothing(expr.span)
             };
 
             let to = if let Some(t) = to {
                 eval_expression(engine_state, stack, t)?
             } else {
-                Value::Nothing { span: expr.span }
+                Value::nothing(expr.span)
             };
 
-            Ok(Value::Range {
-                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
-                span: expr.span,
-            })
+            Ok(Value::range(
+                Range::new(expr.span, from, next, to, operator)?,
+                expr.span,
+            ))
         }
         Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
-        Expr::VarDecl(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::CellPath(cell_path) => Ok(Value::CellPath {
-            val: cell_path.clone(),
-            span: expr.span,
-        }),
+        Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
+        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
         Expr::FullCellPath(cell_path) => {
             let value = eval_expression(engine_state, stack, &cell_path.head)?;
 
             value.follow_cell_path(&cell_path.tail, false)
         }
-        Expr::ImportPattern(_) => Ok(Value::Nothing { span: expr.span }),
+        Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
         Expr::Overlay(_) => {
             let name =
                 String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
 
-            Ok(Value::String {
-                val: name,
-                span: expr.span,
-            })
+            Ok(Value::string(name, expr.span))
         }
         Expr::Call(call) => {
             // FIXME: protect this collect with ctrl-c
@@ -354,16 +323,10 @@ pub fn eval_expression(
             )?
             .into_value(span))
         }
-        Expr::DateTime(dt) => Ok(Value::Date {
-            val: *dt,
-            span: expr.span,
-        }),
-        Expr::Operator(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::MatchPattern(pattern) => Ok(Value::MatchPattern {
-            val: pattern.clone(),
-            span: expr.span,
-        }),
-        Expr::MatchBlock(_) => Ok(Value::Nothing { span: expr.span }), // match blocks are handled by `match`
+        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
+        Expr::Operator(_) => Ok(Value::nothing(expr.span)),
+        Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
+        Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -567,33 +530,23 @@ pub fn eval_expression(
             for var_id in &block.captures {
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
-            Ok(Value::Closure {
-                val: *block_id,
-                captures,
-                span: expr.span,
-            })
+            Ok(Value::closure(*block_id, captures, expr.span))
         }
-        Expr::Block(block_id) => Ok(Value::Block {
-            val: *block_id,
-            span: expr.span,
-        }),
+        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
                 output.push(eval_expression(engine_state, stack, expr)?);
             }
-            Ok(Value::List {
-                vals: output,
-                span: expr.span,
-            })
+            Ok(Value::list(output, expr.span))
         }
         Expr::Record(fields) => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
+
             for (col, val) in fields {
                 // avoid duplicate cols.
                 let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = cols.iter().position(|c| c == &col_name);
+                let pos = record.cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
                         return Err(ShellError::ColumnDefinedTwice {
@@ -602,17 +555,12 @@ pub fn eval_expression(
                         })
                     }
                     None => {
-                        cols.push(col_name);
-                        vals.push(eval_expression(engine_state, stack, val)?);
+                        record.push(col_name, eval_expression(engine_state, stack, val)?);
                     }
                 }
             }
 
-            Ok(Value::Record {
-                cols,
-                vals,
-                span: expr.span,
-            })
+            Ok(Value::record(record, expr.span))
         }
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
@@ -626,16 +574,15 @@ pub fn eval_expression(
                 for expr in val {
                     row.push(eval_expression(engine_state, stack, expr)?);
                 }
-                output_rows.push(Value::Record {
-                    cols: output_headers.clone(),
-                    vals: row,
-                    span: expr.span,
-                });
+                output_rows.push(Value::record(
+                    Record {
+                        cols: output_headers.clone(),
+                        vals: row,
+                    },
+                    expr.span,
+                ));
             }
-            Ok(Value::List {
-                vals: output_rows,
-                span: expr.span,
-            })
+            Ok(Value::list(output_rows, expr.span))
         }
         Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
         Expr::StringInterpolation(exprs) => {
@@ -650,15 +597,9 @@ pub fn eval_expression(
                 .into_iter()
                 .into_pipeline_data(None)
                 .collect_string("", config)
-                .map(|x| Value::String {
-                    val: x,
-                    span: expr.span,
-                })
+                .map(|x| Value::string(x, expr.span))
         }
-        Expr::String(s) => Ok(Value::String {
-            val: s.clone(),
-            span: expr.span,
-        }),
+        Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
         Expr::Filepath(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
@@ -681,9 +622,9 @@ pub fn eval_expression(
 
             Ok(Value::string(path.to_string_lossy(), expr.span))
         }
-        Expr::Signature(_) => Ok(Value::Nothing { span: expr.span }),
-        Expr::Garbage => Ok(Value::Nothing { span: expr.span }),
-        Expr::Nothing => Ok(Value::Nothing { span: expr.span }),
+        Expr::Signature(_) => Ok(Value::nothing(expr.span)),
+        Expr::Garbage => Ok(Value::nothing(expr.span)),
+        Expr::Nothing => Ok(Value::nothing(expr.span)),
     }
 }
 
@@ -1073,13 +1014,6 @@ pub fn eval_block(
 
     let num_pipelines = block.len();
 
-    let mut input_metadata = if stack.profiling_config.should_debug() {
-        stack.profiling_config.enter_block();
-        input.metadata()
-    } else {
-        None
-    };
-
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut i = 0;
 
@@ -1092,12 +1026,6 @@ pub fn eval_block(
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
                     )));
-
-            let start_time = if stack.profiling_config.should_debug() {
-                Some(Instant::now())
-            } else {
-                None
-            };
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1117,34 +1045,6 @@ pub fn eval_block(
                 redirect_stderr,
             );
 
-            let end_time = if stack.profiling_config.should_debug() {
-                Some(Instant::now())
-            } else {
-                None
-            };
-
-            if let (Some(start_time), Some(end_time), Some(input_metadata)) =
-                (start_time, end_time, input_metadata.as_deref_mut())
-            {
-                let element_span = pipeline.elements[i].span();
-                let element_str = String::from_utf8_lossy(
-                    engine_state.get_span_contents(pipeline.elements[i].span()),
-                )
-                .to_string();
-
-                collect_profiling_metadata(
-                    pipeline_idx,
-                    i,
-                    element_str,
-                    element_span,
-                    start_time,
-                    end_time,
-                    &stack.profiling_config,
-                    &eval_result,
-                    input_metadata,
-                );
-            }
-
             match (eval_result, redirect_stderr) {
                 (Ok((pipeline_data, _)), true) => {
                     input = pipeline_data;
@@ -1155,9 +1055,10 @@ pub fn eval_block(
                 }
                 (Err(error), true) => {
                     input = PipelineData::Value(
-                        Value::Error {
-                            error: Box::new(error),
-                        },
+                        Value::error(
+                            error,
+                            Span::unknown(), // FIXME: where does this span come from?
+                        ),
                         None,
                     )
                 }
@@ -1168,9 +1069,6 @@ pub fn eval_block(
                     // make early return so remaining commands will not be executed.
                     // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                     if output.1 {
-                        if stack.profiling_config.should_debug() {
-                            stack.profiling_config.leave_block();
-                        }
                         return Ok(input);
                     }
                 }
@@ -1204,12 +1102,7 @@ pub fn eval_block(
         }
     }
 
-    if stack.profiling_config.should_debug() {
-        stack.profiling_config.leave_block();
-        Ok(input.set_metadata(input_metadata))
-    } else {
-        Ok(input)
-    }
+    Ok(input)
 }
 
 pub fn eval_subexpression(
@@ -1446,7 +1339,14 @@ pub fn eval_variable(
 ) -> Result<Value, ShellError> {
     match var_id {
         // $nu
-        nu_protocol::NU_VARIABLE_ID => eval_nu_variable(engine_state, span),
+        nu_protocol::NU_VARIABLE_ID => {
+            if let Some(val) = engine_state.get_constant(var_id) {
+                Ok(val.clone())
+            } else {
+                Err(ShellError::VariableNotFoundAtRuntime { span })
+            }
+        }
+        // $env
         ENV_VARIABLE_ID => {
             let env_vars = stack.get_env_vars(engine_state);
             let env_columns = env_vars.keys();
@@ -1459,122 +1359,12 @@ pub fn eval_variable(
 
             pairs.sort_by(|a, b| a.0.cmp(&b.0));
 
-            let (env_columns, env_values) = pairs.into_iter().unzip();
-
-            Ok(Value::Record {
-                cols: env_columns,
-                vals: env_values,
-                span,
-            })
+            Ok(Value::record(pairs.into_iter().collect(), span))
         }
         var_id => stack.get_var(var_id, span),
     }
 }
 
-fn compute(size: i64, unit: Unit, span: Span) -> Value {
+fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn collect_profiling_metadata(
-    pipeline_idx: usize,
-    element_idx: usize,
-    element_str: String,
-    element_span: Span,
-    start_time: Instant,
-    end_time: Instant,
-    profiling_config: &ProfilingConfig,
-    eval_result: &Result<(PipelineData, bool), ShellError>,
-    input_metadata: &mut PipelineMetadata,
-) {
-    let element_str = Value::string(element_str, element_span);
-    let time_ns = (end_time - start_time).as_nanos() as i64;
-
-    let mut cols = vec![
-        "pipeline_idx".to_string(),
-        "element_idx".to_string(),
-        "depth".to_string(),
-        "span".to_string(),
-    ];
-
-    let mut vals = vec![
-        Value::int(pipeline_idx as i64, element_span),
-        Value::int(element_idx as i64, element_span),
-        Value::int(profiling_config.depth, element_span),
-        Value::record(
-            vec!["start".to_string(), "end".to_string()],
-            vec![
-                Value::int(element_span.start as i64, element_span),
-                Value::int(element_span.end as i64, element_span),
-            ],
-            element_span,
-        ),
-    ];
-
-    if profiling_config.collect_source {
-        cols.push("source".to_string());
-        vals.push(element_str);
-    }
-
-    if profiling_config.collect_values {
-        let value = match &eval_result {
-            Ok((PipelineData::Value(val, ..), ..)) => val.clone(),
-            Ok((PipelineData::ListStream(..), ..)) => Value::string("list stream", element_span),
-            Ok((PipelineData::ExternalStream { .. }, ..)) => {
-                Value::string("raw stream", element_span)
-            }
-            Ok((PipelineData::Empty, ..)) => Value::Nothing { span: element_span },
-            Err(err) => Value::Error {
-                error: Box::new(err.clone()),
-            },
-        };
-
-        cols.push("value".to_string());
-        vals.push(value);
-    }
-
-    cols.push("time".to_string());
-    vals.push(Value::Duration {
-        val: time_ns,
-        span: element_span,
-    });
-
-    let record = Value::Record {
-        cols,
-        vals,
-        span: element_span,
-    };
-
-    let element_metadata = if let Ok((pipeline_data, ..)) = &eval_result {
-        pipeline_data.metadata()
-    } else {
-        None
-    };
-
-    if let PipelineMetadata {
-        data_source: DataSource::Profiling(tgt_vals),
-    } = input_metadata
-    {
-        tgt_vals.push(record);
-    } else {
-        *input_metadata = PipelineMetadata {
-            data_source: DataSource::Profiling(vec![record]),
-        };
-    }
-
-    if let Some(PipelineMetadata {
-        data_source: DataSource::Profiling(element_vals),
-    }) = element_metadata.map(|m| *m)
-    {
-        if let PipelineMetadata {
-            data_source: DataSource::Profiling(tgt_vals),
-        } = input_metadata
-        {
-            tgt_vals.extend(element_vals);
-        } else {
-            *input_metadata = PipelineMetadata {
-                data_source: DataSource::Profiling(element_vals),
-            };
-        }
-    }
 }

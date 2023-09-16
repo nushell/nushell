@@ -1,6 +1,6 @@
 use gjson::Value as gjValue;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Span, Spanned, Value};
+use nu_protocol::{Record, Span, Spanned, Value};
 
 pub fn execute_json_query(
     _name: &str,
@@ -79,7 +79,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
                 true
             });
 
-            Value::List { vals, span }
+            Value::list(vals, span)
         }
         gjson::Kind::Null => Value::nothing(span),
         gjson::Kind::False => Value::bool(false, span),
@@ -94,14 +94,12 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
         gjson::Kind::String => Value::string(v.str(), span),
         gjson::Kind::True => Value::bool(true, span),
         gjson::Kind::Object => {
-            let mut cols = vec![];
-            let mut vals = vec![];
+            let mut record = Record::new();
             v.each(|k, v| {
-                cols.push(k.to_string());
-                vals.push(convert_gjson_value_to_nu_value(&v, span));
+                record.push(k.to_string(), convert_gjson_value_to_nu_value(&v, span));
                 true
             });
-            Value::Record { cols, vals, span }
+            Value::record(record, span)
         }
     }
 }

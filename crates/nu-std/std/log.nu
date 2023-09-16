@@ -31,7 +31,7 @@ export-env {
         "DEBUG": "D"
     }
 
-    $env.LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
 }
 
 def log-types [] {
@@ -149,7 +149,7 @@ def handle-log [
     short: bool
 ] {
     let log_format = if ($format_string | is-empty) {
-        $env.LOG_FORMAT
+        $env.NU_LOG_FORMAT
     } else {
         $format_string
     }

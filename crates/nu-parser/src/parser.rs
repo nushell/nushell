@@ -1,5 +1,4 @@
 use crate::{
-    eval::{eval_constant, value_as_string},
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
@@ -16,6 +15,7 @@ use nu_protocol::{
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
     },
     engine::StateWorkingSet,
+    eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
@@ -2709,7 +2709,7 @@ pub fn parse_shape_name(
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
-        b"float" | b"decimal" => SyntaxShape::Decimal,
+        b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
@@ -2822,7 +2822,7 @@ fn parse_collection_shape(
         while idx < tokens.len() {
             let TokenContents::Item = tokens[idx].contents else {
                 working_set.error(key_error(tokens[idx].span));
-                return mk_shape(vec![])
+                return mk_shape(vec![]);
             };
 
             let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
@@ -2831,7 +2831,9 @@ fn parse_collection_shape(
                 continue;
             }
 
-            let Some(key) = parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string() else {
+            let Some(key) =
+                parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
+            else {
                 working_set.error(key_error(tokens[idx].span));
                 return mk_shape(vec![]);
             };
@@ -2959,12 +2961,12 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
         Ok(val) => match value_as_string(val, head_expr.span) {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, span(spans)));
                 return garbage(span(spans));
             }
         },
         Err(err) => {
-            working_set.error(err);
+            working_set.error(err.wrap(working_set, span(spans)));
             return garbage(span(spans));
         }
     };
@@ -4026,7 +4028,11 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
     }
 
     let head = {
-        let Expression { expr: Expr::List(vals), .. } = head else {
+        let Expression {
+            expr: Expr::List(vals),
+            ..
+        } = head
+        else {
             unreachable!("head must be a list by now")
         };
 
@@ -4058,7 +4064,8 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
                         expr: Expr::List(item),
                         span,
                         ..
-                    } = ls  else {
+                    } = ls
+                    else {
                         unreachable!("the item must be a list")
                     };
 
@@ -4629,7 +4636,9 @@ pub fn parse_value(
             SyntaxShape::Any
             | SyntaxShape::List(_)
             | SyntaxShape::Table(_)
-            | SyntaxShape::Signature => {}
+            | SyntaxShape::Signature
+            | SyntaxShape::Filepath
+            | SyntaxShape::String => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
@@ -4645,7 +4654,7 @@ pub fn parse_value(
             expression
         }
         SyntaxShape::Number => parse_number(working_set, span),
-        SyntaxShape::Decimal => parse_float(working_set, span),
+        SyntaxShape::Float => parse_float(working_set, span),
         SyntaxShape::Int => parse_int(working_set, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
@@ -5439,6 +5448,17 @@ pub fn parse_pipeline(
                                 new_command.comments.extend_from_slice(&command.comments);
                                 new_command.parts.extend_from_slice(&command.parts);
                             }
+                            LiteElement::Redirection(span, ..) => {
+                                working_set.error(ParseError::RedirectionInLetMut(*span, None))
+                            }
+                            LiteElement::SeparateRedirection { out, err } => {
+                                working_set.error(ParseError::RedirectionInLetMut(
+                                    out.0.min(err.0),
+                                    Some(out.0.max(err.0)),
+                                ))
+                            }
+                            LiteElement::SameTargetRedirection { redirection, .. } => working_set
+                                .error(ParseError::RedirectionInLetMut(redirection.0, None)),
                             _ => panic!("unsupported"),
                         }
                     }
@@ -5476,10 +5496,14 @@ pub fn parse_pipeline(
                                         {
                                             let block = working_set.get_block(*block_id);
 
-                                            let element = block.pipelines[0].elements[0].clone();
-
-                                            if let PipelineElement::Expression(prepend, expr) =
-                                                element
+                                            if let Some(PipelineElement::Expression(
+                                                prepend,
+                                                expr,
+                                            )) = block
+                                                .pipelines
+                                                .first()
+                                                .and_then(|p| p.elements.first())
+                                                .cloned()
                                             {
                                                 if expr.has_in_variable(working_set) {
                                                     let new_expr = PipelineElement::Expression(
@@ -5608,9 +5632,12 @@ pub fn parse_pipeline(
                                 {
                                     let block = working_set.get_block(*block_id);
 
-                                    let element = block.pipelines[0].elements[0].clone();
-
-                                    if let PipelineElement::Expression(prepend, expr) = element {
+                                    if let Some(PipelineElement::Expression(prepend, expr)) = block
+                                        .pipelines
+                                        .first()
+                                        .and_then(|p| p.elements.first())
+                                        .cloned()
+                                    {
                                         if expr.has_in_variable(working_set) {
                                             let new_expr = PipelineElement::Expression(
                                                 prepend,

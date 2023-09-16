@@ -2,8 +2,8 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -55,47 +55,51 @@ impl Command for Rename {
             Example {
                 description: "Rename a column",
                 example: "[[a, b]; [1, 2]] | rename my_column",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["my_column".to_string(), "b".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rename many columns",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rename a specific column",
                 example: "[[a, b, c]; [1, 2, 3]] | rename -c [a ham]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
                         vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rename the fields of a record",
                 example: "{a: 1 b: 2} | rename x y",
-                result: Some(Value::Record {
+                result: Some(Value::test_record(Record {
                     cols: vec!["x".to_string(), "y".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                })),
+            },
+            Example {
+                description: "Rename fields based on a given closure",
+                example: "{abc: 1, bbc: 2} | rename -b {str replace -a 'b' 'z'}",
+                result: Some(Value::test_record(Record {
+                    cols: vec!["azc".to_string(), "zzc".to_string()],
+                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                })),
             },
             Example {
                 description: "Rename fields based on a given closure",
@@ -118,19 +122,23 @@ fn rename(
 ) -> Result<PipelineData, ShellError> {
     let specified_column: Option<Vec<String>> = call.get_flag(engine_state, stack, "column")?;
     // get the span for the column's name to be changed and for the given list
-    let (specified_col_span, list_span) = if let Some(Value::List {
-        vals: columns,
-        span: column_span,
-    }) = call.get_flag(engine_state, stack, "column")?
-    {
-        if columns.is_empty() {
-            return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
+    let column_flag: Option<Value> = call.get_flag(engine_state, stack, "column")?;
+    let (specified_col_span, list_span) = match column_flag {
+        Some(column_flag) => {
+            let column_span = column_flag.span();
+            match column_flag {
+                Value::List { vals: columns, .. } => {
+                    if columns.is_empty() {
+                        return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
                         .to_string(), span: column_span });
-        } else {
-            (Some(columns[0].span()?), column_span)
+                    } else {
+                        (Some(columns[0].span()), column_span)
+                    }
+                }
+                _ => (None, call.head),
+            }
         }
-    } else {
-        (None, call.head)
+        None => (None, call.head),
     };
 
     if let Some(ref cols) = specified_column {
@@ -160,89 +168,92 @@ fn rename(
     let head_span = call.head;
     input
         .map(
-            move |item| match item {
-                Value::Record {
-                    mut cols,
-                    vals,
-                    span,
-                } => {
-                    if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
-                        block_info.clone()
-                    {
-                        for c in &mut cols {
-                            stack.with_env(&env_vars, &env_hidden);
+            move |item| {
+                let span = item.span();
+                match item {
+                    Value::Record {
+                        val: mut record, ..
+                    } => {
+                        if let Some((engine_state, block, mut stack, env_vars, env_hidden)) =
+                            block_info.clone()
+                        {
+                            for c in &mut record.cols {
+                                stack.with_env(&env_vars, &env_hidden);
 
-                            if let Some(var) = block.signature.get_positional(0) {
-                                if let Some(var_id) = &var.var_id {
-                                    stack.add_var(*var_id, Value::string(c.clone(), span))
+                                if let Some(var) = block.signature.get_positional(0) {
+                                    if let Some(var_id) = &var.var_id {
+                                        stack.add_var(*var_id, Value::string(c.clone(), span))
+                                    }
+                                }
+                                let eval_result = eval_block_with_early_return(
+                                    &engine_state,
+                                    &mut stack,
+                                    &block,
+                                    Value::string(c.clone(), span).into_pipeline_data(),
+                                    redirect_stdout,
+                                    redirect_stderr,
+                                );
+                                match eval_result {
+                                    Err(e) => return Value::error(e, span),
+                                    Ok(res) => match res.collect_string_strict(span) {
+                                        Err(e) => return Value::error(e, span),
+                                        Ok(new_c) => *c = new_c.0,
+                                    },
                                 }
                             }
-                            let eval_result = eval_block_with_early_return(
-                                &engine_state,
-                                &mut stack,
-                                &block,
-                                Value::string(c.clone(), span).into_pipeline_data(),
-                                redirect_stdout,
-                                redirect_stderr,
-                            );
-                            match eval_result {
-                                Err(e) => return Value::Error { error: Box::new(e) },
-                                Ok(res) => match res.collect_string_strict(span) {
-                                    Err(e) => return Value::Error { error: Box::new(e) },
-                                    Ok(new_c) => *c = new_c.0,
-                                },
-                            }
-                        }
-                    } else {
-                        match &specified_column {
-                            Some(c) => {
-                                // check if the specified column to be renamed exists
-                                if !cols.contains(&c[0]) {
-                                    return Value::Error {
-                                        error: Box::new(ShellError::UnsupportedInput(
-                                            format!(
-                                                "The column '{}' does not exist in the input",
-                                                &c[0]
+                        } else {
+                            match &specified_column {
+                                Some(c) => {
+                                    // check if the specified column to be renamed exists
+                                    if !record.cols.contains(&c[0]) {
+                                        return Value::error(
+                                            ShellError::UnsupportedInput(
+                                                format!(
+                                                    "The column '{}' does not exist in the input",
+                                                    &c[0]
+                                                ),
+                                                "value originated from here".into(),
+                                                // Arrow 1 points at the specified column name,
+                                                specified_col_span.unwrap_or(head_span),
+                                                // Arrow 2 points at the input value.
+                                                span,
                                             ),
-                                            "value originated from here".into(),
-                                            // Arrow 1 points at the specified column name,
-                                            specified_col_span.unwrap_or(head_span),
-                                            // Arrow 2 points at the input value.
                                             span,
-                                        )),
-                                    };
-                                }
-                                for (idx, val) in cols.iter_mut().enumerate() {
-                                    if *val == c[0] {
-                                        cols[idx] = c[1].to_string();
-                                        break;
+                                        );
+                                    }
+                                    for (idx, val) in record.cols.iter_mut().enumerate() {
+                                        if *val == c[0] {
+                                            record.cols[idx] = c[1].to_string();
+                                            break;
+                                        }
                                     }
                                 }
-                            }
-                            None => {
-                                for (idx, val) in columns.iter().enumerate() {
-                                    if idx >= cols.len() {
-                                        // skip extra new columns names if we already reached the final column
-                                        break;
+                                None => {
+                                    for (idx, val) in columns.iter().enumerate() {
+                                        if idx >= record.len() {
+                                            // skip extra new columns names if we already reached the final column
+                                            break;
+                                        }
+                                        record.cols[idx] = val.clone();
                                     }
-                                    cols[idx] = val.clone();
                                 }
                             }
                         }
-                    }
 
-                    Value::Record { cols, vals, span }
+                        Value::record(record, span)
+                    }
+                    // Propagate errors by explicitly matching them before the final case.
+                    Value::Error { .. } => item.clone(),
+                    other => Value::error(
+                        ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "record".into(),
+                            wrong_type: other.get_type().to_string(),
+                            dst_span: head_span,
+                            src_span: other.span(),
+                        },
+                        head_span,
+                    ),
                 }
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { .. } => item.clone(),
-                other => Value::Error {
-                    error: Box::new(ShellError::OnlySupportsThisInputType {
-                        exp_input_type: "record".into(),
-                        wrong_type: other.get_type().to_string(),
-                        dst_span: head_span,
-                        src_span: other.expect_span(),
-                    }),
-                },
             },
             engine_state.ctrlc.clone(),
         )

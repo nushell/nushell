@@ -27,7 +27,13 @@ def path_add [] {
         assert equal (get_path) ["fooooo", "foo", "bar", "baz"]
 
         load-env {$path_name: []}
-        let target_paths = {linux: "foo", windows: "bar", macos: "baz"}
+
+        let target_paths = {
+            linux: "foo",
+            windows: "bar",
+            macos: "baz",
+            android: "quux",
+        }
 
         std path add $target_paths
         assert equal (get_path) [($target_paths | get $nu.os-info.name)]
@@ -37,4 +43,15 @@ def path_add [] {
 #[test]
 def banner [] {
     std assert ((std banner | lines | length) == 15)
+}
+
+#[test]
+def repeat_things [] {
+    std assert error { "foo" | std repeat -1 }
+
+    for x in ["foo", [1 2], {a: 1}] {
+        std assert equal ($x | std repeat 0) []
+        std assert equal ($x | std repeat 1) [$x]
+        std assert equal ($x | std repeat 2) [$x $x]
+    }
 }

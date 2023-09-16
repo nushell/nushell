@@ -87,7 +87,7 @@ impl Command for Save {
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => {
                 // Open files to possibly truncate them
-                let _ = get_files(&path, &stderr_path, append, force)?;
+                let _ = get_files(&path, stderr_path.as_ref(), append, force)?;
                 Ok(PipelineData::empty())
             }
             PipelineData::ExternalStream {
@@ -95,7 +95,7 @@ impl Command for Save {
                 stderr,
                 ..
             } => {
-                let (file, stderr_file) = get_files(&path, &stderr_path, append, force)?;
+                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
@@ -127,7 +127,7 @@ impl Command for Save {
             PipelineData::ListStream(ls, _)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
+                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(|err| ShellError::IOError(err.to_string()))?;
@@ -143,7 +143,7 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(&path, &stderr_path, append, force)?;
+                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
 
                 file.write_all(&bytes)
                     .map_err(|err| ShellError::IOError(err.to_string()))?;
@@ -263,7 +263,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
             Ok(val.into_bytes())
         }
         // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error } => Err(*error),
+        Value::Error { error, .. } => Err(*error),
         other => Ok(other.as_string()?.into_bytes()),
     }
 }
@@ -317,7 +317,7 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
 /// Get output file and optional stderr file
 fn get_files(
     path: &Spanned<PathBuf>,
-    stderr_path: &Option<Spanned<PathBuf>>,
+    stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
@@ -385,13 +385,13 @@ fn stream_to_file(
                     Value::String { val, .. } => val.into_bytes(),
                     Value::Binary { val, .. } => val,
                     // Propagate errors by explicitly matching them before the final case.
-                    Value::Error { error } => return Err(*error),
+                    Value::Error { error, .. } => return Err(*error),
                     other => {
                         return Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "string or binary".into(),
                             wrong_type: other.get_type().to_string(),
                             dst_span: span,
-                            src_span: other.expect_span(),
+                            src_span: other.span(),
                         });
                     }
                 },

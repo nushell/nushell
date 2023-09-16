@@ -1,7 +1,7 @@
 use std::path::{Component, Path};
 
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
@@ -36,6 +36,10 @@ impl Command for SubCommand {
         "Split a path into a list based on the system's path separator."
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -56,27 +60,46 @@ impl Command for SubCommand {
         )
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments;
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&split, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
+        )
+    }
+
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Split a path into parts",
                 example: r"'C:\Users\viking\spam.txt' | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string(r"C:\"),
                         Value::test_string("Users"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_list(vec![
                             Value::test_string(r"C:\"),
                             Value::test_string("Users"),
@@ -90,8 +113,8 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -102,21 +125,21 @@ impl Command for SubCommand {
             Example {
                 description: "Split a path into parts",
                 example: r"'/home/viking/spam.txt' | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("/"),
                         Value::test_string("home"),
                         Value::test_string("viking"),
                         Value::test_string("spam.txt"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split paths in list into parts",
                 example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_list(vec![
                             Value::test_string("/"),
                             Value::test_string("home"),
@@ -130,24 +153,23 @@ impl Command for SubCommand {
                             Value::test_string("eggs.txt"),
                         ]),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn split(path: &Path, span: Span, _: &Arguments) -> Value {
-    Value::List {
-        vals: path
-            .components()
+    Value::list(
+        path.components()
             .filter_map(|comp| {
                 let comp = process_component(comp);
                 comp.map(|s| Value::string(s, span))
             })
             .collect(),
         span,
-    }
+    )
 }
 
 #[cfg(windows)]

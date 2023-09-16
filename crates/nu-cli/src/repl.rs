@@ -9,16 +9,17 @@ use crossterm::cursor::SetCursorStyle;
 use is_terminal::IsTerminal;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
+use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_color_config::StyleComputer;
-use nu_command::hook::eval_hook;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
+    eval_const::create_nu_constant,
     report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value,
+    Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -26,7 +27,7 @@ use reedline::{
     SqliteBackedHistory, Vi,
 };
 use std::{
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::Path,
     sync::atomic::Ordering,
     time::Instant,
@@ -51,7 +52,7 @@ pub fn evaluate_repl(
     load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
-    use nu_command::hook;
+    use nu_cmd_base::hook;
     use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
 
@@ -165,6 +166,10 @@ pub fn evaluate_repl(
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
             engine_state,
@@ -231,13 +236,15 @@ pub fn evaluate_repl(
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_insert,
-            )),
-            vi_normal: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_normal,
-            )),
-            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+            vi_insert: config
+                .cursor_shape_vi_insert
+                .map(map_nucursorshape_to_cursorshape),
+            vi_normal: config
+                .cursor_shape_vi_normal
+                .map(map_nucursorshape_to_cursorshape),
+            emacs: config
+                .cursor_shape_emacs
+                .map(map_nucursorshape_to_cursorshape),
         };
         perf(
             "get config/cursor config",
@@ -391,7 +398,7 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
                 report_error_new(engine_state, &err);
             }
         }
@@ -466,7 +473,9 @@ pub fn evaluate_repl(
                     repl.buffer = s.to_string();
                     drop(repl);
 
-                    if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+                    if let Err(err) =
+                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
+                    {
                         report_error_new(engine_state, &err);
                     }
                 }
@@ -508,24 +517,12 @@ pub fn evaluate_repl(
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
 
-                    stack.add_env_var(
-                        "OLDPWD".into(),
-                        Value::String {
-                            val: cwd.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
+                    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
-                    stack.add_env_var(
-                        "PWD".into(),
-                        Value::String {
-                            val: path.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
-                    let cwd = Value::String { val: cwd, span };
+                    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+                    let cwd = Value::string(cwd, span);
 
                     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
                     let mut shells = if let Some(v) = shells {
@@ -550,15 +547,12 @@ pub fn evaluate_repl(
                         0
                     };
 
-                    shells[current_shell] = Value::String { val: path, span };
+                    shells[current_shell] = Value::string(path, span);
 
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
                     stack.add_env_var(
                         "NUSHELL_LAST_SHELL".into(),
-                        Value::Int {
-                            val: last_shell as i64,
-                            span,
-                        },
+                        Value::int(last_shell as i64, span),
                     );
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
@@ -601,10 +595,7 @@ pub fn evaluate_repl(
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
-                    Value::String {
-                        val: format!("{}", cmd_duration.as_millis()),
-                        span: Span::unknown(),
-                    },
+                    Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()

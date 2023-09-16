@@ -21,8 +21,9 @@ fn vertical_rotate_value(
     by: Option<usize>,
     direction: VerticalDirection,
 ) -> Result<Value, ShellError> {
+    let span = value.span();
     match value {
-        Value::List { mut vals, span } => {
+        Value::List { mut vals, .. } => {
             let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
             let values = vals.as_mut_slice();
 
@@ -31,14 +32,11 @@ fn vertical_rotate_value(
                 VerticalDirection::Down => values.rotate_right(rotations),
             }
 
-            Ok(Value::List {
-                vals: values.to_owned(),
-                span,
-            })
+            Ok(Value::list(values.to_owned(), span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "list".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }
@@ -50,55 +48,42 @@ enum HorizontalDirection {
 
 fn horizontal_rotate_value(
     value: Value,
-    by: &Option<usize>,
+    by: Option<usize>,
     cells_only: bool,
     direction: &HorizontalDirection,
 ) -> Result<Value, ShellError> {
+    let span = value.span();
     match value {
         Value::Record {
-            mut cols,
-            mut vals,
-            span,
+            val: mut record, ..
         } => {
-            let rotations = by.map(|n| n % vals.len()).unwrap_or(1);
+            let rotations = by.map(|n| n % record.len()).unwrap_or(1);
 
-            let columns = if cells_only {
-                cols
-            } else {
-                let columns = cols.as_mut_slice();
-
+            if !cells_only {
                 match direction {
-                    HorizontalDirection::Right => columns.rotate_right(rotations),
-                    HorizontalDirection::Left => columns.rotate_left(rotations),
+                    HorizontalDirection::Right => record.cols.rotate_right(rotations),
+                    HorizontalDirection::Left => record.cols.rotate_left(rotations),
                 }
-
-                columns.to_owned()
             };
 
-            let values = vals.as_mut_slice();
-
             match direction {
-                HorizontalDirection::Right => values.rotate_right(rotations),
-                HorizontalDirection::Left => values.rotate_left(rotations),
+                HorizontalDirection::Right => record.vals.rotate_right(rotations),
+                HorizontalDirection::Left => record.vals.rotate_left(rotations),
             }
 
-            Ok(Value::Record {
-                cols: columns,
-                vals: values.to_owned(),
-                span,
-            })
+            Ok(Value::record(record, span))
         }
-        Value::List { vals, span } => {
+        Value::List { vals, .. } => {
             let values = vals
                 .into_iter()
                 .map(|value| horizontal_rotate_value(value, by, cells_only, direction))
                 .collect::<Result<Vec<Value>, ShellError>>()?;
 
-            Ok(Value::List { vals: values, span })
+            Ok(Value::list(values, span))
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),
-            span: value.span()?,
+            span: value.span(),
         }),
     }
 }

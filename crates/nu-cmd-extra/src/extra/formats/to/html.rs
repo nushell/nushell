@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
+    PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
@@ -164,7 +164,7 @@ impl Command for ToHtml {
 
 fn get_theme_from_asset_file(
     is_dark: bool,
-    theme: &Option<Spanned<String>>,
+    theme: Option<&Spanned<String>>,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
@@ -258,78 +258,50 @@ fn to_html(
         // If asset doesn't work, make sure to return the default theme
         let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
 
-        let cols = vec![
-            "name".into(),
-            "black".into(),
-            "red".into(),
-            "green".into(),
-            "yellow".into(),
-            "blue".into(),
-            "purple".into(),
-            "cyan".into(),
-            "white".into(),
-            "brightBlack".into(),
-            "brightRed".into(),
-            "brightGreen".into(),
-            "brightYellow".into(),
-            "brightBlue".into(),
-            "brightPurple".into(),
-            "brightCyan".into(),
-            "brightWhite".into(),
-            "background".into(),
-            "foreground".into(),
-        ];
-
         let result: Vec<Value> = html_themes
             .themes
             .into_iter()
             .map(|n| {
-                let vals = vec![
-                    n.name,
-                    n.black,
-                    n.red,
-                    n.green,
-                    n.yellow,
-                    n.blue,
-                    n.purple,
-                    n.cyan,
-                    n.white,
-                    n.brightBlack,
-                    n.brightRed,
-                    n.brightGreen,
-                    n.brightYellow,
-                    n.brightBlue,
-                    n.brightPurple,
-                    n.brightCyan,
-                    n.brightWhite,
-                    n.background,
-                    n.foreground,
-                ]
-                .into_iter()
-                .map(|val| Value::String { val, span: head })
-                .collect();
-
-                Value::Record {
-                    cols: cols.clone(),
-                    vals,
-                    span: head,
-                }
+                Value::record(
+                    record! {
+                        "name" => Value::string(n.name, head),
+                        "black" => Value::string(n.black, head),
+                        "red" => Value::string(n.red, head),
+                        "green" => Value::string(n.green, head),
+                        "yellow" => Value::string(n.yellow, head),
+                        "blue" => Value::string(n.blue, head),
+                        "purple" => Value::string(n.purple, head),
+                        "cyan" => Value::string(n.cyan, head),
+                        "white" => Value::string(n.white, head),
+                        "brightBlack" => Value::string(n.brightBlack, head),
+                        "brightRed" => Value::string(n.brightRed, head),
+                        "brightGreen" => Value::string(n.brightGreen, head),
+                        "brightYellow" => Value::string(n.brightYellow, head),
+                        "brightBlue" => Value::string(n.brightBlue, head),
+                        "brightPurple" => Value::string(n.brightPurple, head),
+                        "brightCyan" => Value::string(n.brightCyan, head),
+                        "brightWhite" => Value::string(n.brightWhite, head),
+                        "background" => Value::string(n.background, head),
+                        "foreground" => Value::string(n.foreground, head),
+                    },
+                    head,
+                )
             })
             .collect();
-        return Ok(Value::List {
-            vals: result,
-            span: head,
-        }
-        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
-            data_source: DataSource::HtmlThemes,
-        })));
+        return Ok(
+            Value::list(result, head).into_pipeline_data_with_metadata(Box::new(
+                PipelineMetadata {
+                    data_source: DataSource::HtmlThemes,
+                },
+            )),
+        );
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,
             None => head,
         };
 
-        let color_hm = get_theme_from_asset_file(dark, &theme);
+        let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
@@ -431,7 +403,8 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
-        if let Value::Record { span, .. } = row {
+        let span = row.span();
+        if let Value::Record { .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
                 let data = row.get_data_by_key(header);

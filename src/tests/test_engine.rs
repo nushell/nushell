@@ -75,7 +75,7 @@ fn scope_variable() -> TestResult {
 fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
     run_test(
         &format!(
-            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }}; 
+            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }};
             let rslt = (scope commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
             $"<($rslt)> ($rslt | describe)""#
         ),
@@ -352,17 +352,14 @@ fn default_value_constant2() -> TestResult {
 }
 
 #[test]
-fn default_value_not_constant1() -> TestResult {
-    fail_test(
-        r#"def foo [x = ("foo" | str length)] { $x }; foo"#,
-        "expected a constant",
-    )
+fn default_value_constant3() -> TestResult {
+    run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
 }
 
 #[test]
 fn default_value_not_constant2() -> TestResult {
     fail_test(
-        r#"def foo [--x = ("foo" | str length)] { $x }; foo"#,
+        r#"def foo [x = (loop { break })] { $x }; foo"#,
         "expected a constant",
     )
 }

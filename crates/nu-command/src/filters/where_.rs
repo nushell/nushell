@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -99,9 +99,7 @@ not supported."#
                             None
                         }
                     }
-                    Err(err) => Some(Value::Error {
-                        error: Box::new(err),
-                    }),
+                    Err(err) => Some(Value::error(err, span)),
                 }
             })
             .into_pipeline_data(ctrlc)
@@ -113,22 +111,21 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["a".to_string()],
                         vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                    })],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list (
+                    vec![Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
@@ -155,6 +152,18 @@ not supported."#
                 example: "ls | where type == file | sort-by name -n | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
                 result: None,
             },
+            Example {
+                description: r#"Find case-insensitively files called "readme", without an explicit closure"#,
+                example: "ls | where ($it.name | str downcase) =~ readme",
+                result: None,
+            },
+            Example {
+                description: "same as above but with regex only",
+                example: "ls | where name =~ '(?i)readme'",
+                result: None,
+            }
+
+
         ]
     }
 }

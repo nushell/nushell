@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -76,7 +76,7 @@ impl Command for UniqBy {
         let metadata = input.metadata();
 
         let vec: Vec<_> = input.into_iter().collect();
-        match validate(vec.clone(), &columns, call.head) {
+        match validate(&vec, &columns, call.head) {
             Ok(_) => {}
             Err(err) => {
                 return Err(err);
@@ -92,51 +92,50 @@ impl Command for UniqBy {
         vec![Example {
             description: "Get rows from table filtered by column uniqueness ",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
-            result: Some(Value::List {
-                vals: vec![
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("apple"), Value::test_int(9)],
-                    ),
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("pear"), Value::test_int(3)],
-                    ),
-                    Value::test_record(
-                        vec!["fruit", "count"],
-                        vec![Value::test_string("orange"), Value::test_int(7)],
-                    ),
+            result: Some(Value::list(
+                vec![
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("apple"), Value::test_int(9)],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("pear"), Value::test_int(3)],
+                    }),
+                    Value::test_record(Record {
+                        cols: vec!["fruit".to_string(), "count".to_string()],
+                        vals: vec![Value::test_string("orange"), Value::test_int(7)],
+                    }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }
 
-fn validate(vec: Vec<Value>, columns: &Vec<String>, span: Span) -> Result<(), ShellError> {
-    if let Some(Value::Record {
-        cols,
-        vals: _input_vals,
-        span: val_span,
-    }) = vec.first()
-    {
-        if columns.is_empty() {
-            // This uses the same format as the 'requires a column name' error in split_by.rs
-            return Err(ShellError::GenericError(
-                "expected name".into(),
-                "requires a column name to filter table data".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
-        }
+fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
+    let first = vec.first();
+    if let Some(v) = first {
+        let val_span = v.span();
+        if let Value::Record { val: record, .. } = &v {
+            if columns.is_empty() {
+                // This uses the same format as the 'requires a column name' error in split_by.rs
+                return Err(ShellError::GenericError(
+                    "expected name".into(),
+                    "requires a column name to filter table data".into(),
+                    Some(span),
+                    None,
+                    Vec::new(),
+                ));
+            }
 
-        if let Some(nonexistent) = nonexistent_column(columns.clone(), cols.to_vec()) {
-            return Err(ShellError::CantFindColumn {
-                col_name: nonexistent,
-                span,
-                src_span: *val_span,
-            });
+            if let Some(nonexistent) = nonexistent_column(columns, &record.cols) {
+                return Err(ShellError::CantFindColumn {
+                    col_name: nonexistent,
+                    span,
+                    src_span: val_span,
+                });
+            }
         }
     }
 
@@ -156,10 +155,7 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
     Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
         let item_column_values = get_data_by_columns(&columns, &ms.item);
 
-        let col_vals = Value::List {
-            vals: item_column_values,
-            span: Span::unknown(),
-        };
+        let col_vals = Value::list(item_column_values, Span::unknown());
 
         crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals, ms.index)
     })

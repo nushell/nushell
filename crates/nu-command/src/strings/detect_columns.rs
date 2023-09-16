@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -63,8 +63,8 @@ impl Command for DetectColumns {
             Example {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns -n",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column0".to_string(),
                             "column1".to_string(),
@@ -75,10 +75,14 @@ impl Command for DetectColumns {
                             Value::test_string("b"),
                             Value::test_string("c"),
                         ],
-                        span,
-                    }],
+                    })],
                     span,
-                }),
+                )),
+            },
+            Example {
+                description: "",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                result: None,
             },
             Example {
                 description: "",
@@ -151,10 +155,7 @@ fn detect_columns(
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
                     cols.push(header.item.clone());
-                    vals.push(Value::String {
-                        val: val.item.clone(),
-                        span: name_span,
-                    });
+                    vals.push(Value::string(val.item.clone(), name_span));
                 }
             } else {
                 let mut pre_output = vec![];
@@ -211,28 +212,18 @@ fn detect_columns(
                         };
 
                         if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::Record {
-                                cols,
-                                vals,
-                                span: name_span,
-                            };
+                            return Value::record(Record { cols, vals }, name_span);
                         }
 
                         (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find range index", name_span);
-                        return Value::Error {
-                            error: Box::new(err),
-                        };
+                        return Value::error(err, name_span);
                     }
                 }
             } else {
-                return Value::Record {
-                    cols,
-                    vals,
-                    span: name_span,
-                };
+                return Value::record(Record { cols, vals }, name_span);
             };
 
             // Merge Columns
@@ -254,11 +245,7 @@ fn detect_columns(
             vals.push(binding);
             last_seg.into_iter().for_each(|v| vals.push(v));
 
-            Value::Record {
-                cols,
-                vals,
-                span: name_span,
-            }
+            Value::record(Record { cols, vals }, name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {

@@ -116,7 +116,7 @@ fn command(
     match type_id {
         Some((e, msg, blamed)) => match e.as_str() {
             "csv" | "tsv" => from_csv(engine_state, stack, call),
-            "parquet" => from_parquet(engine_state, stack, call),
+            "parquet" | "parq" => from_parquet(engine_state, stack, call),
             "ipc" | "arrow" => from_ipc(engine_state, stack, call),
             "json" => from_json(engine_state, stack, call),
             "jsonl" => from_jsonl(engine_state, stack, call),

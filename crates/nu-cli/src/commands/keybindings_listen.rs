@@ -3,7 +3,8 @@ use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
+    Value,
 };
 use std::io::{stdout, Write};
 
@@ -17,6 +18,10 @@ impl Command for KeybindingsListen {
 
     fn usage(&self) -> &str {
         "Get input from the user."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "This is an internal debugging tool. For better output, try `input listen --types [key]`"
     }
 
     fn signature(&self) -> Signature {
@@ -78,9 +83,8 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         let v = print_events_helper(event)?;
         // Print out the record
         let o = match v {
-            Value::Record { cols, vals, .. } => cols
+            Value::Record { val, .. } => val
                 .iter()
-                .zip(vals.iter())
                 .map(|(x, y)| format!("{}: {}", x, y.into_string("", config)))
                 .collect::<Vec<String>>()
                 .join(", "),
@@ -111,54 +115,29 @@ fn print_events_helper(event: Event) -> Result<Value, ShellError> {
     {
         match code {
             KeyCode::Char(c) => {
-                let record = Value::Record {
-                    cols: vec![
-                        "char".into(),
-                        "code".into(),
-                        "modifier".into(),
-                        "flags".into(),
-                        "kind".into(),
-                        "state".into(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("{c}"), Span::unknown()),
-                        Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
+                let record = record! {
+                    "char" => Value::string(format!("{c}"), Span::unknown()),
+                    "code" => Value::string(format!("{:#08x}", u32::from(c)), Span::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
+                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(record)
+                Ok(Value::record(record, Span::unknown()))
             }
             _ => {
-                let record = Value::Record {
-                    cols: vec![
-                        "code".into(),
-                        "modifier".into(),
-                        "flags".into(),
-                        "kind".into(),
-                        "state".into(),
-                    ],
-                    vals: vec![
-                        Value::string(format!("{code:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:?}"), Span::unknown()),
-                        Value::string(format!("{modifiers:#08b}"), Span::unknown()),
-                        Value::string(format!("{kind:?}"), Span::unknown()),
-                        Value::string(format!("{state:?}"), Span::unknown()),
-                    ],
-                    span: Span::unknown(),
+                let record = record! {
+                    "code" => Value::string(format!("{code:?}"), Span::unknown()),
+                    "modifier" => Value::string(format!("{modifiers:?}"), Span::unknown()),
+                    "flags" => Value::string(format!("{modifiers:#08b}"), Span::unknown()),
+                    "kind" => Value::string(format!("{kind:?}"), Span::unknown()),
+                    "state" => Value::string(format!("{state:?}"), Span::unknown()),
                 };
-                Ok(record)
+                Ok(Value::record(record, Span::unknown()))
             }
         }
     } else {
-        let record = Value::Record {
-            cols: vec!["event".into()],
-            vals: vec![Value::string(format!("{event:?}"), Span::unknown())],
-            span: Span::unknown(),
-        };
-        Ok(record)
+        let record = record! { "event" => Value::string(format!("{event:?}"), Span::unknown()) };
+        Ok(Value::record(record, Span::unknown()))
     }
 }

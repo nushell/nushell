@@ -68,31 +68,30 @@ impl Command for BitsOr {
             Example {
                 description: "Apply logical or to a list of numbers",
                 example: "[8 3 2] | bits or 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(10), Value::test_int(3), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(10), Value::test_int(3), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn operate(value: Value, target: i64, head: Span) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => Value::Int {
-            val: val | target,
-            span,
-        },
+        Value::Int { val, .. } => Value::int(val | target, span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 

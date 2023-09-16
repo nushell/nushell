@@ -1,9 +1,9 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
-    clean_charset,
+    clean_charset, colorize_space,
     common::{
         create_nu_table_config, get_empty_style, get_header_style, get_index_style,
         get_value_style, NuText, INDEX_COLUMN_NAME,
@@ -18,8 +18,8 @@ impl JustTable {
         create_table(input, opts)
     }
 
-    pub fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-        kv_table(cols, vals, opts)
+    pub fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+        kv_table(record, opts)
     }
 }
 
@@ -30,6 +30,8 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
             let right = opts.config.table_indent.right;
             out.table.set_indent(left, right);
 
+            colorize_space(out.table.get_records_mut(), opts.style_computer);
+
             let table_config =
                 create_nu_table_config(opts.config, opts.style_computer, &out, false);
             Ok(out.table.draw(table_config, opts.width))
@@ -38,9 +40,9 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
     }
 }
 
-fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResult {
-    let mut data = vec![Vec::with_capacity(2); cols.len()];
-    for ((column, value), row) in cols.iter().zip(vals.iter()).zip(data.iter_mut()) {
+fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
+    let mut data = vec![Vec::with_capacity(2); record.len()];
+    for ((column, value), row) in record.iter().zip(data.iter_mut()) {
         if nu_utils::ctrl_c::was_pressed(&opts.ctrlc) {
             return Ok(None);
         }
@@ -56,6 +58,8 @@ fn kv_table(cols: &[String], vals: &[Value], opts: TableOpts<'_>) -> StringResul
         row.push(key);
         row.push(value);
     }
+
+    colorize_space(&mut data, opts.style_computer);
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
@@ -130,7 +134,7 @@ fn to_table_with_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
@@ -165,7 +169,7 @@ fn to_table_with_no_header(
             return Ok(None);
         }
 
-        if let Value::Error { error } = item {
+        if let Value::Error { error, .. } = item {
             return Err(*error.clone());
         }
 
