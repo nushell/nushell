@@ -1,7 +1,4 @@
-use std::{
-    ops::{Deref, DerefMut, RangeBounds},
-    slice::SliceIndex,
-};
+use std::{ops::RangeBounds, slice::SliceIndex};
 
 use nu_protocol::Span;
 
@@ -54,16 +51,16 @@ impl<'a> SpanArray<'a> {
 // This is almost an iterator, can it actually be one?
 /// An array of spans and an index into that array
 #[derive(Debug)]
-pub struct PointedSpanArray<'a, Idx> {
+pub struct PointedSpanArray<'a> {
     inner: &'a [Span],
-    idx: Idx,
+    idx: usize,
 }
 
-impl<'a> PointedSpanArray<'a, NestedUsize> {
+impl<'a> PointedSpanArray<'a> {
     #[inline]
     #[must_use]
     pub fn new(value: &'a [Span], idx: usize) -> Option<Self> {
-        Self::new_inner(value, NestedUsize(idx))
+        Self::new_inner(value, idx)
     }
 
     #[inline]
@@ -76,37 +73,34 @@ impl<'a> PointedSpanArray<'a, NestedUsize> {
         Self::new(spans.get(range)?, idx)
     }
 }
-impl<'a, 'b, Idx: 'b> PointedSpanArray<'a, Idx>
-where
-    Idx: Deref<Target = usize>,
-{
+impl<'a> PointedSpanArray<'a> {
     #[inline]
     #[must_use]
-    pub fn new_inner(value: &'a [Span], idx: Idx) -> Option<Self> {
+    pub fn new_inner(value: &'a [Span], idx: usize) -> Option<Self> {
         // check valid index, otherwise return none
-        _ = value.get(*idx)?;
+        _ = value.get(idx)?;
         Some(PointedSpanArray { inner: value, idx })
     }
 
     /// Get the span at the current index
     pub fn current(&self) -> Span {
-        // debug_assert!(self.inner.len() > *self.idx, "expect spans > 0");
+        // debug_assert!(self.inner.len() > self.idx, "expect spans > 0");
         // Safe, since the index is checked on construction
-        self.inner[*self.idx]
+        self.inner[self.idx]
     }
 
     pub fn get_slice(&self) -> &'a [Span] {
         self.inner
     }
     pub fn get_idx(&self) -> usize {
-        *self.idx
+        self.idx
     }
 
     /// Get the spans starting at the current index
     pub fn tail_inclusive(&self) -> SpanArray<'a> {
         // Safe, since the index is checked on construction
         SpanArray {
-            inner: &self.inner[*self.idx..],
+            inner: &self.inner[self.idx..],
         }
     }
 
@@ -120,19 +114,15 @@ where
     #[inline]
     #[must_use]
     pub fn peek_next(&self) -> Option<Span> {
-        self.get_at(*self.idx + 1)
+        self.get_at(self.idx + 1)
     }
 }
 
-impl<'a, 'b, Idx: 'b> PointedSpanArray<'a, Idx>
-where
-    Idx: Deref<Target = usize>,
-    Idx: DerefMut<Target = usize>,
-{
+impl<'a> PointedSpanArray<'a> {
     // /// Make a new span array of a prefix, sharing the index with the original
     // #[inline]
     // #[must_use]
-    // pub fn prefix_span(&mut self, end: usize) -> Option<PointedSpanArray<'a, NestedRef<Idx>>> {
+    // pub fn prefix_span(&mut self, end: usize) -> Option<self> {
     //     PointedSpanArray::new_inner(self.inner.get(..end)?, NestedRef(&mut self.idx))
     // }
 
@@ -140,8 +130,8 @@ where
     #[inline]
     #[must_use]
     pub fn try_advance(&mut self) -> bool {
-        if *self.idx + 1 < self.inner.len() {
-            *self.idx += 1;
+        if self.idx + 1 < self.inner.len() {
+            self.idx += 1;
             true
         } else {
             false
@@ -149,64 +139,28 @@ where
     }
 
     pub fn jump_to_end(&mut self) {
-        *self.idx = self.inner.len() - 1;
+        self.idx = self.inner.len() - 1;
     }
 }
 
-impl<'a> PointedSpanArray<'a, NestedUsize> {
+impl<'a> PointedSpanArray<'a> {
     #[inline]
     #[must_use]
     pub fn with_sub_span<I, F, T>(&mut self, range: I, callback: F) -> Option<T>
     where
         I: SliceIndex<[Span], Output = [Span]>,
         I: RangeBounds<usize>,
-        F: FnOnce(&mut PointedSpanArray<'a, NestedUsize>) -> T,
+        F: FnOnce(&mut PointedSpanArray<'a>) -> T,
     {
         let start_idx = match range.start_bound() {
             std::ops::Bound::Included(&n) => n,
             std::ops::Bound::Excluded(&n) => n + 1,
             std::ops::Bound::Unbounded => 0,
         };
-        let new_idx = self.idx.0 - start_idx;
+        let new_idx = self.idx - start_idx;
         let mut sub_span = Self::new_from_range(self.inner, range, new_idx)?;
         let result = callback(&mut sub_span);
-        self.idx.0 = start_idx + sub_span.idx.0;
+        self.idx = start_idx + sub_span.idx;
         Some(result)
-    }
-}
-pub struct NestedUsize(usize);
-impl Deref for NestedUsize {
-    type Target = usize;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for NestedUsize {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-/// Allows for any number of layers deep references
-pub struct NestedRef<'a, T>(&'a mut T);
-
-impl<'a, T> Deref for NestedRef<'a, T>
-where
-    T: Deref,
-{
-    type Target = T::Target;
-
-    fn deref(&self) -> &Self::Target {
-        self.0
-    }
-}
-
-impl<'a, T> DerefMut for NestedRef<'a, T>
-where
-    T: DerefMut,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0
     }
 }

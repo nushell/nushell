@@ -30,10 +30,7 @@ use crate::parse_keywords::{
 
 use itertools::Itertools;
 use log::trace;
-use std::{
-    collections::{HashMap, HashSet},
-    ops::DerefMut,
-};
+use std::collections::{HashMap, HashSet};
 use std::{num::ParseIntError, str};
 
 #[cfg(feature = "plugin")]
@@ -342,13 +339,12 @@ pub fn parse_external_call(
     }
 }
 
-fn parse_long_flag<I>(
+fn parse_long_flag(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray<I>,
+    spans: &mut PointedSpanArray,
     sig: &Signature,
 ) -> (Option<Spanned<String>>, Option<Expression>)
 where
-    I: DerefMut<Target = usize>,
 {
     let arg_span = spans.current();
     let arg_contents = working_set.get_span_contents(arg_span);
@@ -439,14 +435,13 @@ where
     }
 }
 
-fn parse_short_flags<I>(
+fn parse_short_flags(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray<I>,
+    spans: &mut PointedSpanArray,
     positional_idx: usize,
     sig: &Signature,
 ) -> Option<Vec<Flag>>
 where
-    I: DerefMut<Target = usize>,
 {
     let arg_span = spans.current();
 
@@ -561,14 +556,13 @@ fn first_kw_idx(
     (None, spans.len())
 }
 
-fn calculate_end_span<I>(
+fn calculate_end_span(
     working_set: &StateWorkingSet,
     signature: &Signature,
-    spans_both: &PointedSpanArray<I>,
+    spans_both: &PointedSpanArray,
     positional_idx: usize,
 ) -> usize
 where
-    I: DerefMut<Target = usize>,
 {
     let spans = spans_both.get_slice();
     let spans_idx = spans_both.get_idx();
@@ -605,13 +599,12 @@ where
     }
 }
 
-pub fn parse_multispan_value<I>(
+pub fn parse_multispan_value(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray<I>,
+    spans: &mut PointedSpanArray,
     shape: &SyntaxShape,
 ) -> Expression
 where
-    I: DerefMut<Target = usize>,
 {
     match shape {
         SyntaxShape::VarWithOptType => {
@@ -3078,13 +3071,12 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     }
 }
 
-pub fn parse_var_with_opt_type<I>(
+pub fn parse_var_with_opt_type(
     working_set: &mut StateWorkingSet,
-    spans: &mut PointedSpanArray<I>,
+    spans: &mut PointedSpanArray,
     mutable: bool,
 ) -> (Expression, Option<Type>)
 where
-    I: DerefMut<Target = usize>,
 {
     let bytes = working_set.get_span_contents(spans.current()).to_vec();
 
