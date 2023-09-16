@@ -738,6 +738,7 @@ where
                     custom_completion: None,
                 };
             }
+            // Possibly off-by-one here
             let expr = parse_multispan_value(working_set, spans, arg);
             let ty = expr.ty.clone();
 
@@ -3956,7 +3957,7 @@ pub fn parse_list_expression(
             let Some(mut parts_with_idx) = PointedSpanArray::new(&command.parts, 0) else {
                 continue;
             };
-            while parts_with_idx.try_advance() {
+            loop {
                 let arg = parse_multispan_value(working_set, &mut parts_with_idx, element_shape);
 
                 if let Some(ref ctype) = contained_type {
@@ -3968,6 +3969,9 @@ pub fn parse_list_expression(
                 }
 
                 args.push(arg);
+                if !parts_with_idx.try_advance() {
+                    break;
+                }
             }
         }
     }
