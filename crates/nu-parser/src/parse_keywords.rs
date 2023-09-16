@@ -3046,7 +3046,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                 if !(item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1) {
                     continue;
                 }
-                let Some(mut inner_spans) = PointedSpanArray::new(spans,0) else {
+                let Some(mut inner_spans) = PointedSpanArray::new(spans,span.0) else {
                      continue; // Only checks spans.len() > span.0
                     } ;
                 let rvalue = parse_multispan_value(
