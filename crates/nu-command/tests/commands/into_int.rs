@@ -49,7 +49,7 @@ fn into_int_datetime1() {
             .unwrap())
     );
 
-    let dt_nano = dt.expect("foo").timestamp_nanos();
+    let dt_nano = dt.expect("foo").timestamp_nanos_opt().unwrap_or_default();
     assert_eq!(dt_nano % 1_000_000_000, 123456789);
 }
 
