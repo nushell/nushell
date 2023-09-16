@@ -586,12 +586,11 @@ where
         } else {
             let spans_remaining = spans.len() - spans_idx;
             let positional_remaining = signature.required_positional.len() - positional_idx;
-            let non_positional_spans_remaining = spans_remaining - positional_remaining;
             // Make space for the remaining require positionals, if we can
             if signature.num_positionals_after(positional_idx) == 0 {
                 spans.len()
-            } else if positional_remaining > 0 && non_positional_spans_remaining > 0 {
-                spans_idx + 1 + non_positional_spans_remaining
+            } else if positional_remaining > 0 && spans_remaining > positional_remaining {
+                spans_idx + 1 + spans_remaining - positional_remaining
             } else {
                 spans_idx + 1
             }
