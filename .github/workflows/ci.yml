@@ -49,6 +49,10 @@ jobs:
 
       - name: Clippy
         run: cargo clippy --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- $CLIPPY_OPTIONS
+      
+        # In tests we don't deny have to deny unwrap
+      - name: Clippy of tests
+        run: cargo clippy --tests --workspace ${{ matrix.flags }} --exclude nu_plugin_* -- -D warnings
 
   tests:
     strategy:
