@@ -1,3 +1,6 @@
+use std::borrow::Cow;
+use std::cell::RefCell;
+
 use crate::NushellPrompt;
 use log::trace;
 use nu_engine::eval_subexpression;
@@ -15,6 +18,7 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
+pub(crate) const TRANSIENT_PROMPT_COMMAND: &str = "TRANSIENT_PROMPT_COMMAND";
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
 const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
@@ -144,4 +148,58 @@ pub(crate) fn update_prompt<'prompt>(
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
 
     ret_val
+}
+
+struct TransientPrompt {
+    config: Config,
+    engine_state: EngineState,
+    stack: Stack,
+    nu_prompt: RefCell<NushellPrompt>,
+}
+
+impl Prompt for TransientPrompt {
+    fn render_prompt_left(&self) -> Cow<str> {
+        self.nu_prompt
+            .borrow_mut()
+            .update_prompt_left(get_prompt_string(
+                TRANSIENT_PROMPT_COMMAND,
+                &self.config,
+                &self.engine_state,
+                &mut self.stack.clone(),
+            ));
+        self.nu_prompt
+            .borrow()
+            .render_prompt_left()
+            .to_string()
+            .into()
+    }
+
+    fn render_prompt_right(&self) -> Cow<str> {
+        todo!()
+    }
+
+    fn render_prompt_indicator(&self, prompt_mode: reedline::PromptEditMode) -> Cow<str> {
+        todo!()
+    }
+
+    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
+        todo!()
+    }
+
+    fn render_prompt_history_search_indicator(
+        &self,
+        history_search: reedline::PromptHistorySearch,
+    ) -> Cow<str> {
+        todo!()
+    }
+}
+
+/// Construct the transient prompt
+fn transient_prompt(config: &Config, engine_state: &EngineState, stack: &Stack) -> Box<dyn Prompt> {
+    Box::new(TransientPrompt {
+        config: config.clone(),
+        engine_state: engine_state.clone(),
+        stack: stack.clone(),
+        nu_prompt: RefCell::from(NushellPrompt::new()),
+    })
 }

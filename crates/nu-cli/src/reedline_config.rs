@@ -991,6 +991,17 @@ fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
         .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), span))
 }
 
+pub(crate) fn add_transient_prompt(
+    line_editor: Reedline,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Reedline {
+    match stack.get_env_var(engine_state, "ENABLE_TRANSIENT_PROMPT") {
+        Some(Value::Bool { val: true, .. }) => line_editor.with_transient_prompt(todo!()),
+        _ => line_editor,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

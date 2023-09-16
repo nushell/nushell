@@ -370,6 +370,9 @@ name = "bitflags"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630be753d4e58660abd17930c71b647fe46c27ea6b63cc59e1e3851406972e42"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "block-buffer"
@@ -675,7 +678,7 @@ version = "6.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e959d788268e3bf9d35ace83e81b124190378e4c91c9067524675e33394b8ba"
 dependencies = [
- "crossterm",
+ "crossterm 0.26.1",
  "strum 0.24.1",
  "strum_macros 0.24.3",
  "unicode-width",
@@ -877,6 +880,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a84cda67535339806297f1b331d6dd6320470d2a0fe65381e79ee9e156dd3d13"
 dependencies = [
  "bitflags 1.3.2",
+ "crossterm_winapi",
+ "libc",
+ "mio",
+ "parking_lot 0.12.1",
+ "signal-hook",
+ "signal-hook-mio",
+ "winapi",
+]
+
+[[package]]
+name = "crossterm"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f476fe445d41c9e991fd07515a6f463074b782242ccf4a5b7b1d1012e70824df"
+dependencies = [
+ "bitflags 2.3.3",
  "crossterm_winapi",
  "libc",
  "mio",
@@ -2554,7 +2573,7 @@ version = "0.84.0"
 dependencies = [
  "assert_cmd",
  "criterion",
- "crossterm",
+ "crossterm 0.26.1",
  "ctrlc",
  "is-terminal",
  "log",
@@ -2610,7 +2629,7 @@ name = "nu-cli"
 version = "0.84.0"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.26.1",
  "fancy-regex",
  "fuzzy-matcher",
  "is-terminal",
@@ -2730,7 +2749,7 @@ dependencies = [
  "chrono",
  "chrono-humanize",
  "chrono-tz",
- "crossterm",
+ "crossterm 0.26.1",
  "csv",
  "dialoguer",
  "digest",
@@ -2832,7 +2851,7 @@ name = "nu-explore"
 version = "0.84.0"
 dependencies = [
  "ansi-str",
- "crossterm",
+ "crossterm 0.26.1",
  "lscolors",
  "nu-ansi-term",
  "nu-color-config",
@@ -4122,7 +4141,7 @@ checksum = "dcc0d032bccba900ee32151ec0265667535c230169f5a011154cdcd984e16829"
 dependencies = [
  "bitflags 1.3.2",
  "cassowary",
- "crossterm",
+ "crossterm 0.26.1",
  "unicode-segmentation",
  "unicode-width",
 ]
@@ -4181,11 +4200,10 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3defc4467a8909614bcb02cb304a3e8472c31f7a44e6c6c287eb9575b212bc4d"
+source = "git+https://github.com/nushell/reedline.git?branch=main#ebd653b8400837677343a6dec9e27a705e2f8f42"
 dependencies = [
  "chrono",
- "crossterm",
+ "crossterm 0.27.0",
  "fd-lock",
  "itertools",
  "nu-ansi-term",
@@ -4684,9 +4702,9 @@ checksum = "43b2853a4d09f215c24cc5489c992ce46052d359b5109343cbafbf26bc62f8a3"
 
 [[package]]
 name = "signal-hook"
-version = "0.3.15"
+version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "732768f1176d21d09e076c23a93123d40bba92d50c4058da34d45c8de8e682b9"
+checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
 dependencies = [
  "libc",
  "signal-hook-registry",
