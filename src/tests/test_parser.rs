@@ -208,7 +208,7 @@ fn too_few_arguments() -> TestResult {
         "def a [b: bool, c: bool, d: float, e: float, f: float, g: float, h: float] {}; a true true 1 1",
     ];
 
-    let expected = "Missing required positional argument.";
+    let expected = "missing f";
 
     for case in cases {
         fail_test(case, expected)?;
