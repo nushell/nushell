@@ -129,14 +129,23 @@ where
     Idx: Deref<Target = usize>,
     Idx: DerefMut<Target = usize>,
 {
+    /// Make a new span array of a prefix, sharing the index with the original
     #[inline]
     #[must_use]
-    pub fn sub_span<I>(&mut self, range: I) -> Option<PointedSpanArray<'a, NestedRef<Idx>>>
-    where
-        I: SliceIndex<[Span], Output = [Span]>,
-    {
-        PointedSpanArray::new_inner(self.inner.get(range)?, NestedRef(&mut self.idx))
+    pub fn prefix_span(&mut self, end: usize) -> Option<PointedSpanArray<'a, NestedRef<Idx>>> {
+        PointedSpanArray::new_inner(self.inner.get(..end)?, NestedRef(&mut self.idx))
     }
+
+    // // Note: Illegal for non-prefix ranges, since they can't share an index
+    // #[inline]
+    // #[must_use]
+    // pub fn sub_span<I>(&mut self, range: I) -> Option<PointedSpanArray<'a, NestedRef<Idx>>>
+    // where
+    //     I: SliceIndex<[Span], Output = [Span]>,
+    // {
+    //     PointedSpanArray::new_inner(self.inner.get(range)?, NestedRef(&mut self.idx))
+    // }
+
     // TODO: Maybe return next value here
     #[inline]
     #[must_use]

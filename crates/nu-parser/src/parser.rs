@@ -981,7 +981,7 @@ pub fn parse_internal_call(
                 let current_span = spans.current();
 
                 let Some(mut spans_til_end) =
-                spans.sub_span(..end) else {
+                spans.prefix_span(end) else {
                     debug_assert!(end == 0 || spans.get_idx() == end);
                     working_set.error(ParseError::MissingPositional(
                         positional.name.clone(),
