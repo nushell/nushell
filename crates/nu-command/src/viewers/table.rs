@@ -94,6 +94,12 @@ impl Command for Table {
                 "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
+            .named(
+                "abbreviated",
+                SyntaxShape::Int,
+                "short the data on the table to a minimum amount from top and bottom",
+                Some('a'),
+            )
             .category(Category::Viewers)
     }
 
@@ -104,33 +110,13 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let start_num: Option<i64> = call.get_flag(engine_state, stack, "start-number")?;
-        let row_offset = start_num.unwrap_or_default() as usize;
-        let list: bool = call.has_flag("list");
-
-        let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-
-        let expand: bool = call.has_flag("expand");
-        let expand_limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
-        let collapse: bool = call.has_flag("collapse");
-        let flatten: bool = call.has_flag("flatten");
-        let flatten_separator: Option<String> =
-            call.get_flag(engine_state, stack, "flatten-separator")?;
-
-        let table_view = match (expand, collapse) {
-            (false, false) => TableView::General,
-            (_, true) => TableView::Collapsed,
-            (true, _) => TableView::Expanded {
-                limit: expand_limit,
-                flatten,
-                flatten_separator,
-            },
-        };
+        let list_themes: bool = call.has_flag("list");
+        let cfg = parse_table_config(call, engine_state, stack)?;
+        let input = CmdInput::new(engine_state, stack, call, input);
 
         // if list argument is present we just need to return a list of supported table themes
-        if list {
+        if list_themes {
             let val = Value::list(supported_table_modes(), Span::test_data());
-
             return Ok(val.into_pipeline_data());
         }
 
@@ -140,15 +126,7 @@ impl Command for Table {
             let _ = nu_utils::enable_vt_processing();
         }
 
-        handle_table_command(
-            engine_state,
-            stack,
-            call,
-            input,
-            row_offset,
-            table_view,
-            width_param,
-        )
+        handle_table_command(input, cfg)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -214,86 +192,136 @@ impl Command for Table {
     }
 }
 
-fn handle_table_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    input: PipelineData,
+#[derive(Debug, Clone)]
+struct TableConfig {
     row_offset: usize,
     table_view: TableView,
-    term_width: Option<i64>,
+    term_width: usize,
+    abbriviation: Option<usize>,
+}
+
+impl TableConfig {
+    fn new(
+        row_offset: usize,
+        table_view: TableView,
+        term_width: usize,
+        abbriviation: Option<usize>,
+    ) -> Self {
+        Self {
+            row_offset,
+            table_view,
+            term_width,
+            abbriviation,
+        }
+    }
+}
+
+fn parse_table_config(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<TableConfig, ShellError> {
+    let start_num: Option<i64> = call.get_flag(state, stack, "start-number")?;
+    let row_offset = start_num.unwrap_or_default() as usize;
+    let width_param: Option<i64> = call.get_flag(state, stack, "width")?;
+    let expand: bool = call.has_flag("expand");
+    let expand_limit: Option<usize> = call.get_flag(state, stack, "expand-deep")?;
+    let collapse: bool = call.has_flag("collapse");
+    let flatten: bool = call.has_flag("flatten");
+    let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
+    let abbrivation: Option<usize> = call.get_flag(state, stack, "abbreviated")?;
+    let table_view = match (expand, collapse) {
+        (false, false) => TableView::General,
+        (_, true) => TableView::Collapsed,
+        (true, _) => TableView::Expanded {
+            limit: expand_limit,
+            flatten,
+            flatten_separator,
+        },
+    };
+
+    let term_width = get_width_param(width_param);
+    let cfg = TableConfig::new(row_offset, table_view, term_width, abbrivation);
+
+    Ok(cfg)
+}
+
+struct CmdInput<'a> {
+    engine_state: &'a EngineState,
+    stack: &'a mut Stack,
+    call: &'a Call,
+    data: PipelineData,
+}
+
+impl<'a> CmdInput<'a> {
+    fn new(
+        engine_state: &'a EngineState,
+        stack: &'a mut Stack,
+        call: &'a Call,
+        data: PipelineData,
+    ) -> Self {
+        Self {
+            engine_state,
+            stack,
+            call,
+            data,
+        }
+    }
+}
+
+fn handle_table_command(
+    mut input: CmdInput<'_>,
+    cfg: TableConfig,
 ) -> Result<PipelineData, ShellError> {
-    let ctrlc = engine_state.ctrlc.clone();
-    let config = get_config(engine_state, stack);
+    let span = input.data.span().unwrap_or(input.call.head);
+    match input.data {
+        PipelineData::ExternalStream { .. } => Ok(input.data),
+        PipelineData::Value(Value::Binary { val, .. }, ..) => {
+            let stream_list = if input.call.redirect_stdout {
+                vec![Ok(val)]
+            } else {
+                let hex = format!("{}\n", nu_pretty_hex::pretty_hex(&val))
+                    .as_bytes()
+                    .to_vec();
+                vec![Ok(hex)]
+            };
 
-    let span = input.span().unwrap_or(call.head);
-    match input {
-        PipelineData::ExternalStream { .. } => Ok(input),
-        PipelineData::Value(Value::Binary { val, .. }, ..) => Ok(PipelineData::ExternalStream {
-            stdout: Some(RawStream::new(
-                Box::new(if call.redirect_stdout {
-                    vec![Ok(val)].into_iter()
-                } else {
-                    vec![Ok(format!("{}\n", nu_pretty_hex::pretty_hex(&val))
-                        .as_bytes()
-                        .to_vec())]
-                    .into_iter()
-                }),
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = RawStream::new(
+                Box::new(stream_list.into_iter()),
                 ctrlc,
-                call.head,
+                input.call.head,
                 None,
-            )),
-            stderr: None,
-            exit_code: None,
-            span: call.head,
-            metadata: None,
-            trim_end_newline: false,
-        }),
-        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
-        PipelineData::Value(Value::List { vals, .. }, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            ListStream::from_stream(vals.into_iter(), ctrlc.clone()),
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
-        PipelineData::ListStream(stream, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            stream,
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
-        PipelineData::Value(Value::Record { val, .. }, ..) => {
-            let term_width = get_width_param(term_width);
+            );
 
-            handle_record(
-                val,
-                span,
-                engine_state,
-                stack,
-                call,
-                table_view,
-                term_width,
-                ctrlc,
-                &config,
-            )
+            Ok(PipelineData::ExternalStream {
+                stdout: Some(stream),
+                stderr: None,
+                exit_code: None,
+                span: input.call.head,
+                metadata: None,
+                trim_end_newline: false,
+            })
+        }
+        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
+        PipelineData::Value(Value::List { vals, .. }, metadata) => {
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
+            input.data = PipelineData::Empty;
+
+            handle_row_stream(input, cfg, stream, metadata)
+        }
+        PipelineData::ListStream(stream, metadata) => {
+            input.data = PipelineData::Empty;
+            handle_row_stream(input, cfg, stream, metadata)
+        }
+        PipelineData::Value(Value::Record { val, .. }, ..) => {
+            input.data = PipelineData::Empty;
+            handle_record(input, cfg, val)
         }
         PipelineData::Value(Value::LazyRecord { val, .. }, ..) => {
-            let collected = val.collect()?.into_pipeline_data();
-            handle_table_command(
-                engine_state,
-                stack,
-                call,
-                collected,
-                row_offset,
-                table_view,
-                term_width,
-            )
+            input.data = val.collect()?.into_pipeline_data();
+            handle_table_command(input, cfg)
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -302,72 +330,46 @@ fn handle_table_command(
         }
         PipelineData::Value(Value::CustomValue { val, .. }, ..) => {
             let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
-            Table.run(engine_state, stack, call, base_pipeline)
+            Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
-        PipelineData::Value(Value::Range { val, .. }, metadata) => handle_row_stream(
-            engine_state,
-            stack,
-            ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc.clone()),
-            call,
-            row_offset,
-            ctrlc,
-            metadata,
-        ),
+        PipelineData::Value(Value::Range { val, .. }, metadata) => {
+            let ctrlc = input.engine_state.ctrlc.clone();
+            let stream = ListStream::from_stream(val.into_range_iter(ctrlc.clone())?, ctrlc);
+            input.data = PipelineData::Empty;
+            handle_row_stream(input, cfg, stream, metadata)
+        }
         x => Ok(x),
     }
 }
 
-fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-    ]
-}
-
-#[allow(clippy::too_many_arguments)]
 fn handle_record(
+    input: CmdInput,
+    cfg: TableConfig,
     record: Record,
-    span: Span,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    table_view: TableView,
-    term_width: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
-    config: &Config,
 ) -> Result<PipelineData, ShellError> {
-    // Create a StyleComputer to compute styles for each value in the table.
-    let style_computer = &StyleComputer::from_config(engine_state, stack);
+    let config = get_config(input.engine_state, input.stack);
+    let span = input.data.span().unwrap_or(input.call.head);
+    let styles = &StyleComputer::from_config(input.engine_state, input.stack);
+    let ctrlc = input.engine_state.ctrlc.clone();
     let ctrlc1 = ctrlc.clone();
 
-    let result = if record.is_empty() {
-        create_empty_placeholder("record", term_width, engine_state, stack)
-    } else {
-        let indent = (config.table_indent.left, config.table_indent.right);
-        let opts = TableOpts::new(config, style_computer, ctrlc, span, 0, term_width, indent);
-        let result = build_table_kv(record, table_view, opts, span)?;
-        match result {
-            Some(output) => maybe_strip_color(output, config),
-            None => report_unsuccessful_output(ctrlc1, term_width),
-        }
+    if record.is_empty() {
+        let value =
+            create_empty_placeholder("record", cfg.term_width, input.engine_state, input.stack);
+        let value = Value::string(value, span);
+        return Ok(value.into_pipeline_data());
     };
 
-    let val = Value::string(result, call.head);
+    let indent = (config.table_indent.left, config.table_indent.right);
+    let opts = TableOpts::new(&config, styles, ctrlc, span, 0, cfg.term_width, indent);
+    let result = build_table_kv(record, cfg.table_view, opts, span)?;
+
+    let result = match result {
+        Some(output) => maybe_strip_color(output, &config),
+        None => report_unsuccessful_output(ctrlc1, cfg.term_width),
+    };
+
+    let val = Value::string(result, span);
 
     Ok(val.into_pipeline_data())
 }
@@ -429,27 +431,31 @@ fn build_table_batch(
 }
 
 fn handle_row_stream(
-    engine_state: &EngineState,
-    stack: &mut Stack,
+    input: CmdInput<'_>,
+    cfg: TableConfig,
     stream: ListStream,
-    call: &Call,
-    row_offset: usize,
-    ctrlc: Option<Arc<AtomicBool>>,
     metadata: Option<Box<PipelineMetadata>>,
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
+    let ctrlc = input.engine_state.ctrlc.clone();
+
     let stream = match metadata.as_deref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
         }) => {
-            let config = get_config(engine_state, stack);
+            let config = get_config(input.engine_state, input.stack);
             let ctrlc = ctrlc.clone();
-            let ls_colors_env_str = match stack.get_env_var(engine_state, "LS_COLORS") {
-                Some(v) => Some(env_to_string("LS_COLORS", &v, engine_state, stack)?),
+            let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+                Some(v) => Some(env_to_string(
+                    "LS_COLORS",
+                    &v,
+                    input.engine_state,
+                    input.stack,
+                )?),
                 None => None,
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
+            let span = input.call.head;
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
@@ -459,7 +465,7 @@ fn handle_row_stream(
                         while idx < record.len() {
                             // Only the name column gets special colors, for now
                             if record.cols[idx] == "name" {
-                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(head);
+                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(span);
                                 if let Some(Value::String { val, .. }) = record.vals.get(idx) {
                                     let val = render_path_name(val, &config, &ls_colors, span);
                                     if let Some(val) = val {
@@ -483,6 +489,7 @@ fn handle_row_stream(
             data_source: DataSource::HtmlThemes,
         }) => {
             let ctrlc = ctrlc.clone();
+            let span = input.call.head;
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
@@ -494,7 +501,7 @@ fn handle_row_stream(
                                 // Simple routine to grab the hex code, convert to a style,
                                 // then place it in a new Value::String.
 
-                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(head);
+                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(span);
                                 if let Some(Value::String { val, .. }) = record.vals.get(idx) {
                                     let s = match color_from_hex(val) {
                                         Ok(c) => match c {
@@ -523,48 +530,23 @@ fn handle_row_stream(
         _ => stream,
     };
 
-    let head = call.head;
-    let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-
-    let collapse: bool = call.has_flag("collapse");
-
-    let expand: bool = call.has_flag("expand");
-    let limit: Option<usize> = call.get_flag(engine_state, stack, "expand-deep")?;
-    let flatten: bool = call.has_flag("flatten");
-    let flatten_separator: Option<String> =
-        call.get_flag(engine_state, stack, "flatten-separator")?;
-
-    let table_view = match (expand, collapse) {
-        (_, true) => TableView::Collapsed,
-        (true, _) => TableView::Expanded {
-            flatten,
-            flatten_separator,
-            limit,
-        },
-        _ => TableView::General,
-    };
+    let paginator = PagingTableCreator::new(
+        input.call.head,
+        stream,
+        // These are passed in as a way to have PagingTable create StyleComputers
+        // for the values it outputs. Because engine_state is passed in, config doesn't need to.
+        input.engine_state.clone(),
+        input.stack.clone(),
+        ctrlc.clone(),
+        cfg,
+    );
+    let stream = RawStream::new(Box::new(paginator), ctrlc, input.call.head, None);
 
     Ok(PipelineData::ExternalStream {
-        stdout: Some(RawStream::new(
-            Box::new(PagingTableCreator::new(
-                head,
-                stream,
-                // These are passed in as a way to have PagingTable create StyleComputers
-                // for the values it outputs. Because engine_state is passed in, config doesn't need to.
-                engine_state.clone(),
-                stack.clone(),
-                ctrlc.clone(),
-                row_offset,
-                width_param,
-                table_view,
-            )),
-            ctrlc,
-            head,
-            None,
-        )),
+        stdout: Some(stream),
         stderr: None,
         exit_code: None,
-        span: head,
+        span: input.call.head,
         metadata: None,
         trim_end_newline: false,
     })
@@ -600,24 +582,19 @@ struct PagingTableCreator {
     engine_state: EngineState,
     stack: Stack,
     ctrlc: Option<Arc<AtomicBool>>,
-    row_offset: usize,
-    width_param: Option<i64>,
-    view: TableView,
     elements_displayed: usize,
     reached_end: bool,
+    cfg: TableConfig,
 }
 
 impl PagingTableCreator {
-    #[allow(clippy::too_many_arguments)]
     fn new(
         head: Span,
         stream: ListStream,
         engine_state: EngineState,
         stack: Stack,
         ctrlc: Option<Arc<AtomicBool>>,
-        row_offset: usize,
-        width_param: Option<i64>,
-        view: TableView,
+        cfg: TableConfig,
     ) -> Self {
         PagingTableCreator {
             head,
@@ -625,9 +602,7 @@ impl PagingTableCreator {
             engine_state,
             stack,
             ctrlc,
-            row_offset,
-            width_param,
-            view,
+            cfg,
             elements_displayed: 0,
             reached_end: false,
         }
@@ -686,8 +661,8 @@ impl PagingTableCreator {
             style_comp,
             self.ctrlc.clone(),
             self.head,
-            self.row_offset,
-            get_width_param(self.width_param),
+            self.cfg.row_offset,
+            self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
         )
     }
@@ -736,16 +711,19 @@ impl Iterator for PagingTableCreator {
                 // Increase elements_displayed by one so on next iteration next branch of this
                 // if else triggers and terminates stream
                 self.elements_displayed = 1;
-                let term_width = get_width_param(self.width_param);
-                let result =
-                    create_empty_placeholder("list", term_width, &self.engine_state, &self.stack);
+                let result = create_empty_placeholder(
+                    "list",
+                    self.cfg.term_width,
+                    &self.engine_state,
+                    &self.stack,
+                );
                 Some(Ok(result.into_bytes()))
             } else {
                 None
             };
         }
 
-        let table = match &self.view {
+        let table = match &self.cfg.table_view {
             TableView::General => self.build_general(batch),
             TableView::Collapsed => self.build_collapsed(batch),
             TableView::Expanded {
@@ -755,7 +733,7 @@ impl Iterator for PagingTableCreator {
             } => self.build_extended(batch, *limit, *flatten, flatten_separator.clone()),
         };
 
-        self.row_offset += idx;
+        self.cfg.row_offset += idx;
 
         match table {
             Ok(Some(table)) => {
@@ -768,13 +746,13 @@ impl Iterator for PagingTableCreator {
             }
             Ok(None) => {
                 let msg = if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                    "".into()
+                    String::from("")
                 } else {
                     // assume this failed because the table was too wide
                     // TODO: more robust error classification
-                    let term_width = get_width_param(self.width_param);
-                    format!("Couldn't fit table into {term_width} columns!")
+                    format!("Couldn't fit table into {} columns!", self.cfg.term_width)
                 };
+
                 Some(Ok(msg.as_bytes().to_vec()))
             }
             Err(err) => Some(Err(err)),
@@ -822,7 +800,7 @@ fn render_path_name(
     Some(Value::string(val, span))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum TableView {
     General,
     Collapsed,
@@ -868,4 +846,26 @@ fn create_empty_placeholder(
     out.table
         .draw(config, termwidth)
         .expect("Could not create empty table placeholder")
+}
+
+fn supported_table_modes() -> Vec<Value> {
+    vec![
+        Value::test_string("basic"),
+        Value::test_string("compact"),
+        Value::test_string("compact_double"),
+        Value::test_string("default"),
+        Value::test_string("heavy"),
+        Value::test_string("light"),
+        Value::test_string("none"),
+        Value::test_string("reinforced"),
+        Value::test_string("rounded"),
+        Value::test_string("thin"),
+        Value::test_string("with_love"),
+        Value::test_string("psql"),
+        Value::test_string("markdown"),
+        Value::test_string("dots"),
+        Value::test_string("restructured"),
+        Value::test_string("ascii_rounded"),
+        Value::test_string("basic_compact"),
+    ]
 }
