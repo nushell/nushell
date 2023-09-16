@@ -17,6 +17,7 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
+pub(crate) const ENABLE_TRANSIENT_PROMPT: &str = "ENABLE_TRANSIENT_PROMPT";
 pub(crate) const TRANSIENT_PROMPT_COMMAND: &str = "TRANSIENT_PROMPT_COMMAND";
 pub(crate) const TRANSIENT_PROMPT_COMMAND_RIGHT: &str = "TRANSIENT_PROMPT_COMMAND_RIGHT";
 pub(crate) const TRANSIENT_PROMPT_INDICATOR: &str = "TRANSIENT_PROMPT_INDICATOR";
@@ -170,8 +171,13 @@ fn get_transient_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    get_prompt_string(transient_prompt, config, engine_state, stack)
-        .or_else(|| get_prompt_string(prompt, config, engine_state, stack))
+    let transient = match stack.get_env_var(&engine_state, ENABLE_TRANSIENT_PROMPT) {
+        Some(Value::Bool { val: true, .. }) => {
+            get_prompt_string(transient_prompt, config, engine_state, stack)
+        }
+        _ => None,
+    };
+    transient.or_else(|| get_prompt_string(prompt, config, engine_state, stack))
 }
 
 impl Prompt for TransientPrompt {
