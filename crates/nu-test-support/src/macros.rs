@@ -349,7 +349,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
         Err(why) => panic!(
             "Can't run test {:?} {}",
             crate::fs::executable_path(),
-            why.to_string()
+            why
         ),
     };
 
