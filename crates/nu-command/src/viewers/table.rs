@@ -229,7 +229,9 @@ fn parse_table_config(
     let collapse: bool = call.has_flag("collapse");
     let flatten: bool = call.has_flag("flatten");
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
-    let abbrivation: Option<usize> = call.get_flag(state, stack, "abbreviated")?;
+    let abbrivation: Option<usize> = call
+        .get_flag(state, stack, "abbreviated")?
+        .or_else(|| get_config(state, stack).table_abbriviation_threashold);
     let table_view = match (expand, collapse) {
         (false, false) => TableView::General,
         (_, true) => TableView::Collapsed,
