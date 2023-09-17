@@ -666,6 +666,18 @@ impl PagingTableCreator {
             (cfg.table_indent.left, cfg.table_indent.right),
         )
     }
+
+    fn build_table(&mut self, batch: Vec<Value>) -> Result<Option<String>, ShellError> {
+        match &self.cfg.table_view {
+            TableView::General => self.build_general(batch),
+            TableView::Collapsed => self.build_collapsed(batch),
+            TableView::Expanded {
+                limit,
+                flatten,
+                flatten_separator,
+            } => self.build_extended(batch, *limit, *flatten, flatten_separator.clone()),
+        }
+    }
 }
 
 impl Iterator for PagingTableCreator {
@@ -723,40 +735,12 @@ impl Iterator for PagingTableCreator {
             };
         }
 
-        let table = match &self.cfg.table_view {
-            TableView::General => self.build_general(batch),
-            TableView::Collapsed => self.build_collapsed(batch),
-            TableView::Expanded {
-                limit,
-                flatten,
-                flatten_separator,
-            } => self.build_extended(batch, *limit, *flatten, flatten_separator.clone()),
-        };
+        let table = self.build_table(batch);
 
         self.cfg.row_offset += idx;
 
-        match table {
-            Ok(Some(table)) => {
-                let table = maybe_strip_color(table, &get_config(&self.engine_state, &self.stack));
-
-                let mut bytes = table.as_bytes().to_vec();
-                bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
-
-                Some(Ok(bytes))
-            }
-            Ok(None) => {
-                let msg = if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
-                    String::from("")
-                } else {
-                    // assume this failed because the table was too wide
-                    // TODO: more robust error classification
-                    format!("Couldn't fit table into {} columns!", self.cfg.term_width)
-                };
-
-                Some(Ok(msg.as_bytes().to_vec()))
-            }
-            Err(err) => Some(Err(err)),
-        }
+        let config = get_config(&self.engine_state, &self.stack);
+        convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
     }
 }
 
@@ -846,6 +830,36 @@ fn create_empty_placeholder(
     out.table
         .draw(config, termwidth)
         .expect("Could not create empty table placeholder")
+}
+
+fn convert_table_to_output(
+    table: Result<Option<String>, ShellError>,
+    config: &Config,
+    ctrlc: &Option<Arc<AtomicBool>>,
+    term_width: usize,
+) -> Option<Result<Vec<u8>, ShellError>> {
+    match table {
+        Ok(Some(table)) => {
+            let table = maybe_strip_color(table, config);
+
+            let mut bytes = table.as_bytes().to_vec();
+            bytes.push(b'\n'); // nu-table tables don't come with a newline on the end
+
+            Some(Ok(bytes))
+        }
+        Ok(None) => {
+            let msg = if nu_utils::ctrl_c::was_pressed(ctrlc) {
+                String::from("")
+            } else {
+                // assume this failed because the table was too wide
+                // TODO: more robust error classification
+                format!("Couldn't fit table into {} columns!", term_width)
+            };
+
+            Some(Ok(msg.as_bytes().to_vec()))
+        }
+        Err(err) => Some(Err(err)),
+    }
 }
 
 fn supported_table_modes() -> Vec<Value> {
