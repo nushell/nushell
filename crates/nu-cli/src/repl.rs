@@ -273,7 +273,6 @@ pub fn evaluate_repl(
             .with_ansi_colors(config.use_ansi_coloring)
             .with_cursor_config(cursor_config)
             .with_transient_prompt(prompt_update::transient_prompt(
-                config,
                 engine_reference.clone(),
                 stack,
             ));

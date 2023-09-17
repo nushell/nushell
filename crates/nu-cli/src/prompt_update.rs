@@ -158,11 +158,11 @@ pub(crate) fn update_prompt<'prompt>(
 }
 
 struct TransientPrompt {
-    config: Config,
     engine_state: Arc<EngineState>,
     stack: Stack,
 }
 
+/// Try getting `$env.TRANSIENT_PROMPT_<X>`, and get `$env.PROMPT_<X>` if that fails
 fn get_transient_prompt_string(
     transient_prompt: &str,
     prompt: &str,
@@ -177,11 +177,12 @@ fn get_transient_prompt_string(
 impl Prompt for TransientPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
+        let config = &self.engine_state.get_config().clone();
         let mut stack = self.stack.clone();
         nu_prompt.update_prompt_left(get_transient_prompt_string(
             TRANSIENT_PROMPT_COMMAND,
             PROMPT_COMMAND,
-            &self.config,
+            config,
             &self.engine_state,
             &mut stack,
         ));
@@ -190,41 +191,43 @@ impl Prompt for TransientPrompt {
 
     fn render_prompt_right(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
+        let config = &self.engine_state.get_config().clone();
         let mut stack = self.stack.clone();
         nu_prompt.update_prompt_right(
             get_transient_prompt_string(
                 TRANSIENT_PROMPT_COMMAND_RIGHT,
                 PROMPT_COMMAND_RIGHT,
-                &self.config,
+                config,
                 &self.engine_state,
                 &mut stack,
             ),
-            self.config.render_right_prompt_on_last_line,
+            config.render_right_prompt_on_last_line,
         );
         nu_prompt.render_prompt_right().to_string().into()
     }
 
     fn render_prompt_indicator(&self, prompt_mode: reedline::PromptEditMode) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
+        let config = &self.engine_state.get_config().clone();
         let mut stack = self.stack.clone();
         nu_prompt.update_prompt_indicator(get_transient_prompt_string(
             TRANSIENT_PROMPT_INDICATOR,
             PROMPT_INDICATOR,
-            &self.config,
+            config,
             &self.engine_state,
             &mut stack,
         ));
         nu_prompt.update_prompt_vi_insert(get_transient_prompt_string(
             TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
             PROMPT_INDICATOR_VI_INSERT,
-            &self.config,
+            config,
             &self.engine_state,
             &mut stack,
         ));
         nu_prompt.update_prompt_vi_normal(get_transient_prompt_string(
             TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
             PROMPT_INDICATOR_VI_NORMAL,
-            &self.config,
+            config,
             &self.engine_state,
             &mut stack,
         ));
@@ -236,11 +239,12 @@ impl Prompt for TransientPrompt {
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
+        let config = &self.engine_state.get_config().clone();
         let mut stack = self.stack.clone();
         nu_prompt.update_prompt_multiline(get_transient_prompt_string(
             TRANSIENT_PROMPT_MULTILINE_INDICATOR,
             PROMPT_MULTILINE_INDICATOR,
-            &self.config,
+            config,
             &self.engine_state,
             &mut stack,
         ));
@@ -262,13 +266,8 @@ impl Prompt for TransientPrompt {
 }
 
 /// Construct the transient prompt
-pub(crate) fn transient_prompt(
-    config: &Config,
-    engine_state: Arc<EngineState>,
-    stack: &Stack,
-) -> Box<dyn Prompt> {
+pub(crate) fn transient_prompt(engine_state: Arc<EngineState>, stack: &Stack) -> Box<dyn Prompt> {
     Box::new(TransientPrompt {
-        config: config.clone(),
         engine_state,
         stack: stack.clone(),
     })
