@@ -163,14 +163,6 @@ struct TransientPrompt {
     stack: Stack,
 }
 
-/// Whether `$env.TRANSIENT_PROMPT_COMMAND` is something that can be treated as a prompt
-fn transient_enabled(engine_state: &EngineState, stack: &Stack) -> bool {
-    matches!(
-        stack.get_env_var(engine_state, TRANSIENT_PROMPT_COMMAND),
-        Some(Value::Closure { .. } | Value::Block { .. } | Value::String { .. })
-    )
-}
-
 fn get_transient_prompt_string(
     transient_prompt: &str,
     prompt: &str,
@@ -178,11 +170,8 @@ fn get_transient_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    if transient_enabled(engine_state, stack) {
-        get_prompt_string(transient_prompt, config, engine_state, stack)
-    } else {
-        get_prompt_string(prompt, config, engine_state, stack)
-    }
+    get_prompt_string(transient_prompt, config, engine_state, stack)
+        .or_else(|| get_prompt_string(prompt, config, engine_state, stack))
 }
 
 impl Prompt for TransientPrompt {
@@ -202,26 +191,16 @@ impl Prompt for TransientPrompt {
     fn render_prompt_right(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let mut stack = self.stack.clone();
-        let prompt = if transient_enabled(&self.engine_state, &stack) {
-            // Use an empty string if transient right prompt not set
-            Some(
-                get_prompt_string(
-                    TRANSIENT_PROMPT_COMMAND_RIGHT,
-                    &self.config,
-                    &self.engine_state,
-                    &mut stack,
-                )
-                .unwrap_or_default(),
-            )
-        } else {
-            get_prompt_string(
+        nu_prompt.update_prompt_right(
+            get_transient_prompt_string(
+                TRANSIENT_PROMPT_COMMAND_RIGHT,
                 PROMPT_COMMAND_RIGHT,
                 &self.config,
                 &self.engine_state,
                 &mut stack,
-            )
-        };
-        nu_prompt.update_prompt_right(prompt, self.config.render_right_prompt_on_last_line);
+            ),
+            self.config.render_right_prompt_on_last_line,
+        );
         nu_prompt.render_prompt_right().to_string().into()
     }
 
