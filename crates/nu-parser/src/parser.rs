@@ -2743,22 +2743,26 @@ pub fn parse_shape_name(
         _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
         _ => {
             if bytes.contains(&b'@') {
-                let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
+                let mut split = bytes.splitn(2, |b| b == &b'@');
 
-                let shape_span = Span::new(span.start, span.start + split[0].len());
-                let cmd_span = Span::new(span.start + split[0].len() + 1, span.end);
-                let shape = parse_shape_name(working_set, split[0], shape_span);
+                let shape_name = split
+                    .next()
+                    .expect("If `bytes` contains `@` splitn returns 2 slices");
+                let shape_span = Span::new(span.start, span.start + shape_name.len());
+                let shape = parse_shape_name(working_set, shape_name, shape_span);
 
-                let command_name = trim_quotes(split[1]);
+                let cmd_span = Span::new(span.start + shape_name.len() + 1, span.end);
+                let cmd_name = split
+                    .next()
+                    .expect("If `bytes` contains `@` splitn returns 2 slices");
 
-                if command_name.is_empty() {
-                    working_set.error(ParseError::Expected("a command name", cmd_span));
-                    return SyntaxShape::Any;
+                let cmd_name = trim_quotes(cmd_name);
+                if cmd_name.is_empty() {
+                    working_set.error(ParseError::Expected("the command name of a completion function", cmd_span));
+                    return shape;
                 }
 
-                let decl_id = working_set.find_decl(command_name);
-
-                if let Some(decl_id) = decl_id {
+                if let Some(decl_id) = working_set.find_decl(cmd_name) {
                     return SyntaxShape::CompleterWrapper(Box::new(shape), decl_id);
                 } else {
                     working_set.error(ParseError::UnknownCommand(cmd_span));
