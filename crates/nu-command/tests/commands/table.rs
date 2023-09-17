@@ -2688,7 +2688,7 @@ fn table_leading_trailing_space_bg_expand() {
 }
 
 #[test]
-fn table_abbriviation() {
+fn table_abbreviation() {
     let actual = nu!(
         r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 100"#
     );
@@ -2711,7 +2711,7 @@ fn table_abbriviation() {
 }
 
 #[test]
-fn table_abbriviation_kv() {
+fn table_abbreviation_kv() {
     let actual = nu!(
         r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 100"#
     );
@@ -2737,7 +2737,7 @@ fn table_abbriviation_kv() {
 }
 
 #[test]
-fn table_abbriviation_kv_expand() {
+fn table_abbreviation_kv_expand() {
     let actual = nu!(
         r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 100 -e"#
     );
@@ -2763,7 +2763,7 @@ fn table_abbriviation_kv_expand() {
 }
 
 #[test]
-fn table_abbriviation_by_config() {
+fn table_abbreviation_by_config() {
     let actual = nu!(
         r#"$env.config.table.abbreviate_if_longer_than = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
     );
@@ -2786,7 +2786,7 @@ fn table_abbriviation_by_config() {
 }
 
 #[test]
-fn table_abbriviation_by_config_override() {
+fn table_abbreviation_by_config_override() {
     let actual = nu!(
         r#"$env.config.table.abbreviate_if_longer_than = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 1"#
     );

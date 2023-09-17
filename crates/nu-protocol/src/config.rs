@@ -76,7 +76,7 @@ pub struct Config {
     pub table_move_header: bool,
     pub table_show_empty: bool,
     pub table_indent: TableIndent,
-    pub table_abbriviation_threashold: Option<usize>,
+    pub table_abbreviation_threshold: Option<usize>,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -135,7 +135,7 @@ impl Default for Config {
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             table_move_header: false,
             table_indent: TableIndent { left: 1, right: 1 },
-            table_abbriviation_threashold: None,
+            table_abbreviation_threshold: None,
 
             datetime_normal_format: None,
             datetime_table_format: None,
@@ -1031,7 +1031,7 @@ impl Value {
                                                 invalid!(Some(span), "should be an int unsigned");
                                             }
 
-                                            config.table_abbriviation_threashold = Some(b as usize);
+                                            config.table_abbreviation_threshold = Some(b as usize);
                                         } else {
                                             invalid!(Some(span), "should be an int");
                                         }

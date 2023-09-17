@@ -197,7 +197,7 @@ struct TableConfig {
     row_offset: usize,
     table_view: TableView,
     term_width: usize,
-    abbriviation: Option<usize>,
+    abbreviation: Option<usize>,
 }
 
 impl TableConfig {
@@ -205,13 +205,13 @@ impl TableConfig {
         row_offset: usize,
         table_view: TableView,
         term_width: usize,
-        abbriviation: Option<usize>,
+        abbreviation: Option<usize>,
     ) -> Self {
         Self {
             row_offset,
             table_view,
             term_width,
-            abbriviation,
+            abbreviation,
         }
     }
 }
@@ -231,7 +231,7 @@ fn parse_table_config(
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
-        .or_else(|| get_config(state, stack).table_abbriviation_threashold);
+        .or_else(|| get_config(state, stack).table_abbreviation_threshold);
     let table_view = match (expand, collapse) {
         (false, false) => TableView::General,
         (_, true) => TableView::Collapsed,
@@ -362,7 +362,7 @@ fn handle_record(
         return Ok(value.into_pipeline_data());
     };
 
-    if let Some(limit) = cfg.abbriviation {
+    if let Some(limit) = cfg.abbreviation {
         if record.cols.len() > limit * 2 + 1 {
             record.cols = abbreviate_list(&record.cols, limit, String::from("..."));
             record.vals =
@@ -540,7 +540,7 @@ fn handle_row_stream(
         _ => stream,
     };
 
-    if let Some(limit) = cfg.abbriviation {
+    if let Some(limit) = cfg.abbreviation {
         // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
 
         let mut data = consume_stream(stream, &ctrlc);
