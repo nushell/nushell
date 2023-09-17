@@ -1043,6 +1043,34 @@ fn test_semi_open_brace(#[case] phrase: &[u8]) {
     let _block = parse(&mut working_set, None, phrase, true);
 }
 
+#[rstest]
+#[case(b"def test []: int -> int { 1 }")]
+#[case(b"def test []: string -> string { 'qwe' }")]
+#[case(b"def test []: nothing -> nothing { null }")]
+#[case(b"def test []: list<string> -> list<string> { [] }")]
+#[case(b"def test []: record<a: int b: int> -> record<c: int e: int> { {c: 1 e: 1} }")]
+#[case(b"def test []: table<a: int b: int> -> table<c: int e: int> { [ {c: 1 e: 1} ] }")]
+fn test_input_signature(#[case] phrase: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    // this should not panic
+    let _block = parse(&mut working_set, None, phrase, true);
+}
+
+#[rstest]
+#[case(b"let a: int = 1")]
+#[case(b"let a: string = 'qwe'")]
+#[case(b"let a: nothing = null")]
+#[case(b"let a: list<string> = []")]
+#[case(b"let a: record<a: int b: int> = {c: 1 e: 1}")]
+#[case(b"let a: table<a: int b: int> = [ {c: 1 e: 1} ]")]
+fn test_let_signature(#[case] phrase: &[u8]) {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    // this should not panic
+    let _block = parse(&mut working_set, None, phrase, true);
+}
+
 mod range {
     use super::*;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
