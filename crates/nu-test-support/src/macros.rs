@@ -96,7 +96,7 @@ macro_rules! nu {
 
     // Create the NuOpts struct from the `field => value ;` pairs
     (@nu_opts $( $field:ident => $value:expr ; )*) => {
-        NuOpts{
+        $crate::macros::NuOpts{
             $(
                 $field: Some($value),
             )*
@@ -115,97 +115,11 @@ macro_rules! nu {
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
-        pub use std::error::Error;
-        pub use std::io::prelude::*;
-        pub use std::process::{Command, Stdio};
-        pub use $crate::NATIVE_PATH_ENV_VAR;
-
-        pub fn escape_quote_string(input: String) -> String {
-            let mut output = String::with_capacity(input.len() + 2);
-            output.push('"');
-
-            for c in input.chars() {
-                if c == '"' || c == '\\' {
-                    output.push('\\');
-                }
-                output.push(c);
-            }
-
-            output.push('"');
-            output
-        }
-
-        let test_bins = $crate::fs::binaries();
-
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let test_bins = $crate::nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't canonicalize dummy binaries path {}: {:?}",
-                test_bins.display(),
-                e
-            )
-        });
-
-        let mut paths = $crate::shell_os_paths();
-        paths.insert(0, test_bins);
-
-        let path = $path.lines().collect::<Vec<_>>().join("; ");
-
-        let paths_joined = match std::env::join_paths(paths) {
-            Ok(all) => all,
-            Err(_) => panic!("Couldn't join paths for PATH var."),
-        };
-
-        let target_cwd = $opts.cwd.unwrap_or(".".to_string());
-        let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
-        let executable_path = $crate::fs::executable_path();
-
-        let mut command = $crate::macros::run_command(&executable_path, &target_cwd);
-        command
-            .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .env(NATIVE_PATH_ENV_VAR, paths_joined)
-            // TODO: consider adding custom plugin path for tests to
-            // not interfere with user local environment
-            // .arg("--skip-plugins")
-            // .arg("--no-history")
-            // .arg("--config-file")
-            // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg("--no-std-lib")
-            .arg(format!("-c {}", escape_quote_string(path)))
-            .stdout(Stdio::piped())
-            // .stdin(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        let mut process = match command.spawn()
-        {
-            Ok(child) => child,
-            Err(why) => panic!("Can't run test {:?} {}", $crate::fs::executable_path(), why.to_string()),
-        };
-
-        // let stdin = process.stdin.as_mut().expect("couldn't open stdin");
-        // stdin
-        //     .write_all(b"exit\n")
-        //     .expect("couldn't write to stdin");
-
-        let output = process
-            .wait_with_output()
-            .expect("couldn't read from stdout/stderr");
-
-        let out = $crate::macros::read_std(&output.stdout);
-        let err = String::from_utf8_lossy(&output.stderr);
-
-            println!("=== stderr\n{}", err);
-
-        $crate::Outcome::new(out,err.into_owned())
+        $crate::macros::nu_inner($opts, $path, false)
     }};
 
     // This is the entrypoint for this macro.
     ($($token:tt)*) => {{
-        #[derive(Default)]
-        struct NuOpts {
-            cwd: Option<String>,
-            locale: Option<String>,
-        }
 
         nu!(@options [ ] $($token)*)
     }};
@@ -258,7 +172,7 @@ macro_rules! nu_with_std {
 
     // Create the NuOpts struct from the `field => value ;` pairs
     (@nu_opts $( $field:ident => $value:expr ; )*) => {
-        NuOpts{
+        $crate::macros::NuOpts{
             $(
                 $field: Some($value),
             )*
@@ -277,95 +191,11 @@ macro_rules! nu_with_std {
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
-        pub use std::error::Error;
-        pub use std::io::prelude::*;
-        pub use std::process::Stdio;
-        pub use $crate::NATIVE_PATH_ENV_VAR;
-
-        pub fn escape_quote_string(input: String) -> String {
-            let mut output = String::with_capacity(input.len() + 2);
-            output.push('"');
-
-            for c in input.chars() {
-                if c == '"' || c == '\\' {
-                    output.push('\\');
-                }
-                output.push(c);
-            }
-
-            output.push('"');
-            output
-        }
-
-        let test_bins = $crate::fs::binaries();
-
-        let cwd = std::env::current_dir().expect("Could not get current working directory.");
-        let test_bins = $crate::nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
-            panic!(
-                "Couldn't canonicalize dummy binaries path {}: {:?}",
-                test_bins.display(),
-                e
-            )
-        });
-
-        let mut paths = $crate::shell_os_paths();
-        paths.insert(0, test_bins);
-
-        let path = $path.lines().collect::<Vec<_>>().join("; ");
-
-        let paths_joined = match std::env::join_paths(paths) {
-            Ok(all) => all,
-            Err(_) => panic!("Couldn't join paths for PATH var."),
-        };
-
-        let target_cwd = $opts.cwd.unwrap_or(".".to_string());
-        let locale = $opts.locale.unwrap_or("en_US.UTF-8".to_string());
-        let executable_path = $crate::fs::executable_path();
-
-        let mut command = $crate::macros::run_command(&executable_path, &target_cwd);
-        command
-            .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
-            .env(NATIVE_PATH_ENV_VAR, paths_joined)
-            // .arg("--skip-plugins")
-            // .arg("--no-history")
-            // .arg("--config-file")
-            // .arg($crate::fs::DisplayPath::display_path(&$crate::fs::fixtures().join("playground/config/default.toml")))
-            .arg(format!("-c {}", escape_quote_string(path)))
-            .stdout(Stdio::piped())
-            // .stdin(Stdio::piped())
-            .stderr(Stdio::piped());
-
-        let mut process = match command.spawn()
-        {
-            Ok(child) => child,
-            Err(why) => panic!("Can't run test {:?} {}", $crate::fs::executable_path(), why.to_string()),
-        };
-
-        // let stdin = process.stdin.as_mut().expect("couldn't open stdin");
-        // stdin
-        //     .write_all(b"exit\n")
-        //     .expect("couldn't write to stdin");
-
-        let output = process
-            .wait_with_output()
-            .expect("couldn't read from stdout/stderr");
-
-        let out = $crate::macros::read_std(&output.stdout);
-        let err = String::from_utf8_lossy(&output.stderr);
-
-            println!("=== stderr\n{}", err);
-
-        $crate::Outcome::new(out,err.into_owned())
+        $crate::macros::nu_inner($opts, $path, true)
     }};
 
     // This is the entrypoint for this macro.
     ($($token:tt)*) => {{
-        #[derive(Default)]
-        struct NuOpts {
-            cwd: Option<String>,
-            locale: Option<String>,
-        }
-
         nu!(@options [ ] $($token)*)
     }};
 }
@@ -462,14 +292,100 @@ macro_rules! nu_with_plugins {
     }};
 }
 
+use crate::{Outcome, NATIVE_PATH_ENV_VAR};
+use std::{
+    path::Path,
+    process::{Command, Stdio},
+};
+
+#[derive(Default)]
+pub struct NuOpts {
+    pub cwd: Option<String>,
+    pub locale: Option<String>,
+}
+
+pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome {
+    let test_bins = crate::fs::binaries();
+
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    let test_bins = nu_path::canonicalize_with(&test_bins, cwd).unwrap_or_else(|e| {
+        panic!(
+            "Couldn't canonicalize dummy binaries path {}: {:?}",
+            test_bins.display(),
+            e
+        )
+    });
+
+    let mut paths = crate::shell_os_paths();
+    paths.insert(0, test_bins);
+
+    let path = path.as_ref().lines().collect::<Vec<_>>().join("; ");
+
+    let paths_joined = match std::env::join_paths(paths) {
+        Ok(all) => all,
+        Err(_) => panic!("Couldn't join paths for PATH var."),
+    };
+
+    let target_cwd = opts.cwd.unwrap_or(".".to_string());
+    let locale = opts.locale.unwrap_or("en_US.UTF-8".to_string());
+    let executable_path = crate::fs::executable_path();
+
+    let mut command = run_command(&executable_path, &target_cwd);
+    command
+        .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
+        .env(NATIVE_PATH_ENV_VAR, paths_joined);
+    // TODO: consider adding custom plugin path for tests to
+    // not interfere with user local environment
+    if !with_std {
+        command.arg("--no-std-lib");
+    }
+    command
+        .arg(format!("-c {}", escape_quote_string(path)))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    let process = match command.spawn() {
+        Ok(child) => child,
+        Err(why) => panic!(
+            "Can't run test {:?} {}",
+            crate::fs::executable_path(),
+            why.to_string()
+        ),
+    };
+
+    let output = process
+        .wait_with_output()
+        .expect("couldn't read from stdout/stderr");
+
+    let out = read_std(&output.stdout);
+    let err = String::from_utf8_lossy(&output.stderr);
+
+    println!("=== stderr\n{}", err);
+
+    Outcome::new(out, err.into_owned())
+}
+
+fn escape_quote_string(input: String) -> String {
+    let mut output = String::with_capacity(input.len() + 2);
+    output.push('"');
+
+    for c in input.chars() {
+        if c == '"' || c == '\\' {
+            output.push('\\');
+        }
+        output.push(c);
+    }
+
+    output.push('"');
+    output
+}
+
 pub fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")
 }
-
-use std::{path::Path, process::Command};
 
 pub fn run_command(executable_path: &Path, target_cwd: &str) -> Command {
     let mut command = Command::new(executable_path);
