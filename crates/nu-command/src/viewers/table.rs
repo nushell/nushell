@@ -345,7 +345,7 @@ fn handle_table_command(
 fn handle_record(
     input: CmdInput,
     cfg: TableConfig,
-    record: Record,
+    mut record: Record,
 ) -> Result<PipelineData, ShellError> {
     let config = get_config(input.engine_state, input.stack);
     let span = input.data.span().unwrap_or(input.call.head);
@@ -359,6 +359,14 @@ fn handle_record(
         let value = Value::string(value, span);
         return Ok(value.into_pipeline_data());
     };
+
+    if let Some(limit) = cfg.abbriviation {
+        if record.cols.len() > limit * 2 + 1 {
+            record.cols = abbreviate_list(&record.cols, limit, String::from("..."));
+            record.vals =
+                abbreviate_list(&record.vals, limit, Value::string("...", Span::unknown()));
+        }
+    }
 
     let indent = (config.table_indent.left, config.table_indent.right);
     let opts = TableOpts::new(&config, styles, ctrlc, span, 0, cfg.term_width, indent);
@@ -438,7 +446,7 @@ fn handle_row_stream(
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = input.engine_state.ctrlc.clone();
 
-    let stream = match metadata.as_deref() {
+    let mut stream = match metadata.as_deref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,
@@ -529,6 +537,36 @@ fn handle_row_stream(
         }
         _ => stream,
     };
+
+    if let Some(limit) = cfg.abbriviation {
+        // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
+
+        let mut data = consume_stream(stream, &ctrlc);
+        if data.len() > limit * 2 + 1 {
+            data = abbreviate_list(
+                &data,
+                limit,
+                Value::string(String::from("..."), Span::unknown()),
+            );
+
+            let is_record_list = data[..limit]
+                .iter()
+                .all(|value| matches!(value, Value::Record { .. }))
+                && data[limit + 1..]
+                    .iter()
+                    .all(|value| matches!(value, Value::Record { .. }));
+
+            if limit > 0 && is_record_list {
+                // in case it's a record list we set a default text to each column instead of a single value.
+
+                let cols = data[0].as_record().expect("ok").cols.clone();
+                let vals = vec![Value::string(String::from("..."), Span::unknown()); cols.len()];
+                data[limit] = Value::record(Record { cols, vals }, Span::unknown());
+            }
+        }
+
+        stream = ListStream::from_stream(data.into_iter(), ctrlc.clone());
+    }
 
     let paginator = PagingTableCreator::new(
         input.call.head,
@@ -860,6 +898,28 @@ fn convert_table_to_output(
         }
         Err(err) => Some(Err(err)),
     }
+}
+
+fn consume_stream(stream: ListStream, ctrlc: &Option<Arc<AtomicBool>>) -> Vec<Value> {
+    let mut list = vec![];
+    for value in stream.into_iter() {
+        if nu_utils::ctrl_c::was_pressed(ctrlc) {
+            break;
+        }
+
+        list.push(value);
+    }
+
+    list
+}
+
+fn abbreviate_list<T>(record: &[T], limit: usize, text: T) -> Vec<T>
+where
+    T: Clone,
+{
+    let head = record.iter().take(limit).cloned();
+    let tail = record.iter().rev().take(limit).rev().cloned();
+    head.chain(std::iter::once(text)).chain(tail).collect()
 }
 
 fn supported_table_modes() -> Vec<Value> {
