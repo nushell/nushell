@@ -346,11 +346,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
 
     let process = match command.spawn() {
         Ok(child) => child,
-        Err(why) => panic!(
-            "Can't run test {:?} {}",
-            crate::fs::executable_path(),
-            why
-        ),
+        Err(why) => panic!("Can't run test {:?} {}", crate::fs::executable_path(), why),
     };
 
     let output = process
