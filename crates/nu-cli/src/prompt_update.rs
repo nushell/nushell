@@ -17,7 +17,6 @@ pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
 pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
-pub(crate) const ENABLE_TRANSIENT_PROMPT: &str = "ENABLE_TRANSIENT_PROMPT";
 pub(crate) const TRANSIENT_PROMPT_COMMAND: &str = "TRANSIENT_PROMPT_COMMAND";
 pub(crate) const TRANSIENT_PROMPT_COMMAND_RIGHT: &str = "TRANSIENT_PROMPT_COMMAND_RIGHT";
 pub(crate) const TRANSIENT_PROMPT_INDICATOR: &str = "TRANSIENT_PROMPT_INDICATOR";
@@ -164,6 +163,14 @@ struct TransientPrompt {
     stack: Stack,
 }
 
+/// Whether `$env.TRANSIENT_PROMPT_COMMAND` is something that can be treated as a prompt
+fn transient_enabled(engine_state: &EngineState, stack: &Stack) -> bool {
+    matches!(
+        stack.get_env_var(engine_state, TRANSIENT_PROMPT_COMMAND),
+        Some(Value::Closure { .. } | Value::Block { .. } | Value::String { .. })
+    )
+}
+
 fn get_transient_prompt_string(
     transient_prompt: &str,
     prompt: &str,
@@ -171,13 +178,11 @@ fn get_transient_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    let transient = match stack.get_env_var(&engine_state, ENABLE_TRANSIENT_PROMPT) {
-        Some(Value::Bool { val: true, .. }) => {
-            get_prompt_string(transient_prompt, config, engine_state, stack)
-        }
-        _ => None,
-    };
-    transient.or_else(|| get_prompt_string(prompt, config, engine_state, stack))
+    if transient_enabled(engine_state, stack) {
+        get_prompt_string(transient_prompt, config, engine_state, stack)
+    } else {
+        get_prompt_string(prompt, config, engine_state, stack)
+    }
 }
 
 impl Prompt for TransientPrompt {
@@ -197,16 +202,26 @@ impl Prompt for TransientPrompt {
     fn render_prompt_right(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let mut stack = self.stack.clone();
-        nu_prompt.update_prompt_right(
-            get_transient_prompt_string(
-                TRANSIENT_PROMPT_COMMAND_RIGHT,
+        let prompt = if transient_enabled(&self.engine_state, &stack) {
+            // Use an empty string if transient right prompt not set
+            Some(
+                get_prompt_string(
+                    TRANSIENT_PROMPT_COMMAND_RIGHT,
+                    &self.config,
+                    &self.engine_state,
+                    &mut stack,
+                )
+                .unwrap_or_default(),
+            )
+        } else {
+            get_prompt_string(
                 PROMPT_COMMAND_RIGHT,
                 &self.config,
                 &self.engine_state,
                 &mut stack,
-            ),
-            self.config.render_right_prompt_on_last_line,
-        );
+            )
+        };
+        nu_prompt.update_prompt_right(prompt, self.config.render_right_prompt_on_last_line);
         nu_prompt.render_prompt_right().to_string().into()
     }
 
@@ -275,7 +290,7 @@ pub(crate) fn transient_prompt(
 ) -> Box<dyn Prompt> {
     Box::new(TransientPrompt {
         config: config.clone(),
-        engine_state: engine_state.clone(),
+        engine_state,
         stack: stack.clone(),
     })
 }
