@@ -77,8 +77,7 @@ pub fn sort(
                 ));
             }
 
-            if let Some(nonexistent) = nonexistent_column(sort_columns.clone(), record.cols.clone())
-            {
+            if let Some(nonexistent) = nonexistent_column(&sort_columns, &record.cols) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
                     span,

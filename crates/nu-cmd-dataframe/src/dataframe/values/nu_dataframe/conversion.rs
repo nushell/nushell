@@ -269,7 +269,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 InputType::Date => {
                     let it = column.values.iter().map(|v| {
                         if let Value::Date { val, .. } = &v {
-                            Some(val.timestamp_nanos())
+                            Some(val.timestamp_nanos_opt().unwrap_or_default())
                         } else {
                             None
                         }
@@ -413,7 +413,7 @@ fn input_type_list_to_series(
 
                 let it = v.as_list()?.iter().map(|v| {
                     if let Value::Date { val, .. } = &v {
-                        Some(val.timestamp_nanos())
+                        Some(val.timestamp_nanos_opt().unwrap_or_default())
                     } else {
                         None
                     }

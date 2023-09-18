@@ -38,7 +38,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a decimal."
+        "deprecated: convert data into a floating point number."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Use `into float` instead"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -52,6 +56,16 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`into decimal` is deprecated and will be removed in 0.86.".into(),
+                Some(call.head),
+                Some("Use `into float` instead".into()),
+                vec![],
+            ),
+        );
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -60,7 +74,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to decimal in table",
+                description: "Convert string to float in table",
                 example: "[[num]; ['5.01']] | into decimal num",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
@@ -71,7 +85,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Convert string to decimal",
+                description: "Convert string to float",
                 example: "'1.345' | into decimal",
                 result: Some(Value::test_float(1.345)),
             },
@@ -84,7 +98,7 @@ impl Command for SubCommand {
                 ])),
             },
             Example {
-                description: "Convert boolean to decimal",
+                description: "Convert boolean to float",
                 example: "true | into decimal",
                 result: Some(Value::test_float(1.0)),
             },

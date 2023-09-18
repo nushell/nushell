@@ -46,12 +46,12 @@ impl Dirs {
         self.fixtures.join("playground/config")
     }
 
-    pub fn root(&self) -> &PathBuf {
-        &self.root
+    pub fn root(&self) -> &Path {
+        self.root.as_path()
     }
 
-    pub fn test(&self) -> &PathBuf {
-        &self.test
+    pub fn test(&self) -> &Path {
+        self.test.as_path()
     }
 }
 

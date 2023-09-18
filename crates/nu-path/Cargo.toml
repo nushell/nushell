@@ -6,6 +6,7 @@ edition = "2021"
 license = "MIT"
 name = "nu-path"
 version = "0.84.1"
+exclude = ["/fuzz"]
 
 [lib]
 bench = false

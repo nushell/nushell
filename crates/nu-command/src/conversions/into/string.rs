@@ -89,22 +89,22 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("5.000")),
             },
             Example {
-                description: "convert decimal to string and round to nearest integer",
+                description: "convert float to string and round to nearest integer",
                 example: "1.7 | into string -d 0",
                 result: Some(Value::test_string("2")),
             },
             Example {
-                description: "convert decimal to string",
+                description: "convert float to string",
                 example: "1.7 | into string -d 1",
                 result: Some(Value::test_string("1.7")),
             },
             Example {
-                description: "convert decimal to string and limit to 2 decimals",
+                description: "convert float to string and limit to 2 decimals",
                 example: "1.734 | into string -d 2",
                 result: Some(Value::test_string("1.73")),
             },
             Example {
-                description: "try to convert decimal to string and provide negative decimal points",
+                description: "try to convert float to string and provide negative decimal points",
                 example: "1.734 | into string -d -2",
                 result: None,
                 // FIXME
@@ -116,7 +116,7 @@ impl Command for SubCommand {
                 // }),
             },
             Example {
-                description: "convert decimal to string",
+                description: "convert float to string",
                 example: "4.3 | into string",
                 result: Some(Value::test_string("4.3")),
             },

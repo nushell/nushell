@@ -149,7 +149,7 @@ export def datetime-diff [from: datetime, to: datetime] {
         $result = (borrow-second $from_expanded $result)
     }
 
-    $result.millisecond = ($result.nanosecond / 1_000_000 | into int) # don't want a decimal
+    $result.millisecond = ($result.nanosecond / 1_000_000 | into int) # don't want a float
     $result.microsecond = (($result.nanosecond mod 1_000_000) / 1_000 | into int)
     $result.nanosecond = ($result.nanosecond mod 1_000 | into int)
 

@@ -101,7 +101,7 @@ criterion = "0.5"
 pretty_assertions = "1.4"
 rstest = { version = "0.18", default-features = false }
 serial_test = "2.0"
-tempfile = "3.7"
+tempfile = "3.8"
 
 [features]
 plugin = [
@@ -112,7 +112,7 @@ plugin = [
 	"nu-protocol/plugin",
 	"nu-engine/plugin",
 ]
-default = ["plugin", "which-support", "trash-support", "sqlite", "native-tls"]
+default = ["plugin", "which-support", "trash-support", "sqlite", "mimalloc", "native-tls"]
 stable = ["default"]
 wasi = ["nu-cmd-lang/wasi"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
@@ -123,7 +123,8 @@ wasi = ["nu-cmd-lang/wasi"]
 native-tls = [ "nu-command/native-tls" ]
 rustls = [ "nu-command/rustls" ]
 
-# Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+# Enable to statically link OpenSSL (perl is required, to build OpenSSL https://docs.rs/openssl/latest/openssl/); 
+# otherwise the system version will be used. Not enabled by default because it takes a while to build
 static-link-openssl = ["dep:openssl", "native-tls", "nu-cmd-lang/static-link-openssl"]
 
 mimalloc = ["nu-cmd-lang/mimalloc", "dep:mimalloc"]

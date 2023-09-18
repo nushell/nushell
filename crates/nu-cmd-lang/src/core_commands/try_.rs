@@ -86,7 +86,7 @@ impl Command for Try {
             },
             Example {
                 description: "Try to run a missing command",
-                example: "try { asdfasdf } catch { echo 'missing' } ",
+                example: "try { asdfasdf } catch { 'missing' } ",
                 result: Some(Value::test_string("missing")),
             },
         ]

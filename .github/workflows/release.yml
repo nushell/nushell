@@ -72,7 +72,7 @@ jobs:
     runs-on: ${{matrix.os}}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Update Rust Toolchain Target
       run: |
@@ -84,9 +84,9 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3
+      uses: hustcer/setup-nu@v3.6
       with:
-        version: 0.81.0
+        version: 0.84.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -102,7 +102,7 @@ jobs:
 
     # REF: https://github.com/marketplace/actions/gh-release
     - name: Publish Archive
-      uses: softprops/action-gh-release@v0.1.13
+      uses: softprops/action-gh-release@v0.1.15
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
         draft: true

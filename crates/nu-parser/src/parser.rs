@@ -2709,7 +2709,7 @@ pub fn parse_shape_name(
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
         b"expr" => SyntaxShape::Expression,
-        b"float" | b"decimal" => SyntaxShape::Decimal,
+        b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
         b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
@@ -4654,7 +4654,7 @@ pub fn parse_value(
             expression
         }
         SyntaxShape::Number => parse_number(working_set, span),
-        SyntaxShape::Decimal => parse_float(working_set, span),
+        SyntaxShape::Float => parse_float(working_set, span),
         SyntaxShape::Int => parse_int(working_set, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),

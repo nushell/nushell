@@ -31,8 +31,8 @@ nu-utils = { path = "../nu-utils", version = "0.84.1" }
 alphanumeric-sort = "1.5"
 base64 = "0.21"
 byteorder = "1.4"
-bytesize = "1.2"
-calamine = "0.21"
+bytesize = "1.3"
+calamine = "0.22"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
@@ -49,7 +49,7 @@ fs_extra = "1.3"
 htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
-itertools = "0.10"
+itertools = "0.11"
 log = "0.4"
 lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
@@ -83,12 +83,13 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 sysinfo = "0.29"
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
-terminal_size = "0.2"
+terminal_size = "0.3"
 titlecase = "2.0"
-toml = "0.7"
+toml = "0.8"
 unicode-segmentation = "1.10"
 ureq = { version = "2.7", default-features = false, features = ["charset", "gzip", "json"] }
 url = "2.2"
+uu_cp = "0.0.21"
 uuid = { version = "1.3", features = ["v4"] }
 wax = { version = "0.5" }
 webpki-roots = { version = "0.25.2", optional = true }
@@ -131,7 +132,7 @@ nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.84.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.84.1" }
 
 dirs-next = "2.0"
-mockito = { version = "1.1", default-features = false }
+mockito = { version = "1.2", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rstest = { version = "0.18", default-features = false }

@@ -2,7 +2,9 @@ use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_protocol::TrimStrategy;
 use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
 
-use crate::{clean_charset, string_wrap, NuTableConfig, TableOutput, TableTheme};
+use crate::{
+    clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
+};
 
 pub type NuText = (String, TextStyle);
 pub type TableResult = Result<Option<TableOutput>, ShellError>;
@@ -34,9 +36,11 @@ pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> N
     make_styled_string(style, text, Some(val), float_precision)
 }
 
-pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
-    let (text, style) = nu_value_to_string(val, cfg, style);
-    let text = clean_charset(&text);
+pub fn nu_value_to_string_clean(val: &Value, cfg: &Config, style_comp: &StyleComputer) -> NuText {
+    let (text, style) = nu_value_to_string(val, cfg, style_comp);
+    let mut text = clean_charset(&text);
+    colorize_space_str(&mut text, style_comp);
+
     (text, style)
 }
 
@@ -59,6 +63,16 @@ pub fn get_index_style(style_computer: &StyleComputer) -> TextStyle {
     TextStyle::with_style(
         Alignment::Right,
         style_computer.compute("row_index", &Value::string("", Span::unknown())),
+    )
+}
+
+pub fn get_leading_trailing_space_style(style_computer: &StyleComputer) -> TextStyle {
+    TextStyle::with_style(
+        Alignment::Right,
+        style_computer.compute(
+            "leading_trailing_space_bg",
+            &Value::string("", Span::unknown()),
+        ),
     )
 }
 
@@ -157,6 +171,12 @@ pub fn load_theme_from_config(config: &Config) -> TableTheme {
         "reinforced" => TableTheme::reinforced(),
         "heavy" => TableTheme::heavy(),
         "none" => TableTheme::none(),
+        "psql" => TableTheme::psql(),
+        "markdown" => TableTheme::markdown(),
+        "dots" => TableTheme::dots(),
+        "restructured" => TableTheme::restructured(),
+        "ascii_rounded" => TableTheme::ascii_rounded(),
+        "basic_compact" => TableTheme::basic_compact(),
         _ => TableTheme::rounded(),
     }
 }

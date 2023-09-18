@@ -294,7 +294,7 @@ fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
 
 #[allow(clippy::too_many_arguments)]
 fn highlight_terms_in_record_with_search_columns(
-    search_cols: &Vec<String>,
+    search_cols: &[String],
     record: &Record,
     span: Span,
     config: &Config,
@@ -507,7 +507,7 @@ fn value_should_be_printed(
     filter_config: &Config,
     lower_terms: &[Value],
     span: Span,
-    columns_to_search: &Vec<String>,
+    columns_to_search: &[String],
     invert: bool,
 ) -> bool {
     let lower_value = Value::string(value.into_string("", filter_config).to_lowercase(), span);
@@ -561,7 +561,7 @@ fn term_equals_value(term: &Value, value: &Value, span: Span) -> bool {
 
 fn record_matches_term(
     record: &Record,
-    columns_to_search: &Vec<String>,
+    columns_to_search: &[String],
     filter_config: &Config,
     term: &Value,
     span: Span,

@@ -38,6 +38,56 @@ impl TableTheme {
         }
     }
 
+    pub fn psql() -> TableTheme {
+        Self {
+            theme: Style::psql().into(),
+            full_theme: Style::psql().into(),
+            has_inner: true,
+        }
+    }
+
+    pub fn markdown() -> TableTheme {
+        Self {
+            theme: Style::markdown().into(),
+            full_theme: Style::markdown().into(),
+            has_inner: true,
+        }
+    }
+
+    pub fn dots() -> TableTheme {
+        let theme = Style::dots().remove_horizontal().into();
+        Self {
+            theme,
+            full_theme: Style::dots().into(),
+            has_inner: true,
+        }
+    }
+
+    pub fn restructured() -> TableTheme {
+        Self {
+            theme: Style::re_structured_text().into(),
+            full_theme: Style::re_structured_text().into(),
+            has_inner: true,
+        }
+    }
+
+    pub fn ascii_rounded() -> TableTheme {
+        Self {
+            theme: Style::ascii_rounded().into(),
+            full_theme: Style::ascii_rounded().into(),
+            has_inner: true,
+        }
+    }
+
+    pub fn basic_compact() -> TableTheme {
+        let theme = Style::ascii().remove_horizontal().into();
+        Self {
+            theme,
+            full_theme: Style::ascii().into(),
+            has_inner: true,
+        }
+    }
+
     pub fn compact() -> TableTheme {
         let theme = Style::modern()
             .remove_left()

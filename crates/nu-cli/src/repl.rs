@@ -235,13 +235,15 @@ pub fn evaluate_repl(
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_insert,
-            )),
-            vi_normal: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_normal,
-            )),
-            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+            vi_insert: config
+                .cursor_shape_vi_insert
+                .map(map_nucursorshape_to_cursorshape),
+            vi_normal: config
+                .cursor_shape_vi_normal
+                .map(map_nucursorshape_to_cursorshape),
+            emacs: config
+                .cursor_shape_emacs
+                .map(map_nucursorshape_to_cursorshape),
         };
         perf(
             "get config/cursor config",
@@ -728,9 +730,14 @@ fn update_line_editor_history(
             )
             .into_diagnostic()?,
         ),
-        HistoryFileFormat::Sqlite => {
-            Box::new(SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?)
-        }
+        HistoryFileFormat::Sqlite => Box::new(
+            SqliteBackedHistory::with_file(
+                history_path.to_path_buf(),
+                history_session_id,
+                Some(chrono::Utc::now()),
+            )
+            .into_diagnostic()?,
+        ),
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)

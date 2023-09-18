@@ -2,7 +2,7 @@ use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 use std::fs;
-use std::path::PathBuf;
+use std::path::Path;
 
 #[test]
 fn removes_a_file() {
@@ -376,10 +376,10 @@ fn removes_symlink() {
 }
 
 struct Cleanup<'a> {
-    dir_to_clean: &'a PathBuf,
+    dir_to_clean: &'a Path,
 }
 
-fn set_dir_read_only(directory: &PathBuf, read_only: bool) {
+fn set_dir_read_only(directory: &Path, read_only: bool) {
     let mut permissions = fs::metadata(directory).unwrap().permissions();
     permissions.set_readonly(read_only);
     fs::set_permissions(directory, permissions).expect("failed to set directory permissions");
