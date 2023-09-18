@@ -113,7 +113,7 @@ jobs:
           rustflags: ""
 
       - name: Install Nushell
-        run: cargo install --path . --locked --no-default-features
+        run: cargo install --path . --locked --no-default-features  --features=native_tls
 
       - name: Standard library tests
         run: nu -c 'use std testing; testing run-tests --path crates/nu-std'
