@@ -68,7 +68,7 @@ fn print_created_paths() {
         let actual = nu!(
          cwd: dirs.test(),
          pipeline(
-             "mkdir -v dir_1 dir_2 dir_3"
+             "mkdir -v dir_1 dir_2 dir_3 | to json --raw"
         ));
 
         assert!(files_exist_at(
@@ -76,9 +76,21 @@ fn print_created_paths() {
             dirs.test()
         ));
 
-        assert!(actual.err.contains("dir_1"));
-        assert!(actual.err.contains("dir_2"));
-        assert!(actual.err.contains("dir_3"));
+        assert_eq!(
+            actual.out,
+            format!(
+                "[\"{}\",\"{}\",\"{}\"]",
+                Path::new(dirs.test())
+                    .join(Path::new("dir_1"))
+                    .to_string_lossy(),
+                Path::new(dirs.test())
+                    .join(Path::new("dir_2"))
+                    .to_string_lossy(),
+                Path::new(dirs.test())
+                    .join(Path::new("dir_3"))
+                    .to_string_lossy(),
+            )
+        );
     })
 }
 
