@@ -730,9 +730,14 @@ fn update_line_editor_history(
             )
             .into_diagnostic()?,
         ),
-        HistoryFileFormat::Sqlite => {
-            Box::new(SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?)
-        }
+        HistoryFileFormat::Sqlite => Box::new(
+            SqliteBackedHistory::with_file(
+                history_path.to_path_buf(),
+                history_session_id,
+                Some(chrono::Utc::now()),
+            )
+            .into_diagnostic()?,
+        ),
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)
