@@ -3083,6 +3083,7 @@ pub fn parse_var_with_opt_type(
     if bytes.ends_with(b":") {
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
+            let span_beginning = *spans_idx;
             *spans_idx += 1;
             // signature like record<a: int b: int> is broken into multiple spans due to
             // whitespaces. Collect the rest into one span and work on it
@@ -3114,7 +3115,7 @@ pub fn parse_var_with_opt_type(
             (
                 Expression {
                     expr: Expr::VarDecl(id),
-                    span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
+                    span: span(&spans[span_beginning..*spans_idx + 1]),
                     ty: ty.clone(),
                     custom_completion: None,
                 },
