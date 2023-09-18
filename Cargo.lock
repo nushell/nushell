@@ -2914,7 +2914,7 @@ dependencies = [
  "sha2",
  "sysinfo",
  "tabled",
- "terminal_size 0.2.6",
+ "terminal_size 0.3.0",
  "titlecase",
  "toml",
  "trash",
@@ -5214,6 +5214,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e6bf6f19e9f8ed8d4048dc22981458ebcf406d67e94cd422e5ecd73d63b3237"
 dependencies = [
  "rustix 0.37.23",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "terminal_size"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21bebf2b7c9e0a515f6e0f8c51dc0f8e4696391e6f1ff30379559f8365fb0df7"
+dependencies = [
+ "rustix 0.38.3",
  "windows-sys 0.48.0",
 ]
 

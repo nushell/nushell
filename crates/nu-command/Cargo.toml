@@ -82,7 +82,7 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 sysinfo = "0.29"
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
-terminal_size = "0.2"
+terminal_size = "0.3"
 titlecase = "2.0"
 toml = "0.7"
 unicode-segmentation = "1.10"
