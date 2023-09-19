@@ -97,7 +97,7 @@ impl Command for Table {
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "short the data on the table to a minimum amount from top and bottom",
+                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
             .category(Category::Viewers)
