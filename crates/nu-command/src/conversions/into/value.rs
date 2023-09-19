@@ -178,6 +178,22 @@ fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
             })?;
 
         Ok(Value::int(ival, span))
+    } else if INTEGER_WITH_DELIMS_RE.is_match(&val_str) {
+        let mut val_str = val_str.clone();
+        val_str.retain(|x| !['_', ','].contains(&x));
+
+        let ival = val_str
+            .parse::<i64>()
+            .map_err(|_| ShellError::CantConvert {
+                to_type: "string".to_string(),
+                from_type: "int".to_string(),
+                span,
+                help: Some(format!(
+                    r#""{val_str}" does not represent a valid integer value"#
+                )),
+            })?;
+
+        Ok(Value::int(ival, span))
     } else if DATETIME_DMY_RE.is_match(&val_str) {
         let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
             to_type: "date".to_string(),
@@ -316,6 +332,12 @@ static FLOAT_RE: Lazy<Regex> = Lazy::new(|| {
 static INTEGER_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
 
+//((\d){1,3})+([_,][\d]{3})*([.](\d)*)?
+static INTEGER_WITH_DELIMS_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"^\s*-?(\d{1,3}([,_]\d{3})+)$")
+        .expect("integer with delimiters pattern should be valid")
+});
+
 static BOOLEAN_RE: Lazy<Regex> = Lazy::new(|| {
     RegexBuilder::new(r"^\s*(true)$|^(false)$")
         .case_insensitive(true)
@@ -333,5 +355,123 @@ mod test {
         use crate::test_examples;
 
         test_examples(IntoValue {})
+    }
+
+    #[test]
+    fn test_float_parse() {
+        // The regex should work on all these but nushell's float parser is more strict
+        assert!(FLOAT_RE.is_match("0.1"));
+        assert!(FLOAT_RE.is_match("3.0"));
+        assert!(FLOAT_RE.is_match("3.00001"));
+        assert!(FLOAT_RE.is_match("-9.9990e-003"));
+        assert!(FLOAT_RE.is_match("9.9990e+003"));
+        assert!(FLOAT_RE.is_match("9.9990E+003"));
+        assert!(FLOAT_RE.is_match("9.9990E+003"));
+        assert!(FLOAT_RE.is_match(".5"));
+        assert!(FLOAT_RE.is_match("2.5E-10"));
+        assert!(FLOAT_RE.is_match("2.5e10"));
+        assert!(FLOAT_RE.is_match("NaN"));
+        assert!(FLOAT_RE.is_match("-NaN"));
+        assert!(FLOAT_RE.is_match("-inf"));
+        assert!(FLOAT_RE.is_match("inf"));
+        assert!(FLOAT_RE.is_match("-7e-05"));
+        assert!(FLOAT_RE.is_match("7e-05"));
+        assert!(FLOAT_RE.is_match("+7e+05"));
+    }
+
+    #[test]
+    fn test_int_parse() {
+        assert!(INTEGER_RE.is_match("0"));
+        assert!(INTEGER_RE.is_match("1"));
+        assert!(INTEGER_RE.is_match("10"));
+        assert!(INTEGER_RE.is_match("100"));
+        assert!(INTEGER_RE.is_match("1000"));
+        assert!(INTEGER_RE.is_match("10000"));
+        assert!(INTEGER_RE.is_match("100000"));
+        assert!(INTEGER_RE.is_match("1000000"));
+        assert!(INTEGER_RE.is_match("10000000"));
+        assert!(INTEGER_RE.is_match("100000000"));
+        assert!(INTEGER_RE.is_match("1000000000"));
+        assert!(INTEGER_RE.is_match("10000000000"));
+        assert!(INTEGER_RE.is_match("100000000000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("100_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("100_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1_000_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10_000_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("100_000_000_000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("100,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1,000,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10,000,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("100,000,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("1,000,000,000"));
+        assert!(INTEGER_WITH_DELIMS_RE.is_match("10,000,000,000"));
+    }
+
+    #[test]
+    fn test_bool_parse() {
+        assert!(BOOLEAN_RE.is_match("true"));
+        assert!(BOOLEAN_RE.is_match("false"));
+        assert!(!BOOLEAN_RE.is_match("1"));
+        assert!(!BOOLEAN_RE.is_match("0"));
+    }
+
+    #[test]
+    fn test_datetime_ymdz_pattern() {
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00Z"));
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789Z"));
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00+01:00"));
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789+01:00"));
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00-01:00"));
+        assert!(DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789-01:00"));
+        assert!(DATETIME_YMDZ_RE.is_match("'2022-01-01T00:00:00Z'"));
+
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00."));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00+01"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00+01:0"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00+1:00"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789+01"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789+01:0"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789+1:00"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00-01"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00-01:0"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00-1:00"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789-01"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789-01:0"));
+        assert!(!DATETIME_YMDZ_RE.is_match("2022-01-01T00:00:00.123456789-1:00"));
+    }
+
+    #[test]
+    fn test_datetime_ymd_pattern() {
+        assert!(DATETIME_YMD_RE.is_match("2022-01-01"));
+        assert!(DATETIME_YMD_RE.is_match("2022/01/01"));
+        assert!(DATETIME_YMD_RE.is_match("2022-01-01T00:00:00"));
+        assert!(DATETIME_YMD_RE.is_match("2022-01-01T00:00:00.000000000"));
+        assert!(DATETIME_YMD_RE.is_match("'2022-01-01'"));
+
+        // The regex isn't this specific, but it would be nice if it were
+        // assert!(!DATETIME_YMD_RE.is_match("2022-13-01"));
+        // assert!(!DATETIME_YMD_RE.is_match("2022-01-32"));
+        // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T24:00:00"));
+        // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T00:60:00"));
+        // assert!(!DATETIME_YMD_RE.is_match("2022-01-01T00:00:60"));
+        assert!(!DATETIME_YMD_RE.is_match("2022-01-01T00:00:00.0000000000"));
+    }
+
+    #[test]
+    fn test_datetime_dmy_pattern() {
+        assert!(DATETIME_DMY_RE.is_match("31-12-2021"));
+        assert!(DATETIME_DMY_RE.is_match("01/01/2022"));
+        assert!(DATETIME_DMY_RE.is_match("15-06-2023 12:30"));
+        assert!(!DATETIME_DMY_RE.is_match("2022-13-01"));
+        assert!(!DATETIME_DMY_RE.is_match("2022-01-32"));
+        assert!(!DATETIME_DMY_RE.is_match("2022-01-01 24:00"));
     }
 }
