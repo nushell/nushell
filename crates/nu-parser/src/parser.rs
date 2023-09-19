@@ -741,15 +741,16 @@ fn calculate_end_span(
             }
         } else {
             // Make space for the remaining require positionals, if we can
-            if signature.num_positionals_after(positional_idx) == 0 {
-                spans.len()
-            } else if positional_idx < signature.required_positional.len()
-                && spans.len() - spans_idx > (signature.required_positional.len() - positional_idx)
-            {
-                spans.len() - (signature.required_positional.len() - positional_idx - 1)
-            } else {
-                spans_idx + 1
-            }
+            // spans_idx < spans.len() is an invariant
+            let remaining_spans = spans.len() - (spans_idx + 1);
+            // positional_idx can be larger than required_positional.len() if we have optional args
+            let remaining_positional = signature
+                .required_positional
+                .len()
+                .saturating_sub(positional_idx + 1);
+            // Saturates to 0 when we have too few args
+            let extra_spans = remaining_spans.saturating_sub(remaining_positional);
+            spans_idx + 1 + extra_spans
         }
     }
 }
