@@ -231,8 +231,6 @@ fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
         // If we don't know what it is, just return whatever it was passed in as
         Ok(val)
     }
-
-    // val
 }
 
 // region: datatype regexes
@@ -332,7 +330,6 @@ static FLOAT_RE: Lazy<Regex> = Lazy::new(|| {
 static INTEGER_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
 
-//((\d){1,3})+([_,][\d]{3})*([.](\d)*)?
 static INTEGER_WITH_DELIMS_RE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"^\s*-?(\d{1,3}([,_]\d{3})+)$")
         .expect("integer with delimiters pattern should be valid")
