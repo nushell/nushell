@@ -244,7 +244,8 @@ const DATETIME_DMY_PATTERN: &str = r#"(?x)
         $
         "#;
 
-static DATETIME_DMY_RE: Lazy<Regex> = Lazy::new(|| Regex::new(DATETIME_DMY_PATTERN).unwrap());
+static DATETIME_DMY_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(DATETIME_DMY_PATTERN).expect("datetime_dmy_pattern should be valid"));
 const DATETIME_YMD_PATTERN: &str = r#"(?x)
         ^
         ['"]?                      # optional quotes
@@ -269,7 +270,8 @@ const DATETIME_YMD_PATTERN: &str = r#"(?x)
         ['"]?                      # optional quotes
         $
         "#;
-static DATETIME_YMD_RE: Lazy<Regex> = Lazy::new(|| Regex::new(DATETIME_YMD_PATTERN).unwrap());
+static DATETIME_YMD_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(DATETIME_YMD_PATTERN).expect("datetime_ymd_pattern should be valid"));
 //2023-03-24 16:44:17.865147299 -05:00
 const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ^
@@ -302,19 +304,22 @@ const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ['"]?                  # optional quotes
         $
         "#;
-static DATETIME_YMDZ_RE: Lazy<Regex> = Lazy::new(|| Regex::new(DATETIME_YMDZ_PATTERN).unwrap());
+static DATETIME_YMDZ_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(DATETIME_YMDZ_PATTERN).expect("datetime_ymdz_pattern should be valid"));
 
 static FLOAT_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"^\s*[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$").unwrap()
+    Regex::new(r"^\s*[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$")
+        .expect("float pattern should be valid")
 });
 
-static INTEGER_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\s*-?(\d+)$").unwrap());
+static INTEGER_RE: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
 
 static BOOLEAN_RE: Lazy<Regex> = Lazy::new(|| {
     RegexBuilder::new(r"^\s*(true)$|^(false)$")
         .case_insensitive(true)
         .build()
-        .unwrap()
+        .expect("boolean pattern should be valid")
 });
 // endregion:
 
