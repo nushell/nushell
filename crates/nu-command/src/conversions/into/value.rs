@@ -179,7 +179,7 @@ fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
 
         Ok(Value::int(ival, span))
     } else if INTEGER_WITH_DELIMS_RE.is_match(&val_str) {
-        let mut val_str = val_str.clone();
+        let mut val_str = val_str;
         val_str.retain(|x| !['_', ','].contains(&x));
 
         let ival = val_str
