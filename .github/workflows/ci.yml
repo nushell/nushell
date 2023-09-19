@@ -33,8 +33,6 @@ jobs:
         exclude:
           - platform: windows-latest
             feature: dataframe
-          - platform: windows-latest
-            feature: rustls
           - platform: macos-latest
             feature: dataframe
 
@@ -76,8 +74,6 @@ jobs:
         exclude:
           - platform: windows-latest
             feature: dataframe
-          - platform: windows-latest
-            feature: rustls
           - platform: macos-latest
             feature: dataframe
           - platform: windows-latest
