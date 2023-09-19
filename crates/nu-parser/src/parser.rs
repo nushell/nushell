@@ -734,7 +734,7 @@ fn calculate_end_span(
             // keywords, they get to set this by being present
 
             let positionals_between = kw_pos - positional_idx - 1;
-            if positionals_between > (kw_idx - spans_idx) {
+            if positionals_between >= (kw_idx - spans_idx) {
                 kw_idx
             } else {
                 kw_idx - positionals_between
@@ -1165,11 +1165,24 @@ pub fn parse_internal_call(
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
 
-            let end = if spans.len() > spans_idx && end == spans_idx {
-                end + 1
-            } else {
-                end
-            };
+            // Missing arguments before next keyword
+            if end == spans_idx {
+                let prev_span = if spans_idx == 0 {
+                    command_span
+                } else {
+                    spans[spans_idx - 1]
+                };
+                let whitespace_span = Span::new(prev_span.end, spans[spans_idx].start);
+                working_set.error(ParseError::MissingPositional(
+                    positional.name.clone(),
+                    whitespace_span,
+                    signature.call_signature(),
+                ));
+                call.add_positional(Expression::garbage(whitespace_span));
+                positional_idx += 1;
+                continue;
+            }
+            debug_assert!(end <= spans.len());
 
             if spans[..end].is_empty() || spans_idx == end {
                 working_set.error(ParseError::MissingPositional(
