@@ -37,10 +37,6 @@ impl Preview {
             underlying_value: None,
         }
     }
-
-    pub fn set_value(&mut self, value: Value) {
-        self.underlying_value = Some(value);
-    }
 }
 
 impl View for Preview {

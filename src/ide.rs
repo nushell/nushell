@@ -51,7 +51,7 @@ fn find_id(
 
 fn read_in_file<'a>(
     engine_state: &'a mut EngineState,
-    file_path: &String,
+    file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
         .into_diagnostic()
@@ -74,7 +74,7 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
+pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -137,7 +137,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Va
     }
 }
 
-pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -191,7 +191,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
     println!("{{}}");
 }
 
-pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -504,7 +504,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             FlatShape::MatchPattern => println!(
                 "{}",
                 json!({
-                    "hover": "match pattern",
+                    "hover": "match-pattern",
                     "span": {
                         "start": span.start - offset,
                         "end": span.end - offset
@@ -577,7 +577,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
     }
 }
 
-pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
+pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &Value) {
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
@@ -603,7 +603,7 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location
     }
 }
 
-pub fn ast(engine_state: &mut EngineState, file_path: &String) {
+pub fn ast(engine_state: &mut EngineState, file_path: &str) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 

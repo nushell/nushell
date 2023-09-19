@@ -153,15 +153,15 @@ fn relative_to(path: &Path, span: Span, args: &Arguments) -> Value {
     let rhs = expand_to_real_path(&args.path.item);
     match lhs.strip_prefix(&rhs) {
         Ok(p) => Value::string(p.to_string_lossy(), span),
-        Err(e) => Value::Error {
-            error: Box::new(ShellError::CantConvert {
+        Err(e) => Value::error(
+            ShellError::CantConvert {
                 to_type: e.to_string(),
                 from_type: "string".into(),
                 span,
                 help: None,
-            }),
+            },
             span,
-        },
+        ),
     }
 }
 

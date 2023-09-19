@@ -343,10 +343,11 @@ impl EngineState {
     where
         'b: 'a,
     {
-        self.scope
-            .active_overlays
-            .iter()
-            .filter(|id| !removed_overlays.contains(self.get_overlay_name(**id)))
+        self.scope.active_overlays.iter().filter(|id| {
+            !removed_overlays
+                .iter()
+                .any(|name| name == self.get_overlay_name(**id))
+        })
     }
 
     pub fn active_overlays<'a, 'b>(
@@ -363,7 +364,7 @@ impl EngineState {
     pub fn active_overlay_names<'a, 'b>(
         &'b self,
         removed_overlays: &'a [Vec<u8>],
-    ) -> impl DoubleEndedIterator<Item = &Vec<u8>> + 'a
+    ) -> impl DoubleEndedIterator<Item = &[u8]> + 'a
     where
         'b: 'a,
     {
@@ -389,7 +390,7 @@ impl EngineState {
             .collect()
     }
 
-    pub fn last_overlay_name(&self, removed_overlays: &[Vec<u8>]) -> &Vec<u8> {
+    pub fn last_overlay_name(&self, removed_overlays: &[Vec<u8>]) -> &[u8] {
         self.active_overlay_names(removed_overlays)
             .last()
             .expect("internal error: no active overlays")
@@ -402,7 +403,7 @@ impl EngineState {
             .expect("internal error: no active overlays")
     }
 
-    pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &Vec<u8> {
+    pub fn get_overlay_name(&self, overlay_id: OverlayId) -> &[u8] {
         &self
             .scope
             .overlays
@@ -748,6 +749,15 @@ impl EngineState {
             .expect("internal error: missing variable")
     }
 
+    pub fn get_constant(&self, var_id: VarId) -> Option<&Value> {
+        let var = self.get_var(var_id);
+        var.const_val.as_ref()
+    }
+
+    pub fn set_variable_const_val(&mut self, var_id: VarId, val: Value) {
+        self.vars[var_id].const_val = Some(val);
+    }
+
     #[allow(clippy::borrowed_box)]
     pub fn get_decl(&self, decl_id: DeclId) -> &Box<dyn Command> {
         self.decls
@@ -922,7 +932,7 @@ impl EngineState {
             .unwrap_or_default()
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
         &self.file_contents
     }
 
@@ -1072,7 +1082,7 @@ impl StateDelta {
         self.scope.pop();
     }
 
-    pub fn get_file_contents(&self) -> &Vec<(Vec<u8>, usize, usize)> {
+    pub fn get_file_contents(&self) -> &[(Vec<u8>, usize, usize)] {
         &self.file_contents
     }
 }
@@ -1118,8 +1128,8 @@ impl<'a> StateWorkingSet<'a> {
         self.delta.num_modules() + self.permanent_state.num_modules()
     }
 
-    pub fn unique_overlay_names(&self) -> HashSet<&Vec<u8>> {
-        let mut names: HashSet<&Vec<u8>> = self.permanent_state.active_overlay_names(&[]).collect();
+    pub fn unique_overlay_names(&self) -> HashSet<&[u8]> {
+        let mut names: HashSet<&[u8]> = self.permanent_state.active_overlay_names(&[]).collect();
 
         for scope_frame in self.delta.scope.iter().rev() {
             for overlay_id in scope_frame.active_overlays.iter().rev() {
@@ -1129,7 +1139,7 @@ impl<'a> StateWorkingSet<'a> {
                     .expect("internal error: missing overlay");
 
                 names.insert(overlay_name);
-                names.retain(|n| !scope_frame.removed_overlays.contains(n));
+                names.retain(|n| !scope_frame.removed_overlays.iter().any(|m| n == m));
             }
         }
 
@@ -1811,7 +1821,7 @@ impl<'a> StateWorkingSet<'a> {
             .map(|id| self.permanent_state.get_overlay(id))
     }
 
-    pub fn last_overlay_name(&self) -> &Vec<u8> {
+    pub fn last_overlay_name(&self) -> &[u8] {
         let mut removed_overlays = vec![];
 
         for scope_frame in self.delta.scope.iter().rev() {

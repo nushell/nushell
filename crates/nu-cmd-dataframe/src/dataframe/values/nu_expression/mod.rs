@@ -55,15 +55,13 @@ impl From<Expr> for NuExpression {
 
 impl NuExpression {
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::custom_value(Box::new(self), span)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
                 None => Err(ShellError::CantConvert {
                     to_type: "lazy expression".into(),
@@ -115,7 +113,7 @@ impl NuExpression {
         f(expr, other).into()
     }
 
-    pub fn to_value(&self, span: Span) -> Value {
+    pub fn to_value(&self, span: Span) -> Result<Value, ShellError> {
         expr_to_value(self.as_ref(), span)
     }
 
@@ -164,60 +162,59 @@ impl ExtractedExpr {
     }
 }
 
-pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
+pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
     match expr {
-        Expr::Alias(expr, alias) => Value::record(
+        Expr::Alias(expr, alias) => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span)?,
                 "alias" => Value::string(alias.as_ref(), span),
             },
             span,
-        ),
-
-        Expr::Column(name) => Value::record(
+        )),
+        Expr::Column(name) => Ok(Value::record(
             record! {
                 "expr" => Value::string("column", span),
                 "value" => Value::string(name.to_string(), span),
             },
             span,
-        ),
+        )),
         Expr::Columns(columns) => {
             let value = columns.iter().map(|col| Value::string(col, span)).collect();
-            Value::record(
+            Ok(Value::record(
                 record! {
                     "expr" => Value::string("columns", span),
                     "value" => Value::list(value, span),
                 },
                 span,
-            )
+            ))
         }
-        Expr::Literal(literal) => Value::record(
+        Expr::Literal(literal) => Ok(Value::record(
             record! {
                 "expr" => Value::string("literal", span),
                 "value" => Value::string(format!("{literal:?}"), span),
             },
             span,
-        ),
-        Expr::BinaryExpr { left, op, right } => Value::record(
+        )),
+        Expr::BinaryExpr { left, op, right } => Ok(Value::record(
             record! {
-                "left" => expr_to_value(left, span),
+                "left" => expr_to_value(left, span)?,
                 "op" => Value::string(format!("{op:?}"), span),
-                "right" => expr_to_value(right, span),
+                "right" => expr_to_value(right, span)?,
             },
             span,
-        ),
+        )),
         Expr::Ternary {
             predicate,
             truthy,
             falsy,
-        } => Value::record(
+        } => Ok(Value::record(
             record! {
-                "predicate" => expr_to_value(predicate.as_ref(), span),
-                "truthy" => expr_to_value(truthy.as_ref(), span),
-                "falsy" => expr_to_value(falsy.as_ref(), span),
+                "predicate" => expr_to_value(predicate.as_ref(), span)?,
+                "truthy" => expr_to_value(truthy.as_ref(), span)?,
+                "falsy" => expr_to_value(falsy.as_ref(), span)?,
             },
             span,
-        ),
+        )),
         Expr::Agg(agg_expr) => {
             let value = match agg_expr {
                 AggExpr::Min { input: expr, .. }
@@ -237,183 +234,177 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
                     expr,
                     quantile,
                     interpol,
-                } => Value::record(
+                } => Ok(Value::record(
                     record! {
-                        "expr" => expr_to_value(expr.as_ref(), span),
-                        "quantile" => expr_to_value(quantile.as_ref(), span),
+                        "expr" => expr_to_value(expr.as_ref(), span)?,
+                        "quantile" => expr_to_value(quantile.as_ref(), span)?,
                         "interpol" => Value::string(format!("{interpol:?}"), span),
                     },
                     span,
-                ),
+                )),
             };
 
-            Value::record(
+            Ok(Value::record(
                 record! {
                     "expr" => Value::string("agg", span),
-                    "value" => value,
+                    "value" => value?,
                 },
                 span,
-            )
+            ))
         }
-        Expr::Count => Value::record(record! { "expr" => Value::string("count", span) }, span),
-        Expr::Wildcard => {
-            Value::record(record! { "expr" => Value::string("wildcard", span) }, span)
-        }
-        Expr::Explode(expr) => Value::record(
-            record! { "expr" => expr_to_value(expr.as_ref(), span) },
+        Expr::Count => Ok(Value::record(
+            record! { "expr" => Value::string("count", span) },
             span,
-        ),
-        Expr::KeepName(expr) => Value::record(
-            record! { "expr" => expr_to_value(expr.as_ref(), span) },
+        )),
+        Expr::Wildcard => Ok(Value::record(
+            record! { "expr" => Value::string("wildcard", span) },
             span,
-        ),
-        Expr::Nth(i) => Value::record(record! { "expr" => Value::int(*i, span) }, span),
+        )),
+        Expr::Explode(expr) => Ok(Value::record(
+            record! { "expr" => expr_to_value(expr.as_ref(), span)? },
+            span,
+        )),
+        Expr::KeepName(expr) => Ok(Value::record(
+            record! { "expr" => expr_to_value(expr.as_ref(), span)? },
+            span,
+        )),
+        Expr::Nth(i) => Ok(Value::record(
+            record! { "expr" => Value::int(*i, span) },
+            span,
+        )),
         Expr::DtypeColumn(dtypes) => {
             let vals = dtypes
                 .iter()
-                .map(|d| Value::String {
-                    val: format!("{d}"),
-                    span,
-                })
+                .map(|d| Value::string(format!("{d}"), span))
                 .collect();
 
-            Value::List { vals, span }
+            Ok(Value::list(vals, span))
         }
-        Expr::Sort { expr, options } => Value::record(
+        Expr::Sort { expr, options } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span)?,
                 "options" => Value::string(format!("{options:?}"), span),
             },
             span,
-        ),
+        )),
         Expr::Cast {
             expr,
             data_type,
             strict,
-        } => Value::record(
+        } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span)?,
                 "dtype" => Value::string(format!("{data_type:?}"), span),
                 "strict" => Value::bool(*strict, span),
             },
             span,
-        ),
-        Expr::Take { expr, idx } => Value::record(
+        )),
+        Expr::Take { expr, idx } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span),
-                "idx" => expr_to_value(idx.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span)?,
+                "idx" => expr_to_value(idx.as_ref(), span)?,
             },
             span,
-        ),
+        )),
         Expr::SortBy {
             expr,
             by,
             descending,
         } => {
-            let by: Vec<Value> = by.iter().map(|b| expr_to_value(b, span)).collect();
-            let descending: Vec<Value> = descending
-                .iter()
-                .map(|r| Value::Bool { val: *r, span })
-                .collect();
+            let by: Result<Vec<Value>, ShellError> =
+                by.iter().map(|b| expr_to_value(b, span)).collect();
+            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span)).collect();
 
-            Value::record(
+            Ok(Value::record(
                 record! {
-                    "expr" => expr_to_value(expr.as_ref(), span),
-                    "by" => Value::list(by, span),
+                    "expr" => expr_to_value(expr.as_ref(), span)?,
+                    "by" => Value::list(by?, span),
                     "descending" => Value::list(descending, span),
                 },
                 span,
-            )
+            ))
         }
-        Expr::Filter { input, by } => Value::record(
+        Expr::Filter { input, by } => Ok(Value::record(
             record! {
-                "input" => expr_to_value(input.as_ref(), span),
-                "by" => expr_to_value(by.as_ref(), span),
+                "input" => expr_to_value(input.as_ref(), span)?,
+                "by" => expr_to_value(by.as_ref(), span)?,
             },
             span,
-        ),
+        )),
         Expr::Slice {
             input,
             offset,
             length,
-        } => Value::record(
+        } => Ok(Value::record(
             record! {
-                "input" => expr_to_value(input.as_ref(), span),
-                "offset" => expr_to_value(offset.as_ref(), span),
-                "length" => expr_to_value(length.as_ref(), span),
+                "input" => expr_to_value(input.as_ref(), span)?,
+                "offset" => expr_to_value(offset.as_ref(), span)?,
+                "length" => expr_to_value(length.as_ref(), span)?,
             },
             span,
-        ),
+        )),
         Expr::Exclude(expr, excluded) => {
             let excluded = excluded
                 .iter()
-                .map(|e| Value::String {
-                    val: format!("{e:?}"),
-                    span,
-                })
+                .map(|e| Value::string(format!("{e:?}"), span))
                 .collect();
 
-            Value::record(
+            Ok(Value::record(
                 record! {
-                    "expr" => expr_to_value(expr.as_ref(), span),
+                    "expr" => expr_to_value(expr.as_ref(), span)?,
                     "excluded" => Value::list(excluded, span),
                 },
                 span,
-            )
+            ))
         }
-        Expr::RenameAlias { expr, function } => Value::record(
+        Expr::RenameAlias { expr, function } => Ok(Value::record(
             record! {
-                "expr" => expr_to_value(expr.as_ref(), span),
+                "expr" => expr_to_value(expr.as_ref(), span)?,
                 "function" => Value::string(format!("{function:?}"), span),
             },
             span,
-        ),
+        )),
         Expr::AnonymousFunction {
             input,
             function,
             output_type,
             options,
         } => {
-            let input: Vec<Value> = input.iter().map(|e| expr_to_value(e, span)).collect();
-            Value::record(
+            let input: Result<Vec<Value>, ShellError> =
+                input.iter().map(|e| expr_to_value(e, span)).collect();
+            Ok(Value::record(
                 record! {
-                    "input" => Value::list(input, span),
+                    "input" => Value::list(input?, span),
                     "function" => Value::string(format!("{function:?}"), span),
                     "output_type" => Value::string(format!("{output_type:?}"), span),
                     "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
-            )
+            ))
         }
         Expr::Function {
             input,
             function,
             options,
         } => {
-            let input: Vec<Value> = input.iter().map(|e| expr_to_value(e, span)).collect();
-            Value::record(
+            let input: Result<Vec<Value>, ShellError> =
+                input.iter().map(|e| expr_to_value(e, span)).collect();
+            Ok(Value::record(
                 record! {
-                    "input" => Value::list(input, span),
+                    "input" => Value::list(input?, span),
                     "function" => Value::string(format!("{function:?}"), span),
                     "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
-            )
+            ))
         }
-        Expr::Cache { input, id } => Value::record(
-            record! {
-                "input" => expr_to_value(input.as_ref(), span),
-                "id" => Value::string(format!("{id:?}"), span),
-            },
-            span,
-        ),
         Expr::Window {
             function,
             partition_by,
             order_by,
             options,
         } => {
-            let partition_by: Vec<Value> = partition_by
+            let partition_by: Result<Vec<Value>, ShellError> = partition_by
                 .iter()
                 .map(|e| expr_to_value(e, span))
                 .collect();
@@ -421,17 +412,26 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Value {
             let order_by = order_by
                 .as_ref()
                 .map(|e| expr_to_value(e.as_ref(), span))
+                .transpose()?
                 .unwrap_or_else(|| Value::nothing(span));
 
-            Value::record(
+            Ok(Value::record(
                 record! {
-                    "function" => expr_to_value(function, span),
-                    "partition_by" => Value::list(partition_by, span),
+                    "function" => expr_to_value(function, span)?,
+                    "partition_by" => Value::list(partition_by?, span),
                     "order_by" => order_by,
                     "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
-            )
+            ))
         }
+        // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
+        // I am not sure what we can meaningfully do with this at this time.
+        Expr::Selector(_) => Err(ShellError::UnsupportedInput(
+            "Expressions of type Selector to Nu Values is not yet supported".to_string(),
+            format!("Expression is {expr:?}"),
+            span,
+            Span::unknown(),
+        )),
     }
 }

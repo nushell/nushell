@@ -23,8 +23,6 @@ enum IncludeInner {
     Yes,
 }
 
-const EMPTY_COL_NAMES: &Vec<String> = &vec![];
-
 impl Command for Join {
     fn name(&self) -> &str {
         "join"
@@ -110,26 +108,13 @@ impl Command for Join {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(Value::List {
-                vals: vec![Value::test_record(Record {
+            result: Some(Value::list(
+                vec![Value::test_record(Record {
                     cols: vec!["a".into(), "b".into(), "c".into()],
-                    vals: vec![
-                        Value::Int {
-                            val: 1,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 2,
-                            span: Span::test_data(),
-                        },
-                        Value::Int {
-                            val: 3,
-                            span: Span::test_data(),
-                        },
-                    ],
+                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
                 })],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         }]
     }
 }
@@ -155,8 +140,8 @@ fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
 }
 
 fn join(
-    left: &Vec<Value>,
-    right: &Vec<Value>,
+    left: &[Value],
+    right: &[Value],
     left_join_key: &str,
     right_join_key: &str,
     join_type: JoinType,
@@ -253,7 +238,7 @@ fn join(
             span,
         );
     }
-    Value::List { vals: result, span }
+    Value::list(result, span)
 }
 
 // Join rows of `this` (a nushell table) to rows of `other` (a lookup-table
@@ -261,7 +246,7 @@ fn join(
 #[allow(clippy::too_many_arguments)]
 fn join_rows(
     result: &mut Vec<Value>,
-    this: &Vec<Value>,
+    this: &[Value],
     this_join_key: &str,
     other: HashMap<String, Vec<&Record>>,
     other_keys: &[String],
@@ -336,20 +321,20 @@ fn join_rows(
 
 // Return column names (i.e. ordered keys from the first row; we assume that
 // these are the same for all rows).
-fn column_names(table: &[Value]) -> &Vec<String> {
+fn column_names(table: &[Value]) -> &[String] {
     table
         .iter()
         .find_map(|val| match val {
-            Value::Record { val, .. } => Some(&val.cols),
+            Value::Record { val, .. } => Some(&*val.cols),
             _ => None,
         })
-        .unwrap_or(EMPTY_COL_NAMES)
+        .unwrap_or_default()
 }
 
 // Create a map from value in `on` column to a list of the rows having that
 // value.
 fn lookup_table<'a>(
-    rows: &'a Vec<Value>,
+    rows: &'a [Value],
     on: &str,
     sep: &str,
     cap: usize,

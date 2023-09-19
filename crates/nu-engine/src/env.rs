@@ -191,15 +191,16 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
 /// Simplified version of current_dir_str() for constant evaluation
 pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, ShellError> {
     if let Some(pwd) = working_set.get_env_var(PWD_ENV) {
+        let span = pwd.span();
         match pwd {
-            Value::String { val, span } => {
+            Value::String { val, .. } => {
                 if Path::new(val).is_absolute() {
                     Ok(val.clone())
                 } else {
                     Err(ShellError::GenericError(
                             "Invalid current directory".to_string(),
                             format!("The 'PWD' environment variable must be set to an absolute path. Found: '{val}'"),
-                            Some(*span),
+                            Some(span),
                             None,
                             Vec::new()
                     ))
@@ -383,38 +384,39 @@ fn get_converted_value(
             },
         ];
 
-        if let Ok(Value::Closure {
-            val: block_id,
-            span: from_span,
-            ..
-        }) = env_conversions.follow_cell_path_not_from_user_input(path_members, false)
-        {
-            let block = engine_state.get_block(block_id);
+        if let Ok(v) = env_conversions.follow_cell_path_not_from_user_input(path_members, false) {
+            let from_span = v.span();
+            match v {
+                Value::Closure { val: block_id, .. } => {
+                    let block = engine_state.get_block(block_id);
 
-            if let Some(var) = block.signature.get_positional(0) {
-                let mut stack = stack.gather_captures(engine_state, &block.captures);
-                if let Some(var_id) = &var.var_id {
-                    stack.add_var(*var_id, orig_val.clone());
+                    if let Some(var) = block.signature.get_positional(0) {
+                        let mut stack = stack.gather_captures(engine_state, &block.captures);
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(*var_id, orig_val.clone());
+                        }
+
+                        let result = eval_block(
+                            engine_state,
+                            &mut stack,
+                            block,
+                            PipelineData::new_with_metadata(None, val_span),
+                            true,
+                            true,
+                        );
+
+                        match result {
+                            Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
+                            Err(e) => ConversionResult::ConversionError(e),
+                        }
+                    } else {
+                        ConversionResult::ConversionError(ShellError::MissingParameter {
+                            param_name: "block input".into(),
+                            span: from_span,
+                        })
+                    }
                 }
-
-                let result = eval_block(
-                    engine_state,
-                    &mut stack,
-                    block,
-                    PipelineData::new_with_metadata(None, val_span),
-                    true,
-                    true,
-                );
-
-                match result {
-                    Ok(data) => ConversionResult::Ok(data.into_value(val_span)),
-                    Err(e) => ConversionResult::ConversionError(e),
-                }
-            } else {
-                ConversionResult::ConversionError(ShellError::MissingParameter {
-                    param_name: "block input".into(),
-                    span: from_span,
-                })
+                _ => ConversionResult::CellPathError,
             }
         } else {
             ConversionResult::CellPathError
@@ -428,48 +430,47 @@ fn ensure_path(scope: &mut HashMap<String, Value>, env_path_name: &str) -> Optio
     let mut error = None;
 
     // If PATH/Path is still a string, force-convert it to a list
-    match scope.get(env_path_name) {
-        Some(Value::String { val, span }) => {
-            // Force-split path into a list
-            let span = *span;
-            let paths = std::env::split_paths(val)
-                .map(|p| Value::String {
-                    val: p.to_string_lossy().to_string(),
-                    span,
-                })
-                .collect();
+    if let Some(value) = scope.get(env_path_name) {
+        let span = value.span();
+        match value {
+            Value::String { val, .. } => {
+                // Force-split path into a list
+                let paths = std::env::split_paths(val)
+                    .map(|p| Value::string(p.to_string_lossy().to_string(), span))
+                    .collect();
 
-            scope.insert(env_path_name.to_string(), Value::List { vals: paths, span });
-        }
-        Some(Value::List { vals, span }) => {
-            // Must be a list of strings
-            if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
+                scope.insert(env_path_name.to_string(), Value::list(paths, span));
+            }
+            Value::List { vals, .. } => {
+                // Must be a list of strings
+                if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
+                    error = error.or_else(|| {
+                        Some(ShellError::GenericError(
+                            format!("Wrong {env_path_name} environment variable value"),
+                            format!("{env_path_name} must be a list of strings"),
+                            Some(span),
+                            None,
+                            Vec::new(),
+                        ))
+                    });
+                }
+            }
+
+            val => {
+                // All other values are errors
+                let span = val.span();
+
                 error = error.or_else(|| {
                     Some(ShellError::GenericError(
                         format!("Wrong {env_path_name} environment variable value"),
                         format!("{env_path_name} must be a list of strings"),
-                        Some(*span),
+                        Some(span),
                         None,
                         Vec::new(),
                     ))
                 });
             }
         }
-        Some(val) => {
-            // All other values are errors
-            let span = val.span();
-
-            error = error.or_else(|| {
-                Some(ShellError::GenericError(
-                    format!("Wrong {env_path_name} environment variable value"),
-                    format!("{env_path_name} must be a list of strings"),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ))
-            });
-        }
-        None => { /* not preset, do nothing */ }
     }
 
     error

@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn for_doesnt_auto_print_in_each_iteration() {
     let actual = nu!("
         for i in 1..2 {
-            echo 1
+            $i
         }");
     // Make sure we don't see any of these values in the output
     // As we do not auto-print loops anymore

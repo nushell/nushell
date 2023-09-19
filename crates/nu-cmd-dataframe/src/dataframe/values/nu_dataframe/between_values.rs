@@ -226,7 +226,7 @@ pub(super) fn compute_series_single_value(
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::add, lhs_span)
             }
             Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
+                compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::add, lhs_span)
             }
             Value::String { val, .. } => add_string_to_series(&lhs, val, lhs_span),
             _ => Err(ShellError::OperatorMismatch {
@@ -242,7 +242,7 @@ pub(super) fn compute_series_single_value(
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::sub, lhs_span)
             }
             Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::sub, lhs_span)
+                compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::sub, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -257,7 +257,7 @@ pub(super) fn compute_series_single_value(
                 compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::mul, lhs_span)
             }
             Value::Float { val, .. } => {
-                compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::mul, lhs_span)
+                compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::mul, lhs_span)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: operator.span,
@@ -267,33 +267,36 @@ pub(super) fn compute_series_single_value(
                 rhs_span: right.span(),
             }),
         },
-        Operator::Math(Math::Divide) => match &right {
-            Value::Int { val, span } => {
-                if *val == 0 {
-                    Err(ShellError::DivisionByZero { span: *span })
-                } else {
-                    compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
+        Operator::Math(Math::Divide) => {
+            let span = right.span();
+            match &right {
+                Value::Int { val, .. } => {
+                    if *val == 0 {
+                        Err(ShellError::DivisionByZero { span })
+                    } else {
+                        compute_series_i64(&lhs, *val, <ChunkedArray<Int64Type>>::div, lhs_span)
+                    }
                 }
-            }
-            Value::Float { val, span } => {
-                if val.is_zero() {
-                    Err(ShellError::DivisionByZero { span: *span })
-                } else {
-                    compute_series_decimal(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
+                Value::Float { val, .. } => {
+                    if val.is_zero() {
+                        Err(ShellError::DivisionByZero { span })
+                    } else {
+                        compute_series_float(&lhs, *val, <ChunkedArray<Float64Type>>::div, lhs_span)
+                    }
                 }
+                _ => Err(ShellError::OperatorMismatch {
+                    op_span: operator.span,
+                    lhs_ty: left.get_type().to_string(),
+                    lhs_span: left.span(),
+                    rhs_ty: right.get_type().to_string(),
+                    rhs_span: right.span(),
+                }),
             }
-            _ => Err(ShellError::OperatorMismatch {
-                op_span: operator.span,
-                lhs_ty: left.get_type().to_string(),
-                lhs_span: left.span(),
-                rhs_ty: right.get_type().to_string(),
-                rhs_span: right.span(),
-            }),
-        },
+        }
         Operator::Comparison(Comparison::Equal) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::equal, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::equal, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::equal, lhs_span)
             }
             Value::String { val, .. } => {
                 let equal_pattern = format!("^{}$", fancy_regex::escape(val));
@@ -315,7 +318,7 @@ pub(super) fn compute_series_single_value(
                 compare_series_i64(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::not_equal, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::not_equal, lhs_span)
             }
             Value::Date { val, .. } => compare_series_i64(
                 &lhs,
@@ -334,7 +337,7 @@ pub(super) fn compute_series_single_value(
         Operator::Comparison(Comparison::LessThan) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::lt, lhs_span)
             }
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt, lhs_span)
@@ -350,7 +353,7 @@ pub(super) fn compute_series_single_value(
         Operator::Comparison(Comparison::LessThanOrEqual) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::lt_eq, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::lt_eq, lhs_span)
             }
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::lt_eq, lhs_span)
@@ -366,7 +369,7 @@ pub(super) fn compute_series_single_value(
         Operator::Comparison(Comparison::GreaterThan) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::gt, lhs_span)
             }
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt, lhs_span)
@@ -382,7 +385,7 @@ pub(super) fn compute_series_single_value(
         Operator::Comparison(Comparison::GreaterThanOrEqual) => match &right {
             Value::Int { val, .. } => compare_series_i64(&lhs, *val, ChunkedArray::gt_eq, lhs_span),
             Value::Float { val, .. } => {
-                compare_series_decimal(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
+                compare_series_float(&lhs, *val, ChunkedArray::gt_eq, lhs_span)
             }
             Value::Date { val, .. } => {
                 compare_series_i64(&lhs, val.timestamp_millis(), ChunkedArray::gt_eq, lhs_span)
@@ -506,12 +509,7 @@ where
     }
 }
 
-fn compute_series_decimal<F>(
-    series: &Series,
-    val: f64,
-    f: F,
-    span: Span,
-) -> Result<Value, ShellError>
+fn compute_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
 where
     F: Fn(ChunkedArray<Float64Type>, f64) -> ChunkedArray<Float64Type>,
 {
@@ -540,7 +538,7 @@ where
         _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
-                "Series of type {} can not be used for operations with a decimal value",
+                "Series of type {} can not be used for operations with a float value",
                 series.dtype()
             ),
             Some(span),
@@ -660,12 +658,7 @@ where
     }
 }
 
-fn compare_series_decimal<F>(
-    series: &Series,
-    val: f64,
-    f: F,
-    span: Span,
-) -> Result<Value, ShellError>
+fn compare_series_float<F>(series: &Series, val: f64, f: F, span: Span) -> Result<Value, ShellError>
 where
     F: Fn(&ChunkedArray<Float64Type>, f64) -> ChunkedArray<BooleanType>,
 {
@@ -694,7 +687,7 @@ where
         _ => Err(ShellError::GenericError(
             "Incorrect type".into(),
             format!(
-                "Series of type {} can not be used for operations with a decimal value",
+                "Series of type {} can not be used for operations with a float value",
                 series.dtype()
             ),
             Some(span),

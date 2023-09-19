@@ -31,12 +31,12 @@ nu-utils = { path = "../nu-utils", version = "0.84.1" }
 alphanumeric-sort = "1.5"
 base64 = "0.21"
 byteorder = "1.4"
-bytesize = "1.2"
-calamine = "0.21"
+bytesize = "1.3"
+calamine = "0.22"
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
-crossterm = "0.26"
+crossterm = "0.27"
 csv = "1.2"
 dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10" }
 digest = { default-features = false, version = "0.10" }
@@ -49,7 +49,7 @@ fs_extra = "1.3"
 htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
-itertools = "0.10"
+itertools = "0.11"
 log = "0.4"
 lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
@@ -57,7 +57,7 @@ miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 mime = "0.3"
 mime_guess = "2.0"
 native-tls = "0.2"
-notify-debouncer-full = { version = "0.2", default-features = false }
+notify-debouncer-full = { version = "0.3", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
@@ -80,15 +80,15 @@ serde_json = "1.0"
 serde_urlencoded = "0.7"
 serde_yaml = "0.9"
 sha2 = "0.10"
-sqlparser = { version = "0.34", features = ["serde"], optional = true }
 sysinfo = "0.29"
 tabled = { version = "0.14.0", features = ["color"], default-features = false }
-terminal_size = "0.2"
+terminal_size = "0.3"
 titlecase = "2.0"
-toml = "0.7"
+toml = "0.8"
 unicode-segmentation = "1.10"
 ureq = { version = "2.7", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
+uu_cp = "0.0.21"
 uuid = { version = "1.3", features = ["v4"] }
 wax = { version = "0.5" }
 which = { version = "4.4", optional = true }
@@ -96,12 +96,12 @@ bracoxide = "0.1.2"
 chardetng = "0.1.17"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.50"
+winreg = "0.51"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.26", default-features = false, features = ["user"] }
+nix = { version = "0.27", default-features = false, features = ["user"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
 optional = true
@@ -128,7 +128,7 @@ nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.84.1" }
 nu-test-support = { path = "../nu-test-support", version = "0.84.1" }
 
 dirs-next = "2.0"
-mockito = { version = "1.1", default-features = false }
+mockito = { version = "1.2", default-features = false }
 quickcheck = "1.0"
 quickcheck_macros = "1.0"
 rstest = { version = "0.18", default-features = false }

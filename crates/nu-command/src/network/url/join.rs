@@ -91,23 +91,26 @@ impl Command for SubCommand {
 
         let output: Result<String, ShellError> = input
             .into_iter()
-            .map(move |value| match value {
-                Value::Record { val, span } => {
-                    let url_components = val
-                        .into_iter()
-                        .try_fold(UrlComponents::new(), |url, (k, v)| {
-                            url.add_component(k, v, span)
-                        });
+            .map(move |value| {
+                let span = value.span();
+                match value {
+                    Value::Record { val, .. } => {
+                        let url_components = val
+                            .into_iter()
+                            .try_fold(UrlComponents::new(), |url, (k, v)| {
+                                url.add_component(k, v, span)
+                            });
 
-                    url_components?.to_url(span)
+                        url_components?.to_url(span)
+                    }
+                    Value::Error { error, .. } => Err(*error),
+                    other => Err(ShellError::UnsupportedInput(
+                        "Expected a record from pipeline".to_string(),
+                        "value originates from here".into(),
+                        head,
+                        other.span(),
+                    )),
                 }
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::UnsupportedInput(
-                    "Expected a record from pipeline".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    other.span(),
-                )),
             })
             .collect();
 
@@ -135,9 +138,10 @@ impl UrlComponents {
     }
 
     pub fn add_component(self, key: String, value: Value, _span: Span) -> Result<Self, ShellError> {
+        let span = value.span();
         if key == "port" {
             return match value {
-                Value::String { val, span } => {
+                Value::String { val, .. } => {
                     if val.trim().is_empty() {
                         Ok(self)
                     } else {
@@ -155,7 +159,7 @@ impl UrlComponents {
                         }
                     }
                 }
-                Value::Int { val, span: _ } => Ok(Self {
+                Value::Int { val, .. } => Ok(Self {
                     port: Some(val),
                     ..self
                 }),
@@ -171,7 +175,7 @@ impl UrlComponents {
 
         if key == "params" {
             return match value {
-                Value::Record { ref val, span } => {
+                Value::Record { ref val, .. } => {
                     let mut qs = val
                         .iter()
                         .map(|(k, v)| match v.as_string() {

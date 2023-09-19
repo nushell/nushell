@@ -57,18 +57,12 @@ impl Command for ToNu {
             Example {
                 description: "Shows head rows from dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr into-nu",
-                result: Some(Value::List {
-                    vals: vec![rec_1, rec_2],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![rec_1, rec_2], Span::test_data())),
             },
             Example {
                 description: "Shows tail rows from dataframe",
                 example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu -t -n 1",
-                result: Some(Value::List {
-                    vals: vec![rec_3],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {
                 description: "Convert a col expression into a nushell value",
@@ -119,16 +113,13 @@ fn dataframe_command(
         }
     };
 
-    let value = Value::List {
-        vals: values,
-        span: call.head,
-    };
+    let value = Value::list(values, call.head);
 
     Ok(PipelineData::Value(value, None))
 }
 fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellError> {
     let expr = NuExpression::try_from_value(input)?;
-    let value = expr.to_value(call.head);
+    let value = expr.to_value(call.head)?;
 
     Ok(PipelineData::Value(value, None))
 }

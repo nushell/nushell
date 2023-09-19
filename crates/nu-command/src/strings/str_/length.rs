@@ -102,10 +102,10 @@ impl Command for SubCommand {
             Example {
                 description: "Return the lengths of multiple strings",
                 example: "['hi' 'there'] | str length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(5)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(5)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -135,15 +135,15 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             head,
         ),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
                 src_span: input.span(),
-            }),
-            span: head,
-        },
+            },
+            head,
+        ),
     }
 }
 
@@ -153,10 +153,7 @@ mod test {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             cell_paths: None,

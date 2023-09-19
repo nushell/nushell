@@ -34,10 +34,7 @@ pub struct PluginCustomValue {
 
 impl CustomValue for PluginCustomValue {
     fn clone_value(&self, span: nu_protocol::Span) -> nu_protocol::Value {
-        Value::CustomValue {
-            val: Box::new(self.clone()),
-            span,
-        }
+        Value::custom_value(Box::new(self.clone()), span)
     }
 
     fn value_string(&self) -> String {
@@ -48,7 +45,7 @@ impl CustomValue for PluginCustomValue {
         &self,
         span: nu_protocol::Span,
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
-        let mut plugin_cmd = create_command(&self.filename, &self.shell);
+        let mut plugin_cmd = create_command(&self.filename, self.shell.as_deref());
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             ShellError::GenericError(

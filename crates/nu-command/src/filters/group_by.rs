@@ -71,17 +71,17 @@ impl Command for GroupBy {
                 result: Some(Value::test_record(Record {
                     cols: vec!["txt".to_string(), "csv".to_string()],
                     vals: vec![
-                        Value::List {
-                            vals: vec![
+                        Value::list(
+                            vec![
                                 Value::test_string("foo.txt"),
                                 Value::test_string("baz.txt"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("bar.csv")],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::test_string("bar.csv")],
+                            Span::test_data(),
+                        ),
                     ],
                 })),
             },
@@ -92,23 +92,23 @@ impl Command for GroupBy {
                 result: Some(Value::test_record(Record {
                     cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
                     vals: vec![
-                        Value::List {
-                            vals: vec![
+                        Value::list(
+                            vec![
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("3"), Value::test_string("3")],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_string("2")],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::test_string("3"), Value::test_string("3")],
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![Value::test_string("2")],
+                            Span::test_data(),
+                        ),
                     ],
                 })),
             },
@@ -138,18 +138,24 @@ pub fn group_by(
     }
 
     let group_value = match grouper {
-        Some(Value::CellPath { val, span }) => group_cell_path(val, values, span)?,
-        Some(Value::Block { .. }) | Some(Value::Closure { .. }) => {
-            let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-            group_closure(&values, span, block, stack, engine_state, call)?
+        Some(v) => {
+            let span = v.span();
+            match v {
+                Value::CellPath { val, .. } => group_cell_path(val, values, span)?,
+                Value::Block { .. } | Value::Closure { .. } => {
+                    let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
+                    group_closure(&values, span, block, stack, engine_state, call)?
+                }
+
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "unsupported grouper type".to_string(),
+                        span,
+                    })
+                }
+            }
         }
         None => group_no_grouper(values, span)?,
-        _ => {
-            return Err(ShellError::TypeMismatch {
-                err_message: "unsupported grouper type".to_string(),
-                span,
-            })
-        }
     };
 
     Ok(PipelineData::Value(group_value, None))
@@ -204,7 +210,7 @@ pub fn group_no_grouper(values: Vec<Value>, span: Span) -> Result<Value, ShellEr
 
 // TODO: refactor this, it's a bit of a mess
 fn group_closure(
-    values: &Vec<Value>,
+    values: &[Value],
     span: Span,
     block: Option<Closure>,
     stack: &mut Stack,
@@ -213,10 +219,7 @@ fn group_closure(
 ) -> Result<Value, ShellError> {
     let error_key = "error";
     let mut keys: Vec<Result<String, ShellError>> = vec![];
-    let value_list = Value::List {
-        vals: values.clone(),
-        span,
-    };
+    let value_list = Value::list(values.to_vec(), span);
 
     for value in values {
         if let Some(capture_block) = &block {

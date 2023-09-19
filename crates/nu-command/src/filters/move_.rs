@@ -52,8 +52,8 @@ impl Command for Move {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
                 description: "Move a column before the first column",
                 result:
-                    Some(Value::List {
-                        vals: vec![
+                    Some(Value::list (
+                        vec![
                             Value::test_record(Record {
                                 cols: vec!["index".to_string(), "name".to_string(), "value".to_string()],
                                 vals: vec![Value::test_int(1), Value::test_string("foo"), Value::test_string("a")],
@@ -67,15 +67,15 @@ impl Command for Move {
                                 vals: vec![Value::test_int(3), Value::test_string("baz"), Value::test_string("c")],
                             }),
                         ],
-                        span: Span::test_data(),
-                    })
+                        Span::test_data(),
+                    ))
             },
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
                 description: "Move multiple columns after the last column and reorder them",
                 result:
-                    Some(Value::List {
-                        vals: vec![
+                    Some(Value::list (
+                        vec![
                             Value::test_record(Record {
                                 cols: vec!["index".to_string(), "value".to_string(), "name".to_string()],
                                 vals: vec![Value::test_int(1), Value::test_string("a"), Value::test_string("foo")],
@@ -89,8 +89,8 @@ impl Command for Move {
                                 vals: vec![Value::test_int(3), Value::test_string("c"), Value::test_string("baz")],
                             }),
                         ],
-                        span: Span::test_data(),
-                    })
+                        Span::test_data(),
+                    ))
             },
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
@@ -153,16 +153,10 @@ impl Command for Move {
                     Ok(record) => {
                         match move_record_columns(record, &columns, &before_or_after, call.head) {
                             Ok(val) => val,
-                            Err(error) => Value::Error {
-                                error: Box::new(error),
-                                span: call.head,
-                            },
+                            Err(error) => Value::error(error, call.head),
                         }
                     }
-                    Err(error) => Value::Error {
-                        error: Box::new(error),
-                        span: call.head,
-                    },
+                    Err(error) => Value::error(error, call.head),
                 });
 
                 if let Some(md) = metadata {

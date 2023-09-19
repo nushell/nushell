@@ -61,32 +61,30 @@ impl Command for ToNuon {
         let value = input.into_value(span);
 
         let nuon_result = if raw {
-            value_to_string(&value, span, 0, &None)
+            value_to_string(&value, span, 0, None)
         } else if use_tabs {
             let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
-            value_to_string(&value, span, 0, &Some("\t".repeat(tab_count)))
+            value_to_string(&value, span, 0, Some(&"\t".repeat(tab_count)))
         } else if use_indent {
             let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
-            value_to_string(&value, span, 0, &Some(" ".repeat(indent)))
+            value_to_string(&value, span, 0, Some(&" ".repeat(indent)))
         } else {
-            value_to_string(&value, span, 0, &None)
+            value_to_string(&value, span, 0, None)
         };
 
         match nuon_result {
-            Ok(serde_nuon_string) => Ok(Value::String {
-                val: serde_nuon_string,
-                span,
+            Ok(serde_nuon_string) => {
+                Ok(Value::string(serde_nuon_string, span).into_pipeline_data())
             }
-            .into_pipeline_data()),
-            _ => Ok(Value::Error {
-                error: Box::new(ShellError::CantConvert {
+            _ => Ok(Value::error(
+                ShellError::CantConvert {
                     to_type: "NUON".into(),
                     from_type: value.get_type().to_string(),
                     span,
                     help: None,
-                }),
+                },
                 span,
-            }
+            )
             .into_pipeline_data()),
         }
     }
@@ -121,7 +119,7 @@ pub fn value_to_string(
     v: &Value,
     span: Span,
     depth: usize,
-    indent: &Option<String>,
+    indent: Option<&str>,
 ) -> Result<String, ShellError> {
     let (nl, sep) = get_true_separators(indent);
     let idt = get_true_indentation(depth, indent);
@@ -163,7 +161,7 @@ pub fn value_to_string(
             }
         }
         Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cellpaths are currently not nuon-compatible".to_string(),
+            "cell-paths are currently not nuon-compatible".to_string(),
             "value originates from here".into(),
             span,
             v.span(),
@@ -292,14 +290,14 @@ pub fn value_to_string(
     }
 }
 
-fn get_true_indentation(depth: usize, indent: &Option<String>) -> String {
+fn get_true_indentation(depth: usize, indent: Option<&str>) -> String {
     match indent {
         Some(i) => i.repeat(depth),
         None => "".to_string(),
     }
 }
 
-fn get_true_separators(indent: &Option<String>) -> (String, String) {
+fn get_true_separators(indent: Option<&str>) -> (String, String) {
     match indent {
         Some(_) => ("\n".to_string(), "".to_string()),
         None => ("".to_string(), " ".to_string()),
@@ -310,7 +308,7 @@ fn value_to_string_without_quotes(
     v: &Value,
     span: Span,
     depth: usize,
-    indent: &Option<String>,
+    indent: Option<&str>,
 ) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({

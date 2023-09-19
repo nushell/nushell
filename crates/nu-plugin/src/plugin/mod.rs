@@ -8,7 +8,7 @@ use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
@@ -48,7 +48,7 @@ pub trait PluginEncoder: Clone {
     ) -> Result<PluginResponse, ShellError>;
 }
 
-pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+pub(crate) fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
             let mut process = std::process::Command::new(shell);
@@ -124,7 +124,7 @@ pub(crate) fn call_plugin(
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
-    shell: &Option<PathBuf>,
+    shell: Option<&Path>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<PluginSignature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
@@ -214,10 +214,7 @@ pub fn get_signature(
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
-///         Ok(Value::String {
-///             val: "Hello, World!".to_owned(),
-///             span: call.head,
-///         })
+///         Ok(Value::string("Hello, World!".to_owned(), call.head))
 ///     }
 /// }
 /// ```
@@ -320,9 +317,8 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         CallInput::Value(value) => Ok(value),
                         CallInput::Data(plugin_data) => {
                             bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                                .map(|custom_value| Value::CustomValue {
-                                    val: custom_value,
-                                    span: plugin_data.span,
+                                .map(|custom_value| {
+                                    Value::custom_value(custom_value, plugin_data.span)
                                 })
                                 .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
                         }
@@ -334,16 +330,21 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let response = match value {
-                        Ok(Value::CustomValue { val, span }) => match bincode::serialize(&val) {
-                            Ok(data) => {
-                                let name = val.value_string();
-                                PluginResponse::PluginData(name, PluginData { data, span })
+                        Ok(value) => {
+                            let span = value.span();
+                            match value {
+                                Value::CustomValue { val, .. } => match bincode::serialize(&val) {
+                                    Ok(data) => {
+                                        let name = val.value_string();
+                                        PluginResponse::PluginData(name, PluginData { data, span })
+                                    }
+                                    Err(err) => PluginResponse::Error(
+                                        ShellError::PluginFailedToEncode(err.to_string()).into(),
+                                    ),
+                                },
+                                value => PluginResponse::Value(Box::new(value)),
                             }
-                            Err(err) => PluginResponse::Error(
-                                ShellError::PluginFailedToEncode(err.to_string()).into(),
-                            ),
-                        },
-                        Ok(value) => PluginResponse::Value(Box::new(value)),
+                        }
                         Err(err) => PluginResponse::Error(err),
                     };
                     encoder

@@ -38,9 +38,7 @@ impl Display for DataFrameValue {
 
 impl Default for DataFrameValue {
     fn default() -> Self {
-        Self(Value::Nothing {
-            span: Span::unknown(),
-        })
+        Self(Value::nothing(Span::unknown()))
     }
 }
 
@@ -111,24 +109,15 @@ impl NuDataFrame {
     }
 
     pub fn dataframe_into_value(dataframe: DataFrame, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(Self::new(false, dataframe)),
-            span,
-        }
+        Value::custom_value(Box::new(Self::new(false, dataframe)), span)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         if self.from_lazy {
             let lazy = NuLazyFrame::from_dataframe(self);
-            Value::CustomValue {
-                val: Box::new(lazy),
-                span,
-            }
+            Value::custom_value(Box::new(lazy), span)
         } else {
-            Value::CustomValue {
-                val: Box::new(self),
-                span,
-            }
+            Value::custom_value(Box::new(self), span)
         }
     }
 
@@ -207,16 +196,19 @@ impl NuDataFrame {
     pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
         let newlist = list
             .into_iter()
-            .map(|value| match value {
-                Value::Float { val, .. } => {
-                    if val.is_nan() {
-                        fill.clone()
-                    } else {
-                        value
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Float { val, .. } => {
+                        if val.is_nan() {
+                            fill.clone()
+                        } else {
+                            value
+                        }
                     }
+                    Value::List { vals, .. } => Self::fill_list_nan(vals, span, fill.clone()),
+                    _ => value,
                 }
-                Value::List { vals, span } => Self::fill_list_nan(vals, span, fill.clone()),
-                _ => value,
             })
             .collect::<Vec<Value>>();
         Value::list(newlist, list_span)
@@ -250,8 +242,9 @@ impl NuDataFrame {
     }
 
     pub fn get_df(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(df) => Ok(NuDataFrame {
                     df: df.df.clone(),
                     from_lazy: false,
@@ -466,12 +459,12 @@ impl NuDataFrame {
             .expect("already checked that dataframe is different than 0");
 
         // if unable to sort, then unable to compare
-        let lhs = match self.as_ref().sort(vec![*first_col], false) {
+        let lhs = match self.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };
 
-        let rhs = match other.as_ref().sort(vec![*first_col], false) {
+        let rhs = match other.as_ref().sort(vec![*first_col], false, false) {
             Ok(df) => df,
             Err(_) => return None,
         };

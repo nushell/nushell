@@ -68,8 +68,8 @@ impl Command for Upsert {
         Example {
             description: "Update each row of a table",
             example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: vec!["name".into(), "lang".into()],
                         vals: vec![Value::test_string("Nushell"), Value::test_string("Rust")],
@@ -79,8 +79,8 @@ impl Command for Upsert {
                         vals: vec![Value::test_string("Reedline"), Value::test_string("Rust")],
                     }),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         },
         Example {
             description: "Insert a new entry into a single record",
@@ -92,34 +92,34 @@ impl Command for Upsert {
         }, Example {
             description: "Use in closure form for more involved updating logic",
             example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-            result: Some(Value::List {
-                vals: vec![Value::test_record(Record {
+            result: Some(Value::list(
+                vec![Value::test_record(Record {
                     cols: vec!["count".into(), "fruit".into()],
                     vals: vec![Value::test_int(5), Value::test_string("apple")],
                 })],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         },
         Example {
             description: "Upsert an int into a list, updating an existing value based on the index",
             example: "[1 2 3] | upsert 0 2",
-            result: Some(Value::List {
-                vals: vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(
+                vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
+                Span::test_data(),
+            )),
         },
         Example {
             description: "Upsert an int into a list, inserting a new value based on the index",
             example: "[1 2 3] | upsert 3 4",
-            result: Some(Value::List {
-                vals: vec![
+            result: Some(Value::list(
+                vec![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
                     Value::test_int(4),
                 ],
-                span: Span::test_data(),
-            }),
+                Span::test_data(),
+            )),
         },
         ]
     }
@@ -178,18 +178,12 @@ fn upsert(
                         if let Err(e) =
                             input.upsert_data_at_cell_path(&cell_path.members, pd.into_value(span))
                         {
-                            return Value::Error {
-                                error: Box::new(e),
-                                span,
-                            };
+                            return Value::error(e, span);
                         }
 
                         input
                     }
-                    Err(e) => Value::Error {
-                        error: Box::new(e),
-                        span,
-                    },
+                    Err(e) => Value::error(e, span),
                 }
             },
             ctrlc,
@@ -225,10 +219,7 @@ fn upsert(
                 let replacement = replacement.clone();
 
                 if let Err(e) = input.upsert_data_at_cell_path(&cell_path.members, replacement) {
-                    return Value::Error {
-                        error: Box::new(e),
-                        span,
-                    };
+                    return Value::error(e, span);
                 }
 
                 input

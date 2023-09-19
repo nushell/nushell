@@ -36,17 +36,15 @@ where
     F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
+    let span = v.span();
     match v {
-        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
+        Value::String { val, .. } => cmd(StdPath::new(&val), span, args),
         _ => handle_invalid_values(v, name),
     }
 }
 
 fn handle_invalid_values(rest: Value, name: Span) -> Value {
-    Value::Error {
-        error: Box::new(err_from_value(&rest, name)),
-        span: name,
-    }
+    Value::error(err_from_value(&rest, name), name)
 }
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {

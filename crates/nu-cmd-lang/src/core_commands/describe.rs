@@ -106,11 +106,7 @@ fn run(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
         }
     };
 
-    Ok(Value::String {
-        val: description,
-        span: head,
-    }
-    .into_pipeline_data())
+    Ok(Value::string(description, head).into_pipeline_data())
 }
 
 #[cfg(test)]

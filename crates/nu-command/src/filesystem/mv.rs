@@ -200,10 +200,7 @@ impl Command for Mv {
                     update_mode,
                 );
                 if let Err(error) = result {
-                    Some(Value::Error {
-                        error: Box::new(error),
-                        span: spanned_source.span,
-                    })
+                    Some(Value::error(error, spanned_source.span))
                 } else if verbose {
                     let val = match result {
                         Ok(true) => format!(
@@ -217,7 +214,7 @@ impl Command for Mv {
                             destination.to_string_lossy()
                         ),
                     };
-                    Some(Value::String { val, span })
+                    Some(Value::string(val, span))
                 } else {
                     None
                 }

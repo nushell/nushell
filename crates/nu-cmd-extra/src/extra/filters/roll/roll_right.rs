@@ -59,8 +59,8 @@ impl Command for RollRight {
             Example {
                 description: "Rolls columns to the right",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: rotated_columns.clone(),
                             vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
@@ -70,14 +70,14 @@ impl Command for RollRight {
                             vals: vec![Value::test_int(6), Value::test_int(4), Value::test_int(5)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Rolls columns to the right with fixed headers",
                 example: "[[a b c]; [1 2 3] [4 5 6]] | roll right --cells-only",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: columns.clone(),
                             vals: vec![Value::test_int(3), Value::test_int(1), Value::test_int(2)],
@@ -87,8 +87,8 @@ impl Command for RollRight {
                             vals: vec![Value::test_int(6), Value::test_int(4), Value::test_int(5)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -106,7 +106,7 @@ impl Command for RollRight {
         let cells_only = call.has_flag("cells-only");
         let value = input.into_value(call.head);
         let rotated_value =
-            horizontal_rotate_value(value, &by, cells_only, &HorizontalDirection::Right)?;
+            horizontal_rotate_value(value, by, cells_only, &HorizontalDirection::Right)?;
 
         Ok(rotated_value.into_pipeline_data().set_metadata(metadata))
     }

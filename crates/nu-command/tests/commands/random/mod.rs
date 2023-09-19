@@ -1,7 +1,7 @@
 mod bool;
 mod chars;
-mod decimal;
 mod dice;
+mod float;
 mod integer;
 #[cfg(feature = "uuid_crate")]
 mod uuid;

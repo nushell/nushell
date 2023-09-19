@@ -159,11 +159,7 @@ pub fn help_aliases(
             long_desc = nu_utils::strip_ansi_string_likely(long_desc);
         }
 
-        Ok(Value::String {
-            val: long_desc,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(long_desc, call.head).into_pipeline_data())
     }
 }
 

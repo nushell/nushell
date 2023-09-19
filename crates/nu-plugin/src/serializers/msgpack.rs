@@ -78,32 +78,20 @@ mod tests {
     fn callinfo_round_trip_callinfo() {
         let name = "test".to_string();
 
-        let input = Value::Bool {
-            val: false,
-            span: Span::new(1, 20),
-        };
+        let input = Value::bool(false, Span::new(1, 20));
 
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span::new(0, 10),
-                },
+                Value::float(1.0, Span::new(0, 10)),
+                Value::string("something", Span::new(0, 10)),
             ],
             named: vec![(
                 Spanned {
                     item: "name".to_string(),
                     span: Span::new(0, 10),
                 },
-                Some(Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                }),
+                Some(Value::float(1.0, Span::new(0, 10))),
             )],
         };
 
@@ -252,10 +240,7 @@ mod tests {
 
     #[test]
     fn response_round_trip_value() {
-        let value = Value::Int {
-            val: 10,
-            span: Span::new(2, 30),
-        };
+        let value = Value::int(10, Span::new(2, 30));
 
         let response = PluginResponse::Value(Box::new(value.clone()));
 

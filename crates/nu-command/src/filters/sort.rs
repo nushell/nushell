@@ -49,66 +49,66 @@ impl Command for Sort {
             Example {
                 example: "[2 0 1] | sort",
                 description: "sort the list by increasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[2 0 1] | sort -r",
                 description: "sort the list by decreasing value",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[betty amy sarah] | sort",
                 description: "sort a list of strings",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("amy"),
                         Value::test_string("betty"),
                         Value::test_string("sarah"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[betty amy sarah] | sort -r",
                 description: "sort a list of strings in reverse",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("sarah"),
                         Value::test_string("betty"),
                         Value::test_string("amy"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort strings (case-insensitive)",
                 example: "[airplane Truck Car] | sort -i",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("airplane"),
                         Value::test_string("Car"),
                         Value::test_string("Truck"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort strings (reversed case-insensitive)",
                 example: "[airplane Truck Car] | sort -i -r",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("Truck"),
                         Value::test_string("Car"),
                         Value::test_string("airplane"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Sort record by key (case-insensitive)",
@@ -141,9 +141,10 @@ impl Command for Sort {
         let natural = call.has_flag("natural");
         let metadata = &input.metadata();
 
+        let span = input.span().unwrap_or(call.head);
         match input {
             // Records have two sorting methods, toggled by presence or absence of -v
-            PipelineData::Value(Value::Record { val, span }, ..) => {
+            PipelineData::Value(Value::Record { val, .. }, ..) => {
                 let sort_by_value = call.has_flag("values");
                 let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
                 Ok(record.into_pipeline_data())
@@ -257,20 +258,20 @@ pub fn sort(
         }
         _ => {
             vec.sort_by(|a, b| {
+                let span_a = a.span();
+                let span_b = b.span();
                 if insensitive {
                     let lowercase_left = match a {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                        Value::String { val, .. } => {
+                            Value::string(val.to_ascii_lowercase(), span_a)
+                        }
                         _ => a.clone(),
                     };
 
                     let lowercase_right = match b {
-                        Value::String { val, span } => Value::String {
-                            val: val.to_ascii_lowercase(),
-                            span: *span,
-                        },
+                        Value::String { val, .. } => {
+                            Value::string(val.to_ascii_lowercase(), span_b)
+                        }
                         _ => b.clone(),
                     };
 
@@ -311,30 +312,26 @@ pub fn process(
 
         let left_res = match left_value {
             Some(left_res) => left_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let right_value = right.get_data_by_key(column);
 
         let right_res = match right_value {
             Some(right_res) => right_res,
-            None => Value::Nothing { span },
+            None => Value::nothing(span),
         };
 
         let result = if insensitive {
+            let span_left = left_res.span();
+            let span_right = right_res.span();
             let lowercase_left = match left_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_left),
                 _ => left_res,
             };
 
             let lowercase_right = match right_res {
-                Value::String { val, span } => Value::String {
-                    val: val.to_ascii_lowercase(),
-                    span,
-                },
+                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_right),
                 _ => right_res,
             };
             if natural {

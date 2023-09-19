@@ -1,4 +1,4 @@
-use nu_command::hook::eval_hook;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::StateWorkingSet;
@@ -185,10 +185,7 @@ fn gather_env_vars(
                     continue;
                 }
 
-                Value::String {
-                    val: bytes,
-                    span: *span,
-                }
+                Value::string(bytes, *span)
             } else {
                 report_capture_error(
                     engine_state,

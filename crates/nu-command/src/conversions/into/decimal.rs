@@ -38,7 +38,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Convert text into a decimal."
+        "deprecated: convert data into a floating point number."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Use `into float` instead"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -52,6 +56,16 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`into decimal` is deprecated and will be removed in 0.86.".into(),
+                Some(call.head),
+                Some("Use `into float` instead".into()),
+                vec![],
+            ),
+        );
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
@@ -60,18 +74,18 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to decimal in table",
+                description: "Convert string to float in table",
                 example: "[[num]; ['5.01']] | into decimal num",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["num".to_string()],
                         vals: vec![Value::test_float(5.01)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
-                description: "Convert string to decimal",
+                description: "Convert string to float",
                 example: "'1.345' | into decimal",
                 result: Some(Value::test_float(1.345)),
             },
@@ -84,7 +98,7 @@ impl Command for SubCommand {
                 ])),
             },
             Example {
-                description: "Convert boolean to decimal",
+                description: "Convert boolean to float",
                 example: "true | into decimal",
                 result: Some(Value::test_float(1.0)),
             },
@@ -93,43 +107,44 @@ impl Command for SubCommand {
 }
 
 fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
+    let span = input.span();
     match input {
         Value::Float { .. } => input.clone(),
-        Value::String { val: s, span } => {
+        Value::String { val: s, .. } => {
             let other = s.trim();
 
             match other.parse::<f64>() {
                 Ok(x) => Value::float(x, head),
-                Err(reason) => Value::Error {
-                    error: Box::new(ShellError::CantConvert {
+                Err(reason) => Value::error(
+                    ShellError::CantConvert {
                         to_type: "float".to_string(),
                         from_type: reason.to_string(),
-                        span: *span,
+                        span,
                         help: None,
-                    }),
-                    span: *span,
-                },
+                    },
+                    span,
+                ),
             }
         }
-        Value::Int { val: v, span } => Value::float(*v as f64, *span),
-        Value::Bool { val: b, span } => Value::Float {
-            val: match b {
+        Value::Int { val: v, .. } => Value::float(*v as f64, span),
+        Value::Bool { val: b, .. } => Value::float(
+            match b {
                 true => 1.0,
                 false => 0.0,
             },
-            span: *span,
-        },
+            span,
+        ),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string, integer or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
-            }),
-            span: head,
-        },
+            },
+            head,
+        ),
     }
 }
 

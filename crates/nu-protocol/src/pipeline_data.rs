@@ -69,7 +69,7 @@ pub enum DataSource {
 
 impl PipelineData {
     pub fn new_with_metadata(metadata: Option<Box<PipelineMetadata>>, span: Span) -> PipelineData {
-        PipelineData::Value(Value::Nothing { span }, metadata)
+        PipelineData::Value(Value::nothing(span), metadata)
     }
 
     /// create a `PipelineData::ExternalStream` with proper exit_code
@@ -133,10 +133,10 @@ impl PipelineData {
             PipelineData::Empty => Value::nothing(span),
             PipelineData::Value(Value::Nothing { .. }, ..) => Value::nothing(span),
             PipelineData::Value(v, ..) => v.with_span(span),
-            PipelineData::ListStream(s, ..) => Value::List {
-                vals: s.collect(),
+            PipelineData::ListStream(s, ..) => Value::list(
+                s.collect(),
                 span, // FIXME?
-            },
+            ),
             PipelineData::ExternalStream {
                 stdout: None,
                 exit_code,
@@ -146,7 +146,7 @@ impl PipelineData {
                 if let Some(exit_code) = exit_code {
                     let _: Vec<_> = exit_code.into_iter().collect();
                 }
-                Value::Nothing { span }
+                Value::nothing(span)
             }
             PipelineData::ExternalStream {
                 stdout: Some(mut s),
@@ -162,10 +162,7 @@ impl PipelineData {
                             items.push(val);
                         }
                         Err(e) => {
-                            return Value::Error {
-                                error: Box::new(e),
-                                span,
-                            };
+                            return Value::error(e, span);
                         }
                     }
                 }
@@ -185,38 +182,30 @@ impl PipelineData {
                                 output.extend(item);
                             }
                             Err(err) => {
-                                return Value::Error {
-                                    error: Box::new(err),
-                                    span,
-                                };
+                                return Value::error(err, span);
                             }
                         }
                     }
 
-                    Value::Binary {
-                        val: output,
-                        span, // FIXME?
-                    }
+                    Value::binary(
+                        output, span, // FIXME?
+                    )
                 } else {
                     let mut output = String::new();
                     for item in items {
                         match item.as_string() {
                             Ok(s) => output.push_str(&s),
                             Err(err) => {
-                                return Value::Error {
-                                    error: Box::new(err),
-                                    span,
-                                };
+                                return Value::error(err, span);
                             }
                         }
                     }
                     if trim_end_newline {
                         output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
-                    Value::String {
-                        val: output,
-                        span, // FIXME?
-                    }
+                    Value::string(
+                        output, span, // FIXME?
+                    )
                 }
             }
         }
@@ -288,7 +277,7 @@ impl PipelineData {
                     },
                     metadata,
                 ))),
-                Value::Binary { val, span } => Ok(PipelineIterator(PipelineData::ListStream(
+                Value::Binary { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
                     ListStream {
                         stream: Box::new(val.into_iter().map(move |x| Value::int(x as i64, span))),
                         ctrlc: None,
@@ -368,7 +357,7 @@ impl PipelineData {
     ) -> Result<(String, Span, Option<Box<PipelineMetadata>>), ShellError> {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
-            PipelineData::Value(Value::String { val, span }, metadata) => Ok((val, span, metadata)),
+            PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
             PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
                 err_message: "string".into(),
                 span: val.span(),
@@ -400,11 +389,9 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::List {
-                vals: stream.collect(),
-                span: head,
+            PipelineData::ListStream(stream, ..) => {
+                Value::list(stream.collect(), head).follow_cell_path(cell_path, insensitive)
             }
-            .follow_cell_path(cell_path, insensitive),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             _ => Err(ShellError::IOError("can't follow stream paths".into())),
         }
@@ -418,11 +405,9 @@ impl PipelineData {
     ) -> Result<(), ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::List {
-                vals: stream.collect(),
-                span: head,
+            PipelineData::ListStream(stream, ..) => {
+                Value::list(stream.collect(), head).upsert_cell_path(cell_path, callback)
             }
-            .upsert_cell_path(cell_path, callback),
             PipelineData::Value(v, ..) => v.upsert_cell_path(cell_path, callback),
             _ => Ok(()),
         }
@@ -456,17 +441,9 @@ impl PipelineData {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len());
                     }
-                    Ok(f(Value::String {
-                        val: st,
-                        span: collected.span,
-                    })
-                    .into_pipeline_data())
+                    Ok(f(Value::string(st, collected.span)).into_pipeline_data())
                 } else {
-                    Ok(f(Value::Binary {
-                        val: collected.item,
-                        span: collected.span,
-                    })
-                    .into_pipeline_data())
+                    Ok(f(Value::binary(collected.item, collected.span)).into_pipeline_data())
                 }
             }
 
@@ -513,19 +490,13 @@ impl PipelineData {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
-                    Ok(f(Value::String {
-                        val: st,
-                        span: collected.span,
-                    })
-                    .into_iter()
-                    .into_pipeline_data(ctrlc))
+                    Ok(f(Value::string(st, collected.span))
+                        .into_iter()
+                        .into_pipeline_data(ctrlc))
                 } else {
-                    Ok(f(Value::Binary {
-                        val: collected.item,
-                        span: collected.span,
-                    })
-                    .into_iter()
-                    .into_pipeline_data(ctrlc))
+                    Ok(f(Value::binary(collected.item, collected.span))
+                        .into_iter()
+                        .into_pipeline_data(ctrlc))
                 }
             }
             PipelineData::Value(Value::Range { val, .. }, ..) => Ok(val
@@ -563,10 +534,7 @@ impl PipelineData {
                     if trim_end_newline {
                         st.truncate(st.trim_end_matches(LINE_ENDING_PATTERN).len())
                     }
-                    let v = Value::String {
-                        val: st,
-                        span: collected.span,
-                    };
+                    let v = Value::string(st, collected.span);
 
                     if f(&v) {
                         Ok(v.into_pipeline_data())
@@ -574,10 +542,7 @@ impl PipelineData {
                         Ok(PipelineData::new_with_metadata(None, collected.span))
                     }
                 } else {
-                    let v = Value::Binary {
-                        val: collected.item,
-                        span: collected.span,
-                    };
+                    let v = Value::binary(collected.item, collected.span);
 
                     if f(&v) {
                         Ok(v.into_pipeline_data())
@@ -594,7 +559,7 @@ impl PipelineData {
                 if f(&v) {
                     Ok(v.into_pipeline_data())
                 } else {
-                    Ok(Value::Nothing { span: v.span() }.into_pipeline_data())
+                    Ok(Value::nothing(v.span()).into_pipeline_data())
                 }
             }
         }
@@ -691,43 +656,43 @@ impl PipelineData {
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
         let input = match self {
-            PipelineData::Value(Value::Range { val, span }, ..) => {
-                match (&val.to, &val.from) {
-                    (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
-                        if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                            return Err(ShellError::GenericError(
-                                "Cannot create range".into(),
-                                "Infinity is not allowed when converting to json".into(),
-                                Some(span),
-                                Some("Consider removing infinity".into()),
-                                vec![],
-                            ));
+            PipelineData::Value(v, metadata) => match v {
+                Value::Range { val, .. } => {
+                    let span = val.to.span();
+                    match (&val.to, &val.from) {
+                        (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
+                            if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
+                                return Err(ShellError::GenericError(
+                                    "Cannot create range".into(),
+                                    "Infinity is not allowed when converting to json".into(),
+                                    Some(span),
+                                    Some("Consider removing infinity".into()),
+                                    vec![],
+                                ));
+                            }
                         }
-                    }
-                    (Value::Int { val, span }, _) => {
-                        if *val == i64::MAX || *val == i64::MIN {
-                            return Err(ShellError::GenericError(
-                                "Cannot create range".into(),
-                                "Unbounded ranges are not allowed when converting to json".into(),
-                                Some(*span),
-                                Some(
-                                    "Consider using ranges with valid start and end point.".into(),
-                                ),
-                                vec![],
-                            ));
+                        (Value::Int { val, .. }, _) => {
+                            if *val == i64::MAX || *val == i64::MIN {
+                                return Err(ShellError::GenericError(
+                                    "Cannot create range".into(),
+                                    "Unbounded ranges are not allowed when converting to json"
+                                        .into(),
+                                    Some(span),
+                                    Some(
+                                        "Consider using ranges with valid start and end point."
+                                            .into(),
+                                    ),
+                                    vec![],
+                                ));
+                            }
                         }
+                        _ => (),
                     }
-                    _ => (),
+                    let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
+                    PipelineData::Value(Value::list(range_values, span), None)
                 }
-                let range_values: Vec<Value> = val.into_range_iter(None)?.collect();
-                PipelineData::Value(
-                    Value::List {
-                        vals: range_values,
-                        span,
-                    },
-                    None,
-                )
-            }
+                x => PipelineData::Value(x, metadata),
+            },
             _ => self,
         };
         Ok(input)
@@ -847,34 +812,33 @@ impl IntoIterator for PipelineData {
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            PipelineData::Value(Value::List { vals, .. }, metadata) => {
-                PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(vals.into_iter()),
-                        ctrlc: None,
+            PipelineData::Value(v, metadata) => {
+                let span = v.span();
+                match v {
+                    Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
+                        ListStream {
+                            stream: Box::new(vals.into_iter()),
+                            ctrlc: None,
+                        },
+                        metadata,
+                    )),
+                    Value::Range { val, .. } => match val.into_range_iter(None) {
+                        Ok(iter) => PipelineIterator(PipelineData::ListStream(
+                            ListStream {
+                                stream: Box::new(iter),
+                                ctrlc: None,
+                            },
+                            metadata,
+                        )),
+                        Err(error) => PipelineIterator(PipelineData::ListStream(
+                            ListStream {
+                                stream: Box::new(std::iter::once(Value::error(error, span))),
+                                ctrlc: None,
+                            },
+                            metadata,
+                        )),
                     },
-                    metadata,
-                ))
-            }
-            PipelineData::Value(Value::Range { val, span }, metadata) => {
-                match val.into_range_iter(None) {
-                    Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(iter),
-                            ctrlc: None,
-                        },
-                        metadata,
-                    )),
-                    Err(error) => PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(std::iter::once(Value::Error {
-                                error: Box::new(error),
-                                span,
-                            })),
-                            ctrlc: None,
-                        },
-                        metadata,
-                    )),
+                    x => PipelineIterator(PipelineData::Value(x, metadata)),
                 }
             }
             x => PipelineIterator(x),
@@ -941,10 +905,10 @@ impl Iterator for PipelineIterator {
                 ..
             } => stream.next().map(|x| match x {
                 Ok(x) => x,
-                Err(err) => Value::Error {
-                    error: Box::new(err),
-                    span: Span::unknown(), //FIXME: unclear where this span should come from
-                },
+                Err(err) => Value::error(
+                    err,
+                    Span::unknown(), //FIXME: unclear where this span should come from
+                ),
             }),
         }
     }

@@ -1,6 +1,7 @@
 use log::info;
 use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCgroup};
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -70,6 +71,7 @@ pub struct ProcessInfo {
     pub prev_stat: Option<Stat>,
     pub curr_status: Option<Status>,
     pub interval: Duration,
+    pub cwd: PathBuf,
 }
 
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
@@ -98,6 +100,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             info!("failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots");
             continue;
         };
+        let cwd = curr_proc.cwd().unwrap_or_default();
 
         let curr_io = curr_proc.io().ok();
         let curr_stat = curr_proc.stat().ok();
@@ -117,6 +120,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             prev_stat,
             curr_status,
             interval,
+            cwd,
         };
 
         ret.push(proc);
@@ -163,6 +167,10 @@ impl ProcessInfo {
                 Err(_) => "".to_string(),
             }
         }
+    }
+
+    pub fn cwd(&self) -> String {
+        self.cwd.display().to_string()
     }
 
     /// Get the status of the process

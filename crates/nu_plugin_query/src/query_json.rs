@@ -79,7 +79,7 @@ fn convert_gjson_value_to_nu_value(v: &gjValue, span: Span) -> Value {
                 true
             });
 
-            Value::List { vals, span }
+            Value::list(vals, span)
         }
         gjson::Kind::Null => Value::nothing(span),
         gjson::Kind::False => Value::bool(false, span),

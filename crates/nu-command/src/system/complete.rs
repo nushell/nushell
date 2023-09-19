@@ -60,15 +60,9 @@ impl Command for Complete {
                             .spawn(move || {
                                 let stderr = stderr.into_bytes()?;
                                 if let Ok(st) = String::from_utf8(stderr.item.clone()) {
-                                    Ok::<_, ShellError>(Value::String {
-                                        val: st,
-                                        span: stderr.span,
-                                    })
+                                    Ok::<_, ShellError>(Value::string(st, stderr.span))
                                 } else {
-                                    Ok::<_, ShellError>(Value::Binary {
-                                        val: stderr.item,
-                                        span: stderr.span,
-                                    })
+                                    Ok::<_, ShellError>(Value::binary(stderr.item, stderr.span))
                                 }
                             })
                             .expect("failed to create thread"),

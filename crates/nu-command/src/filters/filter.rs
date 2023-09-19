@@ -101,10 +101,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
-                            span: x.span(),
-                        }),
+                        Err(error) => Some(Value::error(
+                            chain_error_with_input(error, x.is_error(), x.span()),
+                            x.span(),
+                        )),
                     }
                 })
                 .into_pipeline_data(ctrlc)),
@@ -120,12 +120,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(err) => {
-                            return Some(Value::Error {
-                                error: Box::new(err),
-                                span,
-                            })
-                        }
+                        Err(err) => return Some(Value::error(err, span)),
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -150,10 +145,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
-                            span: x.span(),
-                        }),
+                        Err(error) => Some(Value::error(
+                            chain_error_with_input(error, x.is_error(), x.span()),
+                            x.span(),
+                        )),
                     }
                 })
                 .into_pipeline_data(ctrlc)),
@@ -184,10 +179,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             None
                         }
                     }
-                    Err(error) => Some(Value::Error {
-                        error: Box::new(chain_error_with_input(error, x.is_error(), x.span())),
-                        span: x.span(),
-                    }),
+                    Err(error) => Some(Value::error(
+                        chain_error_with_input(error, x.is_error(), x.span()),
+                        x.span(),
+                    )),
                 }
                 .into_pipeline_data(ctrlc))
             }
@@ -200,57 +195,54 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | filter {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(vec![Value::test_int(2)], Span::test_data())),
             },
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | filter {|x| $x.a > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["a".to_string()],
                         vals: vec![Value::test_int(2)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Filter rows of a table according to a stored condition",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | filter $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec!["a".to_string()],
                         vals: vec![Value::test_int(2)],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Filter items of a range according to a condition",
                 example: "9..13 | filter {|el| $el mod 2 != 0}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(9), Value::test_int(11), Value::test_int(13)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(9), Value::test_int(11), Value::test_int(13)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "List all numbers above 3, using an existing closure condition",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
                 result: None, // TODO: This should work
-                              // result: Some(Value::List {
-                              //     vals: vec![
+                              // result: Some(Value::list(
+                              //     vec![
                               //         Value::Int {
                               //             val: 5,
-                              //             span: Span::test_data(),
+                              //             Span::test_data(),
                               //         },
                               //         Value::Int {
                               //             val: 6,
                               //             span: Span::test_data(),
                               //         },
                               //     ],
-                              //     span: Span::test_data(),
+                              //     Span::test_data(),
                               // }),
             },
         ]

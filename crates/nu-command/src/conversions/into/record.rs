@@ -62,9 +62,9 @@ impl Command for SubCommand {
                 result: Some(Value::test_record(Record {
                     cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
                     vals: vec![
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 2, span },
-                        Value::Int { val: 3, span },
+                        Value::int(1, span),
+                        Value::int(2, span),
+                        Value::int(3, span),
                     ],
                 })),
             },
@@ -74,9 +74,9 @@ impl Command for SubCommand {
                 result: Some(Value::test_record(Record {
                     cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
                     vals: vec![
-                        Value::Int { val: 0, span },
-                        Value::Int { val: 1, span },
-                        Value::Int { val: 2, span },
+                        Value::int(0, span),
+                        Value::int(1, span),
+                        Value::int(2, span),
                     ],
                 })),
             },
@@ -92,14 +92,11 @@ impl Command for SubCommand {
                         "sign".into(),
                     ],
                     vals: vec![
-                        Value::Int { val: 71, span },
-                        Value::Int { val: 3, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 5, span },
-                        Value::String {
-                            val: "-".into(),
-                            span,
-                        },
+                        Value::int(71, span),
+                        Value::int(3, span),
+                        Value::int(4, span),
+                        Value::int(5, span),
+                        Value::string("-", span),
                     ],
                 })),
             },
@@ -108,7 +105,7 @@ impl Command for SubCommand {
                 example: "{a: 1, b: 2} | into record",
                 result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::Int { val: 1, span }, Value::Int { val: 2, span }],
+                    vals: vec![Value::int(1, span), Value::int(2, span)],
                 })),
             },
             Example {
@@ -125,16 +122,13 @@ impl Command for SubCommand {
                         "timezone".into(),
                     ],
                     vals: vec![
-                        Value::Int { val: 2020, span },
-                        Value::Int { val: 4, span },
-                        Value::Int { val: 12, span },
-                        Value::Int { val: 22, span },
-                        Value::Int { val: 10, span },
-                        Value::Int { val: 57, span },
-                        Value::String {
-                            val: "+02:00".to_string(),
-                            span,
-                        },
+                        Value::int(2020, span),
+                        Value::int(4, span),
+                        Value::int(12, span),
+                        Value::int(22, span),
+                        Value::int(10, span),
+                        Value::int(57, span),
+                        Value::string("+02:00".to_string(), span),
                     ],
                 })),
             },
@@ -149,10 +143,11 @@ fn into_record(
 ) -> Result<PipelineData, ShellError> {
     let input = input.into_value(call.head);
     let input_type = input.get_type();
+    let span = input.span();
     let res = match input {
-        Value::Date { val, span } => parse_date_into_record(val, span),
-        Value::Duration { val, span } => parse_duration_into_record(val, span),
-        Value::List { mut vals, span } => match input_type {
+        Value::Date { val, .. } => parse_date_into_record(val, span),
+        Value::Duration { val, .. } => parse_duration_into_record(val, span),
+        Value::List { mut vals, .. } => match input_type {
             Type::Table(..) if vals.len() == 1 => vals.pop().expect("already checked 1 item"),
             _ => Value::record(
                 vals.into_iter()
@@ -162,24 +157,24 @@ fn into_record(
                 span,
             ),
         },
-        Value::Range { val, span } => Value::record(
+        Value::Range { val, .. } => Value::record(
             val.into_range_iter(engine_state.ctrlc.clone())?
                 .enumerate()
                 .map(|(idx, val)| (format!("{idx}"), val))
                 .collect(),
             span,
         ),
-        Value::Record { val, span } => Value::Record { val, span },
+        Value::Record { val, .. } => Value::record(val, span),
         Value::Error { .. } => input,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: call.head,
                 src_span: other.span(),
-            }),
-            span: call.head,
-        },
+            },
+            call.head,
+        ),
     };
     Ok(res.into_pipeline_data())
 }

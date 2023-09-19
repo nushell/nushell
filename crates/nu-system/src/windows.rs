@@ -135,9 +135,11 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             let io = get_io(handle);
 
             let start_time = if let Some((start, _, _, _)) = times {
+                // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
+                // the Linux epoch (1970-01-01).
                 let time = chrono::Duration::seconds(start as i64 / 10_000_000);
                 let base =
-                    NaiveDate::from_ymd_opt(1600, 1, 1).and_then(|nd| nd.and_hms_opt(0, 0, 0));
+                    NaiveDate::from_ymd_opt(1601, 1, 1).and_then(|nd| nd.and_hms_opt(0, 0, 0));
                 if let Some(base) = base {
                     let time = base + time;
                     Local.from_utc_datetime(&time)
@@ -146,7 +148,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
                 }
             } else {
                 let time =
-                    NaiveDate::from_ymd_opt(1600, 1, 1).and_then(|nt| nt.and_hms_opt(0, 0, 0));
+                    NaiveDate::from_ymd_opt(1601, 1, 1).and_then(|nt| nt.and_hms_opt(0, 0, 0));
                 if let Some(time) = time {
                     Local.from_utc_datetime(&time)
                 } else {
@@ -775,6 +777,7 @@ fn get_io(handle: HANDLE) -> Option<(u64, u64)> {
     }
 }
 
+#[derive(Clone)]
 pub struct SidName {
     pub sid: Vec<u64>,
     pub name: Option<String>,
