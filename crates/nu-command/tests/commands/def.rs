@@ -164,3 +164,19 @@ fn extern_with_block() {
 
     assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
 }
+
+#[test]
+fn def_default_value_shouldnt_restrict_explicit_type() {
+    let actual = nu!("def foo [x: any = null] { $x }; foo 1");
+    assert_eq!(actual.out, "1");
+    let actual2 = nu!("def foo [--x: any = null] { $x }; foo --x 1");
+    assert_eq!(actual2.out, "1");
+}
+
+#[test]
+fn def_defualt_value_should_restrict_implicit_type() {
+    let actual = nu!("def foo [x = 3] { $x }; foo 'a'");
+    assert!(actual.err.contains("expected int"));
+    let actual2 = nu!("def foo2 [--x = 'a'] { $x }; foo2 --x 3");
+    assert!(actual2.err.contains("expected string"));
+}
