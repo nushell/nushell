@@ -27,6 +27,7 @@ impl Command for IntoValue {
                 "list of columns to update",
                 Some('c'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
