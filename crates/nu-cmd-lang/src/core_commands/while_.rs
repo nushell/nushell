@@ -30,6 +30,10 @@ impl Command for While {
             .category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["loop"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,

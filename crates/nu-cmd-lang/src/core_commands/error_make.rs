@@ -65,16 +65,16 @@ impl Command for ErrorMake {
             Example {
                 description: "Create a simple custom error",
                 example: r#"error make {msg: "my custom error message"}"#,
-                result: Some(Value::Error {
-                    error: Box::new(ShellError::GenericError(
+                result: Some(Value::error(
+                    ShellError::GenericError(
                         "my custom error message".to_string(),
                         "".to_string(),
                         None,
                         None,
                         Vec::new(),
-                    )),
-                    span: Span::unknown(),
-                }),
+                    ),
+                    Span::unknown(),
+                )),
             },
             Example {
                 description: "Create a more complex custom error",
@@ -86,16 +86,16 @@ impl Command for ErrorMake {
             end: 456  # not mandatory unless $.label.start is set
         }
     }"#,
-                result: Some(Value::Error {
-                    error: Box::new(ShellError::GenericError(
+                result: Some(Value::error(
+                    ShellError::GenericError(
                         "my custom error message".to_string(),
                         "my custom label text".to_string(),
                         Some(Span::new(123, 456)),
                         None,
                         Vec::new(),
-                    )),
-                    span: Span::unknown(),
-                }),
+                    ),
+                    Span::unknown(),
+                )),
             },
             Example {
                 description:
@@ -118,7 +118,8 @@ impl Command for ErrorMake {
 }
 
 fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
-    if let Value::Record { span, .. } = &value {
+    let span = value.span();
+    if let Value::Record { .. } = &value {
         let msg = value.get_data_by_key("msg");
         let label = value.get_data_by_key("label");
 
@@ -203,7 +204,7 @@ fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
             (None, _) => Some(ShellError::GenericError(
                 "Unable to parse error format.".into(),
                 "missing required member `$.msg`".into(),
-                Some(*span),
+                Some(span),
                 None,
                 Vec::new(),
             )),

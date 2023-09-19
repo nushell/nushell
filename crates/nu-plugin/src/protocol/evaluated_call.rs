@@ -115,7 +115,7 @@ impl EvaluatedCall {
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #         Some(Value::int(123, null_span))
     /// #     )],
     /// # };
     /// let opt_foo = match call.get_flag_value("foo") {
@@ -164,9 +164,9 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![
-    /// #         Value::String { val: "a".to_owned(), span: null_span },
-    /// #         Value::String { val: "b".to_owned(), span: null_span },
-    /// #         Value::String { val: "c".to_owned(), span: null_span },
+    /// #         Value::string("a".to_owned(), null_span),
+    /// #         Value::string("b".to_owned(), null_span),
+    /// #         Value::string("c".to_owned(), null_span),
     /// #     ],
     /// #     named: vec![],
     /// # };
@@ -196,7 +196,7 @@ impl EvaluatedCall {
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #         Some(Value::int(123, null_span))
     /// #     )],
     /// # };
     /// let foo = call.get_flag::<i64>("foo");
@@ -213,7 +213,7 @@ impl EvaluatedCall {
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "bar".to_owned(), span: null_span},
-    /// #         Some(Value::Int { val: 123, span: null_span })
+    /// #         Some(Value::int(123, null_span))
     /// #     )],
     /// # };
     /// let foo = call.get_flag::<i64>("foo");
@@ -230,7 +230,7 @@ impl EvaluatedCall {
     /// #     positional: Vec::new(),
     /// #     named: vec![(
     /// #         Spanned { item: "foo".to_owned(), span: null_span},
-    /// #         Some(Value::String { val: "abc".to_owned(), span: null_span })
+    /// #         Some(Value::string("abc".to_owned(), null_span))
     /// #     )],
     /// # };
     /// let foo = call.get_flag::<i64>("foo");
@@ -255,10 +255,10 @@ impl EvaluatedCall {
     /// # let call = EvaluatedCall {
     /// #     head: null_span,
     /// #     positional: vec![
-    /// #         Value::String { val: "zero".to_owned(), span: null_span },
-    /// #         Value::String { val: "one".to_owned(), span: null_span },
-    /// #         Value::String { val: "two".to_owned(), span: null_span },
-    /// #         Value::String { val: "three".to_owned(), span: null_span },
+    /// #         Value::string("zero".to_owned(), null_span),
+    /// #         Value::string("one".to_owned(), null_span),
+    /// #         Value::string("two".to_owned(), null_span),
+    /// #         Value::string("three".to_owned(), null_span),
     /// #     ],
     /// #     named: Vec::new(),
     /// # };
@@ -318,14 +318,8 @@ mod test {
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span::new(0, 10),
-                },
+                Value::float(1.0, Span::new(0, 10)),
+                Value::string("something", Span::new(0, 10)),
             ],
             named: vec![
                 (
@@ -333,10 +327,7 @@ mod test {
                         item: "name".to_string(),
                         span: Span::new(0, 10),
                     },
-                    Some(Value::Float {
-                        val: 1.0,
-                        span: Span::new(0, 10),
-                    }),
+                    Some(Value::float(1.0, Span::new(0, 10))),
                 ),
                 (
                     Spanned {

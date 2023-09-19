@@ -51,8 +51,8 @@ impl Command for Histogram {
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(Value::List {
-                        vals: vec![Value::test_record(Record {
+                result: Some(Value::list (
+                        vec![Value::test_record(Record {
                             cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
                             vals: vec![
                                 Value::test_int(1),
@@ -72,8 +72,8 @@ impl Command for Histogram {
                                 Value::test_string("*********************************"),
                             ],
                         })],
-                        span: Span::test_data(),
-                    }
+                        Span::test_data(),
+                    )
                  ),
             },
             Example {
@@ -274,16 +274,10 @@ fn histogram_impl(
                     cols: result_cols.clone(),
                     vals: vec![
                         val.into_value(),
-                        Value::Int { val: count, span },
-                        Value::Float {
-                            val: quantile,
-                            span,
-                        },
-                        Value::String {
-                            val: percentage,
-                            span,
-                        },
-                        Value::String { val: freq, span },
+                        Value::int(count, span),
+                        Value::float(quantile, span),
+                        Value::string(percentage, span),
+                        Value::string(freq, span),
                     ],
                 },
                 span,
@@ -291,11 +285,7 @@ fn histogram_impl(
         ));
     }
     result.sort_by(|a, b| b.0.cmp(&a.0));
-    Value::List {
-        vals: result.into_iter().map(|x| x.1).collect(),
-        span,
-    }
-    .into_pipeline_data()
+    Value::list(result.into_iter().map(|x| x.1).collect(), span).into_pipeline_data()
 }
 
 #[cfg(test)]

@@ -106,20 +106,16 @@ fn to_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
 
     let yaml_value = value_to_yaml_value(&value)?;
     match serde_yaml::to_string(&yaml_value) {
-        Ok(serde_yaml_string) => Ok(Value::String {
-            val: serde_yaml_string,
-            span: head,
-        }
-        .into_pipeline_data()),
-        _ => Ok(Value::Error {
-            error: Box::new(ShellError::CantConvert {
+        Ok(serde_yaml_string) => Ok(Value::string(serde_yaml_string, head).into_pipeline_data()),
+        _ => Ok(Value::error(
+            ShellError::CantConvert {
                 to_type: "YAML".into(),
                 from_type: value.get_type().to_string(),
                 span: head,
                 help: None,
-            }),
-            span: head,
-        }
+            },
+            head,
+        )
         .into_pipeline_data()),
     }
 }

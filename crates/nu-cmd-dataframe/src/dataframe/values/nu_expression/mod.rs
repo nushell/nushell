@@ -55,15 +55,13 @@ impl From<Expr> for NuExpression {
 
 impl NuExpression {
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::custom_value(Box::new(self), span)
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(expr) => Ok(NuExpression(expr.0.clone())),
                 None => Err(ShellError::CantConvert {
                     to_type: "lazy expression".into(),
@@ -277,13 +275,10 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::DtypeColumn(dtypes) => {
             let vals = dtypes
                 .iter()
-                .map(|d| Value::String {
-                    val: format!("{d}"),
-                    span,
-                })
+                .map(|d| Value::string(format!("{d}"), span))
                 .collect();
 
-            Ok(Value::List { vals, span })
+            Ok(Value::list(vals, span))
         }
         Expr::Sort { expr, options } => Ok(Value::record(
             record! {
@@ -318,10 +313,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         } => {
             let by: Result<Vec<Value>, ShellError> =
                 by.iter().map(|b| expr_to_value(b, span)).collect();
-            let descending: Vec<Value> = descending
-                .iter()
-                .map(|r| Value::Bool { val: *r, span })
-                .collect();
+            let descending: Vec<Value> = descending.iter().map(|r| Value::bool(*r, span)).collect();
 
             Ok(Value::record(
                 record! {
@@ -354,10 +346,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Exclude(expr, excluded) => {
             let excluded = excluded
                 .iter()
-                .map(|e| Value::String {
-                    val: format!("{e:?}"),
-                    span,
-                })
+                .map(|e| Value::string(format!("{e:?}"), span))
                 .collect();
 
             Ok(Value::record(

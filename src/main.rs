@@ -129,7 +129,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "config.nu",
         "config-path",
-        &parsed_nu_cli_args.config_file,
+        parsed_nu_cli_args.config_file.as_ref(),
     );
 
     set_config_path(
@@ -137,7 +137,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "env.nu",
         "env-path",
-        &parsed_nu_cli_args.env_file,
+        parsed_nu_cli_args.env_file.as_ref(),
     );
     perf(
         "set_config_path",
@@ -164,13 +164,10 @@ fn main() -> Result<()> {
         let vals: Vec<_> = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
-            .map(|x| Value::String {
-                val: x.trim().to_string(),
-                span,
-            })
+            .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
     }
 
     start_time = std::time::Instant::now();

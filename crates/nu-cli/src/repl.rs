@@ -235,13 +235,15 @@ pub fn evaluate_repl(
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_insert,
-            )),
-            vi_normal: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_normal,
-            )),
-            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+            vi_insert: config
+                .cursor_shape_vi_insert
+                .map(map_nucursorshape_to_cursorshape),
+            vi_normal: config
+                .cursor_shape_vi_normal
+                .map(map_nucursorshape_to_cursorshape),
+            emacs: config
+                .cursor_shape_emacs
+                .map(map_nucursorshape_to_cursorshape),
         };
         perf(
             "get config/cursor config",
@@ -514,24 +516,12 @@ pub fn evaluate_repl(
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
 
-                    stack.add_env_var(
-                        "OLDPWD".into(),
-                        Value::String {
-                            val: cwd.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
+                    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
-                    stack.add_env_var(
-                        "PWD".into(),
-                        Value::String {
-                            val: path.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
-                    let cwd = Value::String { val: cwd, span };
+                    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+                    let cwd = Value::string(cwd, span);
 
                     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
                     let mut shells = if let Some(v) = shells {
@@ -556,15 +546,12 @@ pub fn evaluate_repl(
                         0
                     };
 
-                    shells[current_shell] = Value::String { val: path, span };
+                    shells[current_shell] = Value::string(path, span);
 
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
                     stack.add_env_var(
                         "NUSHELL_LAST_SHELL".into(),
-                        Value::Int {
-                            val: last_shell as i64,
-                            span,
-                        },
+                        Value::int(last_shell as i64, span),
                     );
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
@@ -607,10 +594,7 @@ pub fn evaluate_repl(
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
-                    Value::String {
-                        val: format!("{}", cmd_duration.as_millis()),
-                        span: Span::unknown(),
-                    },
+                    Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -746,9 +730,14 @@ fn update_line_editor_history(
             )
             .into_diagnostic()?,
         ),
-        HistoryFileFormat::Sqlite => {
-            Box::new(SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?)
-        }
+        HistoryFileFormat::Sqlite => Box::new(
+            SqliteBackedHistory::with_file(
+                history_path.to_path_buf(),
+                history_session_id,
+                Some(chrono::Utc::now()),
+            )
+            .into_diagnostic()?,
+        ),
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)

@@ -76,10 +76,7 @@ where
                             }),
                         );
                         if let Err(error) = r {
-                            return Value::Error {
-                                error: Box::new(error),
-                                span,
-                            };
+                            return Value::error(error, span);
                         }
                     }
                     v

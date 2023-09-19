@@ -121,27 +121,22 @@ fn size(
     }
     input.map(
         move |v| {
+            let value_span = v.span();
             // First, obtain the span. If this fails, propagate the error that results.
-            let value_span = match &v {
-                Value::Error { error, span } => {
-                    return Value::Error {
-                        error: error.clone(),
-                        span: *span,
-                    }
-                }
-                v => v.span(),
-            };
+            if let Value::Error { error, .. } = v {
+                return Value::error(*error, span);
+            }
             // Now, check if it's a string.
             match v.as_string() {
                 Ok(s) => counter(&s, span),
-                Err(_) => Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Err(_) => Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: value_span,
-                    }),
+                    },
                     span,
-                },
+                ),
             }
         },
         engine_state.ctrlc.clone(),

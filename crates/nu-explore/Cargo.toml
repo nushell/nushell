@@ -22,7 +22,7 @@ nu-utils = { path = "../nu-utils", version = "0.84.1" }
 
 terminal_size = "0.2"
 strip-ansi-escapes = "0.2.0"
-crossterm = "0.26"
-ratatui = "0.20"
+crossterm = "0.27"
+ratatui = "0.23"
 ansi-str = "0.8"
 lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }

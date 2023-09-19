@@ -9,9 +9,7 @@ fn test_comparison_nothing() {
         Value::test_float(1.0),
     ];
 
-    let nothing = Value::Nothing {
-        span: Span::test_data(),
-    };
+    let nothing = Value::nothing(Span::test_data());
 
     for value in values {
         assert!(matches!(

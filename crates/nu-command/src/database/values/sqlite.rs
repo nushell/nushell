@@ -56,8 +56,9 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
+        let span = value.span();
         match value {
-            Value::CustomValue { val, span } => match val.as_any().downcast_ref::<Self>() {
+            Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
                     ctrlc: db.ctrlc.clone(),
@@ -84,10 +85,7 @@ impl SQLiteDatabase {
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::CustomValue {
-            val: Box::new(self),
-            span,
-        }
+        Value::custom_value(Box::new(self), span)
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
@@ -280,10 +278,7 @@ impl CustomValue for SQLiteDatabase {
             ctrlc: self.ctrlc.clone(),
         };
 
-        Value::CustomValue {
-            val: Box::new(cloned),
-            span,
-        }
+        Value::custom_value(Box::new(cloned), span)
     }
 
     fn value_string(&self) -> String {
@@ -393,10 +388,7 @@ fn prepared_statement_to_nu_list(
     for row_result in row_results {
         if nu_utils::ctrl_c::was_pressed(&ctrlc) {
             // return whatever we have so far, let the caller decide whether to use it
-            return Ok(Value::List {
-                vals: row_values,
-                span: call_span,
-            });
+            return Ok(Value::list(row_values, call_span));
         }
 
         if let Ok(row_value) = row_result {
@@ -404,10 +396,7 @@ fn prepared_statement_to_nu_list(
         }
     }
 
-    Ok(Value::List {
-        vals: row_values,
-        span: call_span,
-    })
+    Ok(Value::list(row_values, call_span))
 }
 
 fn read_entire_sqlite_db(
@@ -450,28 +439,17 @@ pub fn convert_sqlite_row_to_nu_value(row: &Row, span: Span, column_names: Vec<S
 
 pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
     match value {
-        ValueRef::Null => Value::Nothing { span },
-        ValueRef::Integer(i) => Value::Int { val: i, span },
-        ValueRef::Real(f) => Value::Float { val: f, span },
+        ValueRef::Null => Value::nothing(span),
+        ValueRef::Integer(i) => Value::int(i, span),
+        ValueRef::Real(f) => Value::float(f, span),
         ValueRef::Text(buf) => {
             let s = match std::str::from_utf8(buf) {
                 Ok(v) => v,
-                Err(_) => {
-                    return Value::Error {
-                        error: Box::new(ShellError::NonUtf8(span)),
-                        span,
-                    }
-                }
+                Err(_) => return Value::error(ShellError::NonUtf8(span), span),
             };
-            Value::String {
-                val: s.to_string(),
-                span,
-            }
+            Value::string(s.to_string(), span)
         }
-        ValueRef::Blob(u) => Value::Binary {
-            val: u.to_vec(),
-            span,
-        },
+        ValueRef::Blob(u) => Value::binary(u.to_vec(), span),
     }
 }
 
@@ -506,10 +484,7 @@ mod test {
 
         let expected = Value::test_record(Record {
             cols: vec!["person".to_string()],
-            vals: vec![Value::List {
-                vals: vec![],
-                span: Span::test_data(),
-            }],
+            vals: vec![Value::list(vec![], Span::test_data())],
         });
 
         assert_eq!(converted_db, expected);
@@ -539,25 +514,22 @@ mod test {
 
         let expected = Value::test_record(Record {
             cols: vec!["item".to_string()],
-            vals: vec![Value::List {
-                vals: vec![
+            vals: vec![Value::list(
+                vec![
                     Value::test_record(Record {
                         cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![Value::Int { val: 123, span }, Value::Nothing { span }],
+                        vals: vec![Value::int(123, span), Value::nothing(span)],
                     }),
                     Value::test_record(Record {
                         cols: vec!["id".to_string(), "name".to_string()],
                         vals: vec![
-                            Value::Int { val: 456, span },
-                            Value::String {
-                                val: "foo bar".to_string(),
-                                span,
-                            },
+                            Value::int(456, span),
+                            Value::string("foo bar".to_string(), span),
                         ],
                     }),
                 ],
                 span,
-            }],
+            )],
         });
 
         assert_eq!(converted_db, expected);

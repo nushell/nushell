@@ -63,8 +63,8 @@ impl Command for DetectColumns {
             Example {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns -n",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column0".to_string(),
                             "column1".to_string(),
@@ -77,7 +77,7 @@ impl Command for DetectColumns {
                         ],
                     })],
                     span,
-                }),
+                )),
             },
             Example {
                 description: "",
@@ -150,10 +150,7 @@ fn detect_columns(
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
                     cols.push(header.item.clone());
-                    vals.push(Value::String {
-                        val: val.item.clone(),
-                        span: name_span,
-                    });
+                    vals.push(Value::string(val.item.clone(), name_span));
                 }
             } else {
                 let mut pre_output = vec![];
@@ -217,10 +214,7 @@ fn detect_columns(
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find range index", name_span);
-                        return Value::Error {
-                            error: Box::new(err),
-                            span: name_span,
-                        };
+                        return Value::error(err, name_span);
                     }
                 }
             } else {

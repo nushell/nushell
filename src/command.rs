@@ -384,10 +384,10 @@ impl Command for Nu {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
-            span: call.head,
-        }
+        Ok(Value::string(
+            get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
+            call.head,
+        )
         .into_pipeline_data())
     }
 

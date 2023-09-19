@@ -93,12 +93,12 @@ fn integer(
             right_flank: max.to_string(),
             span,
         }),
-        Some(Ordering::Equal) => Ok(PipelineData::Value(Value::Int { val: min, span }, None)),
+        Some(Ordering::Equal) => Ok(PipelineData::Value(Value::int(min, span), None)),
         _ => {
             let mut thread_rng = thread_rng();
             let result: i64 = thread_rng.gen_range(min..=max);
 
-            Ok(PipelineData::Value(Value::Int { val: result, span }, None))
+            Ok(PipelineData::Value(Value::int(result, span), None))
         }
     }
 }

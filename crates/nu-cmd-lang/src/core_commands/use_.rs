@@ -30,6 +30,10 @@ impl Command for Use {
             .category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["module", "import", "include", "scope"]
+    }
+
     fn extra_usage(&self) -> &str {
         r#"See `help std` for the standard library module.
 See `help modules` to list all available modules.
@@ -52,7 +56,8 @@ This command is a parser keyword. For details, check:
         let Some(Expression {
             expr: Expr::ImportPattern(import_pattern),
             ..
-        }) = call.get_parser_info("import_pattern") else {
+        }) = call.get_parser_info("import_pattern")
+        else {
             return Err(ShellError::GenericError(
                 "Unexpected import".into(),
                 "import pattern not supported".into(),

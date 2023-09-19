@@ -2887,7 +2887,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     if !working_set
         .unique_overlay_names()
-        .contains(&overlay_name.as_bytes().to_vec())
+        .contains(&overlay_name.as_bytes())
     {
         working_set.error(ParseError::ActiveOverlayNotFound(overlay_name_span));
         return pipeline;
@@ -3510,7 +3510,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
                 value_as_string(val, expr.span).map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
-                return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
+                return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
             if path.exists() && path.is_file() {
@@ -3595,13 +3595,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
         let signatures = signature.map_or_else(
             || {
-                let signatures = get_signature(&path, &shell, &current_envs).map_err(|err| {
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                });
+                let signatures =
+                    get_signature(&path, shell.as_deref(), &current_envs).map_err(|err| {
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    });
 
                 if signatures.is_ok() {
                     // mark plugins file as dirty only when the user is registering plugins

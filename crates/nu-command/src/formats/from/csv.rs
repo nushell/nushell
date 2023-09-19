@@ -81,16 +81,16 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
                         vals: vec![
                             Value::test_int(1),
                             Value::test_int(2),
                         ],
                     })],
-                    span: Span::test_data(),
-                })
+                    Span::test_data(),
+                ))
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",

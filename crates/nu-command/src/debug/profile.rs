@@ -1,6 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, ProfilingConfig, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, IntoPipelineData, PipelineData, PipelineMetadata, Signature,
     Spanned, SyntaxShape, Type, Value,
@@ -70,24 +70,13 @@ Current known limitations are:
             }
         }
 
-        stack.profiling_config = ProfilingConfig::new(
-            call.get_flag::<i64>(engine_state, &mut stack, "max-depth")?
-                .unwrap_or(1),
-            call.has_flag("source"),
-            call.has_flag("values"),
-        );
-
-        let profiling_metadata = Box::new(PipelineMetadata {
-            data_source: DataSource::Profiling(vec![]),
-        });
-
         let result = if let Some(PipelineMetadata {
             data_source: DataSource::Profiling(values),
         }) = eval_block(
             engine_state,
             &mut stack,
             block,
-            input_val.into_pipeline_data_with_metadata(profiling_metadata),
+            input_val.into_pipeline_data(),
             redirect_stdout,
             redirect_stderr,
         )?

@@ -100,10 +100,7 @@ impl Command for Do {
                     param
                         .var_id
                         .expect("Internal error: rest positional parameter lacks var_id"),
-                    Value::List {
-                        vals: rest_items,
-                        span,
-                    },
+                    Value::list(rest_items, span),
                 )
             }
         }

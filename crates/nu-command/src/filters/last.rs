@@ -54,10 +54,10 @@ impl Command for Last {
             Example {
                 example: "[1,2,3] | last 2",
                 description: "Return the last 2 items of a list/table",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2), Value::test_int(3)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(2), Value::test_int(3)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[1,2,3] | last",
@@ -67,10 +67,7 @@ impl Command for Last {
             Example {
                 example: "0x[01 23 45] | last 2",
                 description: "Return the last 2 bytes of a binary value",
-                result: Some(Value::Binary {
-                    val: vec![0x23, 0x45],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
             },
         ]
     }
@@ -129,55 +126,56 @@ impl Command for Last {
                     Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
                 }
             }
-            PipelineData::Value(val, _) => match val {
-                Value::List { vals, .. } => {
-                    if return_single_element {
-                        if let Some(v) = vals.last() {
-                            Ok(v.clone().into_pipeline_data())
+            PipelineData::Value(val, _) => {
+                let val_span = val.span();
+
+                match val {
+                    Value::List { vals, .. } => {
+                        if return_single_element {
+                            if let Some(v) = vals.last() {
+                                Ok(v.clone().into_pipeline_data())
+                            } else {
+                                Err(ShellError::AccessEmptyContent { span: head })
+                            }
                         } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
+                            Ok(vals
+                                .into_iter()
+                                .rev()
+                                .take(rows_desired)
+                                .rev()
+                                .into_pipeline_data(ctrlc)
+                                .set_metadata(metadata))
                         }
-                    } else {
-                        Ok(vals
-                            .into_iter()
-                            .rev()
-                            .take(rows_desired)
-                            .rev()
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata))
                     }
-                }
-                Value::Binary { val, span } => {
-                    if return_single_element {
-                        if let Some(b) = val.last() {
+                    Value::Binary { val, .. } => {
+                        if return_single_element {
+                            if let Some(b) = val.last() {
+                                Ok(PipelineData::Value(
+                                    Value::int(*b as i64, val_span),
+                                    metadata,
+                                ))
+                            } else {
+                                Err(ShellError::AccessEmptyContent { span: head })
+                            }
+                        } else {
+                            let slice: Vec<u8> =
+                                val.into_iter().rev().take(rows_desired).rev().collect();
                             Ok(PipelineData::Value(
-                                Value::Int {
-                                    val: *b as i64,
-                                    span,
-                                },
+                                Value::binary(slice, val_span),
                                 metadata,
                             ))
-                        } else {
-                            Err(ShellError::AccessEmptyContent { span: head })
                         }
-                    } else {
-                        let slice: Vec<u8> =
-                            val.into_iter().rev().take(rows_desired).rev().collect();
-                        Ok(PipelineData::Value(
-                            Value::Binary { val: slice, span },
-                            metadata,
-                        ))
                     }
+                    // Propagate errors by explicitly matching them before the final case.
+                    Value::Error { error, .. } => Err(*error),
+                    other => Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "list, binary or range".into(),
+                        wrong_type: other.get_type().to_string(),
+                        dst_span: head,
+                        src_span: other.span(),
+                    }),
                 }
-                // Propagate errors by explicitly matching them before the final case.
-                Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "list, binary or range".into(),
-                    wrong_type: other.get_type().to_string(),
-                    dst_span: head,
-                    src_span: other.span(),
-                }),
-            },
+            }
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),

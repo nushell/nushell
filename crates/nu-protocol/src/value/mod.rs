@@ -44,149 +44,195 @@ pub use unit::*;
 pub enum Value {
     Bool {
         val: bool,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Int {
         val: i64,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Float {
         val: f64,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Filesize {
         val: i64,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Duration {
         val: i64,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Date {
         val: DateTime<FixedOffset>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Range {
         val: Box<Range>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     String {
         val: String,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Record {
         val: Record,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     List {
         vals: Vec<Value>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Block {
         val: BlockId,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Closure {
         val: BlockId,
         captures: HashMap<VarId, Value>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Nothing {
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Error {
         error: Box<ShellError>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     Binary {
         val: Vec<u8>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     CellPath {
         val: CellPath,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     #[serde(skip_serializing)]
     CustomValue {
         val: Box<dyn CustomValue>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     #[serde(skip)]
     LazyRecord {
         val: Box<dyn for<'a> LazyRecord<'a>>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
     MatchPattern {
         val: Box<MatchPattern>,
-        span: Span,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
     },
 }
 
 impl Clone for Value {
     fn clone(&self) -> Self {
         match self {
-            Value::Bool { val, span } => Value::bool(*val, *span),
-            Value::Int { val, span } => Value::int(*val, *span),
-            Value::Filesize { val, span } => Value::Filesize {
+            Value::Bool { val, internal_span } => Value::bool(*val, *internal_span),
+            Value::Int { val, internal_span } => Value::int(*val, *internal_span),
+            Value::Filesize { val, internal_span } => Value::Filesize {
                 val: *val,
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Duration { val, span } => Value::Duration {
+            Value::Duration { val, internal_span } => Value::Duration {
                 val: *val,
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Date { val, span } => Value::Date {
+            Value::Date { val, internal_span } => Value::Date {
                 val: *val,
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Range { val, span } => Value::Range {
+            Value::Range { val, internal_span } => Value::Range {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Float { val, span } => Value::float(*val, *span),
-            Value::String { val, span } => Value::String {
+            Value::Float { val, internal_span } => Value::float(*val, *internal_span),
+            Value::String { val, internal_span } => Value::String {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Record { val, span } => Value::Record {
+            Value::Record { val, internal_span } => Value::Record {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::LazyRecord { val, span } => val.clone_value(*span),
-            Value::List { vals, span } => Value::List {
+            Value::LazyRecord { val, internal_span } => val.clone_value(*internal_span),
+            Value::List {
+                vals,
+                internal_span,
+            } => Value::List {
                 vals: vals.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Block { val, span } => Value::Block {
+            Value::Block { val, internal_span } => Value::Block {
                 val: *val,
-                span: *span,
+                internal_span: *internal_span,
             },
             Value::Closure {
                 val,
                 captures,
-                span,
+                internal_span,
             } => Value::Closure {
                 val: *val,
                 captures: captures.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Nothing { span } => Value::Nothing { span: *span },
-            Value::Error { error, span } => Value::Error {
+            Value::Nothing { internal_span } => Value::Nothing {
+                internal_span: *internal_span,
+            },
+            Value::Error {
+                error,
+                internal_span,
+            } => Value::Error {
                 error: error.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::Binary { val, span } => Value::Binary {
+            Value::Binary { val, internal_span } => Value::Binary {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::CellPath { val, span } => Value::CellPath {
+            Value::CellPath { val, internal_span } => Value::CellPath {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
-            Value::CustomValue { val, span } => val.clone_value(*span),
-            Value::MatchPattern { val, span } => Value::MatchPattern {
+            Value::CustomValue { val, internal_span } => val.clone_value(*internal_span),
+            Value::MatchPattern { val, internal_span } => Value::MatchPattern {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
         }
     }
@@ -306,15 +352,16 @@ impl Value {
     }
 
     pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
+        let span = self.span();
         match self {
-            Value::String { val, span } => Ok(Spanned {
+            Value::String { val, .. } => Ok(Spanned {
                 item: val.to_string(),
-                span: *span,
+                span,
             }),
-            Value::Binary { val, span } => Ok(match std::str::from_utf8(val) {
+            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
                 Ok(s) => Spanned {
                     item: s.to_string(),
-                    span: *span,
+                    span,
                 },
                 Err(_) => {
                     return Err(ShellError::CantConvert {
@@ -335,21 +382,23 @@ impl Value {
     }
 
     pub fn as_char(&self) -> Result<char, ShellError> {
+        let span = self.span();
+
         match self {
-            Value::String { val, span } => {
+            Value::String { val, .. } => {
                 let mut chars = val.chars();
                 match (chars.next(), chars.next()) {
                     (Some(c), None) => Ok(c),
                     _ => Err(ShellError::MissingParameter {
                         param_name: "single character separator".into(),
-                        span: *span,
+                        span,
                     }),
                 }
             }
             x => Err(ShellError::CantConvert {
                 to_type: "char".into(),
                 from_type: x.get_type().to_string(),
-                span: self.span(),
+                span,
                 help: None,
             }),
         }
@@ -469,7 +518,7 @@ impl Value {
         match self {
             Value::MatchPattern { val, .. } => Ok(val.as_ref()),
             x => Err(ShellError::CantConvert {
-                to_type: "match pattern".into(),
+                to_type: "match-pattern".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span(),
                 help: None,
@@ -480,49 +529,49 @@ impl Value {
     /// Get the span for the current value
     pub fn span(&self) -> Span {
         match self {
-            Value::Bool { span, .. }
-            | Value::Int { span, .. }
-            | Value::Float { span, .. }
-            | Value::Filesize { span, .. }
-            | Value::Duration { span, .. }
-            | Value::Date { span, .. }
-            | Value::Range { span, .. }
-            | Value::String { span, .. }
-            | Value::Record { span, .. }
-            | Value::List { span, .. }
-            | Value::Block { span, .. }
-            | Value::Closure { span, .. }
-            | Value::Nothing { span, .. }
-            | Value::Binary { span, .. }
-            | Value::CellPath { span, .. }
-            | Value::CustomValue { span, .. }
-            | Value::LazyRecord { span, .. }
-            | Value::MatchPattern { span, .. }
-            | Value::Error { span, .. } => *span,
+            Value::Bool { internal_span, .. }
+            | Value::Int { internal_span, .. }
+            | Value::Float { internal_span, .. }
+            | Value::Filesize { internal_span, .. }
+            | Value::Duration { internal_span, .. }
+            | Value::Date { internal_span, .. }
+            | Value::Range { internal_span, .. }
+            | Value::String { internal_span, .. }
+            | Value::Record { internal_span, .. }
+            | Value::List { internal_span, .. }
+            | Value::Block { internal_span, .. }
+            | Value::Closure { internal_span, .. }
+            | Value::Nothing { internal_span, .. }
+            | Value::Binary { internal_span, .. }
+            | Value::CellPath { internal_span, .. }
+            | Value::CustomValue { internal_span, .. }
+            | Value::LazyRecord { internal_span, .. }
+            | Value::MatchPattern { internal_span, .. }
+            | Value::Error { internal_span, .. } => *internal_span,
         }
     }
 
     /// Update the value with a new span
     pub fn with_span(mut self, new_span: Span) -> Value {
         match &mut self {
-            Value::Bool { span, .. }
-            | Value::Int { span, .. }
-            | Value::Float { span, .. }
-            | Value::Filesize { span, .. }
-            | Value::Duration { span, .. }
-            | Value::Date { span, .. }
-            | Value::Range { span, .. }
-            | Value::String { span, .. }
-            | Value::Record { span, .. }
-            | Value::LazyRecord { span, .. }
-            | Value::List { span, .. }
-            | Value::Closure { span, .. }
-            | Value::Block { span, .. }
-            | Value::Nothing { span, .. }
-            | Value::Binary { span, .. }
-            | Value::CellPath { span, .. }
-            | Value::CustomValue { span, .. }
-            | Value::MatchPattern { span, .. } => *span = new_span,
+            Value::Bool { internal_span, .. }
+            | Value::Int { internal_span, .. }
+            | Value::Float { internal_span, .. }
+            | Value::Filesize { internal_span, .. }
+            | Value::Duration { internal_span, .. }
+            | Value::Date { internal_span, .. }
+            | Value::Range { internal_span, .. }
+            | Value::String { internal_span, .. }
+            | Value::Record { internal_span, .. }
+            | Value::LazyRecord { internal_span, .. }
+            | Value::List { internal_span, .. }
+            | Value::Closure { internal_span, .. }
+            | Value::Block { internal_span, .. }
+            | Value::Nothing { internal_span, .. }
+            | Value::Binary { internal_span, .. }
+            | Value::CellPath { internal_span, .. }
+            | Value::CustomValue { internal_span, .. }
+            | Value::MatchPattern { internal_span, .. } => *internal_span = new_span,
             Value::Error { .. } => (),
         }
 
@@ -584,28 +633,26 @@ impl Value {
     }
 
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
+        let span = self.span();
         match self {
             Value::Record { val, .. } => val
                 .iter()
                 .find(|(col, _)| col == &name)
                 .map(|(_, val)| val.clone()),
-            Value::List { vals, span } => {
+            Value::List { vals, .. } => {
                 let mut out = vec![];
                 for item in vals {
                     match item {
                         Value::Record { .. } => match item.get_data_by_key(name) {
                             Some(v) => out.push(v),
-                            None => out.push(Value::nothing(*span)),
+                            None => out.push(Value::nothing(span)),
                         },
-                        _ => out.push(Value::nothing(*span)),
+                        _ => out.push(Value::nothing(span)),
                     }
                 }
 
                 if !out.is_empty() {
-                    Some(Value::List {
-                        vals: out,
-                        span: *span,
-                    })
+                    Some(Value::list(out, span))
                 } else {
                     None
                 }
@@ -629,6 +676,8 @@ impl Value {
 
     /// Convert Value into string. Note that Streams will be consumed.
     pub fn into_string(&self, separator: &str, config: &Config) -> String {
+        let span = self.span();
+
         match self {
             Value::Bool { val, .. } => val.to_string(),
             Value::Int { val, .. } => val.to_string(),
@@ -672,12 +721,12 @@ impl Value {
                     .collect::<Vec<_>>()
                     .join(separator)
             ),
-            Value::LazyRecord { val, span } => {
+            Value::LazyRecord { val, .. } => {
                 let collected = match val.collect() {
                     Ok(val) => val,
                     Err(error) => Value::Error {
                         error: Box::new(error),
-                        span: *span,
+                        internal_span: span,
                     },
                 };
                 collected.into_string(separator, config)
@@ -753,13 +802,21 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale: Locale = get_system_locale_string()
-            .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-            .unwrap_or_else(|| String::from("en_US"))
-            .as_str()
-            .try_into()
-            .unwrap_or(Locale::en_US);
-        let format = date_time.format_localized(formatter, locale);
+        // These are already in locale format, so we don't need to localize them
+        let format = if ["%x", "%X", "%r"]
+            .iter()
+            .any(|item| formatter.contains(item))
+        {
+            date_time.format(formatter)
+        } else {
+            let locale: Locale = get_system_locale_string()
+                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
+                .unwrap_or_else(|| String::from("en_US"))
+                .as_str()
+                .try_into()
+                .unwrap_or(Locale::en_US);
+            date_time.format_localized(formatter, locale)
+        };
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
             Ok(_) => (),
@@ -971,72 +1028,88 @@ impl Value {
                     val: column_name,
                     span: origin_span,
                     optional,
-                } => match &mut current {
-                    Value::Record { val, span } => {
-                        let span = *span;
+                } => {
+                    let span = current.span();
 
-                        // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
-                        if let Some(found) = val.iter().rev().find(|x| {
-                            if insensitive {
-                                x.0.to_lowercase() == column_name.to_lowercase()
+                    match &mut current {
+                        Value::Record { val, .. } => {
+                            // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
+                            if let Some(found) = val.iter().rev().find(|x| {
+                                if insensitive {
+                                    x.0.to_lowercase() == column_name.to_lowercase()
+                                } else {
+                                    x.0 == column_name
+                                }
+                            }) {
+                                current = found.1.clone();
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
-                                x.0 == column_name
-                            }
-                        }) {
-                            current = found.1.clone();
-                        } else if *optional {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        } else {
-                            if from_user_input {
-                                if let Some(suggestion) = did_you_mean(&val.cols, column_name) {
-                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                if from_user_input {
+                                    if let Some(suggestion) = did_you_mean(&val.cols, column_name) {
+                                        return Err(ShellError::DidYouMean(
+                                            suggestion,
+                                            *origin_span,
+                                        ));
+                                    }
                                 }
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: span,
+                                });
                             }
-                            return Err(ShellError::CantFindColumn {
-                                col_name: column_name.to_string(),
-                                span: *origin_span,
-                                src_span: span,
-                            });
                         }
-                    }
-                    Value::LazyRecord { val, span } => {
-                        let columns = val.column_names();
+                        Value::LazyRecord { val, .. } => {
+                            let columns = val.column_names();
 
-                        if columns.contains(&column_name.as_str()) {
-                            current = val.get_column_value(column_name)?;
-                        } else if *optional {
-                            return Ok(Value::nothing(*origin_span)); // short-circuit
-                        } else {
-                            if from_user_input {
-                                if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                    return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                            if columns.contains(&column_name.as_str()) {
+                                current = val.get_column_value(column_name)?;
+                            } else if *optional {
+                                return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else {
+                                if from_user_input {
+                                    if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                        return Err(ShellError::DidYouMean(
+                                            suggestion,
+                                            *origin_span,
+                                        ));
+                                    }
                                 }
+                                return Err(ShellError::CantFindColumn {
+                                    col_name: column_name.to_string(),
+                                    span: *origin_span,
+                                    src_span: span,
+                                });
                             }
-                            return Err(ShellError::CantFindColumn {
-                                col_name: column_name.to_string(),
-                                span: *origin_span,
-                                src_span: *span,
-                            });
                         }
-                    }
-                    // String access of Lists always means Table access.
-                    // Create a List which contains each matching value for contained
-                    // records in the source list.
-                    Value::List { vals, span } => {
-                        // TODO: this should stream instead of collecting
-                        let mut output = vec![];
-                        for val in vals {
-                            // only look in records; this avoids unintentionally recursing into deeply nested tables
-                            if matches!(val, Value::Record { .. }) {
-                                if let Ok(result) = val.clone().follow_cell_path(
-                                    &[PathMember::String {
-                                        val: column_name.clone(),
-                                        span: *origin_span,
-                                        optional: *optional,
-                                    }],
-                                    insensitive,
-                                ) {
-                                    output.push(result);
+                        // String access of Lists always means Table access.
+                        // Create a List which contains each matching value for contained
+                        // records in the source list.
+                        Value::List { vals, .. } => {
+                            // TODO: this should stream instead of collecting
+                            let mut output = vec![];
+                            for val in vals {
+                                // only look in records; this avoids unintentionally recursing into deeply nested tables
+                                if matches!(val, Value::Record { .. }) {
+                                    if let Ok(result) = val.clone().follow_cell_path(
+                                        &[PathMember::String {
+                                            val: column_name.clone(),
+                                            span: *origin_span,
+                                            optional: *optional,
+                                        }],
+                                        insensitive,
+                                    ) {
+                                        output.push(result);
+                                    } else {
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: column_name.to_string(),
+                                            span: *origin_span,
+                                            src_span: val.span(),
+                                        });
+                                    }
+                                } else if *optional && matches!(val, Value::Nothing { .. }) {
+                                    output.push(Value::nothing(*origin_span));
                                 } else {
                                     return Err(ShellError::CantFindColumn {
                                         col_name: column_name.to_string(),
@@ -1044,36 +1117,25 @@ impl Value {
                                         src_span: val.span(),
                                     });
                                 }
-                            } else if *optional && matches!(val, Value::Nothing { .. }) {
-                                output.push(Value::nothing(*origin_span));
-                            } else {
-                                return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.to_string(),
-                                    span: *origin_span,
-                                    src_span: val.span(),
-                                });
                             }
-                        }
 
-                        current = Value::List {
-                            vals: output,
-                            span: *span,
-                        };
+                            current = Value::list(output, span);
+                        }
+                        Value::CustomValue { val, .. } => {
+                            current = val.follow_path_string(column_name.clone(), *origin_span)?;
+                        }
+                        Value::Nothing { .. } if *optional => {
+                            return Ok(Value::nothing(*origin_span)); // short-circuit
+                        }
+                        Value::Error { error, .. } => return Err(*error.to_owned()),
+                        x => {
+                            return Err(ShellError::IncompatiblePathAccess {
+                                type_name: format!("{}", x.get_type()),
+                                span: *origin_span,
+                            })
+                        }
                     }
-                    Value::CustomValue { val, .. } => {
-                        current = val.follow_path_string(column_name.clone(), *origin_span)?;
-                    }
-                    Value::Nothing { .. } if *optional => {
-                        return Ok(Value::nothing(*origin_span)); // short-circuit
-                    }
-                    Value::Error { error, .. } => return Err(*error.to_owned()),
-                    x => {
-                        return Err(ShellError::IncompatiblePathAccess {
-                            type_name: format!("{}", x.get_type()),
-                            span: *origin_span,
-                        })
-                    }
-                },
+                }
             }
         }
         // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
@@ -1245,6 +1307,8 @@ impl Value {
         cell_path: &[PathMember],
         new_val: Value,
     ) -> Result<(), ShellError> {
+        let v_span = self.span();
+
         match cell_path.first() {
             Some(path_member) => match path_member {
                 PathMember::String {
@@ -1254,11 +1318,9 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
+                            let v_span = val.span();
                             match val {
-                                Value::Record {
-                                    val: record,
-                                    span: v_span,
-                                } => {
+                                Value::Record { val: record, .. } => {
                                     let mut found = false;
                                     for (col, val) in record.iter_mut() {
                                         if col == col_name {
@@ -1273,7 +1335,7 @@ impl Value {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.to_string(),
                                             span: *span,
-                                            src_span: *v_span,
+                                            src_span: v_span,
                                         });
                                     }
                                 }
@@ -1288,10 +1350,7 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record {
-                        val: record,
-                        span: v_span,
-                    } => {
+                    Value::Record { val: record, .. } => {
                         let mut found = false;
 
                         for (col, val) in record.iter_mut() {
@@ -1304,7 +1363,7 @@ impl Value {
                             return Err(ShellError::CantFindColumn {
                                 col_name: col_name.to_string(),
                                 span: *span,
-                                src_span: *v_span,
+                                src_span: v_span,
                             });
                         }
                     }
@@ -1359,6 +1418,7 @@ impl Value {
             0 => Ok(()),
             1 => {
                 let path_member = cell_path.first().expect("there is a first");
+                let v_span = self.span();
                 match path_member {
                     PathMember::String {
                         val: col_name,
@@ -1367,11 +1427,10 @@ impl Value {
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
+                                let v_span = val.span();
+
                                 match val {
-                                    Value::Record {
-                                        val: record,
-                                        span: v_span,
-                                    } => {
+                                    Value::Record { val: record, .. } => {
                                         let mut found = false;
                                         let mut index = 0;
                                         record.cols.retain_mut(|col| {
@@ -1388,7 +1447,7 @@ impl Value {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
-                                                src_span: *v_span,
+                                                src_span: v_span,
                                             });
                                         }
                                     }
@@ -1403,10 +1462,7 @@ impl Value {
                             }
                             Ok(())
                         }
-                        Value::Record {
-                            val: record,
-                            span: v_span,
-                        } => {
+                        Value::Record { val: record, .. } => {
                             let mut found = false;
                             let mut index = 0;
                             record.cols.retain_mut(|col| {
@@ -1423,7 +1479,7 @@ impl Value {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
-                                    src_span: *v_span,
+                                    src_span: v_span,
                                 });
                             }
                             Ok(())
@@ -1470,6 +1526,7 @@ impl Value {
             }
             _ => {
                 let path_member = cell_path.first().expect("there is a first");
+                let v_span = self.span();
                 match path_member {
                     PathMember::String {
                         val: col_name,
@@ -1478,11 +1535,9 @@ impl Value {
                     } => match self {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
+                                let v_span = val.span();
                                 match val {
-                                    Value::Record {
-                                        val: record,
-                                        span: v_span,
-                                    } => {
+                                    Value::Record { val: record, .. } => {
                                         let mut found = false;
                                         for (col, val) in record.iter_mut() {
                                             if col == col_name {
@@ -1494,7 +1549,7 @@ impl Value {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
-                                                src_span: *v_span,
+                                                src_span: v_span,
                                             });
                                         }
                                     }
@@ -1509,10 +1564,7 @@ impl Value {
                             }
                             Ok(())
                         }
-                        Value::Record {
-                            val: record,
-                            span: v_span,
-                        } => {
+                        Value::Record { val: record, .. } => {
                             let mut found = false;
 
                             for (col, val) in record.iter_mut() {
@@ -1525,7 +1577,7 @@ impl Value {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
-                                    src_span: *v_span,
+                                    src_span: v_span,
                                 });
                             }
                             Ok(())
@@ -1578,6 +1630,7 @@ impl Value {
         new_val: Value,
         head_span: Span,
     ) -> Result<(), ShellError> {
+        let v_span = self.span();
         match cell_path.first() {
             Some(path_member) => match path_member {
                 PathMember::String {
@@ -1587,18 +1640,16 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
+                            let v_span = val.span();
                             match val {
-                                Value::Record {
-                                    val: record,
-                                    span: v_span,
-                                } => {
+                                Value::Record { val: record, .. } => {
                                     for (col, val) in record.iter_mut() {
                                         if col == col_name {
                                             if cell_path.len() == 1 {
                                                 return Err(ShellError::ColumnAlreadyExists {
                                                     col_name: col_name.to_string(),
                                                     span: *span,
-                                                    src_span: *v_span,
+                                                    src_span: v_span,
                                                 });
                                             } else {
                                                 return val.insert_data_at_cell_path(
@@ -1625,17 +1676,14 @@ impl Value {
                             }
                         }
                     }
-                    Value::Record {
-                        val: record,
-                        span: v_span,
-                    } => {
+                    Value::Record { val: record, .. } => {
                         for (col, val) in record.iter_mut() {
                             if col == col_name {
                                 if cell_path.len() == 1 {
                                     return Err(ShellError::ColumnAlreadyExists {
                                         col_name: col_name.to_string(),
                                         span: *span,
-                                        src_span: *v_span,
+                                        src_span: v_span,
                                     });
                                 } else {
                                     return val.insert_data_at_cell_path(
@@ -1649,10 +1697,10 @@ impl Value {
 
                         record.push(col_name, new_val);
                     }
-                    Value::LazyRecord { val, span } => {
+                    Value::LazyRecord { val, .. } => {
                         // convert to Record first.
                         let mut record = val.collect()?;
-                        record.insert_data_at_cell_path(cell_path, new_val, *span)?;
+                        record.insert_data_at_cell_path(cell_path, new_val, v_span)?;
                         *self = record
                     }
                     other => {
@@ -1712,98 +1760,136 @@ impl Value {
     }
 
     pub fn bool(val: bool, span: Span) -> Value {
-        Value::Bool { val, span }
+        Value::Bool {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn int(val: i64, span: Span) -> Value {
-        Value::Int { val, span }
+        Value::Int {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn float(val: f64, span: Span) -> Value {
-        Value::Float { val, span }
+        Value::Float {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn filesize(val: i64, span: Span) -> Value {
-        Value::Filesize { val, span }
+        Value::Filesize {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn duration(val: i64, span: Span) -> Value {
-        Value::Duration { val, span }
+        Value::Duration {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn date(val: DateTime<FixedOffset>, span: Span) -> Value {
-        Value::Date { val, span }
+        Value::Date {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn range(val: Range, span: Span) -> Value {
         Value::Range {
             val: Box::new(val),
-            span,
+            internal_span: span,
         }
     }
 
     pub fn string(val: impl Into<String>, span: Span) -> Value {
         Value::String {
             val: val.into(),
-            span,
+            internal_span: span,
         }
     }
 
     pub fn record(val: Record, span: Span) -> Value {
-        Value::Record { val, span }
+        Value::Record {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
-        Value::List { vals, span }
+        Value::List {
+            vals,
+            internal_span: span,
+        }
     }
 
     pub fn block(val: BlockId, span: Span) -> Value {
-        Value::Block { val, span }
+        Value::Block {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn closure(val: BlockId, captures: HashMap<VarId, Value>, span: Span) -> Value {
         Value::Closure {
             val,
             captures,
-            span,
+            internal_span: span,
         }
     }
 
     /// Create a new `Nothing` value
     pub fn nothing(span: Span) -> Value {
-        Value::Nothing { span }
+        Value::Nothing {
+            internal_span: span,
+        }
     }
 
     pub fn error(error: ShellError, span: Span) -> Value {
         Value::Error {
             error: Box::new(error),
-            span,
+            internal_span: span,
         }
     }
 
     pub fn binary(val: impl Into<Vec<u8>>, span: Span) -> Value {
         Value::Binary {
             val: val.into(),
-            span,
+            internal_span: span,
         }
     }
 
     pub fn cell_path(val: CellPath, span: Span) -> Value {
-        Value::CellPath { val, span }
+        Value::CellPath {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn custom_value(val: Box<dyn CustomValue>, span: Span) -> Value {
-        Value::CustomValue { val, span }
+        Value::CustomValue {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>, span: Span) -> Value {
-        Value::LazyRecord { val, span }
+        Value::LazyRecord {
+            val,
+            internal_span: span,
+        }
     }
 
     pub fn match_pattern(val: MatchPattern, span: Span) -> Value {
         Value::MatchPattern {
             val: Box::new(val),
-            span,
+            internal_span: span,
         }
     }
 
@@ -1919,7 +2005,7 @@ impl Value {
 impl Default for Value {
     fn default() -> Self {
         Value::Nothing {
-            span: Span::unknown(),
+            internal_span: Span::unknown(),
         }
     }
 }
@@ -2338,30 +2424,27 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs as f64 + *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs + *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs + rhs,
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
-                val: lhs.to_string() + rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(*lhs as f64 + *rhs, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(*lhs + *rhs as f64, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs + rhs, span))
+            }
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::string(lhs.to_string() + rhs, span))
+            }
+
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Ok(Value::Date { val, span })
+                    Ok(Value::date(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "addition operation overflowed".into(),
@@ -2372,7 +2455,7 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Duration { val, span })
+                    Ok(Value::duration(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
@@ -2383,7 +2466,7 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::Filesize { val, span })
+                    Ok(Value::filesize(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
@@ -2393,8 +2476,8 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Plus), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Plus), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2413,26 +2496,25 @@ impl Value {
                 let mut lhs = lhs.clone();
                 let mut rhs = rhs.clone();
                 lhs.append(&mut rhs);
-                Ok(Value::List { vals: lhs, span })
+                Ok(Value::list(lhs, span))
             }
             (Value::List { vals: lhs, .. }, val) => {
                 let mut lhs = lhs.clone();
                 lhs.push(val.clone());
-                Ok(Value::List { vals: lhs, span })
+                Ok(Value::list(lhs, span))
             }
             (val, Value::List { vals: rhs, .. }) => {
                 let mut rhs = rhs.clone();
                 rhs.insert(0, val.clone());
-                Ok(Value::List { vals: rhs, span })
+                Ok(Value::list(rhs, span))
             }
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::String {
-                val: lhs.to_string() + rhs,
-                span,
-            }),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::string(lhs.to_string() + rhs, span))
+            }
             (Value::Binary { val: lhs, .. }, Value::Binary { val: rhs, .. }) => {
                 let mut val = lhs.clone();
                 val.extend(rhs);
-                Ok(Value::Binary { val, span })
+                Ok(Value::binary(val, span))
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2448,28 +2530,25 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs as f64 - *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs - *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs - rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(*lhs as f64 - *rhs, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(*lhs - *rhs as f64, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs - rhs, span))
+            }
             (Value::Date { val: lhs, .. }, Value::Date { val: rhs, .. }) => {
                 let result = lhs.signed_duration_since(*rhs);
 
                 if let Some(v) = result.num_nanoseconds() {
-                    Ok(Value::Duration { val: v, span })
+                    Ok(Value::duration(v, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
@@ -2480,7 +2559,7 @@ impl Value {
             }
             (Value::Date { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 match lhs.checked_sub_signed(chrono::Duration::nanoseconds(*rhs)) {
-                    Some(val) => Ok(Value::Date { val, span }),
+                    Some(val) => Ok(Value::date(val, span)),
                     _ => Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
                         span,
@@ -2490,7 +2569,7 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
-                    Ok(Value::Duration { val, span })
+                    Ok(Value::duration(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "subtraction operation overflowed".into(),
@@ -2501,7 +2580,7 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_sub(*rhs) {
-                    Ok(Value::Filesize { val, span })
+                    Ok(Value::filesize(val, span))
                 } else {
                     Err(ShellError::OperatorOverflow {
                         msg: "add operation overflowed".into(),
@@ -2511,8 +2590,8 @@ impl Value {
                 }
             }
 
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Minus), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Minus), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2529,101 +2608,46 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_mul(*rhs) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs as f64 * *rhs,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: *lhs * *rhs as f64,
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs * rhs,
-                span,
-            }),
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(*lhs as f64 * *rhs, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(*lhs * *rhs as f64, span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs * rhs, span))
+            }
             (Value::Int { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: *lhs * *rhs,
-                    span,
-                })
+                Ok(Value::filesize(*lhs * *rhs, span))
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: *lhs * *rhs,
-                    span,
-                })
+                Ok(Value::filesize(*lhs * *rhs, span))
             }
             (Value::Float { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: (*lhs * *rhs as f64) as i64,
-                    span,
-                })
+                Ok(Value::filesize((*lhs * *rhs as f64) as i64, span))
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::Filesize {
-                    val: (*lhs as f64 * *rhs) as i64,
-                    span,
-                })
+                Ok(Value::filesize((*lhs as f64 * *rhs) as i64, span))
             }
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: *lhs * *rhs,
-                    span,
-                })
+                Ok(Value::duration(*lhs * *rhs, span))
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: *lhs * *rhs,
-                    span,
-                })
+                Ok(Value::duration(*lhs * *rhs, span))
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: (*lhs as f64 * *rhs) as i64,
-                    span,
-                })
+                Ok(Value::duration((*lhs as f64 * *rhs) as i64, span))
             }
             (Value::Float { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::Duration {
-                    val: (*lhs * *rhs as f64) as i64,
-                    span,
-                })
+                Ok(Value::duration((*lhs * *rhs as f64) as i64, span))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Multiply), op, rhs)
-            }
-            (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*lhs {
-                    res.push_str(rhs)
-                }
-                Ok(Value::String { val: res, span })
-            }
-            (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*rhs {
-                    res.push_str(lhs)
-                }
-                Ok(Value::String { val: res, span })
-            }
-            (Value::Int { val: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*lhs {
-                    res.append(&mut rhs.clone())
-                }
-                Ok(Value::List { vals: res, span })
-            }
-            (Value::List { vals: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*rhs {
-                    res.append(&mut lhs.clone())
-                }
-                Ok(Value::List { vals: res, span })
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2640,15 +2664,9 @@ impl Value {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
+                        Ok(Value::int(lhs / rhs, span))
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
+                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
                     }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
@@ -2656,30 +2674,21 @@ impl Value {
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: *lhs as f64 / *rhs,
-                        span,
-                    })
+                    Ok(Value::float(*lhs as f64 / *rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Float {
-                        val: *lhs / *rhs as f64,
-                        span,
-                    })
+                    Ok(Value::float(*lhs / *rhs as f64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: lhs / rhs,
-                        span,
-                    })
+                    Ok(Value::float(lhs / rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2687,15 +2696,9 @@ impl Value {
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
+                        Ok(Value::int(lhs / rhs, span))
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
+                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
                     }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
@@ -2703,20 +2706,17 @@ impl Value {
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                    Ok(Value::filesize(
+                        ((*lhs as f64) / (*rhs as f64)) as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Filesize {
-                        val: (*lhs as f64 / rhs) as i64,
-                        span,
-                    })
+                    Ok(Value::filesize((*lhs as f64 / rhs) as i64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
@@ -2724,15 +2724,9 @@ impl Value {
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
                     if lhs % rhs == 0 {
-                        Ok(Value::Int {
-                            val: lhs / rhs,
-                            span,
-                        })
+                        Ok(Value::int(lhs / rhs, span))
                     } else {
-                        Ok(Value::Float {
-                            val: (*lhs as f64) / (*rhs as f64),
-                            span,
-                        })
+                        Ok(Value::float((*lhs as f64) / (*rhs as f64), span))
                     }
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
@@ -2740,26 +2734,23 @@ impl Value {
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / (*rhs as f64)) as i64,
+                    Ok(Value::duration(
+                        ((*lhs as f64) / (*rhs as f64)) as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Duration {
-                        val: ((*lhs as f64) / rhs) as i64,
-                        span,
-                    })
+                    Ok(Value::duration(((*lhs as f64) / rhs) as i64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2776,126 +2767,126 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Int {
-                        val: (lhs / rhs)
+                    Ok(Value::int(
+                        (lhs / rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Filesize {
-                        val: ((*lhs as f64) / (*rhs as f64))
+                    Ok(Value::filesize(
+                        ((*lhs as f64) / (*rhs as f64))
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Filesize { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Filesize {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::filesize(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::int(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Duration {
-                        val: (*lhs as f64 / *rhs as f64)
+                    Ok(Value::duration(
+                        (*lhs as f64 / *rhs as f64)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Duration {
-                        val: (*lhs as f64 / *rhs)
+                    Ok(Value::duration(
+                        (*lhs as f64 / *rhs)
                             .clamp(std::i64::MIN as f64, std::i64::MAX as f64)
                             .floor() as i64,
                         span,
-                    })
+                    ))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Divide), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Math(Math::Divide), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -2909,8 +2900,13 @@ impl Value {
     }
 
     pub fn lt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::LessThan), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::LessThan),
+                op,
+                rhs,
+            );
         }
 
         if matches!(self, Value::Nothing { .. }) || matches!(rhs, Value::Nothing { .. }) {
@@ -2931,10 +2927,7 @@ impl Value {
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Less),
-                span,
-            })
+            Ok(Value::bool(matches!(ordering, Ordering::Less), span))
         } else {
             Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -2947,9 +2940,9 @@ impl Value {
     }
 
     pub fn lte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::LessThanOrEqual),
                 op,
                 rhs,
@@ -2974,10 +2967,7 @@ impl Value {
         }
 
         self.partial_cmp(rhs)
-            .map(|ordering| Value::Bool {
-                val: matches!(ordering, Ordering::Less | Ordering::Equal),
-                span,
-            })
+            .map(|ordering| Value::bool(matches!(ordering, Ordering::Less | Ordering::Equal), span))
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -2988,9 +2978,9 @@ impl Value {
     }
 
     pub fn gt(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::GreaterThan),
                 op,
                 rhs,
@@ -3015,10 +3005,7 @@ impl Value {
         }
 
         self.partial_cmp(rhs)
-            .map(|ordering| Value::Bool {
-                val: matches!(ordering, Ordering::Greater),
-                span,
-            })
+            .map(|ordering| Value::bool(matches!(ordering, Ordering::Greater), span))
             .ok_or(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3029,9 +3016,9 @@ impl Value {
     }
 
     pub fn gte(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
             return lhs.operation(
-                *span,
+                self.span(),
                 Operator::Comparison(Comparison::GreaterThanOrEqual),
                 op,
                 rhs,
@@ -3056,10 +3043,10 @@ impl Value {
         }
 
         match self.partial_cmp(rhs) {
-            Some(ordering) => Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Greater | Ordering::Equal),
+            Some(ordering) => Ok(Value::bool(
+                matches!(ordering, Ordering::Greater | Ordering::Equal),
                 span,
-            }),
+            )),
             None => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3071,19 +3058,21 @@ impl Value {
     }
 
     pub fn eq(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::Equal), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::Equal),
+                op,
+                rhs,
+            );
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: matches!(ordering, Ordering::Equal),
-                span,
-            })
+            Ok(Value::bool(matches!(ordering, Ordering::Equal), span))
         } else {
             match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::Bool { val: false, span })
+                    Ok(Value::bool(false, span))
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
@@ -3097,19 +3086,21 @@ impl Value {
     }
 
     pub fn ne(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
-        if let (Value::CustomValue { val: lhs, span }, rhs) = (self, rhs) {
-            return lhs.operation(*span, Operator::Comparison(Comparison::NotEqual), op, rhs);
+        if let (Value::CustomValue { val: lhs, .. }, rhs) = (self, rhs) {
+            return lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotEqual),
+                op,
+                rhs,
+            );
         }
 
         if let Some(ordering) = self.partial_cmp(rhs) {
-            Ok(Value::Bool {
-                val: !matches!(ordering, Ordering::Equal),
-                span,
-            })
+            Ok(Value::bool(!matches!(ordering, Ordering::Equal), span))
         } else {
             match (self, rhs) {
                 (Value::Nothing { .. }, _) | (_, Value::Nothing { .. }) => {
-                    Ok(Value::Bool { val: true, span })
+                    Ok(Value::bool(true, span))
                 }
                 _ => Err(ShellError::OperatorMismatch {
                     op_span: op,
@@ -3124,22 +3115,14 @@ impl Value {
 
     pub fn r#in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => Ok(Value::Bool {
-                val: rhs.cols.contains(lhs),
-                span,
-            }),
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(rhs.contains(lhs), span))
+            }
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                Ok(Value::bool(rhs.cols.contains(lhs), span))
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3155,19 +3138,18 @@ impl Value {
                     ),
                 });
 
-                Ok(Value::Bool { val, span })
+                Ok(Value::bool(val, span))
             }
             (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: rhs
-                        .members
+                Ok(Value::bool(
+                    rhs.members
                         .windows(lhs.members.len())
                         .any(|member_window| member_window == rhs.members),
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::In), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(self.span(), Operator::Comparison(Comparison::In), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3181,22 +3163,14 @@ impl Value {
 
     pub fn not_in(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.contains(lhs),
-                span,
-            }),
-            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => Ok(Value::Bool {
-                val: !rhs.cols.contains(lhs),
-                span,
-            }),
+            (lhs, Value::Range { val: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(!rhs.contains(lhs), span))
+            }
+            (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
+            (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
+                Ok(Value::bool(!rhs.cols.contains(lhs), span))
+            }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
                     (Value::Int { val: lhs, .. }, PathMember::Int { val: rhs, .. }) => {
@@ -3212,20 +3186,22 @@ impl Value {
                     ),
                 });
 
-                Ok(Value::Bool { val, span })
+                Ok(Value::bool(val, span))
             }
             (Value::CellPath { val: lhs, .. }, Value::CellPath { val: rhs, .. }) => {
-                Ok(Value::Bool {
-                    val: rhs
-                        .members
+                Ok(Value::bool(
+                    rhs.members
                         .windows(lhs.members.len())
                         .all(|member_window| member_window != rhs.members),
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::NotIn), op, rhs)
-            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::NotIn),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3244,14 +3220,9 @@ impl Value {
         invert: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
+        let rhs_span = rhs.span();
         match (self, rhs) {
-            (
-                Value::String { val: lhs, .. },
-                Value::String {
-                    val: rhs,
-                    span: rhs_span,
-                },
-            ) => {
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
                 let is_match = match engine_state.regex_cache.try_lock() {
                     Ok(mut cache) => {
                         if let Some(regex) = cache.get(rhs) {
@@ -3262,7 +3233,7 @@ impl Value {
                                     format!("{e}"),
                                     "value originated from here".into(),
                                     span,
-                                    *rhs_span,
+                                    rhs_span,
                                 )
                             })?;
                             let ret = regex.is_match(lhs);
@@ -3276,24 +3247,24 @@ impl Value {
                                 format!("{e}"),
                                 "value originated from here".into(),
                                 span,
-                                *rhs_span,
+                                rhs_span,
                             )
                         })?;
                         regex.is_match(lhs)
                     }
                 };
 
-                Ok(Value::Bool {
-                    val: if invert {
+                Ok(Value::bool(
+                    if invert {
                         !is_match.unwrap_or(false)
                     } else {
                         is_match.unwrap_or(true)
                     },
                     span,
-                })
+                ))
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => lhs.operation(
-                *span,
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                span,
                 if invert {
                     Operator::Comparison(Comparison::NotRegexMatch)
                 } else {
@@ -3314,13 +3285,15 @@ impl Value {
 
     pub fn starts_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs.starts_with(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::StartsWith), op, rhs)
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(lhs.starts_with(rhs), span))
             }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::StartsWith),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3333,13 +3306,15 @@ impl Value {
 
     pub fn ends_with(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => Ok(Value::Bool {
-                val: lhs.ends_with(rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Comparison(Comparison::EndsWith), op, rhs)
+            (Value::String { val: lhs, .. }, Value::String { val: rhs, .. }) => {
+                Ok(Value::bool(lhs.ends_with(rhs), span))
             }
+            (Value::CustomValue { val: lhs, .. }, rhs) => lhs.operation(
+                self.span(),
+                Operator::Comparison(Comparison::EndsWith),
+                op,
+                rhs,
+            ),
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
                 lhs_ty: self.get_type().to_string(),
@@ -3352,12 +3327,11 @@ impl Value {
 
     pub fn bit_shl(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs << rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::ShiftLeft), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs << rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::ShiftLeft), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3371,12 +3345,11 @@ impl Value {
 
     pub fn bit_shr(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs >> rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::ShiftRight), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs >> rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::ShiftRight), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3390,12 +3363,11 @@ impl Value {
 
     pub fn bit_or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs | rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitOr), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs | rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitOr), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3409,12 +3381,11 @@ impl Value {
 
     pub fn bit_xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs ^ rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitXor), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs ^ rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitXor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3428,12 +3399,11 @@ impl Value {
 
     pub fn bit_and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Int {
-                span,
-                val: *lhs & rhs,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Bits(Bits::BitAnd), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::int(*lhs & rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Bits(Bits::BitAnd), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3449,46 +3419,34 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Int {
-                        val: lhs % rhs,
-                        span,
-                    })
+                    Ok(Value::int(lhs % rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: *lhs as f64 % *rhs,
-                        span,
-                    })
+                    Ok(Value::float(*lhs as f64 % *rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if *rhs != 0 {
-                    Ok(Value::Float {
-                        val: *lhs % *rhs as f64,
-                        span,
-                    })
+                    Ok(Value::float(*lhs % *rhs as f64, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
             (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 if *rhs != 0.0 {
-                    Ok(Value::Float {
-                        val: lhs % rhs,
-                        span,
-                    })
+                    Ok(Value::float(lhs % rhs, span))
                 } else {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Modulo), op, rhs)
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -3503,12 +3461,11 @@ impl Value {
 
     pub fn and(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs && *rhs,
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::And), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs && *rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::And), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3522,12 +3479,11 @@ impl Value {
 
     pub fn or(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: *lhs || *rhs,
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::Or), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool(*lhs || *rhs, span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::Or), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3541,12 +3497,11 @@ impl Value {
 
     pub fn xor(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
-            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => Ok(Value::Bool {
-                val: (*lhs && !*rhs) || (!*lhs && *rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Boolean(Boolean::Xor), op, rhs)
+            (Value::Bool { val: lhs, .. }, Value::Bool { val: rhs, .. }) => {
+                Ok(Value::bool((*lhs && !*rhs) || (!*lhs && *rhs), span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Boolean(Boolean::Xor), op, rhs)
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,
@@ -3562,25 +3517,22 @@ impl Value {
         match (self, rhs) {
             (Value::Int { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
-                    Ok(Value::Int { val, span })
+                    Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into decimal'. Note: float has reduced precision!".into() })
+                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
-            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: (*lhs as f64).powf(*rhs),
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs.powf(*rhs as f64),
-                span,
-            }),
-            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => Ok(Value::Float {
-                val: lhs.powf(*rhs),
-                span,
-            }),
-            (Value::CustomValue { val: lhs, span }, rhs) => {
-                lhs.operation(*span, Operator::Math(Math::Pow), op, rhs)
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float((*lhs as f64).powf(*rhs), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs as f64), span))
+            }
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(Value::float(lhs.powf(*rhs), span))
+            }
+            (Value::CustomValue { val: lhs, .. }, rhs) => {
+                lhs.operation(span, Operator::Math(Math::Pow), op, rhs)
             }
 
             _ => Err(ShellError::OperatorMismatch {
@@ -3901,14 +3853,9 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_with_no_values = Value::List {
-                vals: vec![],
-                span: Span::unknown(),
-            };
-            let list_with_one_empty_string = Value::List {
-                vals: vec![Value::string("", Span::unknown())],
-                span: Span::unknown(),
-            };
+            let list_with_no_values = Value::list(vec![], Span::unknown());
+            let list_with_one_empty_string =
+                Value::list(vec![Value::string("", Span::unknown())], Span::unknown());
 
             assert!(list_with_no_values.is_empty());
             assert!(!list_with_one_empty_string.is_empty());
@@ -3949,29 +3896,24 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_of_ints = Value::List {
-                vals: vec![Value::int(0, Span::unknown())],
-                span: Span::unknown(),
-            };
-            let list_of_floats = Value::List {
-                vals: vec![Value::float(0.0, Span::unknown())],
-                span: Span::unknown(),
-            };
-            let list_of_ints_and_floats = Value::List {
-                vals: vec![
+            let list_of_ints = Value::list(vec![Value::int(0, Span::unknown())], Span::unknown());
+            let list_of_floats =
+                Value::list(vec![Value::float(0.0, Span::unknown())], Span::unknown());
+            let list_of_ints_and_floats = Value::list(
+                vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
                 ],
-                span: Span::unknown(),
-            };
-            let list_of_ints_and_floats_and_bools = Value::List {
-                vals: vec![
+                Span::unknown(),
+            );
+            let list_of_ints_and_floats_and_bools = Value::list(
+                vec![
                     Value::int(0, Span::unknown()),
                     Value::float(0.0, Span::unknown()),
                     Value::bool(false, Span::unknown()),
                 ],
-                span: Span::unknown(),
-            };
+                Span::unknown(),
+            );
             assert_eq!(list_of_ints.get_type(), Type::List(Box::new(Type::Int)));
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
@@ -3992,13 +3934,13 @@ mod tests {
 
         #[test]
         fn test_datetime() {
-            let string = Value::Date {
-                val: DateTime::from_naive_utc_and_offset(
+            let string = Value::date(
+                DateTime::from_naive_utc_and_offset(
                     NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),
-                span: Span::unknown(),
-            }
+                Span::unknown(),
+            )
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
@@ -4009,13 +3951,13 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::Date {
-                val: DateTime::from_naive_utc_and_offset(
+            let string = Value::date(
+                DateTime::from_naive_utc_and_offset(
                     NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
                     FixedOffset::east_opt(0).unwrap(),
                 ),
-                span: Span::unknown(),
-            }
+                Span::unknown(),
+            )
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because

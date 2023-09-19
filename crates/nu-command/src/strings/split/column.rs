@@ -63,8 +63,8 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
@@ -76,14 +76,14 @@ impl Command for SubCommand {
                             Value::test_string("c"),
                         ],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column -c ''",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list(
+                    vec![Value::test_record(Record {
                         cols: vec![
                             "column1".to_string(),
                             "column2".to_string(),
@@ -95,14 +95,14 @@ impl Command for SubCommand {
                             Value::test_string("c"),
                         ],
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of strings into a table",
                 example: "['a-b' 'c-d'] | split column -",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_string("b")],
@@ -112,14 +112,14 @@ impl Command for SubCommand {
                             vals: vec![Value::test_string("c"), Value::test_string("d")],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
                 example: r"['a -  b' 'c  -    d'] | split column -r '\s*-\s*'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["column1".to_string(), "column2".to_string()],
                             vals: vec![Value::test_string("a"), Value::test_string("b")],
@@ -129,8 +129,8 @@ impl Command for SubCommand {
                             vals: vec![Value::test_string("c"), Value::test_string("d")],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -203,21 +203,18 @@ fn split_column_helper(
     } else {
         match v {
             Value::Error { error, .. } => {
-                vec![Value::Error {
-                    error: Box::new(*error.clone()),
-                    span: head,
-                }]
+                vec![Value::error(*error.clone(), head)]
             }
             v => {
                 let span = v.span();
-                vec![Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                vec![Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: head,
                         src_span: span,
-                    }),
+                    },
                     span,
-                }]
+                )]
             }
         }
     }

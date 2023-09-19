@@ -127,7 +127,7 @@ fn from_xlsx(
 
     let mut dict = IndexMap::new();
 
-    let mut sheet_names = xlsx.sheet_names().to_owned();
+    let mut sheet_names = xlsx.sheet_names();
     if !sel_sheets.is_empty() {
         sheet_names.retain(|e| sel_sheets.contains(e));
     }
@@ -157,13 +157,7 @@ fn from_xlsx(
                 sheet_output.push(Value::record(record, head));
             }
 
-            dict.insert(
-                sheet_name,
-                Value::List {
-                    vals: sheet_output,
-                    span: head,
-                },
-            );
+            dict.insert(sheet_name, Value::list(sheet_output, head));
         } else {
             return Err(ShellError::UnsupportedInput(
                 "Could not load sheet".to_string(),

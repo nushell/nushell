@@ -151,13 +151,13 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::List {
-                    vals: vec![Value::test_record(Record {
+                result: Some(Value::list (
+                    vec![Value::test_record(Record {
                         cols: vec!["a".to_string()],
                         vals: vec![Value::test_string("a")]
                     })],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Select a field in a record",
@@ -214,18 +214,13 @@ fn select(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains(val) {
-                    return Err(ShellError::GenericError(
-                        "Select can't get the same row twice".into(),
-                        "duplicated row index".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
-                }
                 unique_rows.insert(*val);
             }
-            _ => new_columns.push(column),
+            _ => {
+                if !new_columns.contains(&column) {
+                    new_columns.push(column)
+                }
+            }
         };
     }
     let columns = new_columns;
@@ -250,44 +245,65 @@ fn select(
     };
 
     match input {
-        PipelineData::Value(
-            Value::List {
-                vals: input_vals,
-                span,
-            },
-            metadata,
-            ..,
-        ) => {
-            let mut output = vec![];
-            let mut columns_with_value = Vec::new();
-            for input_val in input_vals {
-                if !columns.is_empty() {
-                    let mut record = Record::new();
-                    for path in &columns {
-                        //FIXME: improve implementation to not clone
-                        match input_val.clone().follow_cell_path(&path.members, false) {
-                            Ok(fetcher) => {
-                                record.push(path.into_string().replace('.', "_"), fetcher);
-                                if !columns_with_value.contains(&path) {
-                                    columns_with_value.push(path);
+        PipelineData::Value(v, metadata, ..) => {
+            let span = v.span();
+            match v {
+                Value::List {
+                    vals: input_vals, ..
+                } => {
+                    let mut output = vec![];
+                    let mut columns_with_value = Vec::new();
+                    for input_val in input_vals {
+                        if !columns.is_empty() {
+                            let mut record = Record::new();
+                            for path in &columns {
+                                //FIXME: improve implementation to not clone
+                                match input_val.clone().follow_cell_path(&path.members, false) {
+                                    Ok(fetcher) => {
+                                        record.push(path.into_string().replace('.', "_"), fetcher);
+                                        if !columns_with_value.contains(&path) {
+                                            columns_with_value.push(path);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        return Err(e);
+                                    }
                                 }
                             }
-                            Err(e) => {
-                                return Err(e);
-                            }
+
+                            output.push(Value::record(record, span))
+                        } else {
+                            output.push(input_val)
                         }
                     }
 
-                    output.push(Value::record(record, span))
-                } else {
-                    output.push(input_val)
+                    Ok(output
+                        .into_iter()
+                        .into_pipeline_data(engine_state.ctrlc.clone())
+                        .set_metadata(metadata))
+                }
+                _ => {
+                    if !columns.is_empty() {
+                        let mut record = Record::new();
+
+                        for cell_path in columns {
+                            // FIXME: remove clone
+                            match v.clone().follow_cell_path(&cell_path.members, false) {
+                                Ok(result) => {
+                                    record.push(cell_path.into_string().replace('.', "_"), result);
+                                }
+                                Err(e) => return Err(e),
+                            }
+                        }
+
+                        Ok(Value::record(record, call_span)
+                            .into_pipeline_data()
+                            .set_metadata(metadata))
+                    } else {
+                        Ok(v.into_pipeline_data().set_metadata(metadata))
+                    }
                 }
             }
-
-            Ok(output
-                .into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
         }
         PipelineData::ListStream(stream, metadata, ..) => {
             let mut values = vec![];
@@ -313,27 +329,6 @@ fn select(
             Ok(values
                 .into_pipeline_data(engine_state.ctrlc.clone())
                 .set_metadata(metadata))
-        }
-        PipelineData::Value(v, metadata, ..) => {
-            if !columns.is_empty() {
-                let mut record = Record::new();
-
-                for cell_path in columns {
-                    // FIXME: remove clone
-                    match v.clone().follow_cell_path(&cell_path.members, false) {
-                        Ok(result) => {
-                            record.push(cell_path.into_string().replace('.', "_"), result);
-                        }
-                        Err(e) => return Err(e),
-                    }
-                }
-
-                Ok(Value::record(record, call_span)
-                    .into_pipeline_data()
-                    .set_metadata(metadata))
-            } else {
-                Ok(v.into_pipeline_data().set_metadata(metadata))
-            }
         }
         _ => Ok(PipelineData::empty()),
     }

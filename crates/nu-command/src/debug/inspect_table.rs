@@ -198,6 +198,7 @@ mod util {
 
     /// Try to build column names and a table grid.
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
+        let span = value.span();
         match value {
             Value::Record { val: record, .. } => (
                 record.cols,
@@ -217,13 +218,10 @@ mod util {
 
                 (columns, data)
             }
-            Value::String { val, span } => {
+            Value::String { val, .. } => {
                 let lines = val
                     .lines()
-                    .map(|line| Value::String {
-                        val: line.to_string(),
-                        span,
-                    })
+                    .map(|line| Value::string(line.to_string(), span))
                     .map(|val| vec![debug_string_without_formatting(&val)])
                     .collect();
 
@@ -237,7 +235,7 @@ mod util {
         }
     }
 
-    fn convert_records_to_dataset(cols: &Vec<String>, records: Vec<Value>) -> Vec<Vec<String>> {
+    fn convert_records_to_dataset(cols: &[String], records: Vec<Value>) -> Vec<Vec<String>> {
         if !cols.is_empty() {
             create_table_for_record(cols, &records)
         } else if cols.is_empty() && records.is_empty() {

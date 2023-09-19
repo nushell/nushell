@@ -164,7 +164,7 @@ impl Command for ToHtml {
 
 fn get_theme_from_asset_file(
     is_dark: bool,
-    theme: &Option<Spanned<String>>,
+    theme: Option<&Spanned<String>>,
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
@@ -288,20 +288,20 @@ fn to_html(
                 )
             })
             .collect();
-        return Ok(Value::List {
-            vals: result,
-            span: head,
-        }
-        .into_pipeline_data_with_metadata(Box::new(PipelineMetadata {
-            data_source: DataSource::HtmlThemes,
-        })));
+        return Ok(
+            Value::list(result, head).into_pipeline_data_with_metadata(Box::new(
+                PipelineMetadata {
+                    data_source: DataSource::HtmlThemes,
+                },
+            )),
+        );
     } else {
         let theme_span = match &theme {
             Some(v) => v.span,
             None => head,
         };
 
-        let color_hm = get_theme_from_asset_file(dark, &theme);
+        let color_hm = get_theme_from_asset_file(dark, theme.as_ref());
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
@@ -403,7 +403,8 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("</tr></thead><tbody>");
 
     for row in table {
-        if let Value::Record { span, .. } = row {
+        let span = row.span();
+        if let Value::Record { .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
                 let data = row.get_data_by_key(header);

@@ -58,8 +58,8 @@ impl Command for SortBy {
             Example {
                 description: "Sort a table by a column (reversed order)",
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_record(Record {
                             cols: vec!["fruit".to_string(), "count".to_string()],
                             vals: vec![Value::test_string("pear"), Value::test_int(3)],
@@ -73,8 +73,8 @@ impl Command for SortBy {
                             vals: vec![Value::test_string("apple"), Value::test_int(9)],
                         }),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }

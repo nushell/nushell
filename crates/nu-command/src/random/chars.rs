@@ -79,10 +79,7 @@ fn chars(
         .collect::<String>();
 
     Ok(PipelineData::Value(
-        Value::String {
-            val: random_string,
-            span,
-        },
+        Value::string(random_string, span),
         None,
     ))
 }

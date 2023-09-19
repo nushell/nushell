@@ -74,13 +74,13 @@ impl NuCompleter {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
-                    Value::List {
-                        vals: spans
+                    Value::list(
+                        spans
                             .iter()
                             .map(|it| Value::string(it, Span::unknown()))
                             .collect(),
-                        span: Span::unknown(),
-                    },
+                        Span::unknown(),
+                    ),
                 );
             }
         }
@@ -97,7 +97,7 @@ impl NuCompleter {
         match result {
             Ok(pd) => {
                 let value = pd.into_value(span);
-                if let Value::List { vals, span: _ } = value {
+                if let Value::List { vals, .. } = value {
                     let result =
                         map_value_completions(vals.iter(), Span::new(span.start, span.end), offset);
 
@@ -136,7 +136,7 @@ impl NuCompleter {
                         for (flat_idx, flat) in flattened.iter().enumerate() {
                             let is_passthrough_command = spans
                                 .first()
-                                .filter(|content| *content == &String::from("sudo"))
+                                .filter(|content| content.as_str() == "sudo")
                                 .is_some();
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();

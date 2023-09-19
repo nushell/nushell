@@ -60,7 +60,7 @@ impl Command for BitsRol {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
@@ -91,10 +91,10 @@ impl Command for BitsRol {
             Example {
                 description: "Rotate left a list of numbers with 2 bits",
                 example: "[5 3 2] | bits rol 2",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(20), Value::test_int(12), Value::test_int(8)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -106,9 +106,9 @@ where
 {
     let rotate_result = i64::try_from(val.rotate_left(bits));
     match rotate_result {
-        Ok(val) => Value::Int { val, span },
-        Err(_) => Value::Error {
-            error: Box::new(ShellError::GenericError(
+        Ok(val) => Value::int(val, span),
+        Err(_) => Value::error(
+            ShellError::GenericError(
                 "Rotate left result beyond the range of 64 bit signed number".to_string(),
                 format!(
                     "{val} of the specified number of bytes rotate left {bits} bits exceed limit"
@@ -116,15 +116,16 @@ where
                 Some(span),
                 None,
                 Vec::new(),
-            )),
+            ),
             span,
-        },
+        ),
     }
 }
 
 fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: NumberBytes) -> Value {
+    let span = value.span();
     match value {
-        Value::Int { val, span } => {
+        Value::Int { val, .. } => {
             use InputNumType::*;
             // let bits = (((bits % 64) + 64) % 64) as u32;
             let bits = bits as u32;
@@ -142,15 +143,15 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => value,
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "integer".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
-            }),
-            span: head,
-        },
+            },
+            head,
+        ),
     }
 }
 

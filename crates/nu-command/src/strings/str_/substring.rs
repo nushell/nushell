@@ -144,15 +144,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             if start < len && end >= 0 {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
-                    Ordering::Greater => Value::Error {
-                        error: Box::new(ShellError::TypeMismatch {
+                    Ordering::Greater => Value::error(
+                        ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
-                        }),
-                        span: head,
-                    },
-                    Ordering::Less => Value::String {
-                        val: {
+                        },
+                        head,
+                    ),
+                    Ordering::Less => Value::string(
+                        {
                             if end == isize::max_value() {
                                 if args.graphemes {
                                     s.graphemes(true)
@@ -181,8 +181,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 .to_string()
                             }
                         },
-                        span: head,
-                    },
+                        head,
+                    ),
                 }
             } else {
                 Value::string("", head)
@@ -190,16 +190,16 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::UnsupportedInput(
+        other => Value::error(
+            ShellError::UnsupportedInput(
                 "Only string values are supported".into(),
                 format!("input type: {:?}", other.get_type()),
                 head,
                 // This line requires the Value::Error match above.
                 other.span(),
-            )),
-            span: head,
-        },
+            ),
+            head,
+        ),
     }
 }
 
@@ -279,10 +279,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             cell_paths: None,

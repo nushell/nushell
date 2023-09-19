@@ -7,8 +7,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use num_traits::AsPrimitive;
 use std::io::stdout;
@@ -69,7 +69,13 @@ There are 4 `key_type` variants:
     media - dedicated media keys (play, pause, tracknext ...)
     other - keys not falling under previous categories (up, down, backspace, enter ...)"#
     }
-
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "Listen for a keyboard shortcut and find out how nu receives it",
+            example: "input listen --types [key]",
+            result: None,
+        }]
+    }
     fn run(
         &self,
         engine_state: &EngineState,
@@ -151,7 +157,8 @@ impl EventTypeFilter {
         if let Value::List { vals, .. } = value {
             let mut filter = Self::none();
             for event_type in vals {
-                if let Value::String { val, span } = event_type {
+                let span = event_type.span();
+                if let Value::String { val, .. } = event_type {
                     match val.as_str() {
                         "focus" => filter.listen_focus = true,
                         "key" => filter.listen_key = true,
@@ -379,6 +386,8 @@ fn create_mouse_event(
             MouseEventKind::Moved => "moved".to_string(),
             MouseEventKind::ScrollDown => "scroll_down".to_string(),
             MouseEventKind::ScrollUp => "scroll_up".to_string(),
+            MouseEventKind::ScrollLeft => "scroll_left".to_string(),
+            MouseEventKind::ScrollRight => "scroll_right".to_string(),
         };
 
         let mut record = record! {

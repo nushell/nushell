@@ -82,10 +82,10 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the mode(s) of a list of numbers",
                 example: "[3 3 9 12 12 15] | math mode",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(3), Value::test_int(12)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(3), Value::test_int(12)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Compute the mode(s) of the columns of a table",
@@ -93,14 +93,11 @@ impl Command for SubCommand {
                 result: Some(Value::test_record(Record {
                     cols: vec!["a".to_string(), "b".to_string()],
                     vals: vec![
-                        Value::List {
-                            vals: vec![Value::test_int(1)],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
-                            span: Span::test_data(),
-                        },
+                        Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        Value::list(
+                            vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
+                            Span::test_data(),
+                        ),
                     ],
                 })),
             },
@@ -176,10 +173,7 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     }
 
     modes.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
-    Ok(Value::List {
-        vals: modes,
-        span: head,
-    })
+    Ok(Value::list(modes, head))
 }
 
 fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
@@ -187,14 +181,8 @@ fn recreate_value(hashable_value: &HashableType, head: Span) -> Value {
     match &hashable_value.original_type {
         NumberTypes::Int => Value::int(i64::from_ne_bytes(bytes), head),
         NumberTypes::Float => Value::float(f64::from_ne_bytes(bytes), head),
-        NumberTypes::Duration => Value::Duration {
-            val: i64::from_ne_bytes(bytes),
-            span: head,
-        },
-        NumberTypes::Filesize => Value::Filesize {
-            val: i64::from_ne_bytes(bytes),
-            span: head,
-        },
+        NumberTypes::Duration => Value::duration(i64::from_ne_bytes(bytes), head),
+        NumberTypes::Filesize => Value::filesize(i64::from_ne_bytes(bytes), head),
     }
 }
 

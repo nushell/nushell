@@ -466,6 +466,13 @@ pub enum ParseError {
         #[label("{label}")]
         span: Span,
     },
+
+    #[error("Redirection can not be used with let/mut.")]
+    #[diagnostic()]
+    RedirectionInLetMut(
+        #[label("Not allowed here")] Span,
+        #[label("...and here")] Option<Span>,
+    ),
 }
 
 impl ParseError {
@@ -550,6 +557,7 @@ impl ParseError {
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
+            ParseError::RedirectionInLetMut(s, _) => *s,
         }
     }
 }
