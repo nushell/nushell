@@ -189,9 +189,15 @@ fn assignment_with_no_var() -> TestResult {
         "mut = 'foo' | $in; $x | describe",
     ];
 
-    let expected = "valid variable";
+    let expecteds = [
+        "missing var_name",
+        "missing var_name",
+        "missing const_name",
+        "missing var_name",
+        "missing var_name",
+    ];
 
-    for case in cases {
+    for (case, expected) in std::iter::zip(cases, expecteds) {
         fail_test(case, expected)?;
     }
 
