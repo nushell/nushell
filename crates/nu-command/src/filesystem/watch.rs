@@ -84,6 +84,7 @@ impl Command for Watch {
             Ok(p) => p,
             Err(e) => {
                 return Err(ShellError::DirectoryNotFound(
+                    path_no_whitespace.to_string(),
                     path_arg.span,
                     Some(format!("IO Error: {e:?}")),
                 ))

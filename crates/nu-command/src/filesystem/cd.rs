@@ -91,6 +91,7 @@ impl Command for Cd {
                                         Ok(p) => p,
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
+                                                path.to_string_lossy().to_string(),
                                                 v.span,
                                                 Some(format!("IO Error: {e:?}")),
                                             ))
@@ -98,6 +99,7 @@ impl Command for Cd {
                                     }
                                 } else {
                                     return Err(ShellError::DirectoryNotFound(
+                                        path.to_string_lossy().to_string(),
                                         v.span,
                                         Some(format!("IO Error: {e1:?}")),
                                     ));
@@ -121,6 +123,7 @@ impl Command for Cd {
                                         Ok(path) => path,
                                         Err(e) => {
                                             return Err(ShellError::DirectoryNotFound(
+                                                p.to_string_lossy().to_string(),
                                                 v.span,
                                                 Some(format!("IO Error: {e:?}")),
                                             ))
@@ -140,13 +143,18 @@ impl Command for Cd {
                                     Ok(path) => path,
                                     Err(e) => {
                                         return Err(ShellError::DirectoryNotFound(
+                                            path_no_whitespace.to_string(),
                                             v.span,
                                             Some(format!("IO Error: {e:?}")),
                                         ))
                                     }
                                 }
                             } else {
-                                return Err(ShellError::DirectoryNotFound(v.span, None));
+                                return Err(ShellError::DirectoryNotFound(
+                                    path_no_whitespace.to_string(),
+                                    v.span,
+                                    None,
+                                ));
                             }
                         }
                     };
