@@ -174,7 +174,7 @@ fn def_default_value_shouldnt_restrict_explicit_type() {
 }
 
 #[test]
-fn def_defualt_value_should_restrict_implicit_type() {
+fn def_default_value_should_restrict_implicit_type() {
     let actual = nu!("def foo [x = 3] { $x }; foo 'a'");
     assert!(actual.err.contains("expected int"));
     let actual2 = nu!("def foo2 [--x = 'a'] { $x }; foo2 --x 3");
