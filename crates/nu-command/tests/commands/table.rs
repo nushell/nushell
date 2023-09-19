@@ -2765,22 +2765,22 @@ fn table_abbreviation_kv_expand() {
 #[test]
 fn table_abbreviation_by_config() {
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
     );
     assert_eq!(actual.out, "╭───┬───┬───┬────────────────╮│ # │ a │ b │       c        │├───┼───┼───┼────────────────┤│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] ││ 2 │ 1 │ 2 │              3 ││ 3 │ 1 │ 2 │              3 ││ 4 │ 1 │ 2 │              3 ││ 5 │ 1 │ 2 │              3 ││ 6 │ 1 │ 2 │              3 │╰───┴───┴───┴────────────────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 0; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 0; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
     );
     assert_eq!(actual.out, "╭───┬─────╮│ 0 │ ... │╰───┴─────╯");
 }
@@ -2788,12 +2788,12 @@ fn table_abbreviation_by_config() {
 #[test]
 fn table_abbreviation_by_config_override() {
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 1"#
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 1"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviate_if_longer_than = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 2"#
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 2"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 }

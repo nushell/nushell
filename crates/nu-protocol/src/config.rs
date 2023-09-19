@@ -1025,7 +1025,7 @@ impl Value {
                                     "show_empty" => {
                                         try_bool!(cols, vals, index, span, table_show_empty)
                                     }
-                                    "abbreviate_if_longer_than" => {
+                                    "abbreviated_row_count" => {
                                         if let Ok(b) = value.as_int() {
                                             if b < 0 {
                                                 invalid!(Some(span), "should be an int unsigned");
