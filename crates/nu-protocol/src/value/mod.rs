@@ -1822,6 +1822,16 @@ impl Value {
         }
     }
 
+    pub fn record_from_indexmap(map: &IndexMap<String, Value>, span: Span) -> Value {
+        let mut cols = vec![];
+        let mut vals = vec![];
+        for (key, val) in map.iter() {
+            cols.push(key.clone());
+            vals.push(val.clone());
+        }
+        Value::record(cols, vals, span)
+    }
+
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
         Value::List {
             vals,
