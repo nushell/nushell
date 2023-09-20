@@ -201,95 +201,14 @@ macro_rules! nu_with_std {
 }
 
 #[macro_export]
-macro_rules! with_exe {
-    ($name:literal) => {{
-        #[cfg(windows)]
-        {
-            concat!($name, ".exe")
-        }
-        #[cfg(not(windows))]
-        {
-            $name
-        }
-    }};
-}
-
-#[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
-        nu_with_plugins!($cwd, [$(("", $plugin_name)),+], $command)
+        $crate::macros::nu_test_with_plugin_inner($cwd, &[$($plugin_name),+], $command)
     }};
     (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        nu_with_plugins!($cwd, [("", $plugin_name)], $command)
+        $crate::macros::nu_test_with_plugin_inner($cwd, &[$plugin_name], $command)
     }};
 
-    ($cwd:expr, [$(($format:expr, $plugin_name:expr)),+$(,)?], $command:expr) => {{
-        pub use std::error::Error;
-        pub use std::io::prelude::*;
-        pub use std::process::Stdio;
-        pub use tempfile::tempdir;
-        pub use $crate::{NATIVE_PATH_ENV_VAR, with_exe};
-
-        let test_bins = $crate::fs::binaries();
-        let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
-            panic!(
-                "Couldn't canonicalize dummy binaries path {}: {:?}",
-                test_bins.display(),
-                e
-            )
-        });
-
-        let temp = tempdir().expect("couldn't create a temporary directory");
-        let temp_plugin_file = temp.path().join("plugin.nu");
-        std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
-
-        $crate::commands::ensure_plugins_built();
-
-        // TODO: the `$format` is a dummy empty string, but `plugin_name` is repeatable
-        // just keep it here for now.  Need to find a way to remove it.
-        let registrations = format!(
-            concat!($(concat!("register ", $format, " {};")),+),
-            $(
-                nu_path::canonicalize_with(with_exe!($plugin_name), &test_bins)
-                    .unwrap_or_else(|e| {
-                        panic!("failed to canonicalize plugin {} path", $plugin_name)
-                    })
-                    .display()
-            ),+
-        );
-        let commands = format!("{registrations}{}", $command);
-
-        let target_cwd = $crate::fs::in_directory(&$cwd);
-        // In plugin testing, we need to use installed nushell to drive
-        // plugin commands.
-        let mut executable_path = $crate::fs::executable_path();
-        if !executable_path.exists() {
-            executable_path = $crate::fs::installed_nu_path();
-        }
-        let mut process = match $crate::macros::run_command(&executable_path, &target_cwd)
-            .arg("--commands")
-            .arg(commands)
-            .arg("--plugin-config")
-            .arg(temp_plugin_file)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-        {
-            Ok(child) => child,
-            Err(why) => panic!("Can't run test {}", why.to_string()),
-        };
-
-        let output = process
-            .wait_with_output()
-            .expect("couldn't read from stdout/stderr");
-
-        let out = $crate::macros::read_std(&output.stdout);
-        let err = String::from_utf8_lossy(&output.stderr);
-
-        println!("=== stderr\n{}", err);
-
-        $crate::Outcome::new(out, err.into_owned())
-    }};
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
@@ -361,6 +280,72 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
     Outcome::new(out, err.into_owned())
 }
 
+pub fn nu_test_with_plugin_inner(
+    cwd: impl AsRef<Path>,
+    plugins: &[&str],
+    command: &str,
+) -> Outcome {
+    pub use tempfile::tempdir;
+
+    let test_bins = crate::fs::binaries();
+    let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
+        panic!(
+            "Couldn't canonicalize dummy binaries path {}: {:?}",
+            test_bins.display(),
+            e
+        )
+    });
+
+    let temp = tempdir().expect("couldn't create a temporary directory");
+    let temp_plugin_file = temp.path().join("plugin.nu");
+    std::fs::File::create(&temp_plugin_file).expect("couldn't create temporary plugin file");
+
+    crate::commands::ensure_plugins_built();
+
+    let registrations: String = plugins
+        .iter()
+        .map(|plugin_name| {
+            let plugin = with_exe(plugin_name);
+            let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
+                .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
+            let plugin_path = plugin_path.to_string_lossy();
+            format!("register {plugin_path};")
+        })
+        .collect();
+    let commands = format!("{registrations}{command}");
+
+    let target_cwd = crate::fs::in_directory(&cwd);
+    // In plugin testing, we need to use installed nushell to drive
+    // plugin commands.
+    let mut executable_path = crate::fs::executable_path();
+    if !executable_path.exists() {
+        executable_path = crate::fs::installed_nu_path();
+    }
+    let process = match run_command(&executable_path, &target_cwd)
+        .arg("--commands")
+        .arg(commands)
+        .arg("--plugin-config")
+        .arg(temp_plugin_file)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+    {
+        Ok(child) => child,
+        Err(why) => panic!("Can't run test {}", why),
+    };
+
+    let output = process
+        .wait_with_output()
+        .expect("couldn't read from stdout/stderr");
+
+    let out = read_std(&output.stdout);
+    let err = String::from_utf8_lossy(&output.stderr);
+
+    println!("=== stderr\n{}", err);
+
+    Outcome::new(out, err.into_owned())
+}
+
 fn escape_quote_string(input: String) -> String {
     let mut output = String::with_capacity(input.len() + 2);
     output.push('"');
@@ -376,14 +361,25 @@ fn escape_quote_string(input: String) -> String {
     output
 }
 
-pub fn read_std(std: &[u8]) -> String {
+fn with_exe(name: &str) -> String {
+    #[cfg(windows)]
+    {
+        name.to_string() + ".exe"
+    }
+    #[cfg(not(windows))]
+    {
+        name.to_string()
+    }
+}
+
+fn read_std(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")
 }
 
-pub fn run_command(executable_path: &Path, target_cwd: &str) -> Command {
+fn run_command(executable_path: &Path, target_cwd: &str) -> Command {
     let mut command = Command::new(executable_path);
 
     command
