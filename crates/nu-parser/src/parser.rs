@@ -3374,6 +3374,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::ArgMode;
+    let mut arg_explicit_type = false;
 
     for token in &output {
         match token {
@@ -3428,6 +3429,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             working_set.error(ParseError::Expected("default value", span));
                         }
                     }
+                    arg_explicit_type = false;
                 } else {
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
@@ -3710,6 +3712,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         }
                                     }
                                 }
+                                arg_explicit_type = true;
                             }
                             parse_mode = ParseMode::ArgMode;
                         }
@@ -3732,10 +3735,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Any => {
-                                                working_set.set_variable_type(
-                                                    var_id,
-                                                    expression.ty.clone(),
-                                                );
+                                                if !arg_explicit_type {
+                                                    working_set.set_variable_type(
+                                                        var_id,
+                                                        expression.ty.clone(),
+                                                    );
+                                                }
                                             }
                                             _ => {
                                                 if !type_compatible(var_type, &expression.ty) {
@@ -3763,7 +3768,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             None
                                         };
 
-                                        *shape = expression.ty.to_shape();
+                                        if !arg_explicit_type {
+                                            *shape = expression.ty.to_shape();
+                                        }
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {
@@ -3800,9 +3807,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         if var_type != &Type::Bool {
                                             match var_type {
                                                 Type::Any => {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
+                                                    if !arg_explicit_type {
+                                                        *arg = Some(expression_ty.to_shape());
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression_ty,
+                                                        );
+                                                    }
                                                 }
                                                 t => {
                                                     if t != &expression_ty {
