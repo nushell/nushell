@@ -70,7 +70,7 @@ jobs:
           - feature: extra
             flags: "--features=extra"
           - feature: rustls
-            flags: "--features=rustls,plugin --no-default-features"
+            flags: "--features=rustls,plugin,which-support,mimalloc,trash-support,sqlite --no-default-features"
         exclude:
           - platform: windows-latest
             feature: dataframe
