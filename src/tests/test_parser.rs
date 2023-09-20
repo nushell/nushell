@@ -456,6 +456,13 @@ fn single_value_row_condition() -> TestResult {
 }
 
 #[test]
+fn performance_nested_lists() -> TestResult {
+    // Parser used to be exponential on deeply nested lists
+    // TODO: Add a timeout
+    fail_test(r#"[[[[[[[[[[[[[[[[[[[[[[[[[[[["#, "Unexpected end of code")
+}
+
+#[test]
 fn unary_not_1() -> TestResult {
     run_test(r#"not false"#, "true")
 }
