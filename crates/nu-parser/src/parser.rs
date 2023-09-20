@@ -2696,19 +2696,31 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ShapeDescriptorUse {
+    /// Used in an argument position allowing the addition of custom completion
+    Argument,
+    /// Used to define the type of a variable or input/output types
+    Type,
+}
+
 /// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
 /// Also handles the specification of custom completions with `type@completer`.
 ///
+/// Restrict the parsing with `use_loc`
 /// Used in:
-/// - `: ` argument type (+completer) positions in signatures
-/// - `type->type` input/output type pairs
-/// - `let name: type` variable type infos
+/// - [`ShapeDescriptorUse::Argument`]
+///   - `: ` argument type (+completer) positions in signatures
+/// - [`ShapeDescriptorUse::Type`]
+///   - `type->type` input/output type pairs
+///   - `let name: type` variable type infos
 ///
 /// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
     span: Span,
+    use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     let result = match bytes {
         b"any" => SyntaxShape::Any,
@@ -2733,14 +2745,18 @@ pub fn parse_shape_name(
         b"filesize" => SyntaxShape::Filesize,
         b"glob" => SyntaxShape::GlobPattern,
         b"int" => SyntaxShape::Int,
-        _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
+        _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span, use_loc),
         b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
-        _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
+        _ if bytes.starts_with(b"record") => {
+            parse_collection_shape(working_set, bytes, span, use_loc)
+        }
         b"string" => SyntaxShape::String,
-        _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
+        _ if bytes.starts_with(b"table") => {
+            parse_collection_shape(working_set, bytes, span, use_loc)
+        }
         _ => {
             if bytes.contains(&b'@') {
                 let mut split = bytes.splitn(2, |b| b == &b'@');
@@ -2749,7 +2765,16 @@ pub fn parse_shape_name(
                     .next()
                     .expect("If `bytes` contains `@` splitn returns 2 slices");
                 let shape_span = Span::new(span.start, span.start + shape_name.len());
-                let shape = parse_shape_name(working_set, shape_name, shape_span);
+                let shape = parse_shape_name(working_set, shape_name, shape_span, use_loc);
+                if use_loc != ShapeDescriptorUse::Argument {
+                    let illegal_span = Span::new(span.start + shape_name.len(), span.end);
+                    working_set.error(ParseError::LabeledError(
+                        "Unexpected custom completer in type spec".into(),
+                        "Type specifications do not support custom completers".into(),
+                        illegal_span,
+                    ));
+                    return shape;
+                }
 
                 let cmd_span = Span::new(span.start + shape_name.len() + 1, span.end);
                 let cmd_name = split
@@ -2758,7 +2783,10 @@ pub fn parse_shape_name(
 
                 let cmd_name = trim_quotes(cmd_name);
                 if cmd_name.is_empty() {
-                    working_set.error(ParseError::Expected("the command name of a completion function", cmd_span));
+                    working_set.error(ParseError::Expected(
+                        "the command name of a completion function",
+                        cmd_span,
+                    ));
                     return shape;
                 }
 
@@ -2783,6 +2811,7 @@ fn parse_collection_shape(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
     span: Span,
+    use_loc: ShapeDescriptorUse,
 ) -> SyntaxShape {
     assert!(bytes.starts_with(b"record") || bytes.starts_with(b"table"));
     let is_table = bytes.starts_with(b"table");
@@ -2888,7 +2917,7 @@ fn parse_collection_shape(
             }
 
             let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
+            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span, use_loc);
             sig.push((key, shape));
             idx += 1;
         }
@@ -2901,7 +2930,12 @@ fn parse_collection_shape(
     }
 }
 
-fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> SyntaxShape {
+fn parse_list_shape(
+    working_set: &mut StateWorkingSet,
+    bytes: &[u8],
+    span: Span,
+    use_loc: ShapeDescriptorUse,
+) -> SyntaxShape {
     assert!(bytes.starts_with(b"list"));
 
     if bytes == b"list" {
@@ -2919,7 +2953,7 @@ fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span)
         if inner_bytes.is_empty() {
             SyntaxShape::List(Box::new(SyntaxShape::Any))
         } else {
-            let inner_sig = parse_shape_name(working_set, &inner_bytes, inner_span);
+            let inner_sig = parse_shape_name(working_set, &inner_bytes, inner_span, use_loc);
 
             SyntaxShape::List(Box::new(inner_sig))
         }
@@ -2959,7 +2993,7 @@ fn prepare_inner_span(
 }
 
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
-    parse_shape_name(working_set, bytes, span).to_type()
+    parse_shape_name(working_set, bytes, span, ShapeDescriptorUse::Type).to_type()
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
@@ -3719,7 +3753,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                         }
                         ParseMode::TypeMode => {
                             if let Some(last) = args.last_mut() {
-                                let syntax_shape = parse_shape_name(working_set, &contents, span);
+                                let syntax_shape = parse_shape_name(
+                                    working_set,
+                                    &contents,
+                                    span,
+                                    ShapeDescriptorUse::Argument,
+                                );
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional(PositionalArg { shape, var_id, .. }, ..) => {
