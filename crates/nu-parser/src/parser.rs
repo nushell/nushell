@@ -4004,29 +4004,18 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         working_set.error(err);
     }
 
-    let head = if let Some(first) = tokens.first() {
-        if working_set.get_span_contents(first.span).starts_with(b"[") {
-            parse_list_expression(working_set, first.span, &SyntaxShape::Any)
-        } else {
-            return parse_list_expression(working_set, span, &SyntaxShape::Any);
-        }
-    } else {
+    // Check that we have all arguments first, before trying to parse the first
+    // in order to avoid exponential parsing time
+    let [first, second, rest @ ..] = &tokens[..] else {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    if tokens
-        .get(1)
-        .filter(|second| second.contents == TokenContents::Semicolon)
-        .is_none()
+    if !working_set.get_span_contents(first.span).starts_with(b"[")
+        || second.contents != TokenContents::Semicolon
+        || rest.is_empty()
     {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    let rest = &tokens[2..];
-    if rest.is_empty() {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
-    }
-
+    let head = parse_list_expression(working_set, first.span, &SyntaxShape::Any);
     let head = {
         let Expression {
             expr: Expr::List(vals),
