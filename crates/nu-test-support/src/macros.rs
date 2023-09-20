@@ -115,7 +115,7 @@ macro_rules! nu {
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
-        $crate::macros::nu_inner($opts, $path, false)
+        $crate::macros::nu_run_test($opts, $path, false)
     }};
 
     // This is the entrypoint for this macro.
@@ -191,7 +191,7 @@ macro_rules! nu_with_std {
 
     // Do the actual work.
     (@main $opts:expr, $path:expr) => {{
-        $crate::macros::nu_inner($opts, $path, true)
+        $crate::macros::nu_run_test($opts, $path, true)
     }};
 
     // This is the entrypoint for this macro.
@@ -203,10 +203,10 @@ macro_rules! nu_with_std {
 #[macro_export]
 macro_rules! nu_with_plugins {
     (cwd: $cwd:expr, plugins: [$(($plugin_name:expr)),+$(,)?], $command:expr) => {{
-        $crate::macros::nu_test_with_plugin_inner($cwd, &[$($plugin_name),+], $command)
+        $crate::macros::nu_with_plugin_run_test($cwd, &[$($plugin_name),+], $command)
     }};
     (cwd: $cwd:expr, plugin: ($plugin_name:expr), $command:expr) => {{
-        $crate::macros::nu_test_with_plugin_inner($cwd, &[$plugin_name], $command)
+        $crate::macros::nu_with_plugin_run_test($cwd, &[$plugin_name], $command)
     }};
 
 }
@@ -216,6 +216,7 @@ use std::{
     path::Path,
     process::{Command, Stdio},
 };
+use tempfile::tempdir;
 
 #[derive(Default)]
 pub struct NuOpts {
@@ -223,7 +224,7 @@ pub struct NuOpts {
     pub locale: Option<String>,
 }
 
-pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome {
+pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
     let test_bins = crate::fs::binaries();
 
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
@@ -238,7 +239,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
     let mut paths = crate::shell_os_paths();
     paths.insert(0, test_bins);
 
-    let path = path.as_ref().lines().collect::<Vec<_>>().join("; ");
+    let commands = commands.as_ref().lines().collect::<Vec<_>>().join("; ");
 
     let paths_joined = match std::env::join_paths(paths) {
         Ok(all) => all,
@@ -249,7 +250,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
     let locale = opts.locale.unwrap_or("en_US.UTF-8".to_string());
     let executable_path = crate::fs::executable_path();
 
-    let mut command = run_command(&executable_path, &target_cwd);
+    let mut command = setup_command(&executable_path, &target_cwd);
     command
         .env(nu_utils::locale::LOCALE_OVERRIDE_ENV_VAR, locale)
         .env(NATIVE_PATH_ENV_VAR, paths_joined);
@@ -259,7 +260,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
         command.arg("--no-std-lib");
     }
     command
-        .arg(format!("-c {}", escape_quote_string(path)))
+        .arg(format!("-c {}", escape_quote_string(commands)))
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
@@ -272,7 +273,7 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = read_std(&output.stdout);
+    let out = collapse_output(&output.stdout);
     let err = String::from_utf8_lossy(&output.stderr);
 
     println!("=== stderr\n{}", err);
@@ -280,12 +281,11 @@ pub fn nu_inner(opts: NuOpts, path: impl AsRef<str>, with_std: bool) -> Outcome 
     Outcome::new(out, err.into_owned())
 }
 
-pub fn nu_test_with_plugin_inner(
+pub fn nu_with_plugin_run_test(
     cwd: impl AsRef<Path>,
     plugins: &[&str],
     command: &str,
 ) -> Outcome {
-    pub use tempfile::tempdir;
 
     let test_bins = crate::fs::binaries();
     let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
@@ -321,7 +321,7 @@ pub fn nu_test_with_plugin_inner(
     if !executable_path.exists() {
         executable_path = crate::fs::installed_nu_path();
     }
-    let process = match run_command(&executable_path, &target_cwd)
+    let process = match setup_command(&executable_path, &target_cwd)
         .arg("--commands")
         .arg(commands)
         .arg("--plugin-config")
@@ -338,7 +338,7 @@ pub fn nu_test_with_plugin_inner(
         .wait_with_output()
         .expect("couldn't read from stdout/stderr");
 
-    let out = read_std(&output.stdout);
+    let out = collapse_output(&output.stdout);
     let err = String::from_utf8_lossy(&output.stderr);
 
     println!("=== stderr\n{}", err);
@@ -372,14 +372,14 @@ fn with_exe(name: &str) -> String {
     }
 }
 
-fn read_std(std: &[u8]) -> String {
+fn collapse_output(std: &[u8]) -> String {
     let out = String::from_utf8_lossy(std);
     let out = out.lines().collect::<Vec<_>>().join("\n");
     let out = out.replace("\r\n", "");
     out.replace('\n', "")
 }
 
-fn run_command(executable_path: &Path, target_cwd: &str) -> Command {
+fn setup_command(executable_path: &Path, target_cwd: &str) -> Command {
     let mut command = Command::new(executable_path);
 
     command
