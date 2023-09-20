@@ -22,9 +22,9 @@ fn expand_tilde_with_home(path: impl AsRef<Path>, home: Option<PathBuf>) -> Path
 
     if !path.starts_with("~") {
         let string = path.to_string_lossy();
-        let mut path_as_string = string.as_ref().chars();
+        let mut path_as_string = string.as_ref().bytes();
         return match path_as_string.next() {
-            Some('~') => expand_tilde_with_another_user_home(path),
+            Some(b'~') => expand_tilde_with_another_user_home(path),
             _ => path.into(),
         };
     }
@@ -121,7 +121,9 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     return match path.to_str() {
         Some(file_path) => {
             let mut file = file_path.to_string();
-            match file_path.chars().position(|c| c == '/' || c == '\\') {
+            // Use bytes() instead of chars() to get an actual index that can be used
+            // with file.split_at(). This works since we're only looking for ASCII characters
+            match file_path.bytes().position(|c| c == b'/' || c == b'\\') {
                 None => {
                     file.remove(0);
                     user_home_dir(&file)
@@ -183,6 +185,22 @@ mod tests {
     #[test]
     fn string_with_tilde_double_forward_slash() {
         check_expanded("~//test/");
+    }
+
+    #[test]
+    fn string_with_tilde_other_user() {
+        let s = "~someone/test/";
+        let expected = format!("{FALLBACK_USER_HOME_BASE_DIR}/someone/test/");
+
+        assert_eq!(expand_tilde(Path::new(s)), PathBuf::from(expected));
+    }
+
+    #[test]
+    fn string_with_multi_byte_chars() {
+        let s = "~あ/";
+        let expected = format!("{FALLBACK_USER_HOME_BASE_DIR}/あ/");
+
+        assert_eq!(expand_tilde(Path::new(s)), PathBuf::from(expected));
     }
 
     #[test]
