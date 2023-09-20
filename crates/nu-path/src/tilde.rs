@@ -121,9 +121,7 @@ fn expand_tilde_with_another_user_home(path: &Path) -> PathBuf {
     return match path.to_str() {
         Some(file_path) => {
             let mut file = file_path.to_string();
-            // Use bytes() instead of chars() to get an actual index that can be used
-            // with file.split_at(). This works since we're only looking for ASCII characters
-            match file_path.bytes().position(|c| c == b'/' || c == b'\\') {
+            match file_path.find(|c| c == '/' || c == '\\') {
                 None => {
                     file.remove(0);
                     user_home_dir(&file)
