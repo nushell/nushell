@@ -166,6 +166,13 @@ fn values(
                 Value::Record { val, .. } => {
                     Ok(val.vals.into_pipeline_data(ctrlc).set_metadata(metadata))
                 }
+                Value::LazyRecord { val, .. } => Ok(val
+                    .collect()?
+                    .as_record()?
+                    .vals
+                    .clone()
+                    .into_pipeline_data(ctrlc)
+                    .set_metadata(metadata)),
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::OnlySupportsThisInputType {
