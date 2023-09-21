@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn source_file_relative_to_file() {
@@ -243,4 +244,17 @@ fn parse_long_duration() {
         "#);
 
     assert_eq!(actual.out, "1min 18sec 797ms");
+}
+
+
+#[rstest]
+#[case("def test [ --a: any = 32 ] {}")]
+#[case("def test [ --a: number = 32 ] {}")]
+#[case("def test [ --a: number = 32.0 ] {}")]
+#[case("def test [ --a: list<any> = [ 1 2 3 ] ] {}")]
+#[case("def test [ --a: record<a: int b: string> = { a: 32 b: 'qwe' c: 'wqe' } ] {}")]
+#[case("def test [ --a: record<a: any b: any> = { a: 32 b: 'qwe'} ] {}")]
+fn parse_let_signature(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.is_empty());
 }
