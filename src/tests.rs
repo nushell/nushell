@@ -116,12 +116,10 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
 
+    println!("Expected output to contain: {expected}");
     assert!(output.status.success());
 
-    assert!(
-        stdout.contains(expected),
-        "Expected output to contain: {expected}"
-    );
+    assert!(stdout.contains(expected));
 
     Ok(())
 }
@@ -147,13 +145,11 @@ pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> 
 
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
+    println!("Expected output to contain: {expected}");
 
     assert!(output.status.success());
 
-    assert!(
-        stdout.contains(expected),
-        "Expected output to contain: {expected}"
-    );
+    assert!(stdout.contains(expected));
 
     Ok(())
 }
@@ -180,11 +176,9 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
 
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
+    println!("Expected error to contain: {expected}");
 
-    assert!(
-        !stderr.is_empty() && stderr.contains(expected),
-        "Expected error to contain: {expected}"
-    );
+    assert!(!stderr.is_empty() && stderr.contains(expected));
 
     Ok(())
 }
