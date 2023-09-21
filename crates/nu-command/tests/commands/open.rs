@@ -84,18 +84,6 @@ fn parses_csv() {
 // The decimal value is supposed to be π, but is currently wrong due to
 // what appears to be an issue in the bson library that is under investigation.
 //
-
-#[cfg(feature = "bson")]
-#[test]
-fn parses_bson() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open sample.bson | get root | select 0 | get b"
-    );
-
-    assert_eq!(actual.out, "hello");
-}
-
 #[cfg(feature = "bson")]
 #[test]
 fn parses_bson() {
