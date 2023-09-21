@@ -246,7 +246,6 @@ fn parse_long_duration() {
     assert_eq!(actual.out, "1min 18sec 797ms");
 }
 
-
 #[rstest]
 #[case("def test [ --a: any = 32 ] {}")]
 #[case("def test [ --a: number = 32 ] {}")]
