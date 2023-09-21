@@ -232,7 +232,7 @@ fn select(
 
         NthIterator {
             input: pipeline_iter,
-            rows: unique_rows,
+            rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
         .into_pipeline_data(engine_state.ctrlc.clone())
@@ -333,7 +333,7 @@ fn select(
 
 struct NthIterator {
     input: PipelineIterator,
-    rows: BTreeSet<usize>,
+    rows: std::iter::Peekable<std::collections::btree_set::IntoIter<usize>>,
     current: usize,
 }
 
@@ -342,9 +342,9 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(row) = self.rows.first() {
+            if let Some(row) = self.rows.peek() {
                 if self.current == *row {
-                    self.rows.pop_first();
+                    self.rows.next();
                     self.current += 1;
                     return self.input.next();
                 } else {
