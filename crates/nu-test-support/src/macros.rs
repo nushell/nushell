@@ -281,12 +281,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     Outcome::new(out, err.into_owned())
 }
 
-pub fn nu_with_plugin_run_test(
-    cwd: impl AsRef<Path>,
-    plugins: &[&str],
-    command: &str,
-) -> Outcome {
-
+pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command: &str) -> Outcome {
     let test_bins = crate::fs::binaries();
     let test_bins = nu_path::canonicalize_with(&test_bins, ".").unwrap_or_else(|e| {
         panic!(
