@@ -79,7 +79,7 @@ def borrow-minute [from: record, current: record] {
 
 def borrow-second [from: record, current: record] {
     mut current = $current
-    $current.millisecond = $current.millisecond + 1_000
+    $current.nanosecond = $current.nanosecond + 1_000_000_000
     $current.second = $current.second - 1
     if $current.second < 0 {
         $current = (borrow-minute $from $current)
@@ -88,37 +88,19 @@ def borrow-second [from: record, current: record] {
     $current
 }
 
-def borrow-millisecond [from: record, current: record] {
-    mut current = $current
-    $current.microsecond = $current.microsecond + 1_000_000
-    $current.millisecond = $current.millisecond - 1
-    if $current.millisecond < 0 {
-        $current = (borrow-second $from $current)
-    }
-
-    $current
-}
-
-def borrow-microsecond [from: record, current: record] {
-    mut current = $current
-    $current.nanosecond = $current.nanosecond + 1_000_000_000
-    $current.microsecond = $current.microsecond - 1
-    if $current.microsecond < 0 {
-        $current = (borrow-millisecond $from $current)
-    }
-
-    $current
-}
-
 # Subtract two datetimes and return a record with the difference
-# Examples
-# print (datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12+12:00)
-# print (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
+#
+# # Examples
+#
+# > datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12+12:00
+# > datetime-diff (date now) 2019-05-10T09:59:12-07:00
 export def datetime-diff [from: datetime, to: datetime] {
-    let from_expanded = ($from | date to-timezone utc | date to-record | merge { millisecond: 0, microsecond: 0})
-    let to_expanded = ($to | date to-timezone utc | date to-record | merge { millisecond: 0, microsecond: 0})
+    let from_expanded = ($from | date to-timezone utc | date to-record)
+    let to_expanded = ($to | date to-timezone utc | date to-record)
 
-    mut result = { year: ($from_expanded.year - $to_expanded.year), month: ($from_expanded.month - $to_expanded.month)}
+    mut result = {}
+    $result.year = $from_expanded.year - $to_expanded.year
+    $result.month = $from_expanded.month - $to_expanded.month
 
     if $result.month < 0 {
         $result = (borrow-year $from_expanded $result)
@@ -148,10 +130,6 @@ export def datetime-diff [from: datetime, to: datetime] {
     if $result.nanosecond < 0 {
         $result = (borrow-second $from_expanded $result)
     }
-
-    $result.millisecond = ($result.nanosecond / 1_000_000 | into int) # don't want a float
-    $result.microsecond = (($result.nanosecond mod 1_000_000) / 1_000 | into int)
-    $result.nanosecond = ($result.nanosecond mod 1_000 | into int)
 
     $result
 }
