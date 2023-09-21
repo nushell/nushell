@@ -68,7 +68,7 @@ fn do_rest_args() -> TestResult {
 #[test]
 fn custom_switch1() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
+        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run true"#,
         "foo",
     )
 }

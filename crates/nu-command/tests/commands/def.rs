@@ -180,3 +180,13 @@ fn def_default_value_should_restrict_implicit_type() {
     let actual2 = nu!("def foo2 [--x = 3] { $x }; foo2 --x 3.0");
     assert!(actual2.err.contains("expected int"));
 }
+
+#[test]
+fn def_boolean_flags() {
+    let actual = nu!("def foo [--x: bool] { $x }; foo --x");
+    assert!(actual.err.contains("flag missing bool argument"));
+    let actual = nu!("def foo [--x: bool = false] { $x }; foo");
+    assert_eq!(actual.out, "false");
+    let actual = nu!("def foo [--x: bool = false] { $x }; foo --x");
+    assert!(actual.err.contains("flag missing bool argument"));
+}

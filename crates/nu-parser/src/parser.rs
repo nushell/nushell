@@ -17,7 +17,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -3704,12 +3704,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
-                                    Arg::Flag(Flag { arg, var_id, .. }) => {
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if syntax_shape != SyntaxShape::Boolean {
-                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                            *arg = Some(syntax_shape)
+                                    Arg::Flag(Flag {
+                                        arg,
+                                        var_id,
+                                        default_value,
+                                        ..
+                                    }) => {
+                                        if syntax_shape == SyntaxShape::Boolean {
+                                            // set up default value, this would allow something
+                                            // def a [--x: bool] { $x }; a
+                                            *default_value =
+                                                Some(Value::bool(false, Span::unknown()));
                                         }
+
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        *arg = Some(syntax_shape);
                                     }
                                 }
                                 arg_explicit_type = true;
@@ -3803,31 +3812,28 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if var_type != &Type::Bool {
-                                            match var_type {
-                                                Type::Any => {
-                                                    if !arg_explicit_type {
-                                                        *arg = Some(expression_ty.to_shape());
-                                                        working_set.set_variable_type(
-                                                            var_id,
-                                                            expression_ty,
-                                                        );
-                                                    }
+                                        // Flags with no TypeMode are just present/not-present switches
+                                        // in the case, `var_type` is any.
+                                        match var_type {
+                                            Type::Any => {
+                                                if !arg_explicit_type {
+                                                    *arg = Some(expression_ty.to_shape());
+                                                    working_set
+                                                        .set_variable_type(var_id, expression_ty);
                                                 }
-                                                t => {
-                                                    if t != &expression_ty {
-                                                        working_set.error(
-                                                            ParseError::AssignmentMismatch(
-                                                                "Default value is the wrong type"
-                                                                    .into(),
-                                                                format!(
+                                            }
+                                            t => {
+                                                if t != &expression_ty {
+                                                    working_set.error(
+                                                        ParseError::AssignmentMismatch(
+                                                            "Default value is the wrong type"
+                                                                .into(),
+                                                            format!(
                                                             "expected default value to be `{t}`"
                                                                 ),
-                                                                expression_span,
-                                                            ),
-                                                        )
-                                                    }
+                                                            expression_span,
+                                                        ),
+                                                    )
                                                 }
                                             }
                                         }
