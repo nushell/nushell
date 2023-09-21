@@ -169,7 +169,7 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "not found";
+    let expected = "File not found";
 
     assert!(
         actual.err.contains(expected),
