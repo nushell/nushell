@@ -1435,8 +1435,8 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             &[b'.', b'?'],
             true,
         );
-        if let Some(err) = err {
-            working_set.error(err);
+        if let Some(_err) = err {
+            working_set.error(ParseError::Expected("Valid expression before ..", span));
             return garbage(span);
         }
     }
