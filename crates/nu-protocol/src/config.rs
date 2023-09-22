@@ -104,7 +104,7 @@ pub struct Config {
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
-    pub show_banner: bool,
+    pub show_banner: String,
     pub bracketed_paste: bool,
     pub show_clickable_links_in_ls: bool,
     pub render_right_prompt_on_last_line: bool,
@@ -120,7 +120,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Config {
         Config {
-            show_banner: true,
+            show_banner: "true".to_string(),
 
             use_ls_colors: true,
             show_clickable_links_in_ls: true,
@@ -1192,7 +1192,15 @@ impl Value {
                         }
                     }
                     "show_banner" => {
-                        try_bool!(cols, vals, index, span, show_banner);
+                        if let Ok(v) = value.as_string() {
+                            config.show_banner = v;
+                        } else {
+                            if let Ok(v) = value.as_bool() {
+                                config.show_banner = v.to_string();
+                            } else {
+                                invalid!(Some(span), "should be true, false, or a nu string");
+                            }
+                        }
                     }
                     "render_right_prompt_on_last_line" => {
                         try_bool!(cols, vals, index, span, render_right_prompt_on_last_line);

@@ -169,11 +169,16 @@ pub fn evaluate_repl(
     let nu_const = create_nu_constant(engine_state, Span::unknown())?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
-    if load_std_lib.is_none() && engine_state.get_config().show_banner {
+    let show_banner = match engine_state.get_config().show_banner.as_str() {
+        "true" => "use std banner; banner".to_owned(),
+        cmd => cmd.to_owned(),
+    };
+
+    if load_std_lib.is_none() && show_banner != "false" {
         eval_source(
             engine_state,
             stack,
-            r#"use std banner; banner"#.as_bytes(),
+            show_banner.as_bytes(),
             "show_banner",
             PipelineData::empty(),
             false,
