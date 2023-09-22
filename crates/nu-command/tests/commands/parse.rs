@@ -215,9 +215,7 @@ mod regex {
     #[test]
     fn parse_handles_external_stream_chunking() {
         Playground::setup("parse_test_streaming_1", |dirs, sandbox| {
-            let data: String = std::iter::repeat("abcdefghijklmnopqrstuvwxyz")
-                .take(1000)
-                .collect();
+            let data: String = "abcdefghijklmnopqrstuvwxyz".repeat(1000);
             sandbox.with_files(vec![Stub::FileWithContent("data.txt", &data)]);
 
             let actual = nu!(

@@ -1425,6 +1425,21 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             return garbage(span);
         }
     };
+    // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
+    // No need to call the expensive parse_value on "((((1"
+    if dotdot_pos[0] > 0 {
+        let (_tokens, err) = lex(
+            &contents[..dotdot_pos[0]],
+            span.start,
+            &[],
+            &[b'.', b'?'],
+            true,
+        );
+        if let Some(_err) = err {
+            working_set.error(ParseError::Expected("Valid expression before ..", span));
+            return garbage(span);
+        }
+    }
 
     let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
@@ -3374,6 +3389,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::ArgMode;
+    let mut arg_explicit_type = false;
 
     for token in &output {
         match token {
@@ -3428,6 +3444,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             working_set.error(ParseError::Expected("default value", span));
                         }
                     }
+                    arg_explicit_type = false;
                 } else {
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
@@ -3710,6 +3727,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         }
                                     }
                                 }
+                                arg_explicit_type = true;
                             }
                             parse_mode = ParseMode::ArgMode;
                         }
@@ -3732,10 +3750,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Any => {
-                                                working_set.set_variable_type(
-                                                    var_id,
-                                                    expression.ty.clone(),
-                                                );
+                                                if !arg_explicit_type {
+                                                    working_set.set_variable_type(
+                                                        var_id,
+                                                        expression.ty.clone(),
+                                                    );
+                                                }
                                             }
                                             _ => {
                                                 if !type_compatible(var_type, &expression.ty) {
@@ -3763,7 +3783,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             None
                                         };
 
-                                        *shape = expression.ty.to_shape();
+                                        if !arg_explicit_type {
+                                            *shape = expression.ty.to_shape();
+                                        }
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {
@@ -3800,9 +3822,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         if var_type != &Type::Bool {
                                             match var_type {
                                                 Type::Any => {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
+                                                    if !arg_explicit_type {
+                                                        *arg = Some(expression_ty.to_shape());
+                                                        working_set.set_variable_type(
+                                                            var_id,
+                                                            expression_ty,
+                                                        );
+                                                    }
                                                 }
                                                 t => {
                                                     if t != &expression_ty {
@@ -4004,29 +4030,18 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         working_set.error(err);
     }
 
-    let head = if let Some(first) = tokens.first() {
-        if working_set.get_span_contents(first.span).starts_with(b"[") {
-            parse_list_expression(working_set, first.span, &SyntaxShape::Any)
-        } else {
-            return parse_list_expression(working_set, span, &SyntaxShape::Any);
-        }
-    } else {
+    // Check that we have all arguments first, before trying to parse the first
+    // in order to avoid exponential parsing time
+    let [first, second, rest @ ..] = &tokens[..] else {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    if tokens
-        .get(1)
-        .filter(|second| second.contents == TokenContents::Semicolon)
-        .is_none()
+    if !working_set.get_span_contents(first.span).starts_with(b"[")
+        || second.contents != TokenContents::Semicolon
+        || rest.is_empty()
     {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    let rest = &tokens[2..];
-    if rest.is_empty() {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
-    }
-
+    let head = parse_list_expression(working_set, first.span, &SyntaxShape::Any);
     let head = {
         let Expression {
             expr: Expr::List(vals),

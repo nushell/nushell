@@ -79,3 +79,11 @@ fn insert_support_lazy_record() {
         nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | insert a 10 | get a"#);
     assert_eq!(actual.out, "10");
 }
+
+#[test]
+fn lazy_record_test_values() {
+    let actual = nu!(
+        r#"lazy make --columns ["haskell", "futures", "nushell"] --get-value { |lazything| $lazything + "!" } | values | length"#
+    );
+    assert_eq!(actual.out, "3");
+}
