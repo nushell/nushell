@@ -262,7 +262,11 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         ),
         Value::String { val, .. } => {
             if radix == 10 {
-                match int_from_string(val, span) {
+                // NOTE: this assumes US style commas in values
+                // and needs to be updated to respect locale
+                let val = val.replace(',', "");
+
+                match int_from_string(&val, span) {
                     Ok(val) => Value::int(val, span),
                     Err(error) => Value::error(error, span),
                 }

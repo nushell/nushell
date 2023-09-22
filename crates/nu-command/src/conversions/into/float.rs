@@ -96,6 +96,10 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
         Value::String { val: s, .. } => {
             let other = s.trim();
 
+            // NOTE: this assumes US style commas in values
+            // and needs to be updated to respect locale
+            let other = other.replace(',', "");
+
             match other.parse::<f64>() {
                 Ok(x) => Value::float(x, head),
                 Err(reason) => Value::error(
