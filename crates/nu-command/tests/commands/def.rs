@@ -189,4 +189,7 @@ fn def_boolean_flags() {
     assert_eq!(actual.out, "false");
     let actual = nu!("def foo [--x: bool = false] { $x }; foo --x");
     assert!(actual.err.contains("flag missing bool argument"));
+    // boolean flags' default value should be null
+    let actual = nu!("def foo [--x: bool] { $x == null }; foo");
+    assert_eq!(actual.out, "true");
 }

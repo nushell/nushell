@@ -17,7 +17,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, Value, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -3704,19 +3704,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), Type::List(Box::new(syntax_shape.to_type())));
                                         *shape = syntax_shape;
                                     }
-                                    Arg::Flag(Flag {
-                                        arg,
-                                        var_id,
-                                        default_value,
-                                        ..
-                                    }) => {
-                                        if syntax_shape == SyntaxShape::Boolean {
-                                            // set up default value, this would allow something
-                                            // def a [--x: bool] { $x }; a
-                                            *default_value =
-                                                Some(Value::bool(false, Span::unknown()));
-                                        }
-
+                                    Arg::Flag(Flag { arg, var_id, .. }) => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         *arg = Some(syntax_shape);
                                     }
