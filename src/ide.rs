@@ -79,7 +79,6 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
     let working_set = StateWorkingSet::new(engine_state);
 
-    // Regenerate the $nu constant to contain the startup time and any other potential updates
     let nu_const = match create_nu_constant(engine_state, Span::unknown()) {
         Ok(nu_const) => nu_const,
         Err(err) => {
