@@ -102,7 +102,6 @@ def borrow-second [from: record, current: record] {
 # │ microsecond │ 0  │
 # │ nanosecond  │ 0  │
 # ╰─────────────┴────╯
-
 export def datetime-diff [
         later: datetime, # a later datetime
         earlier: datetime  # the earlier (starting) datetime
