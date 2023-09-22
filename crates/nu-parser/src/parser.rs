@@ -1425,6 +1425,21 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             return garbage(span);
         }
     };
+    // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
+    // No need to call the expensive parse_value on "((((1"
+    if dotdot_pos[0] > 0 {
+        let (_tokens, err) = lex(
+            &contents[..dotdot_pos[0]],
+            span.start,
+            &[],
+            &[b'.', b'?'],
+            true,
+        );
+        if let Some(_err) = err {
+            working_set.error(ParseError::Expected("Valid expression before ..", span));
+            return garbage(span);
+        }
+    }
 
     let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
