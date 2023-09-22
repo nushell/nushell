@@ -111,8 +111,8 @@ export def datetime-diff [
         let end = (metadata $earlier).span.end
         error make {msg: "Inconsistent arguments", label: {start:$start, end:$end, text:$"$later ($later) should be >= $earlier ($earlier)"}}
     }
-    let from_expanded = ($later | date to-timezone utc | date to-record | merge { millisecond: 0, microsecond: 0})
-    let to_expanded = ($earlier | date to-timezone utc | date to-record | merge { millisecond: 0, microsecond: 0})
+    let from_expanded = ($later | date to-timezone utc | date to-record)
+    let to_expanded = ($earlier | date to-timezone utc | date to-record)
 
     mut result = { year: ($from_expanded.year - $to_expanded.year), month: ($from_expanded.month - $to_expanded.month), day:0, hour:0, minute:0, second:0, millisecond:0, microsecond:0, nanosecond:0}
 
