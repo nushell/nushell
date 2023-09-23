@@ -39,7 +39,7 @@ jobs:
         uses: hustcer/setup-nu@v3.6
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.84.0
+          version: 0.85.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -66,8 +66,8 @@ jobs:
             git push origin --tags
           }
 
-  release:
-    name: Release
+  standard:
+    name: Std
     needs: prepare
     strategy:
       fail-fast: false
@@ -135,13 +135,11 @@ jobs:
 
     - name: Setup Rust toolchain and cache
       uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
-      with:
-        rustflags: ''
 
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.6
       with:
-        version: 0.84.0
+        version: 0.85.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -149,6 +147,113 @@ jobs:
       id: nu
       run: nu .github/workflows/release-pkg.nu
       env:
+        RELEASE_TYPE: standard
+        OS: ${{ matrix.os }}
+        REF: ${{ github.ref }}
+        TARGET: ${{ matrix.target }}
+        _EXTRA_: ${{ matrix.extra }}
+        TARGET_RUSTFLAGS: ${{ matrix.target_rustflags }}
+
+    - name: Create an Issue for Release Failure
+      if: ${{ failure() }}
+      uses: JasonEtco/create-an-issue@v2.9.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        update_existing: true
+        search_existing: open
+        filename: .github/AUTO_ISSUE_TEMPLATE/nightly-build-fail.md
+
+    - name: Set Outputs of Short SHA
+      id: vars
+      run: |
+        echo "date=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        sha_short=$(git rev-parse --short HEAD)
+        echo "sha_short=${sha_short:0:7}" >> $GITHUB_OUTPUT
+
+    # REF: https://github.com/marketplace/actions/gh-release
+    # Create a release only in nushell/nightly repo
+    - name: Publish Archive
+      uses: softprops/action-gh-release@v0.1.15
+      if: ${{ startsWith(github.repository, 'nushell/nightly') }}
+      with:
+        tag_name: nightly-${{ steps.vars.outputs.sha_short }}
+        files: ${{ steps.nu.outputs.archive }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  full:
+    name: Full
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+        - aarch64-apple-darwin
+        - x86_64-apple-darwin
+        - x86_64-pc-windows-msvc
+        - aarch64-pc-windows-msvc
+        - x86_64-unknown-linux-gnu
+        - x86_64-unknown-linux-musl
+        - aarch64-unknown-linux-gnu
+        extra: ['bin']
+        include:
+        - target: aarch64-apple-darwin
+          os: macos-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-pc-windows-msvc
+          extra: 'bin'
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-pc-windows-msvc
+          extra: msi
+          os: windows-latest
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+        - target: aarch64-unknown-linux-gnu
+          os: ubuntu-20.04
+          target_rustflags: '--features=dataframe,extra'
+
+    runs-on: ${{matrix.os}}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Update Rust Toolchain Target
+      run: |
+        echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
+
+    - name: Setup Rust toolchain and cache
+      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+
+    - name: Setup Nushell
+      uses: hustcer/setup-nu@v3.6
+      with:
+        version: 0.85.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Release Nu Binary
+      id: nu
+      run: nu .github/workflows/release-pkg.nu
+      env:
+        RELEASE_TYPE: full
         OS: ${{ matrix.os }}
         REF: ${{ github.ref }}
         TARGET: ${{ matrix.target }}
@@ -206,7 +311,7 @@ jobs:
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3.6
         with:
-          version: 0.84.0
+          version: 0.85.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
