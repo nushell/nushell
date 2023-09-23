@@ -28,6 +28,15 @@ impl From<Span> for SourceSpan {
 }
 
 impl Span {
+    #[must_use]
+    pub fn new_safe(start: usize, end: usize) -> Option<Span> {
+        if start <= end {
+            Some(Span { start, end })
+        } else {
+            None
+        }
+    }
+
     pub fn new(start: usize, end: usize) -> Span {
         debug_assert!(
             end >= start,

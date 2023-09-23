@@ -7,6 +7,7 @@ mod parse_keywords;
 mod parse_patterns;
 mod parser;
 mod parser_path;
+mod span_array;
 mod type_check;
 
 pub use deparse::{escape_for_script_arg, escape_quote_string};
