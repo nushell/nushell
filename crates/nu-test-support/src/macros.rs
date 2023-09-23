@@ -222,6 +222,7 @@ use tempfile::tempdir;
 pub struct NuOpts {
     pub cwd: Option<String>,
     pub locale: Option<String>,
+    pub config: Option<String>
 }
 
 pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> Outcome {
@@ -259,6 +260,12 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
     if !with_std {
         command.arg("--no-std-lib");
     }
+
+    if let Some(config_path) = opts.config {
+      command.arg("--config")
+        .arg(config_path);
+    }
+
     command
         .arg(format!("-c {}", escape_quote_string(commands)))
         .stdout(Stdio::piped())

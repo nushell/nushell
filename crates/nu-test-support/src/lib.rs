@@ -3,6 +3,8 @@ pub mod fs;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
+
+use std::fmt::format;
 // Needs to be reexported for `nu!` macro
 pub use nu_path;
 
@@ -39,6 +41,27 @@ pub fn pipeline(commands: &str) -> String {
         .join(" ")
         .trim_end()
         .to_string()
+}
+
+pub fn nu_repl_code_with_config(config: &str, source_lines: &[&str]) -> String {
+  let mut out = format!("nu --config './{config}' --testbin=nu_repl [ ");
+
+  for line in source_lines.iter() {
+    // convert each "line" to really be a single line to prevent nu! macro joining the newlines
+    // with ';'
+    let line = pipeline(line);
+
+    out.push('`');
+    out.push_str(&line);
+    out.push('`');
+    out.push(' ');
+  }
+
+  out.push(']');
+
+  println!("Command: {}", out);
+
+  out
 }
 
 pub fn nu_repl_code(source_lines: &[&str]) -> String {

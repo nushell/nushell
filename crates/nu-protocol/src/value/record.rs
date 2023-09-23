@@ -40,6 +40,11 @@ impl Record {
         self.cols.push(col.into());
         self.vals.push(val);
     }
+
+  pub fn get(&self, col: &str) -> Option<&Value> {
+    self.cols.iter().position(|c| c == col)
+      .and_then(|idx| self.vals.get(idx))
+  }
 }
 
 impl FromIterator<(String, Value)> for Record {

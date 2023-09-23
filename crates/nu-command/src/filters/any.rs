@@ -20,7 +20,7 @@ impl Command for Any {
                 (Type::List(Box::new(Type::Any)), Type::Bool),
                 (Type::Table(vec![]), Type::Bool),
             ])
-            .required(
+            .optional(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
                 "a closure that must evaluate to a boolean",

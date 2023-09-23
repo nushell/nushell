@@ -1,4 +1,4 @@
-use nu_test_support::{nu, nu_repl_code};
+use nu_test_support::{nu, nu_repl_code, nu_repl_code_with_config};
 use pretty_assertions::assert_eq;
 
 fn env_change_hook_code_list(name: &str, code_list: &[&str]) -> String {
@@ -210,6 +210,26 @@ fn env_change_block_preserve_env_var() {
 
     assert_eq!(actual_repl.err, "");
     assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
+fn env_change_overlays_hooks_env_var() {
+  let inp = &[
+    // &env_change_hook_code("PWD", r#"{|| $env.TEST_RESULT = "non-overlay hooked" }"#),
+    "source ./config.nu",
+    "$env.TEST_RESULT = 'initial'",
+    "cd samples",
+    // "if $env.TEST_RESULT != 'non-overlay hooked' { error make { msg: 'pwd hook did not work' } }",
+    "cd ..",
+    // "overlay use ./samples/overlay_test.nu",
+    "add-pwd-hook { $env.TEST_RESULT = $env.TEST_RESULT + ' added' }",
+    "cd samples",
+    "$env.TEST_RESULT",
+  ];
+
+  let actual_repl = nu!(cwd: "tests/hooks/samples", config: "config.nu", nu_repl_code(inp));
+
+  assert_eq!(actual_repl.out, "overlay hook added");
 }
 
 #[test]

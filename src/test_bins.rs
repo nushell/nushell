@@ -5,6 +5,8 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{CliError, PipelineData, Value};
 use nu_std::load_standard_library;
 use std::io::{self, BufRead, Read, Write};
+use nu_cli::Print;
+use crate::command::NushellCliArgs;
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
@@ -186,21 +188,28 @@ fn get_engine_state() -> EngineState {
     nu_cli::add_cli_context(engine_state)
 }
 
-pub fn nu_repl() {
+pub(crate) fn nu_repl(engine_state: &mut EngineState, parsed_nu_cli_args: NushellCliArgs, source_lines: Vec<String>) {
     //cwd: &str, source_lines: &[&str]) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
-    let source_lines = args();
 
-    let mut engine_state = get_engine_state();
     let mut stack = Stack::new();
+
+  crate::config_files::setup_config(
+    engine_state,
+    &mut stack,
+    #[cfg(feature = "plugin")]
+      parsed_nu_cli_args.plugin_file,
+    parsed_nu_cli_args.config_file,
+    parsed_nu_cli_args.env_file,
+    parsed_nu_cli_args.login_shell.is_some(),
+  );
 
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
     let mut last_output = String::new();
 
-    load_standard_library(&mut engine_state).expect("Could not load the standard library.");
-
     for (i, line) in source_lines.iter().enumerate() {
+        let line = line.trim_matches('`');
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
@@ -211,10 +220,25 @@ pub fn nu_repl() {
         }
 
         // Check for pre_prompt hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(engine_state, &stack);
+
+      dbg!(&config.hooks.env_change);
+
+      if let Some(Value::Record { val, .. }) = stack.get_env_var(engine_state, "config") {
+        let val = val.get("hooks")
+          .unwrap()
+          .as_record().unwrap()
+          .get("env_change")
+          .unwrap()
+          .as_record().unwrap()
+          .get("PWD").unwrap();
+
+        dbg!(val);
+      }
+
         if let Some(hook) = config.hooks.pre_prompt.clone() {
             if let Err(err) = eval_hook(
-                &mut engine_state,
+                engine_state,
                 &mut stack,
                 None,
                 vec![],
@@ -226,17 +250,18 @@ pub fn nu_repl() {
         }
 
         // Check for env change hook
-        let config = engine_state.get_config();
+
+      let config = nu_engine::env::get_config(engine_state, &stack);
         if let Err(err) = eval_env_change_hook(
             config.hooks.env_change.clone(),
-            &mut engine_state,
+            engine_state,
             &mut stack,
         ) {
             outcome_err(&engine_state, &err);
         }
 
         // Check for pre_execution hook
-        let config = engine_state.get_config();
+      let config = nu_engine::env::get_config(engine_state, &stack);
 
         engine_state
             .repl_state
@@ -246,7 +271,7 @@ pub fn nu_repl() {
 
         if let Some(hook) = config.hooks.pre_execution.clone() {
             if let Err(err) = eval_hook(
-                &mut engine_state,
+                engine_state,
                 &mut stack,
                 None,
                 vec![],
@@ -278,10 +303,10 @@ pub fn nu_repl() {
         }
 
         let input = PipelineData::empty();
-        let config = engine_state.get_config();
+      let config = nu_engine::env::get_config(engine_state, &stack);
 
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
+            Ok(pipeline_data) => match pipeline_data.collect_string("", &config) {
                 Ok(s) => last_output = s,
                 Err(err) => outcome_err(&engine_state, &err),
             },

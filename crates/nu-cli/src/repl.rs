@@ -229,7 +229,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(engine_state, stack);
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());
 
@@ -303,7 +303,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+        line_editor = add_menus(line_editor, engine_reference, stack, &config).unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
             Reedline::create()
@@ -364,7 +364,7 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
-        line_editor = match create_keybindings(config) {
+        line_editor = match create_keybindings(&config) {
             Ok(keybindings) => match keybindings {
                 KeybindingsMode::Emacs(keybindings) => {
                     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -413,7 +413,7 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(engine_state, stack);
         if let Err(error) =
             hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
         {

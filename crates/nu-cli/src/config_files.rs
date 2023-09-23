@@ -2,7 +2,7 @@ use crate::util::eval_source;
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::report_error;
+use nu_protocol::{report_error, Value};
 use nu_protocol::{HistoryFileFormat, PipelineData};
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, Spanned};
@@ -96,6 +96,18 @@ pub fn eval_config_contents(
                 PipelineData::empty(),
                 false,
             );
+
+          if let Some(Value::Record { val, .. }) = stack.get_env_var(engine_state, "config") {
+            let val = val.get("hooks")
+              .unwrap()
+              .as_record().unwrap()
+              .get("env_change")
+              .unwrap()
+              .as_record().unwrap()
+              .get("PWD").unwrap();
+
+            dbg!(val);
+          }
 
             // Merge the environment in case env vars changed in the config
             match nu_engine::env::current_dir(engine_state, stack) {
