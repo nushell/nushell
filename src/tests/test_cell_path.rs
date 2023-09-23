@@ -3,12 +3,12 @@ use crate::tests::{fail_test, run_test, TestResult};
 // Tests for null / null / Value::Nothing
 #[test]
 fn nothing_fails_string() -> TestResult {
-    fail_test("let nil = null; nil.foo", "doesn't support cell paths")
+    fail_test("let nil = null; $nil.foo", "doesn't support cell paths")
 }
 
 #[test]
 fn nothing_fails_int() -> TestResult {
-    fail_test("let nil = null; nil.3", "doesn't support cell paths")
+    fail_test("let nil = null; $nil.3", "doesn't support cell paths")
 }
 
 // Tests for records
