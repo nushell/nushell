@@ -1943,7 +1943,10 @@ pub fn parse_module_file_or_dir(
         let mod_nu_path = module_path.clone().join("mod.nu");
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
-            working_set.error(ParseError::ModuleMissingModNuFile(path_span));
+            working_set.error(ParseError::ModuleMissingModNuFile(
+                module_path.path().to_string_lossy().to_string(),
+                path_span,
+            ));
             return None;
         }
 

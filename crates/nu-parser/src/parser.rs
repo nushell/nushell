@@ -1425,6 +1425,21 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             return garbage(span);
         }
     };
+    // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
+    // No need to call the expensive parse_value on "((((1"
+    if dotdot_pos[0] > 0 {
+        let (_tokens, err) = lex(
+            &contents[..dotdot_pos[0]],
+            span.start,
+            &[],
+            &[b'.', b'?'],
+            true,
+        );
+        if let Some(_err) = err {
+            working_set.error(ParseError::Expected("Valid expression before ..", span));
+            return garbage(span);
+        }
+    }
 
     let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
@@ -3705,11 +3720,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if syntax_shape != SyntaxShape::Boolean {
-                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                            *arg = Some(syntax_shape)
-                                        }
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        *arg = Some(syntax_shape);
                                     }
                                 }
                                 arg_explicit_type = true;
@@ -3803,31 +3815,28 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if var_type != &Type::Bool {
-                                            match var_type {
-                                                Type::Any => {
-                                                    if !arg_explicit_type {
-                                                        *arg = Some(expression_ty.to_shape());
-                                                        working_set.set_variable_type(
-                                                            var_id,
-                                                            expression_ty,
-                                                        );
-                                                    }
+                                        // Flags with no TypeMode are just present/not-present switches
+                                        // in the case, `var_type` is any.
+                                        match var_type {
+                                            Type::Any => {
+                                                if !arg_explicit_type {
+                                                    *arg = Some(expression_ty.to_shape());
+                                                    working_set
+                                                        .set_variable_type(var_id, expression_ty);
                                                 }
-                                                t => {
-                                                    if t != &expression_ty {
-                                                        working_set.error(
-                                                            ParseError::AssignmentMismatch(
-                                                                "Default value is the wrong type"
-                                                                    .into(),
-                                                                format!(
+                                            }
+                                            t => {
+                                                if t != &expression_ty {
+                                                    working_set.error(
+                                                        ParseError::AssignmentMismatch(
+                                                            "Default value is the wrong type"
+                                                                .into(),
+                                                            format!(
                                                             "expected default value to be `{t}`"
                                                                 ),
-                                                                expression_span,
-                                                            ),
-                                                        )
-                                                    }
+                                                            expression_span,
+                                                        ),
+                                                    )
                                                 }
                                             }
                                         }
