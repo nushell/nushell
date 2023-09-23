@@ -101,7 +101,7 @@ fn const_string() {
 
 #[test]
 fn const_nothing() {
-    let inp = &["const x = $nothing", "$x | describe"];
+    let inp = &["const x = null", "$x | describe"];
 
     let actual = nu!(&inp.join("; "));
 
