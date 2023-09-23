@@ -1810,7 +1810,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
 
     if contents == b"$nothing" {
         return Expression {
-            expr: Expr::Nothing,
+            expr: Expr::Var(nu_protocol::NOTHING_VARIABLE_ID),
             span,
             ty: Type::Nothing,
             custom_completion: None,
