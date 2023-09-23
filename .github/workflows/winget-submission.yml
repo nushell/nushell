@@ -7,7 +7,7 @@ on:
     inputs:
       tag_name:
         description: 'Specific tag name'
-        required: true 
+        required: true
         type: string
 
 jobs:
@@ -20,6 +20,8 @@ jobs:
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: Nushell.Nushell
+          # Exclude *-msvc-full.msi Full release files
+          installers-regex: 'msvc\.msi$' # Only standard .msi files
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
           token: ${{ secrets.NUSHELL_PAT }}
