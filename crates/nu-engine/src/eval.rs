@@ -591,6 +591,7 @@ pub fn eval_expression(
                 parts.push(eval_expression(engine_state, stack, expr)?);
             }
 
+            // TODO: Should this move to nu_engine::env::get_config?
             let config = engine_state.get_config();
 
             parts

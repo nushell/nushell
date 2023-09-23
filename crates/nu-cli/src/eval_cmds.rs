@@ -27,7 +27,7 @@ pub fn evaluate_commands(
     // Parse the source code
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
-            let mut config = engine_state.get_config().clone();
+            let mut config = nu_engine::get_config(engine_state, stack);
             config.table_mode = t_mode.as_string()?;
             engine_state.set_config(&config);
         }
@@ -53,7 +53,7 @@ pub fn evaluate_commands(
     // Run the block
     let exit_code = match eval_block(engine_state, stack, &block, input, false, false) {
         Ok(pipeline_data) => {
-            let mut config = engine_state.get_config().clone();
+            let mut config = nu_engine::get_config(engine_state, stack);
             if let Some(t_mode) = table_mode {
                 config.table_mode = t_mode.as_string()?;
             }

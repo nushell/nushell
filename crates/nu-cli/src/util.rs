@@ -243,7 +243,7 @@ pub fn eval_source(
 
     match b {
         Ok(pipeline_data) => {
-            let config = engine_state.get_config();
+            let config = nu_engine::env::get_config(engine_state, stack);
             let result;
             if let PipelineData::ExternalStream {
                 stdout: stream,
