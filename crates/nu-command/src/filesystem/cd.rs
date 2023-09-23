@@ -85,23 +85,21 @@ impl Command for Cd {
                         let path = oldpwd.as_path()?;
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e1) => {
+                            Err(_) => {
                                 if use_abbrev {
                                     match query(&path, None, v.span) {
                                         Ok(p) => p,
-                                        Err(e) => {
+                                        Err(_) => {
                                             return Err(ShellError::DirectoryNotFound(
-                                                path.to_string_lossy().to_string(),
                                                 v.span,
-                                                Some(format!("IO Error: {e:?}")),
+                                                path.to_string_lossy().to_string(),
                                             ))
                                         }
                                     }
                                 } else {
                                     return Err(ShellError::DirectoryNotFound(
-                                        path.to_string_lossy().to_string(),
                                         v.span,
-                                        Some(format!("IO Error: {e1:?}")),
+                                        path.to_string_lossy().to_string(),
                                     ));
                                 }
                             }
@@ -121,11 +119,10 @@ impl Command for Cd {
                                     // if it's not a dir, let's check to see if it's something abbreviated
                                     match query(&p, None, v.span) {
                                         Ok(path) => path,
-                                        Err(e) => {
+                                        Err(_) => {
                                             return Err(ShellError::DirectoryNotFound(
-                                                p.to_string_lossy().to_string(),
                                                 v.span,
-                                                Some(format!("IO Error: {e:?}")),
+                                                p.to_string_lossy().to_string(),
                                             ))
                                         }
                                     };
@@ -141,19 +138,17 @@ impl Command for Cd {
                             if use_abbrev {
                                 match query(&path_no_whitespace, None, v.span) {
                                     Ok(path) => path,
-                                    Err(e) => {
+                                    Err(_) => {
                                         return Err(ShellError::DirectoryNotFound(
-                                            path_no_whitespace.to_string(),
                                             v.span,
-                                            Some(format!("IO Error: {e:?}")),
+                                            path_no_whitespace.to_string(),
                                         ))
                                     }
                                 }
                             } else {
                                 return Err(ShellError::DirectoryNotFound(
-                                    path_no_whitespace.to_string(),
                                     v.span,
-                                    None,
+                                    path_no_whitespace.to_string(),
                                 ));
                             }
                         }

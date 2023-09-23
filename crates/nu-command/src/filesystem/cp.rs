@@ -102,9 +102,8 @@ impl Command for Cp {
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
             return Err(ShellError::DirectoryNotFound(
-                destination.to_string_lossy().to_string(),
                 dst.span,
-                Some("destination directory does not exist".to_string()),
+                destination.to_string_lossy().to_string(),
             ));
         }
         let ctrlc = engine_state.ctrlc.clone();

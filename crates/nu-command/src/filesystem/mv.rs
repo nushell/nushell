@@ -277,9 +277,8 @@ fn move_file(
 
     if !destination_dir_exists {
         return Err(ShellError::DirectoryNotFound(
-            to.to_string_lossy().to_string(),
             to_span,
-            None,
+            to.to_string_lossy().to_string(),
         ));
     }
 
@@ -293,9 +292,8 @@ fn move_file(
             Some(name) => name,
             None => {
                 return Err(ShellError::DirectoryNotFound(
-                    from.to_string_lossy().to_string(),
                     to_span,
-                    None,
+                    from.to_string_lossy().to_string(),
                 ))
             }
         };

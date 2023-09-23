@@ -509,9 +509,8 @@ pub fn evaluate_repl(
                             report_error(
                                 &working_set,
                                 &ShellError::DirectoryNotFound(
-                                    path.to_string_lossy().to_string(),
                                     tokens.0[0].span,
-                                    None,
+                                    path.to_string_lossy().to_string(),
                                 ),
                             );
                         }

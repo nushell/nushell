@@ -73,9 +73,8 @@ pub fn glob_from(
                 p
             } else {
                 return Err(ShellError::DirectoryNotFound(
-                    path.to_string_lossy().to_string(),
                     pattern.span,
-                    None,
+                    path.to_string_lossy().to_string(),
                 ));
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
