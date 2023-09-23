@@ -90,12 +90,12 @@ def borrow-second [from: record, current: record] {
 
 # Subtract later from earlier datetime and return the unit differences as a record
 # Example:
-# > dt datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12+12:00
+# > dt datetime-diff 2023-05-07T04:08:45+12:00 2019-05-10T09:59:12-07:00
 # ╭─────────────┬────╮
 # │ year        │ 3  │
 # │ month       │ 11 │
-# │ day         │ 27 │
-# │ hour        │ 18 │
+# │ day         │ 26 │
+# │ hour        │ 23 │
 # │ minute      │ 9  │
 # │ second      │ 33 │
 # │ millisecond │ 0  │
@@ -104,12 +104,12 @@ def borrow-second [from: record, current: record] {
 # ╰─────────────┴────╯
 export def datetime-diff [
         later: datetime, # a later datetime
-        earlier: datetime  # the earlier (starting) datetime
+        earlier: datetime  # earlier (starting) datetime
     ] {
     if $earlier > $later {
         let start = (metadata $later).span.start 
         let end = (metadata $earlier).span.end
-        error make {msg: "Inconsistent arguments", label: {start:$start, end:$end, text:$"$later ($later) should be >= $earlier ($earlier)"}}
+        error make {msg: "Incompatible arguments", label: {start:$start, end:$end, text:$"First datetime must be >= second, but was actually ($later - $earlier) less than it."}}
     }
     let from_expanded = ($later | date to-timezone utc | date to-record)
     let to_expanded = ($earlier | date to-timezone utc | date to-record)
