@@ -253,7 +253,7 @@ pub fn eval_source(
             } = pipeline_data
             {
                 result = print_if_stream(stream, stderr_stream, false, exit_code);
-            } else if let Some(hook) = config.hooks.display_output.clone() {
+            } else if let Some(hook) = config.hooks.display_output {
                 match eval_hook(
                     engine_state,
                     stack,
