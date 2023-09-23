@@ -307,11 +307,12 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, &config).unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            Reedline::create()
-        });
+        line_editor =
+            add_menus(line_editor, engine_reference, stack, &config).unwrap_or_else(|e| {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+                Reedline::create()
+            });
         perf(
             "reedline menus",
             start_time,
@@ -433,7 +434,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = nu_engine::env::get_config(engine_state, stack);;
+        let config = nu_engine::env::get_config(engine_state, stack);
         let prompt = prompt_update::update_prompt(&config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
