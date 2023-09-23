@@ -212,7 +212,7 @@ pub enum ParseError {
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help("When importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.\n\ntarget directory: {0}")
+        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
     )]
     ModuleMissingModNuFile(
         String,
