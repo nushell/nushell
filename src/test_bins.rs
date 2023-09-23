@@ -211,7 +211,7 @@ pub fn nu_repl() {
         }
 
         // Check for pre_prompt hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(&engine_state, &stack);
         if let Some(hook) = config.hooks.pre_prompt.clone() {
             if let Err(err) = eval_hook(
                 &mut engine_state,
@@ -226,7 +226,7 @@ pub fn nu_repl() {
         }
 
         // Check for env change hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(&engine_state, &stack);
         if let Err(err) = eval_env_change_hook(
             config.hooks.env_change.clone(),
             &mut engine_state,
@@ -236,7 +236,7 @@ pub fn nu_repl() {
         }
 
         // Check for pre_execution hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(&engine_state, &stack);
 
         engine_state
             .repl_state
@@ -278,10 +278,10 @@ pub fn nu_repl() {
         }
 
         let input = PipelineData::empty();
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(&engine_state, &stack);
 
         match eval_block(&engine_state, &mut stack, &block, input, false, false) {
-            Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
+            Ok(pipeline_data) => match pipeline_data.collect_string("", &config) {
                 Ok(s) => last_output = s,
                 Err(err) => outcome_err(&engine_state, &err),
             },

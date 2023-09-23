@@ -53,7 +53,7 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let use_color = nu_engine::env::get_config(engine_state, stack).use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -106,7 +106,7 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    let config = engine_state.get_config();
+    let config = nu_engine::env::get_config(engine_state, stack);
     if config.bracketed_paste {
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
@@ -169,7 +169,7 @@ pub fn evaluate_repl(
     let nu_const = create_nu_constant(engine_state, Span::unknown())?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
-    if load_std_lib.is_none() && engine_state.get_config().show_banner {
+    if load_std_lib.is_none() && nu_engine::env::get_config(engine_state, stack).show_banner {
         eval_source(
             engine_state,
             stack,
@@ -229,7 +229,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(engine_state, stack);
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());
 
@@ -307,7 +307,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
+        line_editor = add_menus(line_editor, engine_reference, stack, &config).unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);
             Reedline::create()
@@ -368,7 +368,7 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
-        line_editor = match create_keybindings(config) {
+        line_editor = match create_keybindings(&config) {
             Ok(keybindings) => match keybindings {
                 KeybindingsMode::Emacs(keybindings) => {
                     let edit_mode = Box::new(Emacs::new(keybindings));
@@ -417,7 +417,7 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
-        let config = engine_state.get_config();
+        let config = nu_engine::env::get_config(engine_state, stack);
         if let Err(error) =
             hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
         {
@@ -433,8 +433,8 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let config = &engine_state.get_config().clone();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        let config = nu_engine::env::get_config(engine_state, stack);;
+        let prompt = prompt_update::update_prompt(&config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
             start_time,
@@ -589,7 +589,7 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                         false,
                     );
-                    if engine_state.get_config().bracketed_paste {
+                    if nu_engine::env::get_config(engine_state, stack).bracketed_paste {
                         #[cfg(not(target_os = "windows"))]
                         let _ = line_editor.enable_bracketed_paste();
                     }
@@ -725,6 +725,7 @@ fn update_line_editor_history(
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
+    // TODO: Pass stack in and use nu_engine::env::get_config instead
     let config = engine_state.get_config();
     let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
         HistoryFileFormat::PlainText => Box::new(
