@@ -138,10 +138,10 @@ def check-clipboard [
 #       │     but
 #       │     the xclip clipboard command was not found on your system.
 export def clip [
-    --silent: bool  # do not print the content of the clipboard to the standard output
-    --no-notify: bool  # do not throw a notification (only on linux)
-    --no-strip: bool  # do not strip ANSI escape sequences from a string
-    --expand (-e): bool  # auto-expand the data given as input
+    --silent # do not print the content of the clipboard to the standard output
+    --no-notify  # do not throw a notification (only on linux)
+    --no-strip # do not strip ANSI escape sequences from a string
+    --expand (-e) # auto-expand the data given as input
     --codepage (-c): int  # the id of the codepage to use (only on Windows), see https://en.wikipedia.org/wiki/Windows_code_page, e.g. 65001 is for UTF-8
 ] {
     let input = (
@@ -241,8 +241,8 @@ def "from ns" [] {
 export def bench [
     code: closure  # the piece of `nushell` code to measure the performance of
     --rounds (-n): int = 50  # the number of benchmark rounds (hopefully the more rounds the less variance)
-    --verbose (-v): bool  # be more verbose (namely prints the progress)
-    --pretty: bool  # shows the results in human-readable format: "<mean> +/- <stddev>"
+    --verbose (-v) # be more verbose (namely prints the progress)
+    --pretty # shows the results in human-readable format: "<mean> +/- <stddev>"
 ] {
     let times = (
         seq 1 $rounds | each {|i|
