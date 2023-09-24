@@ -440,7 +440,7 @@ fn string_escape_interpolation2() -> TestResult {
 #[test]
 fn proper_rest_types() -> TestResult {
     run_test(
-        r#"def foo [--verbose(-v): bool, # my test flag
+        r#"def foo [--verbose(-v), # my test flag
                    ...rest: int # my rest comment
                 ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
         "not verbose!",

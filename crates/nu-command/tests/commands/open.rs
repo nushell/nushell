@@ -29,59 +29,6 @@ fn parses_csv() {
     })
 }
 
-// sample.bson has the following format:
-// ━━━━━━━━━━┯━━━━━━━━━━━
-//  _id      │ root
-// ──────────┼───────────
-//  [object] │ [9 items]
-// ━━━━━━━━━━┷━━━━━━━━━━━
-//
-// the root value is:
-// ━━━┯━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
-//  # │ _id               │ a                       │ b        │ c
-// ───┼───────────────────┼─────────────────────────┼──────────┼──────────
-//  0 │ [object]          │       1.000000000000000 │ hello    │ [2 items]
-//  1 │ [object]          │       42.00000000000000 │ whel     │ hello
-//  2 │ [object]          │ [object]                │          │
-//  3 │ [object]          │                         │ [object] │
-//  4 │ [object]          │                         │          │ [object]
-//  5 │ [object]          │                         │          │ [object]
-//  6 │ [object]          │ [object]                │ [object] │
-//  7 │ [object]          │ <date value>            │ [object] │
-//  8 │ 1.000000          │ <decimal value>         │ [object] │
-//
-// The decimal value is supposed to be π, but is currently wrong due to
-// what appears to be an issue in the bson library that is under investigation.
-//
-
-#[cfg(feature = "bson")]
-#[test]
-fn parses_bson() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open sample.bson | get root | select 0 | get b"
-    );
-
-    assert_eq!(actual.out, "hello");
-}
-
-#[cfg(feature = "bson")]
-#[test]
-fn parses_more_bson_complexity() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            open sample.bson
-            | get root
-            | select 6
-            | get b
-            | get '$binary_subtype'
-        "#
-    ));
-
-    assert_eq!(actual.out, "function");
-}
-
 // sample.db has the following format:
 //
 // ╭─────────┬────────────────╮
@@ -222,7 +169,7 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "not found";
+    let expected = "File not found";
 
     assert!(
         actual.err.contains(expected),

@@ -271,7 +271,11 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
+            .with_cursor_config(cursor_config)
+            .with_transient_prompt(prompt_update::transient_prompt(
+                engine_reference.clone(),
+                stack,
+            ));
         perf(
             "reedline builder",
             start_time,

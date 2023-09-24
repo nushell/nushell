@@ -51,7 +51,19 @@ let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
 print $'Debugging info:'
-print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+print { version: $version, bin: $bin, os: $os, releaseType: $env.RELEASE_TYPE, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+
+# Rename the full release name so that we won't break the existing scripts for standard release downloading, such as:
+# curl -s https://api.github.com/repos/chmln/sd/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep x86_64-unknown-linux-musl
+const FULL_RLS_NAMING = {
+    x86_64-apple-darwin: 'x86_64-darwin-full',
+    aarch64-apple-darwin: 'aarch64-darwin-full',
+    x86_64-unknown-linux-gnu: 'x86_64-linux-gnu-full',
+    x86_64-pc-windows-msvc: 'x86_64-windows-msvc-full',
+    x86_64-unknown-linux-musl: 'x86_64-linux-musl-full',
+    aarch64-unknown-linux-gnu: 'aarch64-linux-gnu-full',
+    aarch64-pc-windows-msvc: 'aarch64-windows-msvc-full',
+}
 
 # $env
 
@@ -141,7 +153,11 @@ cd $dist; print $'(char nl)Creating release archive...'; hr-line
 if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     let files = (ls | get name)
-    let dest = $'($bin)-($version)-($target)'
+    let dest = (
+        if $env.RELEASE_TYPE == 'full' {
+            $'($bin)-($version)-($FULL_RLS_NAMING | get $target)'
+        } else { $'($bin)-($version)-($target)' }
+    )
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
@@ -156,7 +172,11 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 
 } else if $os == 'windows-latest' {
 
-    let releaseStem = $'($bin)-($version)-($target)'
+    let releaseStem = (
+        if $env.RELEASE_TYPE == 'full' {
+            $'($bin)-($version)-($FULL_RLS_NAMING | get $target)'
+        } else { $'($bin)-($version)-($target)' }
+    )
 
     print $'(char nl)Download less related stuffs...'; hr-line
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
