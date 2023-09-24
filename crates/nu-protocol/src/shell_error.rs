@@ -1160,6 +1160,12 @@ impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     }
 }
 
+impl From<Box<dyn uucore::error::UError>> for ShellError {
+    fn from(input: Box<dyn uucore::error::UError>) -> ShellError {
+        ShellError::IOError(format!("{input}"))
+    }
+}
+
 pub fn into_code(err: &ShellError) -> Option<String> {
     err.code().map(|code| code.to_string())
 }
