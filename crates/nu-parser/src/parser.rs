@@ -3098,10 +3098,22 @@ pub fn parse_var_with_opt_type(
     if bytes.ends_with(b":") {
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
+            let span_beginning = *spans_idx;
             *spans_idx += 1;
-            let type_bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+            // signature like record<a: int b: int> is broken into multiple spans due to
+            // whitespaces. Collect the rest into one span and work on it
+            let full_span = span(&spans[*spans_idx..]);
+            let type_bytes = working_set.get_span_contents(full_span).to_vec();
 
-            let ty = parse_type(working_set, &type_bytes, spans[*spans_idx]);
+            let (tokens, parse_error) =
+                lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
+
+            if let Some(parse_error) = parse_error {
+                working_set.parse_errors.push(parse_error);
+            }
+
+            let ty = parse_type(working_set, &type_bytes, tokens[0].span);
+            *spans_idx += spans.len() - *spans_idx - 1;
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
@@ -3118,7 +3130,7 @@ pub fn parse_var_with_opt_type(
             (
                 Expression {
                     expr: Expr::VarDecl(id),
-                    span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
+                    span: span(&spans[span_beginning..*spans_idx + 1]),
                     ty: ty.clone(),
                     custom_completion: None,
                 },
@@ -3215,7 +3227,7 @@ pub fn parse_input_output_types(
         full_span.end -= 1;
     }
 
-    let (tokens, parse_error) = lex(bytes, full_span.start, &[b','], &[], true);
+    let (tokens, parse_error) = lex_signature(bytes, full_span.start, &[b','], &[], true);
 
     if let Some(parse_error) = parse_error {
         working_set.parse_errors.push(parse_error);
