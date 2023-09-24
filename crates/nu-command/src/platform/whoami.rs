@@ -19,6 +19,7 @@ impl Command for Whoami {
     fn signature(&self) -> Signature {
         Signature::build("whoami")
             .input_output_types(vec![(Type::Nothing, Type::String)])
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 
