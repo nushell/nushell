@@ -247,6 +247,12 @@ fn parse_long_duration() {
 }
 
 #[rstest]
+#[case("def test [ --a: any = 32 ] {}")]
+#[case("def test [ --a: number = 32 ] {}")]
+#[case("def test [ --a: number = 32.0 ] {}")]
+#[case("def test [ --a: list<any> = [ 1 2 3 ] ] {}")]
+#[case("def test [ --a: record<a: int b: string> = { a: 32 b: 'qwe' c: 'wqe' } ] {}")]
+#[case("def test [ --a: record<a: any b: any> = { a: 32 b: 'qwe'} ] {}")]
 #[case("def test []: int -> int { 1 }")]
 #[case("def test []: string -> string { 'qwe' }")]
 #[case("def test []: nothing -> nothing { null }")]

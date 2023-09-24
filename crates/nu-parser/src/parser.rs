@@ -3838,7 +3838,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 }
                                             }
                                             t => {
-                                                if t != &expression_ty {
+                                                if !type_compatible(t, &expression_ty) {
                                                     working_set.error(
                                                         ParseError::AssignmentMismatch(
                                                             "Default value is the wrong type"
