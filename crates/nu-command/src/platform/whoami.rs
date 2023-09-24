@@ -24,7 +24,7 @@ impl Command for Whoami {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["who", "username"]
+        vec!["username"]
     }
 
     fn run(
