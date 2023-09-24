@@ -20,8 +20,9 @@ jobs:
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: Nushell.Nushell
-          # Exclude *-msvc-full.msi Full release files
-          installers-regex: 'msvc\.msi$' # Only standard .msi files
+          # Exclude all `*-msvc-full.msi` full release files,
+          # and only the default `*msvc.msi` files will be included
+          installers-regex: 'msvc\.msi$'
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
           token: ${{ secrets.NUSHELL_PAT }}
