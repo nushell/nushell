@@ -9,9 +9,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Enumerate, Filter, Flatten, From, Get, Into, IntoDatetime, IntoString, Math,
-        MathRound, ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn, SplitRow,
-        Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        Ansi, Date, Enumerate, Filter, First, Flatten, From, Get, Into, IntoDatetime, IntoString,
+        Math, MathRound, ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn,
+        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
     use nu_cmd_lang::example_support::{
@@ -71,6 +71,7 @@ mod test_examples {
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Enumerate));
             working_set.add_decl(Box::new(Filter));
+            working_set.add_decl(Box::new(First));
             working_set.add_decl(Box::new(Flatten));
             working_set.add_decl(Box::new(From));
             working_set.add_decl(Box::new(Get));
