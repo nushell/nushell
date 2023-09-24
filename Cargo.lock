@@ -123,16 +123,15 @@ dependencies = [
 
 [[package]]
 name = "anstream"
-version = "0.3.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ca84f3628370c59db74ee214b3263d58f9aadd9b4fe7e711fd87dc452b7f163"
+checksum = "b1f58811cfac344940f1a400b6e6231ce35171f614f26439e80f8c1465c5cc0c"
 dependencies = [
  "anstyle",
  "anstyle-parse",
  "anstyle-query",
  "anstyle-wincon",
  "colorchoice",
- "is-terminal",
  "utf8parse",
 ]
 
@@ -162,9 +161,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle-wincon"
-version = "1.0.2"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c677ab05e09154296dd37acecd46420c17b9713e8366facafa8fc0885167cf4c"
+checksum = "58f54d10c6dfa51283a066ceab3ec1ab78d13fae00aa49243a45e4571fb79dfd"
 dependencies = [
  "anstyle",
  "windows-sys 0.48.0",
@@ -691,25 +690,24 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.3.11"
+version = "4.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1640e5cc7fb47dbb8338fd471b105e7ed6c3cb2aeb00c2e067127ffd3764a05d"
+checksum = "b1d7b8d5ec32af0fadc644bf1fd509a688c2103b185644bb1e29d164e0703136"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.3.11"
+version = "4.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98c59138d527eeaf9b53f35a77fcc1fad9d883116070c63d5de1c7dc7b00c72b"
+checksum = "5179bb514e4d7c2051749d8fcefa2ed6d06a9f4e6d69faf3805f5d80b8cf8d56"
 dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "once_cell",
  "strsim",
- "terminal_size 0.2.6",
+ "terminal_size 0.3.0",
 ]
 
 [[package]]
@@ -2155,9 +2153,9 @@ dependencies = [
 
 [[package]]
 name = "libc"
-version = "0.2.147"
+version = "0.2.148"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4668fb0ea861c1df094127ac5f1da3409a82116a4ba74fca2e58ef927159bb3"
+checksum = "9cdc71e17332e86d2e1d38c1f99edcb6288ee11b815fb1a4b049eaa2114d369b"
 
 [[package]]
 name = "libflate"
@@ -2922,6 +2920,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_whoami",
  "uuid",
  "wax",
  "which",
@@ -3044,6 +3043,7 @@ dependencies = [
  "strum_macros 0.25.1",
  "thiserror",
  "typetag",
+ "uucore 0.0.21 (git+https://github.com/uutils/coreutils.git)",
 ]
 
 [[package]]
@@ -5662,9 +5662,20 @@ dependencies = [
  "indicatif",
  "libc",
  "quick-error 2.0.1",
- "uucore",
+ "uucore 0.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "xattr",
+]
+
+[[package]]
+name = "uu_whoami"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git#31d32e3ee28252b0c5bc6093245b9c78da6f91a5"
+dependencies = [
+ "clap",
+ "libc",
+ "uucore 0.0.21 (git+https://github.com/uutils/coreutils.git)",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -5680,11 +5691,26 @@ dependencies = [
  "nix 0.26.2",
  "once_cell",
  "os_display",
- "uucore_procs",
+ "uucore_procs 0.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git#31d32e3ee28252b0c5bc6093245b9c78da6f91a5"
+dependencies = [
+ "clap",
+ "glob",
+ "libc",
+ "nix 0.27.0",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.21 (git+https://github.com/uutils/coreutils.git)",
+ "wild",
 ]
 
 [[package]]
@@ -5695,7 +5721,17 @@ checksum = "0847828ba11d397cc7b5c3b2b6397f367db71ffb94e0f42cb7e7b1fb3691d556"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser",
+ "uuhelp_parser 0.0.21 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "uucore_procs"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git#31d32e3ee28252b0c5bc6093245b9c78da6f91a5"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.21 (git+https://github.com/uutils/coreutils.git)",
 ]
 
 [[package]]
@@ -5703,6 +5739,11 @@ name = "uuhelp_parser"
 version = "0.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37db35583cf0ad896592892034f281ef0906c893b3b6d901acf3918357f28199"
+
+[[package]]
+name = "uuhelp_parser"
+version = "0.0.21"
+source = "git+https://github.com/uutils/coreutils.git#31d32e3ee28252b0c5bc6093245b9c78da6f91a5"
 
 [[package]]
 name = "uuid"
