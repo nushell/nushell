@@ -2,7 +2,7 @@ use nu_engine::env_to_strings;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Type,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 use super::utils::{gen_command, get_editor};
@@ -18,7 +18,15 @@ impl Command for ConfigNu {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::Nothing, Type::String),
+            ])
+            .switch(
+                "default",
+                "Print default `config.nu` file instead.",
+                Some('d'),
+            )
         // TODO: Signature narrower than what run actually supports theoretically
     }
 
@@ -27,11 +35,23 @@ impl Command for ConfigNu {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "allow user to open and update nu config",
-            example: "config nu",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "allow user to open and update nu config",
+                example: "config nu",
+                result: None,
+            },
+            Example {
+                description: "allow user to print default `config.nu` file",
+                example: "config nu --default,",
+                result: None,
+            },
+            Example {
+                description: "allow saving the default `config.nu` locally",
+                example: "config nu --default | save -f ~/.config/nushell/default_config.nu",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -41,6 +61,12 @@ impl Command for ConfigNu {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // `--default` flag handling
+        if call.has_flag("default") {
+            let head = call.head;
+            return Ok(Value::string(nu_utils::get_default_config(), head).into_pipeline_data());
+        }
+
         let env_vars_str = env_to_strings(engine_state, stack)?;
         let nu_config = match engine_state.get_config_path("config-path") {
             Some(path) => path.clone(),
