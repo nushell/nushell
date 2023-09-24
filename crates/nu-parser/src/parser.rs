@@ -17,7 +17,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, IN_VARIABLE_ID, NOTHING_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -6106,7 +6106,9 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            if (*var_id > NOTHING_VARIABLE_ID || *var_id == IN_VARIABLE_ID)
+                && !seen.contains(var_id)
+            {
                 output.push((*var_id, expr.span));
             }
         }
