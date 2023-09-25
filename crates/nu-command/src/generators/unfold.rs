@@ -140,15 +140,15 @@ Returning a list of more than two elements will result in an error."#
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),
 
-                Ok(PipelineData::Value(Value::List { vals, .. }, ..)) => match vals.len() {
-                    // [] -> output nothing and stop.
-                    0 => (None, None),
-                    // [a] -> output `a` and stop.
-                    1 => (Some(vals[0].clone()), None),
-                    // [a b] -> output `a` and continue with `b`.
-                    2 => (Some(vals[0].clone()), Some(vals[1].clone())),
-                    // [a b c...] -> error.
-                    _ => {
+                // []        -> output nothing and stop.
+                // [a]       -> output `a` and stop.
+                // [a b]     -> output `a` and continue with `b`.
+                // [a b ...] -> error
+                Ok(PipelineData::Value(Value::List { vals, .. }, ..)) => {
+                    if vals.len() <= 2 {
+                        let mut iter = vals.into_iter();
+                        (iter.next(), iter.next())
+                    } else {
                         let error = ShellError::GenericError(
                             "Invalid block return".to_string(),
                             "Generator returned a list with more than 2 elements".to_string(),
@@ -158,7 +158,7 @@ Returning a list of more than two elements will result in an error."#
                         );
                         (Some(Value::error(error, block_span)), None)
                     }
-                },
+                }
 
                 // single value -> output it and stop.
                 Ok(v) => (Some(v.into_value(block_span)), None),
