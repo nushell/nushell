@@ -134,97 +134,118 @@ pub fn parse_keyword(
 }
 
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
-    let name = working_set.get_span_contents(spans[0]);
+    let mut pos = 0;
 
-    // handle "export def" same as "def"
-    let (decl_name, spans) = if name == b"export" && spans.len() >= 2 {
-        (working_set.get_span_contents(spans[1]), &spans[1..])
+    let def_type_name = if spans.len() >= 3 {
+        // definition can't have only two spans, minimum is 3, e.g., 'extern spam []'
+        let first_word = working_set.get_span_contents(spans[0]);
+
+        if first_word == b"export" {
+            pos += 2;
+        } else {
+            pos += 1;
+        }
+
+        working_set.get_span_contents(spans[pos - 1]).to_vec()
     } else {
-        (name, spans)
+        return;
     };
 
-    if (decl_name == b"def" || decl_name == b"def-env") && spans.len() >= 4 {
-        let starting_error_count = working_set.parse_errors.len();
-        let name = if let Some(err) = detect_params_in_name(
-            working_set,
-            spans[1],
-            String::from_utf8_lossy(decl_name).as_ref(),
-        ) {
-            working_set.error(err);
-            return;
-        } else {
-            working_set.get_span_contents(spans[1])
-        };
-        let name = trim_quotes(name);
-        let name = String::from_utf8_lossy(name).to_string();
+    if def_type_name != b"def"
+        && def_type_name != b"def-env"
+        && def_type_name != b"extern"
+        && def_type_name != b"extern-wrapped"
+    {
+        return;
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        working_set.parse_errors.truncate(starting_error_count);
+    // Now, pos should point at the next span after the def-like call.
+    // Skip all potential flags, like --env, --wrapped or --help:
+    while pos < spans.len()
+        && working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'-'])
+    {
+        pos += 1;
+    }
 
-        let signature = sig.as_signature();
-        working_set.exit_scope();
-        if name.contains('#')
-            || name.contains('^')
-            || name.parse::<bytesize::ByteSize>().is_ok()
-            || name.parse::<f64>().is_ok()
+    if pos >= spans.len() {
+        // This can happen if the call ends with a flag, e.g., 'def --help'
+        return;
+    }
+
+    // Now, pos should point at the command name.
+    let name_pos = pos;
+
+    let Some(name) = parse_string(working_set, spans[name_pos]).as_string() else {
+        return;
+    };
+
+    if name.contains('#')
+        || name.contains('^')
+        || name.parse::<bytesize::ByteSize>().is_ok()
+        || name.parse::<f64>().is_ok()
+    {
+        working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
+        return;
+    }
+
+    // Find signature
+    let mut signature_pos = None;
+
+    while pos < spans.len() {
+        if working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'['])
+            || working_set
+                .get_span_contents(spans[pos])
+                .starts_with(&[b'('])
         {
-            working_set.error(ParseError::CommandDefNotValid(spans[1]));
-            return;
+            signature_pos = Some(pos);
         }
 
-        if let Some(mut signature) = signature {
-            signature.name = name;
-            let decl = signature.predeclare();
+        pos += 1;
+    }
 
-            if working_set.add_predecl(decl).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-            }
+    let Some(signature_pos) = signature_pos else {
+        return;
+    };
+
+    let mut allow_unknown_args = false;
+
+    for span in spans {
+        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
+            allow_unknown_args = true;
         }
-    } else if (decl_name == b"extern" || decl_name == b"extern-wrapped") && spans.len() >= 3 {
-        let name_expr = parse_string(working_set, spans[1]);
-        let name = name_expr.as_string();
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        let signature = sig.as_signature();
-        working_set.exit_scope();
+    let starting_error_count = working_set.parse_errors.len();
 
-        if let (Some(name), Some(mut signature)) = (name, signature) {
-            if name.contains('#')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                working_set.error(ParseError::CommandDefNotValid(spans[1]));
-                return;
-            }
+    working_set.enter_scope();
+    // FIXME: because parse_signature will update the scope with the variables it sees
+    // we end up parsing the signature twice per def. The first time is during the predecl
+    // so that we can see the types that are part of the signature, which we need for parsing.
+    // The second time is when we actually parse the body itworking_set.
+    // We can't reuse the first time because the variables that are created during parse_signature
+    // are lost when we exit the scope below.
+    let sig = parse_signature(working_set, spans[signature_pos]);
+    working_set.parse_errors.truncate(starting_error_count);
+    working_set.exit_scope();
 
-            signature.name = name.clone();
+    let Some(mut signature) = sig.as_signature() else {
+        return;
+    };
 
-            let decl = KnownExternal {
-                name,
-                usage: "run external command".into(),
-                extra_usage: "".into(),
-                signature,
-            };
+    signature.name = name;
 
-            if working_set.add_predecl(Box::new(decl)).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-                return;
-            }
-        }
+    if allow_unknown_args {
+        signature.allows_unknown_args = true;
+    }
+
+    let decl = signature.predeclare();
+
+    if working_set.add_predecl(decl).is_some() {
+        working_set.error(ParseError::DuplicateCommandDef(spans[name_pos]));
     }
 }
 
@@ -441,6 +462,8 @@ pub fn parse_def(
         }
     };
 
+    let has_env = call.has_flag("env");
+
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
     let sig = call.positional_nth(1).expect("def call already checked");
@@ -490,7 +513,7 @@ pub fn parse_def(
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
-            block.redirect_env = def_call == b"def-env";
+            block.redirect_env = def_call == b"def-env" || has_env;
 
             if block.signature.input_output_types.is_empty() {
                 block
