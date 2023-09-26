@@ -15,7 +15,7 @@ fn unfold_single_value_break() {
 }
 
 #[test]
-fn unfold_nothing_break() {
+fn unfold_null_break() {
     let actual = nu!("unfold 1 {|x| if $x <= 3 { [$x, ($x + 1)] }} | to nuon");
 
     assert_eq!(actual.out, "[1, 2, 3]");
@@ -28,16 +28,16 @@ fn unfold_invalid_return() {
 }
 
 #[test]
-fn unfold_allows_nothing_state() {
+fn unfold_allows_null_state() {
     let actual = nu!(pipeline(
         r#"
         unfold 0 {|x|
-          if $x == $nothing {
+          if $x == null {
             ["done"]
           } else if $x < 1 {
             ["going", ($x + 1)]
           } else {
-            ["stopping", $nothing]
+            ["stopping", null]
           }
         } | to nuon
       "#
@@ -47,14 +47,14 @@ fn unfold_allows_nothing_state() {
 }
 
 #[test]
-fn unfold_allows_nothing_output() {
+fn unfold_allows_null_output() {
     let actual = nu!(pipeline(
         r#"
         unfold 0 {|x|
           if $x == 3 {
             "done"
           } else {
-            [$nothing, ($x + 1)]
+            [null, ($x + 1)]
           }
         } | to nuon
       "#
