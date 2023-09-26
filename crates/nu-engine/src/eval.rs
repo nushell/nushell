@@ -331,8 +331,8 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
+                other => Err(ShellError::TypeMismatch {
+                    err_message: format!("expected bool, found {}", other.get_type()),
                     span: expr.span,
                 }),
             }
