@@ -69,10 +69,13 @@ pub fn glob_from(
         if is_symlink {
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
-            let path = if let Ok(p) = canonicalize_with(path, cwd) {
+            let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
                 p
             } else {
-                return Err(ShellError::DirectoryNotFound(pattern.span, None));
+                return Err(ShellError::DirectoryNotFound(
+                    pattern.span,
+                    path.to_string_lossy().to_string(),
+                ));
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }

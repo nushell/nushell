@@ -391,7 +391,7 @@ fn copy_to_non_existing_dir_impl(progress: bool) {
             progress_flag
         );
         assert!(actual.err.contains("directory not found"));
-        assert!(actual.err.contains("destination directory does not exist"));
+        assert!(actual.err.contains("does not exist"));
     });
 }
 
