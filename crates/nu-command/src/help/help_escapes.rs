@@ -1,8 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
-    Value, IntoInterruptiblePipelineData,
+    record, Category, PipelineData, IntoInterruptiblePipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -20,28 +19,8 @@ impl Command for HelpEscapes {
     fn signature(&self) -> Signature {
         Signature::build("help escapes")
             .category(Category::Core)
-            .rest(
-                "rest",
-                SyntaxShape::String,
-                "the escape pattern to get help on",
-            )
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "show all escape sequences",
-                example: "help escapes",
-                result: None,
-            },
-            Example {
-                description: "show help for a single escape sequence",
-                example: "help escapes \\n",
-                result: None,
-            }
-        ]
     }
 
     fn run(
@@ -140,4 +119,14 @@ fn generate_escape_info() -> Vec<EscapeInfo> {
             character: "u".into(),
         },
     ]
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_examples() {
+        use super::HelpEscapes;
+        use crate::test_examples;
+        test_examples(HelpEscapes {})
+    }
 }
