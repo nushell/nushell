@@ -38,7 +38,7 @@ chrono-humanize = "0.2.3"
 chrono-tz = "0.8"
 crossterm = "0.27"
 csv = "1.2"
-dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.10" }
+dialoguer = { default-features = false, features = ["fuzzy-select"], version = "0.11" }
 digest = { default-features = false, version = "0.10" }
 dtparse = "2.0"
 encoding_rs = "0.8"
@@ -70,7 +70,7 @@ powierza-coefficient = "1.0"
 print-positions = "0.6"
 quick-xml = "0.30"
 rand = "0.8"
-rayon = "1.7"
+rayon = "1.8"
 regex = "1.9.5"
 roxmltree = "0.18"
 rusqlite = { version = "0.29", features = ["bundled"], optional = true }

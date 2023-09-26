@@ -6,8 +6,8 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    report_error_new, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 
@@ -331,8 +331,8 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
+                other => Err(ShellError::TypeMismatch {
+                    err_message: format!("expected bool, found {}", other.get_type()),
                     span: expr.span,
                 }),
             }
@@ -1127,6 +1127,20 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
+        // $nothing
+        nu_protocol::NOTHING_VARIABLE_ID => {
+            report_error_new(
+                engine_state,
+                &ShellError::GenericError(
+                    "Deprecated variable".into(),
+                    "`$nothing` is deprecated and will be removed in 0.87.".into(),
+                    Some(span),
+                    Some("Use `null` instead".into()),
+                    vec![],
+                ),
+            );
+            Ok(Value::nothing(span))
+        }
         // $nu
         nu_protocol::NU_VARIABLE_ID => {
             if let Some(val) = engine_state.get_constant(var_id) {
