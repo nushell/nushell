@@ -1,11 +1,8 @@
-use crate::help::highlight_search_in_table;
-use nu_color_config::StyleComputer;
-use nu_engine::{scope::ScopeData, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, DeclId, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value, IntoInterruptiblePipelineData,
 };
 
 #[derive(Clone)]
@@ -18,10 +15,6 @@ impl Command for HelpEscapes {
 
     fn usage(&self) -> &str {
         "Show help on nushell escapes."
-    }
-
-    fn extra_usage(&self) -> &str {
-        todo!()
     }
 
     fn signature(&self) -> Signature {
@@ -37,24 +30,114 @@ impl Command for HelpEscapes {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!()
+        vec![
+            Example {
+                description: "show all escape sequences",
+                example: "help escapes",
+                result: None,
+            },
+            Example {
+                description: "show help for a single escape sequence",
+                example: "help escapes \\n",
+                result: None,
+            }
+        ]
     }
 
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        help_escapes(engine_state, stack, call)
+        let head = call.head;
+        let escape_info = generate_escape_info();
+        let mut recs = vec![];
+
+        for escape in escape_info {
+            recs.push(Value::record(
+                record! {
+                    "character" => Value::string(escape.character, head),
+                },
+                head,
+            ));
+        }
+
+        Ok(recs
+            .into_iter()
+            .into_pipeline_data(engine_state.ctrlc.clone()))
     }
 }
 
-fn help_escapes(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-) -> Result<PipelineData, ShellError> {
-    todo!()
+struct EscapeInfo {
+    character: String,
+}
+
+fn generate_escape_info() -> Vec<EscapeInfo> {
+    vec![
+        EscapeInfo {
+            character: "\"".into(),
+        },
+        EscapeInfo {
+            character: "\'".into(),
+        },
+        EscapeInfo {
+            character: "\\".into(),
+        },
+        EscapeInfo {
+            character: "/".into(),
+        },
+        EscapeInfo {
+            character: "(".into(),
+        },
+        EscapeInfo {
+            character: ")".into(),
+        },
+        EscapeInfo {
+            character: "{".into(),
+        },
+        EscapeInfo {
+            character: "}".into(),
+        },
+        EscapeInfo {
+            character: "$".into(),
+        },
+        EscapeInfo {
+            character: "^".into(),
+        },
+        EscapeInfo {
+            character: "#".into(),
+        },
+        EscapeInfo {
+            character: "|".into(),
+        },
+        EscapeInfo {
+            character: "~".into(),
+        },
+        EscapeInfo {
+            character: "a".into(),
+        },
+        EscapeInfo {
+            character: "b".into(),
+        },
+        EscapeInfo {
+            character: "e".into(),
+        },
+        EscapeInfo {
+            character: "f".into(),
+        },
+        EscapeInfo {
+            character: "n".into(),
+        },
+        EscapeInfo {
+            character: "r".into(),
+        },
+        EscapeInfo {
+            character: "t".into(),
+        },
+        EscapeInfo {
+            character: "u".into(),
+        },
+    ]
 }
