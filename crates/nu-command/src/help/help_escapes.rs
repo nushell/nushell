@@ -37,7 +37,7 @@ impl Command for HelpEscapes {
         for escape in escape_info {
             recs.push(Value::record(
                 record! {
-                    "character" => Value::string(escape.character, head),
+                    "sequence" => Value::string(escape.sequence, head),
                 },
                 head,
             ));
@@ -50,73 +50,73 @@ impl Command for HelpEscapes {
 }
 
 struct EscapeInfo {
-    character: String,
+    sequence: String,
 }
 
 fn generate_escape_info() -> Vec<EscapeInfo> {
     vec![
         EscapeInfo {
-            character: "\"".into(),
+            sequence: "\\\"".into(),
         },
         EscapeInfo {
-            character: "\'".into(),
+            sequence: "\\\'".into(),
         },
         EscapeInfo {
-            character: "\\".into(),
+            sequence: "\\\\".into(),
         },
         EscapeInfo {
-            character: "/".into(),
+            sequence: "\\/".into(),
         },
         EscapeInfo {
-            character: "(".into(),
+            sequence: "\\(".into(),
         },
         EscapeInfo {
-            character: ")".into(),
+            sequence: "\\)".into(),
         },
         EscapeInfo {
-            character: "{".into(),
+            sequence: "\\{".into(),
         },
         EscapeInfo {
-            character: "}".into(),
+            sequence: "\\}".into(),
         },
         EscapeInfo {
-            character: "$".into(),
+            sequence: "\\$".into(),
         },
         EscapeInfo {
-            character: "^".into(),
+            sequence: "\\^".into(),
         },
         EscapeInfo {
-            character: "#".into(),
+            sequence: "\\#".into(),
         },
         EscapeInfo {
-            character: "|".into(),
+            sequence: "\\|".into(),
         },
         EscapeInfo {
-            character: "~".into(),
+            sequence: "\\~".into(),
         },
         EscapeInfo {
-            character: "a".into(),
+            sequence: "\\a".into(),
         },
         EscapeInfo {
-            character: "b".into(),
+            sequence: "\\b".into(),
         },
         EscapeInfo {
-            character: "e".into(),
+            sequence: "\\e".into(),
         },
         EscapeInfo {
-            character: "f".into(),
+            sequence: "\\f".into(),
         },
         EscapeInfo {
-            character: "n".into(),
+            sequence: "\\n".into(),
         },
         EscapeInfo {
-            character: "r".into(),
+            sequence: "\\r".into(),
         },
         EscapeInfo {
-            character: "t".into(),
+            sequence: "\\t".into(),
         },
         EscapeInfo {
-            character: "u".into(),
+            sequence: "\\u".into(),
         },
     ]
 }
