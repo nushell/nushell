@@ -165,7 +165,8 @@ fn glob_files_in_parent(
         for e in exp {
             expected.push(
                 dirs.test()
-                    .join::<PathBuf>(e.into())
+                    .join(PathBuf::from(e))
+                    .canonicalize().unwrap()
                     .to_string_lossy()
                     .to_string(),
             );
