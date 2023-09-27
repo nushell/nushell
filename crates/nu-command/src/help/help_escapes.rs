@@ -13,7 +13,7 @@ impl Command for HelpEscapes {
     }
 
     fn usage(&self) -> &str {
-        "Show help on nushell escapes."
+        "Show help on nushell string escapes."
     }
 
     fn signature(&self) -> Signature {
@@ -38,6 +38,7 @@ impl Command for HelpEscapes {
             recs.push(Value::record(
                 record! {
                     "sequence" => Value::string(escape.sequence, head),
+                    "output" => Value::string(escape.output, head),
                 },
                 head,
             ));
@@ -51,72 +52,94 @@ impl Command for HelpEscapes {
 
 struct EscapeInfo {
     sequence: String,
+    output: String,
 }
 
 fn generate_escape_info() -> Vec<EscapeInfo> {
     vec![
         EscapeInfo {
             sequence: "\\\"".into(),
+            output: "\"".into(),
         },
         EscapeInfo {
             sequence: "\\\'".into(),
+            output: "\'".into(),
         },
         EscapeInfo {
             sequence: "\\\\".into(),
+            output: "\\".into(),
         },
         EscapeInfo {
             sequence: "\\/".into(),
+            output: "/".into(),
         },
         EscapeInfo {
             sequence: "\\(".into(),
+            output: "(".into(),
         },
         EscapeInfo {
             sequence: "\\)".into(),
+            output: ")".into(),
         },
         EscapeInfo {
             sequence: "\\{".into(),
+            output: "{".into(),
         },
         EscapeInfo {
             sequence: "\\}".into(),
+            output: "}".into(),
         },
         EscapeInfo {
             sequence: "\\$".into(),
+            output: "$".into(),
         },
         EscapeInfo {
             sequence: "\\^".into(),
+            output: "^".into(),
         },
         EscapeInfo {
             sequence: "\\#".into(),
+            output: "#".into(),
         },
         EscapeInfo {
             sequence: "\\|".into(),
+            output: "|".into(),
         },
         EscapeInfo {
             sequence: "\\~".into(),
+            output: "~".into(),
         },
         EscapeInfo {
             sequence: "\\a".into(),
+            output: "alert bell".into(),
         },
         EscapeInfo {
             sequence: "\\b".into(),
+            output: "backspace".into(),
         },
         EscapeInfo {
             sequence: "\\e".into(),
+            output: "escape".into(),
         },
         EscapeInfo {
             sequence: "\\f".into(),
+            output: "form feed".into(),
         },
         EscapeInfo {
             sequence: "\\n".into(),
+            output: "newline (line feed)".into(),
         },
         EscapeInfo {
             sequence: "\\r".into(),
+            output: "carriage return".into(),
         },
         EscapeInfo {
             sequence: "\\t".into(),
+            output: "tab".into(),
         },
         EscapeInfo {
-            sequence: "\\u".into(),
+            sequence: "\\u{X...}".into(),
+            output: "a single unicode character, where X... is 1-6 digits (0-9, A-F)".into(),
         },
     ]
 }
