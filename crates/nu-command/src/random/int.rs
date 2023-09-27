@@ -12,11 +12,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "random integer"
+        "random int"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("random integer")
+        Signature::build("random int")
             .input_output_types(vec![(Type::Nothing, Type::Int)])
             .allow_variants_without_examples(true)
             .optional("range", SyntaxShape::Range, "Range of values")
@@ -24,11 +24,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "deprecated: Generate a random integer [min..max]."
-    }
-
-    fn extra_usage(&self) -> &str {
-        "Use `random int` instead"
+        "Generate a random integer [min..max]."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -42,16 +38,6 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        nu_protocol::report_error_new(
-            engine_state,
-            &ShellError::GenericError(
-                "Deprecated command".into(),
-                "`random integer` is deprecated and will be removed in 0.87.".into(),
-                Some(call.head),
-                Some("Use `random int` instead".into()),
-                vec![],
-            ),
-        );
         integer(engine_state, stack, call)
     }
 
@@ -59,22 +45,22 @@ impl Command for SubCommand {
         vec![
             Example {
                 description: "Generate an unconstrained random integer",
-                example: "random integer",
+                example: "random int",
                 result: None,
             },
             Example {
                 description: "Generate a random integer less than or equal to 500",
-                example: "random integer ..500",
+                example: "random int ..500",
                 result: None,
             },
             Example {
                 description: "Generate a random integer greater than or equal to 100000",
-                example: "random integer 100000..",
+                example: "random int 100000..",
                 result: None,
             },
             Example {
                 description: "Generate a random integer between 1 and 10",
-                example: "random integer 1..10",
+                example: "random int 1..10",
                 result: None,
             },
         ]
