@@ -111,6 +111,6 @@ fn errors_if_columns_param_is_empty() {
                 "#
         ));
 
-        assert!(actual.err.contains("The column list cannot be empty"));
+        assert!(actual.err.contains("The column info cannot be empty"));
     })
 }
