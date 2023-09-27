@@ -40,11 +40,11 @@ impl Command for Unfold {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"The generator closure accepts a single argument and returns a list containing
-a value to output and the next argument to pass into the generator.
-
-Generation stops when the closure does not return a "next" value.
-Returning a list of more than two elements will result in an error."#
+        r#"The generator closure accepts a single argument and returns a record
+containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
+value, if present, is added to the stream. If a 'next' key is present, it is
+used as the next argument to the closure, otherwise generation stops.
+"#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,7 +54,7 @@ Returning a list of more than two elements will result in an error."#
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "unfold 0 {|i| if $i <= 10 { [$i, ($i + 2)] }}",
+                example: "unfold 0 {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }}",
                 description: "Generate a sequence of numbers",
                 result: Some(Value::list(
                     vec![
@@ -69,7 +69,7 @@ Returning a list of more than two elements will result in an error."#
                 )),
             },
             Example {
-                example: "unfold [0, 1] {|fib| [$fib.0, [$fib.1, ($fib.0 + $fib.1)]] } | first 10",
+                example: "unfold [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
                 description: "Generate a stream of fibonacci numbers",
                 result: Some(Value::list(
                     vec![
@@ -140,38 +140,81 @@ Returning a list of more than two elements will result in an error."#
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),
 
-                // []        -> output nothing and stop.
-                // [a]       -> output `a` and stop.
-                // [a b]     -> output `a` and continue with `b`.
-                // [a b ...] -> error
-                Ok(PipelineData::Value(Value::List { vals, .. }, ..)) => {
-                    if vals.len() <= 2 {
-                        let mut iter = vals.into_iter();
-                        (iter.next(), iter.next())
-                    } else {
-                        let error = ShellError::GenericError(
-                            "Invalid block return".to_string(),
-                            "Generator returned a list with more than 2 elements".to_string(),
-                            Some(block_span),
-                            None,
-                            Vec::new(),
-                        );
-                        (Some(Value::error(error, block_span)), None)
+                Ok(PipelineData::Value(value, ..)) => {
+                    let span = value.span();
+                    match value {
+                        // {out: ..., next: ...} -> output and continue
+                        Value::Record { val, .. } => {
+                            let iter = val.into_iter();
+                            let mut out = None;
+                            let mut next = None;
+                            let mut err = None;
+
+                            for (k, v) in iter {
+                                if k.to_lowercase() == "out" {
+                                    out = Some(v);
+                                } else if k.to_lowercase() == "next" {
+                                    next = Some(v);
+                                } else {
+                                    let error = ShellError::GenericError(
+                                        "Invalid block return".to_string(),
+                                        format!("Unexpected record key '{}'", k),
+                                        Some(span),
+                                        None,
+                                        Vec::new(),
+                                    );
+                                    err = Some(Value::error(error, block_span));
+                                    break;
+                                }
+                            }
+
+                            if err.is_some() {
+                                (err, None)
+                            } else {
+                                (out, next)
+                            }
+                        }
+
+                        // some other value -> error and stop
+                        _ => {
+                            let error = ShellError::GenericError(
+                                "Invalid block return".to_string(),
+                                format!("Expected record, found {}", value.get_type()),
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            );
+
+                            (Some(Value::error(error, block_span)), None)
+                        }
                     }
                 }
 
-                // single value -> output it and stop.
-                Ok(v) => (Some(v.into_value(block_span)), None),
+                Ok(other) => {
+                    let val = other.into_value(block_span);
+                    let error = ShellError::GenericError(
+                        "Invalid block return".to_string(),
+                        format!("Expected record, found {}", val.get_type()),
+                        Some(val.span()),
+                        None,
+                        Vec::new(),
+                    );
 
-                // error -> output it and stop
+                    (Some(Value::error(error, block_span)), None)
+                }
+
+                // error -> error and stop
                 Err(error) => (Some(Value::error(error, block_span)), None),
             };
 
+            // We use `state` to control when to stop, not `output`. By wrapping
+            // it in a `Some`, we allow the generator to output `None` as a valid output
+            // value.
             *state = next_input;
-            output
+            Some(output)
         });
 
-        Ok(iter.into_pipeline_data(ctrlc))
+        Ok(iter.flatten().into_pipeline_data(ctrlc))
     }
 }
 
