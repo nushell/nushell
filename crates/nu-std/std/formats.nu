@@ -18,3 +18,13 @@ export def "from ndjson" []: string -> any {
 export def "from jsonl" []: string -> any {
     from json --objects
 }
+
+# Convert structured data to ndjson.
+def "to ndjson" []: any -> string {
+    each { to json --raw } | to text
+}
+
+# Convert structured data to jsonl.
+def "to jsonl" []: any -> string {
+    each { to json --raw } | to text
+}
