@@ -6,33 +6,9 @@ use std::path::PathBuf;
 
 static HOME_DIR: Lazy<Option<PathBuf>> = Lazy::new(|| etcetera::home_dir().ok());
 static CONFIG_DIR: Lazy<Option<PathBuf>> = Lazy::new(|| {
-    let default = if let Some(mut config_dir) = home_dir() {
-        config_dir.push(".config");
-        if config_dir.join("nushell").is_dir() {
-            // `~/.config/nushell` exists, so we'll use that
-            return Some(config_dir);
-        }
-        // `~/.config/nushell` doesn't exist, but we'll use it if the "native" folder doesn't exist either
-        Some(config_dir)
-    } else {
-        // `~` not found, so we'll return `None` if the "native" folder doesn't exist either
-        None
-    };
-
-    if let Ok(basedirs) = etcetera::base_strategy::choose_native_strategy() {
-        let config_home = if cfg!(target_os = "macos") {
-            basedirs.data_dir()
-        } else {
-            basedirs.config_dir()
-        };
-        if config_home.join("nushell").is_dir() {
-            // "native" config folder exists, so we'll use that
-            return Some(config_home);
-        }
-    }
-
-    // fresh install, so we'll use the default defined above
-    default
+    etcetera::choose_base_strategy()
+        .map(|s| s.config_dir())
+        .ok()
 });
 
 /// Returns the home directory of the current user.
@@ -43,15 +19,12 @@ pub fn home_dir() -> Option<PathBuf> {
     HOME_DIR.clone()
 }
 
-/// Returns the path where the `nushell` folder should be located.
+/// Returns the path where to the nushell config directory.
 ///
-/// If `~/.config/nushell` exists, returns `~/.config`.
-/// Checks the following path based on the OS:
-///   - Linux: `~/.config/`
-///   - macOS: `~/Library/Application Support/`
-///   - Windows: `{FOLDERID_RoamingAppData}`
-/// If the `nushell` folder exists in the path, returns the path.
-/// Otherwise, returns `~/.config'.
+/// Looks for the following based on the OS:
+///   - Linux: `${XDG_CONFIG_HOME}/nushell`
+///   - macOS: `${XDG_CONFIG_HOME}/nushell`
+///   - Windows: `~\AppData\Roaming\nushell`
 pub fn config_dir() -> Option<PathBuf> {
     CONFIG_DIR.clone()
 }
