@@ -10,6 +10,7 @@ use nu_protocol::{
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
+use std::ops::Deref;
 use std::str;
 use std::sync::Arc;
 
@@ -136,7 +137,9 @@ impl NuCompleter {
                         for (flat_idx, flat) in flattened.iter().enumerate() {
                             let is_passthrough_command = spans
                                 .first()
-                                .filter(|content| content.as_str() == "sudo")
+                                .filter(|content| {
+                                    content.as_str() == "sudo" || content.as_str() == "doas"
+                                })
                                 .is_some();
                             // Read the current spam to string
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
