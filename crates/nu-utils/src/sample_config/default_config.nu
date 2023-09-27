@@ -188,10 +188,9 @@ $env.config = {
         },
         table: {
             split_line: {fg: "#404040"},
-            selected_cell: {},
+            selected_cell: {bg: light_blue},
             selected_row: {},
             selected_column: {},
-            show_cursor: true,
             line_head_top: true,
             line_head_bottom: true,
             line_shift: true,

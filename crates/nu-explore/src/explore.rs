@@ -211,8 +211,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TABLE_LINE_SHIFT: bool = true;
 
-    const TABLE_SELECT_CURSOR: bool = true;
-
     const TABLE_SELECT_CELL: Style = color(None, None);
 
     const TABLE_SELECT_ROW: Style = color(None, None);
@@ -251,7 +249,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
         insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
-        insert_bool(&mut hm, "cursor", TABLE_SELECT_CURSOR);
         insert_bool(&mut hm, "line_head_top", TABLE_LINE_HEADER_TOP);
         insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
         insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
