@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -22,7 +23,7 @@ impl Command for Rename {
             ])
             .named(
                 "column",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                SyntaxShape::Record(vec![]),
                 "column name to be changed",
                 Some('c'),
             )
@@ -111,34 +112,29 @@ fn rename(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let specified_column: Option<Vec<String>> = call.get_flag(engine_state, stack, "column")?;
-    // get the span for the column's name to be changed and for the given list
-    let column_flag: Option<Value> = call.get_flag(engine_state, stack, "column")?;
-    let (specified_col_span, list_span) = match column_flag {
-        Some(column_flag) => {
-            let column_span = column_flag.span();
-            match column_flag {
-                Value::List { vals: columns, .. } => {
-                    if columns.is_empty() {
-                        return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
-                        .to_string(), span: column_span });
-                    } else {
-                        (Some(columns[0].span()), column_span)
+    let specified_column: Option<Record> = call.get_flag(engine_state, stack, "column")?;
+    // convert from Record to HashMap for easily query.
+    let specified_column: Option<IndexMap<String, String>> = match specified_column {
+        Some(query) => {
+            let mut columns = IndexMap::new();
+            for (col, val) in query {
+                let val_span = val.span();
+                match val {
+                    Value::String { val, .. } => {
+                        columns.insert(col, val);
+                    }
+                    _ => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "new column name must be a string".to_owned(),
+                            span: val_span,
+                        });
                     }
                 }
-                _ => (None, call.head),
             }
+            Some(columns)
         }
-        None => (None, call.head),
+        None => None,
     };
-
-    if let Some(ref cols) = specified_column {
-        if cols.len() != 2 {
-            return Err(ShellError::TypeMismatch { err_message: "The column list must contain only two values: the column's name and its replacement value"
-                        .to_string(), span: list_span });
-        }
-    }
-
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
     let block_info =
