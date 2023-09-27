@@ -134,6 +134,7 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 
 // playground has root directory and subdirectories foo and foo/bar to play with
 // specify all test files relative to root directory.
+// OK to use fwd slash in paths, they're hacked to OS dir separator when needed (windows)
 #[rstest]
 #[case(".", r#"'*z'"#, &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
 #[case(".", r#"'qqq'"#, &["ablez", "baker", "charliez"], &[], "glob matches none")]
@@ -165,14 +166,15 @@ fn glob_files_in_parent(
         for e in exp {
             expected.push(
                 dirs.test()
-                    .join(PathBuf::from(e))
-                    .canonicalize().unwrap()
+                    .join(PathBuf::from(e)) // sadly, does *not" convert "foo/bar" to "foo\\bar" on Windows.
                     .to_string_lossy()
                     .to_string(),
             );
         }
 
-        let expected = expected.join(" ");
+        let expected = expected
+            .join(" ")
+            .replace("/", std::path::MAIN_SEPARATOR_STR);
         assert_eq!(actual.out, expected, "\n  test: {}", tag);
     });
 }
