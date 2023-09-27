@@ -1,7 +1,8 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    record, Category, PipelineData, IntoInterruptiblePipelineData, ShellError, Signature, Type, Value,
+    record, Category, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type,
+    Value,
 };
 
 #[derive(Clone)]
