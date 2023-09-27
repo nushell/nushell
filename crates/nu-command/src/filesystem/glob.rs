@@ -123,7 +123,7 @@ impl Command for Glob {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax/blob/master/README.md#patterns"#
+        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax/blob/master/README.md"#
     }
 
     fn run(
@@ -185,9 +185,20 @@ impl Command for Glob {
             }
         };
 
-        let mut path = current_dir(engine_state, stack)?;
-        path.push(prefix);
-        let path = path.canonicalize()?;
+        let path = current_dir(engine_state, stack)?;
+        let path = match nu_path::canonicalize_with(prefix, path) {
+            Ok(path) => path,
+            Err(e) if e.to_string().contains("os error 2") => std::path::PathBuf::new(),
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    "error in canonicalize".to_string(),
+                    format!("{e}"),
+                    Some(glob_pattern.span),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
 
         Ok(if !not_patterns.is_empty() {
             let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
