@@ -114,15 +114,15 @@ def report [
     | wrap stage
     | merge (
         if $no_fail               { [true     true     true     true] }
-        else if $fail_fmt         { [false    $nothing $nothing $nothing] }
-        else if $fail_clippy      { [true     false    $nothing $nothing] }
-        else if $fail_test        { [true     true     false    $nothing] }
+        else if $fail_fmt         { [false    null null null] }
+        else if $fail_clippy      { [true     false    null null] }
+        else if $fail_test        { [true     true     false    null] }
         else if $fail_test_stdlib { [true     true     true     false] }
-        else                      { [$nothing $nothing $nothing $nothing] }
+        else                      { [null null null null] }
         | wrap success
     )
     | upsert emoji {|it|
-        if ($it.success == $nothing) {
+        if ($it.success == null) {
             ":black_circle:"
         } else if $it.success {
             ":green_circle:"
