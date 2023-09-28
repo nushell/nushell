@@ -182,7 +182,7 @@ pub fn evaluate_repl(
 
     if engine_state.get_config().use_kitty_protocol {
         if line_editor.can_use_kitty_protocol() {
-            let _ = line_editor.enable_kitty_protocol();
+            line_editor.enable_kitty_protocol();
         } else {
             warn!("Terminal doesn't support use_kitty_protocol config");
         }

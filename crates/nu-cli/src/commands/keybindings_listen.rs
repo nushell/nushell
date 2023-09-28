@@ -1,6 +1,6 @@
+use crossterm::execute;
 use crossterm::QueueableCommand;
 use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
-use crossterm::execute;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -90,7 +90,9 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
         // Refer to https://sw.kovidgoyal.net/kitty/keyboard-protocol/ if you're curious.
         let _ = execute!(
             stdout(),
-            crossterm::event::PushKeyboardEnhancementFlags(crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES)
+            crossterm::event::PushKeyboardEnhancementFlags(
+                crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+            )
         );
     }
 
@@ -122,7 +124,10 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
     }
 
     if config.use_kitty_protocol {
-        let _ = execute!(std::io::stdout(), crossterm::event::PopKeyboardEnhancementFlags);
+        let _ = execute!(
+            std::io::stdout(),
+            crossterm::event::PopKeyboardEnhancementFlags
+        );
     }
 
     terminal::disable_raw_mode()?;
