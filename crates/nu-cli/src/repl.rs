@@ -8,8 +8,8 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
@@ -324,24 +324,11 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let buffer_editor = if !config.buffer_editor.is_empty() {
-            Some(config.buffer_editor.clone())
-        } else {
-            stack
-                .get_env_var(engine_state, "EDITOR")
-                .map(|v| v.as_string().unwrap_or_default())
-                .filter(|v| !v.is_empty())
-                .or_else(|| {
-                    stack
-                        .get_env_var(engine_state, "VISUAL")
-                        .map(|v| v.as_string().unwrap_or_default())
-                        .filter(|v| !v.is_empty())
-                })
-        };
+        let buffer_editor = get_editor(engine_state, stack, Span::unknown());
 
-        line_editor = if let Some(buffer_editor) = buffer_editor {
-            let mut command = std::process::Command::new(&buffer_editor);
-            command.arg(&temp_file).envs(
+        line_editor = if let Ok((cmd, args)) = buffer_editor {
+            let mut command = std::process::Command::new(&cmd);
+            command.args(args).envs(
                 engine_state
                     .render_env_vars()
                     .into_iter()
