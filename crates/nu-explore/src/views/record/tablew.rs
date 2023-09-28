@@ -31,12 +31,11 @@ pub struct TableW<'a> {
     style_computer: &'a StyleComputer<'a>,
 }
 
+// Basically: where's the header of the value being displayed? Usually at the top for tables, on the left for records
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Orientation {
     Top,
-    Bottom,
     Left,
-    Right,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -126,11 +125,7 @@ impl<'a> TableW<'a> {
         let mut data_y = area.y;
         let mut head_y = area.y;
 
-        let is_head_top = matches!(self.head_position, Orientation::Top);
-        let is_head_bottom = matches!(self.head_position, Orientation::Bottom);
-
         if show_head {
-            if is_head_top {
                 data_y += 1;
                 data_height -= 1;
 
@@ -144,22 +139,6 @@ impl<'a> TableW<'a> {
                     data_y += 1;
                     data_height -= 1;
                 }
-            }
-
-            if is_head_bottom {
-                data_height -= 1;
-                head_y = area.y + data_height;
-
-                if self.style.header_top && self.style.header_bottom {
-                    data_height -= 2;
-                    head_y -= 1
-                } else if self.style.header_top {
-                    data_height -= 1;
-                } else if self.style.header_bottom {
-                    data_height -= 1;
-                    head_y -= 1
-                }
-            }
         }
 
         if area.width == 0 || area.height == 0 {
