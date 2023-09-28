@@ -2723,7 +2723,6 @@ pub fn parse_shape_name(
         b"error" => SyntaxShape::Error,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
-        b"full-cell-path" => SyntaxShape::FullCellPath, // TODO: Should users distinguish cellpath?
         b"glob" => SyntaxShape::GlobPattern,
         b"int" => SyntaxShape::Int,
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
