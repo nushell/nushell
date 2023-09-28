@@ -20,11 +20,11 @@ export def "from jsonl" []: string -> any {
 }
 
 # Convert structured data to NDJSON.
-def "to ndjson" []: any -> string {
+export def "to ndjson" []: any -> string {
     each { to json --raw } | to text
 }
 
 # Convert structured data to JSONL.
-def "to jsonl" []: any -> string {
+export def "to jsonl" []: any -> string {
     each { to json --raw } | to text
 }
