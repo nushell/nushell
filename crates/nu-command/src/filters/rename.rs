@@ -134,7 +134,7 @@ fn rename(
             }
             if columns.is_empty() {
                 return Err(ShellError::TypeMismatch {
-                    err_message: "the column info cannot be empty".to_owned(),
+                    err_message: "The column info cannot be empty".to_owned(),
                     span: call.head,
                 });
             }
