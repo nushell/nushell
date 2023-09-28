@@ -2743,7 +2743,6 @@ pub fn parse_shape_name(
         b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
-        b"variable" => SyntaxShape::Variable,
         b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
             if bytes.contains(&b'@') {

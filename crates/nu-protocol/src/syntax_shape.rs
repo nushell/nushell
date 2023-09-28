@@ -110,9 +110,6 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
 
-    /// A variable name, eg `$foo`
-    Variable,
-
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
 }
@@ -164,7 +161,6 @@ impl SyntaxShape {
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
-            SyntaxShape::Variable => Type::Any,
         }
     }
 }
@@ -226,7 +222,6 @@ impl Display for SyntaxShape {
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
             SyntaxShape::MathExpression => write!(f, "variable"),
-            SyntaxShape::Variable => write!(f, "var"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::MatchPattern => write!(f, "match-pattern"),
