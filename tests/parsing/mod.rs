@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn source_file_relative_to_file() {
@@ -243,4 +244,36 @@ fn parse_long_duration() {
         "#);
 
     assert_eq!(actual.out, "1min 18sec 797ms");
+}
+
+#[rstest]
+#[case("def test [ --a: any = 32 ] {}")]
+#[case("def test [ --a: number = 32 ] {}")]
+#[case("def test [ --a: number = 32.0 ] {}")]
+#[case("def test [ --a: list<any> = [ 1 2 3 ] ] {}")]
+#[case("def test [ --a: record<a: int b: string> = { a: 32 b: 'qwe' c: 'wqe' } ] {}")]
+#[case("def test [ --a: record<a: any b: any> = { a: 32 b: 'qwe'} ] {}")]
+#[case("def test []: int -> int { 1 }")]
+#[case("def test []: string -> string { 'qwe' }")]
+#[case("def test []: nothing -> nothing { null }")]
+#[case("def test []: list<string> -> list<string> { [] }")]
+#[case("def test []: record<a: int b: int> -> record<c: int e: int> { {c: 1 e: 1} }")]
+#[case("def test []: table<a: int b: int> -> table<c: int e: int> { [ {c: 1 e: 1} ] }")]
+#[case("def test []: nothing -> record<c: int e: int> { {c: 1 e: 1} }")]
+fn parse_function_signature(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.is_empty());
+}
+
+#[rstest]
+#[case("let a: int = 1")]
+#[case("let a: string = 'qwe'")]
+#[case("let a: nothing = null")]
+#[case("let a: list<string> = []")]
+#[case("let a: record<a: int b: int> = {a: 1 b: 1}")]
+#[case("let a: table<a: int b: int> = [[a b]; [1 2] [3 4]]")]
+#[case("let a: record<a: record<name: string> b: int> = {a: {name: bob} b: 1}")]
+fn parse_let_signature(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.is_empty());
 }

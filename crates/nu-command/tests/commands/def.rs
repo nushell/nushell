@@ -164,3 +164,32 @@ fn extern_with_block() {
 
     assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
 }
+
+#[test]
+fn def_default_value_shouldnt_restrict_explicit_type() {
+    let actual = nu!("def foo [x: any = null] { $x }; foo 1");
+    assert_eq!(actual.out, "1");
+    let actual2 = nu!("def foo [--x: any = null] { $x }; foo --x 1");
+    assert_eq!(actual2.out, "1");
+}
+
+#[test]
+fn def_default_value_should_restrict_implicit_type() {
+    let actual = nu!("def foo [x = 3] { $x }; foo 3.0");
+    assert!(actual.err.contains("expected int"));
+    let actual2 = nu!("def foo2 [--x = 3] { $x }; foo2 --x 3.0");
+    assert!(actual2.err.contains("expected int"));
+}
+
+#[test]
+fn def_boolean_flags() {
+    let actual = nu!("def foo [--x: bool] { $x }; foo --x");
+    assert!(actual.err.contains("flag missing bool argument"));
+    let actual = nu!("def foo [--x: bool = false] { $x }; foo");
+    assert_eq!(actual.out, "false");
+    let actual = nu!("def foo [--x: bool = false] { $x }; foo --x");
+    assert!(actual.err.contains("flag missing bool argument"));
+    // boolean flags' default value should be null
+    let actual = nu!("def foo [--x: bool] { $x == null }; foo");
+    assert_eq!(actual.out, "true");
+}

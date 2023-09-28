@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
@@ -31,10 +31,6 @@ it returns it. Otherwise, it returns a list of the arguments. There is usually
 little reason to use this over just writing the values as-is."#
     }
 
-    fn is_const(&self) -> bool {
-        true
-    }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -43,17 +39,7 @@ little reason to use this over just writing the values as-is."#
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = call.rest(engine_state, stack, 0);
-        run(engine_state, args, call)
-    }
-
-    fn run_const(
-        &self,
-        working_set: &StateWorkingSet,
-        call: &Call,
-        _input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let args = call.rest_const(working_set, 0);
-        run(working_set.permanent(), args, call)
+        run(engine_state, args, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -79,9 +65,10 @@ little reason to use this over just writing the values as-is."#
 fn run(
     engine_state: &EngineState,
     args: Result<Vec<Value>, ShellError>,
+    stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    args.map(|to_be_echoed| {
+    let result = args.map(|to_be_echoed| {
         let n = to_be_echoed.len();
         match n.cmp(&1usize) {
             //  More than one value is converted in a stream of values
@@ -96,7 +83,20 @@ fn run(
             //  When there are no elements, we echo the empty string
             std::cmp::Ordering::Less => PipelineData::Value(Value::string("", call.head), None),
         }
-    })
+    });
+
+    // If echo is not redirected, then print to the screen (to behave in a similar way to other shells)
+    if !call.redirect_stdout {
+        match result {
+            Ok(pipeline) => {
+                pipeline.print(engine_state, stack, false, false)?;
+                Ok(PipelineData::Empty)
+            }
+            Err(err) => Err(err),
+        }
+    } else {
+        result
+    }
 }
 
 #[cfg(test)]

@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    report_error_new, Category, Example, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 
 struct Arguments {
@@ -58,11 +58,6 @@ impl Command for SubCommand {
                 Some('n'),
             )
             .switch(
-                "string",
-                "DEPRECATED option, will be removed in 0.85. Substring matching is now the default.",
-                Some('s'),
-            )
-            .switch(
                 "regex",
                 "match the pattern as a regular expression in the input, instead of a substring",
                 Some('r'),
@@ -96,18 +91,6 @@ impl Command for SubCommand {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let literal_replace = call.has_flag("no-expand");
-        if call.has_flag("string") {
-            report_error_new(
-                engine_state,
-                &ShellError::GenericError(
-                    "Deprecated option".into(),
-                    "`str replace --string` is deprecated and will be removed in 0.85.".into(),
-                    Some(call.head),
-                    Some("Substring matching is now the default. Use `--regex` or `--multiline` for matching regular expressions.".into()),
-                    vec![],
-                ),
-            );
-        }
         let no_regex = !call.has_flag("regex") && !call.has_flag("multiline");
         let multiline = call.has_flag("multiline");
 

@@ -271,7 +271,11 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
+            .with_cursor_config(cursor_config)
+            .with_transient_prompt(prompt_update::transient_prompt(
+                engine_reference.clone(),
+                stack,
+            ));
         perf(
             "reedline builder",
             start_time,
@@ -508,7 +512,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(tokens.0[0].span, None),
+                                &ShellError::DirectoryNotFound(
+                                    tokens.0[0].span,
+                                    path.to_string_lossy().to_string(),
+                                ),
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)
@@ -730,9 +737,14 @@ fn update_line_editor_history(
             )
             .into_diagnostic()?,
         ),
-        HistoryFileFormat::Sqlite => {
-            Box::new(SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?)
-        }
+        HistoryFileFormat::Sqlite => Box::new(
+            SqliteBackedHistory::with_file(
+                history_path.to_path_buf(),
+                history_session_id,
+                Some(chrono::Utc::now()),
+            )
+            .into_diagnostic()?,
+        ),
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)

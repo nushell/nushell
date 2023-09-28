@@ -51,11 +51,26 @@ let dist = $'($env.GITHUB_WORKSPACE)/output'
 let version = (open Cargo.toml | get package.version)
 
 print $'Debugging info:'
-print { version: $version, bin: $bin, os: $os, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+print { version: $version, bin: $bin, os: $os, releaseType: $env.RELEASE_TYPE, target: $target, src: $src, flags: $flags, dist: $dist }; hr-line -b
+
+# Rename the full release name so that we won't break the existing scripts for standard release downloading, such as:
+# curl -s https://api.github.com/repos/chmln/sd/releases/latest | grep browser_download_url | cut -d '"' -f 4 | grep x86_64-unknown-linux-musl
+const FULL_RLS_NAMING = {
+    x86_64-apple-darwin: 'x86_64-darwin-full',
+    aarch64-apple-darwin: 'aarch64-darwin-full',
+    x86_64-unknown-linux-gnu: 'x86_64-linux-gnu-full',
+    x86_64-pc-windows-msvc: 'x86_64-windows-msvc-full',
+    x86_64-unknown-linux-musl: 'x86_64-linux-musl-full',
+    aarch64-unknown-linux-gnu: 'aarch64-linux-gnu-full',
+    aarch64-pc-windows-msvc: 'aarch64-windows-msvc-full',
+    riscv64gc-unknown-linux-gnu: 'riscv64-linux-gnu-full',
+    armv7-unknown-linux-gnueabihf: 'armv7-linux-gnueabihf-full',
+}
 
 # $env
 
 let USE_UBUNTU = 'ubuntu-20.04'
+let FULL_NAME = $FULL_RLS_NAMING | get -i $target | default 'unknown-target-full'
 
 print $'(char nl)Packaging ($bin) v($version) for ($target) in ($src)...'; hr-line -b
 if not ('Cargo.lock' | path exists) { cargo generate-lockfile }
@@ -141,7 +156,7 @@ cd $dist; print $'(char nl)Creating release archive...'; hr-line
 if $os in [$USE_UBUNTU, 'macos-latest'] {
 
     let files = (ls | get name)
-    let dest = $'($bin)-($version)-($target)'
+    let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
@@ -156,7 +171,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
 
 } else if $os == 'windows-latest' {
 
-    let releaseStem = $'($bin)-($version)-($target)'
+    let releaseStem = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
 
     print $'(char nl)Download less related stuffs...'; hr-line
     aria2c https://github.com/jftuga/less-Windows/releases/download/less-v608/less.exe -o less.exe
@@ -172,18 +187,22 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         cp -r $'($dist)/*' target/release/
         cargo install cargo-wix --version 0.3.4
         cargo wix --no-build --nocapture --package nu --output $wixRelease
-        print $'archive: ---> ($wixRelease)';
-        echo $"archive=($wixRelease)" | save --append $env.GITHUB_OUTPUT
+        # Workaround for https://github.com/softprops/action-gh-release/issues/280
+        let archive = ($wixRelease | str replace -a '\' '/')
+        print $'archive: ---> ($archive)';
+        echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
 
     } else {
 
         print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls
         let archive = $'($dist)/($releaseStem).zip'
         7z a $archive *
-        print $'archive: ---> ($archive)';
         let pkg = (ls -f $archive | get name)
         if not ($pkg | is-empty) {
-            echo $"archive=($pkg | get 0)" | save --append $env.GITHUB_OUTPUT
+            # Workaround for https://github.com/softprops/action-gh-release/issues/280
+            let archive = ($pkg | get 0 | str replace -a '\' '/')
+            print $'archive: ---> ($archive)'
+            echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
         }
     }
 }

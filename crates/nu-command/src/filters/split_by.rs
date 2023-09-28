@@ -130,7 +130,7 @@ pub fn split_by(
                 item: v.as_string()?,
                 span: name,
             });
-            Ok(split(&splitter, input, name)?)
+            Ok(split(splitter.as_ref(), input, name)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(
@@ -144,7 +144,7 @@ pub fn split_by(
 }
 
 pub fn split(
-    column_name: &Option<Spanned<String>>,
+    column_name: Option<&Spanned<String>>,
     values: PipelineData,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
@@ -156,24 +156,21 @@ pub fn split(
 
     match grouper {
         Grouper::ByColumn(Some(column_name)) => {
-            let block =
-                Box::new(
-                    move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
-                        Some(group_key) => Ok(group_key.as_string()?),
-                        None => Err(ShellError::CantFindColumn {
-                            col_name: column_name.item.to_string(),
-                            span: column_name.span,
-                            src_span: row.span(),
-                        }),
-                    },
-                );
+            let block = move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
+                Some(group_key) => Ok(group_key.as_string()?),
+                None => Err(ShellError::CantFindColumn {
+                    col_name: column_name.item.to_string(),
+                    span: column_name.span,
+                    src_span: row.span(),
+                }),
+            };
 
-            data_split(values, &Some(block), span)
+            data_split(values, Some(&block), span)
         }
         Grouper::ByColumn(None) => {
-            let block = Box::new(move |_, row: &Value| row.as_string());
+            let block = move |_, row: &Value| row.as_string();
 
-            data_split(values, &Some(block), span)
+            data_split(values, Some(&block), span)
         }
     }
 }
@@ -181,7 +178,7 @@ pub fn split(
 #[allow(clippy::type_complexity)]
 fn data_group(
     values: &Value,
-    grouper: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+    grouper: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     span: Span,
 ) -> Result<Value, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
@@ -209,7 +206,7 @@ fn data_group(
 #[allow(clippy::type_complexity)]
 pub fn data_split(
     value: PipelineData,
-    splitter: &Option<Box<dyn Fn(usize, &Value) -> Result<String, ShellError> + Send>>,
+    splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();

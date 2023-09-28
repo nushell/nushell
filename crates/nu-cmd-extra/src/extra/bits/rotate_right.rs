@@ -60,7 +60,7 @@ impl Command for BitsRor {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(

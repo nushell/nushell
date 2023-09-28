@@ -288,10 +288,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoDatetime,
             IntoDecimal,
             IntoDuration,
+            IntoFloat,
             IntoFilesize,
             IntoInt,
             IntoRecord,
             IntoString,
+            IntoValue,
         };
 
         // Env
@@ -367,6 +369,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomChars,
             RandomDecimal,
             RandomDice,
+            RandomFloat,
+            RandomInt,
             RandomInteger,
             RandomUuid,
         };

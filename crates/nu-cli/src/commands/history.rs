@@ -70,12 +70,14 @@ impl Command for History {
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
                     match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok(),
+                        HistoryFileFormat::Sqlite => {
+                            SqliteBackedHistory::with_file(history_path, None, None)
+                                .map(|inner| {
+                                    let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                                    boxed
+                                })
+                                .ok()
+                        }
 
                         HistoryFileFormat::PlainText => FileBackedHistory::with_file(
                             engine_state.config.max_history_size as usize,

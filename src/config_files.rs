@@ -210,7 +210,7 @@ pub(crate) fn set_config_path(
     cwd: &Path,
     default_config_name: &str,
     key: &str,
-    config_file: &Option<Spanned<String>>,
+    config_file: Option<&Spanned<String>>,
 ) {
     let config_path = match config_file {
         Some(s) => canonicalize_with(&s.item, cwd).ok(),

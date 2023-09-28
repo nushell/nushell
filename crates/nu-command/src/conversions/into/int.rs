@@ -1,5 +1,4 @@
 use chrono::{FixedOffset, TimeZone};
-
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -169,7 +168,7 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Convert decimal to integer",
+                description: "Convert float to integer",
                 example: "5.9 | into int",
                 result: Some(Value::test_int(5)),
             },
@@ -299,7 +298,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                     span,
                 )
             } else {
-                Value::int(val.timestamp_nanos(), span)
+                Value::int(val.timestamp_nanos_opt().unwrap_or_default(), span)
             }
         }
         Value::Duration { val, .. } => Value::int(*val, span),

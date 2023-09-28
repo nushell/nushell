@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.84.1"
+# version = "0.85.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -165,6 +165,7 @@ $env.config = {
             truncating_suffix: "..." # A suffix used by the 'truncating' methodology
         }
         header_on_separator: false # show header text on separator/border line
+        # abbreviated_row_count: 10 # limit data rows from top and bottom after reaching a set point
     }
 
     error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages

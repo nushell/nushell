@@ -185,13 +185,13 @@ impl Command for InputList {
         // };
 
         let ans: InteractMode = if call.has_flag("multi") {
-            let mut multi_select = MultiSelect::new(); //::with_theme(&theme);
+            let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
                 if !prompt.is_empty() {
                     multi_select.with_prompt(&prompt)
                 } else {
-                    &mut multi_select
+                    multi_select
                 }
                 .items(&options)
                 .report(false)
@@ -199,13 +199,13 @@ impl Command for InputList {
                 .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
             )
         } else if call.has_flag("fuzzy") {
-            let mut fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
+            let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
             InteractMode::Single(
                 if !prompt.is_empty() {
                     fuzzy_select.with_prompt(&prompt)
                 } else {
-                    &mut fuzzy_select
+                    fuzzy_select
                 }
                 .items(&options)
                 .default(0)
@@ -214,12 +214,12 @@ impl Command for InputList {
                 .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
             )
         } else {
-            let mut select = Select::new(); //::with_theme(&theme);
+            let select = Select::new(); //::with_theme(&theme);
             InteractMode::Single(
                 if !prompt.is_empty() {
                     select.with_prompt(&prompt)
                 } else {
-                    &mut select
+                    select
                 }
                 .items(&options)
                 .default(0)

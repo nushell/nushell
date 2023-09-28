@@ -31,9 +31,6 @@ pub enum SyntaxShape {
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
 
-    /// A decimal value, eg `1.0`
-    Decimal,
-
     /// A directory is allowed
     Directory,
 
@@ -51,6 +48,9 @@ pub enum SyntaxShape {
 
     /// A filesize value is allowed, eg `10kb`
     Filesize,
+
+    /// A floating point value, eg `1.0`
+    Float,
 
     /// A dotted path to navigate the table (including variable)
     FullCellPath,
@@ -82,7 +82,7 @@ pub enum SyntaxShape {
     /// Nothing
     Nothing,
 
-    /// Only a numeric (integer or decimal) value is allowed
+    /// Only a numeric (integer or float) value is allowed
     Number,
 
     /// One of a list of possible items, checked in order
@@ -110,9 +110,6 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
 
-    /// A variable name, eg `$foo`
-    Variable,
-
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
 }
@@ -137,7 +134,7 @@ impl SyntaxShape {
             SyntaxShape::Expression => Type::Any,
             SyntaxShape::Filepath => Type::String,
             SyntaxShape::Directory => Type::String,
-            SyntaxShape::Decimal => Type::Float,
+            SyntaxShape::Float => Type::Float,
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
@@ -164,7 +161,6 @@ impl SyntaxShape {
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
-            SyntaxShape::Variable => Type::Any,
         }
     }
 }
@@ -189,7 +185,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Number => write!(f, "number"),
             SyntaxShape::Range => write!(f, "range"),
             SyntaxShape::Int => write!(f, "int"),
-            SyntaxShape::Decimal => write!(f, "decimal"),
+            SyntaxShape::Float => write!(f, "float"),
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
@@ -226,7 +222,6 @@ impl Display for SyntaxShape {
             SyntaxShape::Operator => write!(f, "operator"),
             SyntaxShape::RowCondition => write!(f, "condition"),
             SyntaxShape::MathExpression => write!(f, "variable"),
-            SyntaxShape::Variable => write!(f, "var"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
             SyntaxShape::MatchPattern => write!(f, "match-pattern"),
