@@ -10,7 +10,6 @@ use nu_protocol::{
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::ops::Deref;
 use std::str;
 use std::sync::Arc;
 
