@@ -40,12 +40,12 @@ export def clippy [
     }
 
     try {(
-            cargo clippy
-                --workspace
-                --tests
-                --features ($features | str join ",")
-            --
-                -D warnings
+        cargo clippy
+            --workspace
+            --tests
+            --features ($features | str join ",")
+        --
+            -D warnings
     )} catch {
         error make --unspanned {
             msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
