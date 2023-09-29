@@ -188,7 +188,11 @@ impl Command for Glob {
         let path = current_dir(engine_state, stack)?;
         let path = match nu_path::canonicalize_with(prefix, path) {
             Ok(path) => path,
-            Err(e) if e.to_string().contains("os error 2") => std::path::PathBuf::new(),
+            Err(e) if e.to_string().contains("os error 2") =>
+            // path we're trying to glob doesn't exist,
+            {
+                std::path::PathBuf::new() // user should get empty list not an error
+            }
             Err(e) => {
                 return Err(ShellError::GenericError(
                     "error in canonicalize".to_string(),
