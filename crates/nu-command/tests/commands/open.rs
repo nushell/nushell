@@ -1,7 +1,38 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+
+#[test]
+fn parses_file_with_uppercase_extension() {
+    Playground::setup("open_test_uppercase_extension", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "nu.zion.JSON",
+            r#"{
+                "glossary": {
+                    "GlossDiv": {
+                        "GlossList": {
+                            "GlossEntry": {
+                                "ID": "SGML"
+                            }
+                        }
+                    }
+                }
+            }"#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open nu.zion.JSON
+                | get glossary.GlossDiv.GlossList.GlossEntry.ID
+            "#
+        ));
+
+        assert_eq!(actual.out, "SGML");
+    })
+}
 
 #[test]
 fn parses_csv() {
