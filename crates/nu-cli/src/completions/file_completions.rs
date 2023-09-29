@@ -160,7 +160,7 @@ fn complete_rec(partial: &str, cwd: &str, options: &CompletionOptions) -> Vec<St
                 } else {
                     completions.extend(complete_rec(
                         trail,
-                        &here.join(entry).to_string_lossy().into_owned(),
+                        &here.join(entry).to_string_lossy(),
                         options,
                     ));
                 }
@@ -184,20 +184,19 @@ pub fn file_path_completion(
     let mut cwd = ".";
     if original_path.is_relative() {
         if original_path.starts_with("..") {
-            original_path = original_path.strip_prefix("..").unwrap();
+            original_path = original_path.strip_prefix("..").unwrap_or(original_path);
             cwd = "..";
         }
 
         if original_path.starts_with("..") {
-            original_path = original_path.strip_prefix("..").unwrap();
+            original_path = original_path.strip_prefix("..").unwrap_or(original_path);
         }
     } else {
-        original_path = original_path.strip_prefix("/").unwrap();
+        original_path = original_path.strip_prefix("/").unwrap_or(original_path);
         cwd = "/";
     }
 
-    let plain_completions =
-        complete_rec(&original_path.to_string_lossy().into_owned(), cwd, options);
+    let plain_completions = complete_rec(&original_path.to_string_lossy(), cwd, options);
 
     plain_completions.into_iter().map(|f| (span, f)).collect()
 }
