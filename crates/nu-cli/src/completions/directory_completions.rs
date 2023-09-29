@@ -14,12 +14,12 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct DirectoryCompletion {
-    _engine_state: Arc<EngineState>,
+    engine_state: Arc<EngineState>,
 }
 
 impl DirectoryCompletion {
-    pub fn new(_engine_state: Arc<EngineState>) -> Self {
-        Self { _engine_state }
+    pub fn new(engine_state: Arc<EngineState>) -> Self {
+        Self { engine_state }
     }
 }
 
@@ -36,19 +36,24 @@ impl Completer for DirectoryCompletion {
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = directory_completion(span, &partial, None, options)
-            .into_iter()
-            .map(move |x| Suggestion {
-                value: x.1,
-                description: None,
-                extra: None,
-                span: reedline::Span {
-                    start: x.0.start - offset,
-                    end: x.0.end - offset,
-                },
-                append_whitespace: false,
-            })
-            .collect();
+        let output: Vec<_> = directory_completion(
+            span,
+            &partial,
+            &self.engine_state.current_work_dir(),
+            options,
+        )
+        .into_iter()
+        .map(move |x| Suggestion {
+            value: x.1,
+            description: None,
+            extra: None,
+            span: reedline::Span {
+                start: x.0.start - offset,
+                end: x.0.end - offset,
+            },
+            append_whitespace: false,
+        })
+        .collect();
 
         output
     }
@@ -122,36 +127,20 @@ pub fn plain_listdir(source: &str) -> Vec<String> {
 pub fn directory_completion(
     span: nu_protocol::Span,
     partial: &str,
-    maybe_cwd: Option<&str>,
+    cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
     let mut original_path = Path::new(partial);
 
-    let cwd = match maybe_cwd {
-        Some(cwd) => cwd,
-        None => {
-            let mut alt_cwd = ".";
-            if original_path.is_relative() {
-                if original_path.starts_with("..") {
-                    original_path = original_path.strip_prefix("..").unwrap_or(original_path);
-                    alt_cwd = "..";
-                }
-
-                if original_path.starts_with(".") {
-                    original_path = original_path.strip_prefix(".").unwrap_or(original_path);
-                }
-            } else {
-                original_path = original_path.strip_prefix("/").unwrap_or(original_path);
-                alt_cwd = "/";
-            }
-            alt_cwd
-        }
-    };
-
     if partial.ends_with(SEP) && Path::new(partial).exists() {
         plain_listdir(partial)
     } else {
-        complete_rec(&original_path.to_string_lossy(), Path::new(cwd), options)
+        complete_rec(
+            &original_path.to_string_lossy(),
+            Path::new(cwd),
+            cwd,
+            options,
+        )
     }
     .into_iter()
     .map(|f| (span, f))
@@ -166,7 +155,12 @@ fn escape_path(path: String) -> String {
     }
 }
 
-fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<String> {
+fn complete_rec(
+    partial: &str,
+    cwd: &Path,
+    original_cwd: &str,
+    options: &CompletionOptions,
+) -> Vec<String> {
     let (base, trail) = match partial.split_once(SEP) {
         Some((base, trail)) => (base, trail),
         None => (partial, ""),
@@ -182,11 +176,16 @@ fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<S
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             if matches(base, &entry_name, options) && entry.path().is_dir() {
                 if trail.is_empty() {
-                    let mut path = entry.path().to_string_lossy().into_owned();
-                    path.push(SEP);
-                    completions.push(escape_path(path));
+                    let path = entry.path();
+                    let mut path_string = path
+                        .strip_prefix(original_cwd)
+                        .unwrap_or(&path)
+                        .to_string_lossy()
+                        .into_owned();
+                    path_string.push(SEP);
+                    completions.push(escape_path(path_string));
                 } else {
-                    completions.extend(complete_rec(trail, &entry.path(), options));
+                    completions.extend(complete_rec(trail, &entry.path(), original_cwd, options));
                 }
             }
         }
