@@ -116,70 +116,90 @@ pub fn partial_from(input: &str) -> (String, String) {
     (base.to_string(), rest.to_string())
 }
 
+// Fix files or folders with quotes or hashes
+fn escape_path(path: String) -> String {
+    if path.contains('\'')
+        || path.contains('"')
+        || path.contains(' ')
+        || path.contains('#')
+        || path.contains('(')
+        || path.contains(')')
+        || path.starts_with('0')
+        || path.starts_with('1')
+        || path.starts_with('2')
+        || path.starts_with('3')
+        || path.starts_with('4')
+        || path.starts_with('5')
+        || path.starts_with('6')
+        || path.starts_with('7')
+        || path.starts_with('8')
+        || path.starts_with('9')
+    {
+        return format!("`{path}`");
+    }
+    path
+}
+
+fn complete_rec(partial: &str, cwd: &str, options: &CompletionOptions) -> Vec<String> {
+    let (base, trail) = match partial.split_once(SEP) {
+        Some((base, trail)) => (base, trail),
+        None => (partial, ""),
+    };
+
+    let mut completions = vec![];
+
+    let here = Path::new(cwd);
+    if let Ok(result) = here.read_dir() {
+        for entry in
+            result.filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
+        {
+            if matches(base, &entry, options) {
+                if trail.is_empty() {
+                    let path = format!("{}{}{}", cwd, SEP, entry);
+                    completions.push(escape_path(path));
+                } else {
+                    completions.extend(complete_rec(
+                        trail,
+                        &here.join(entry).to_string_lossy().into_owned(),
+                        options,
+                    ));
+                }
+            }
+        }
+        if completions.is_empty() && trail.is_empty() {
+            let path = format!("{}{}{}", cwd, SEP, base);
+            completions.push(escape_path(path));
+        }
+    }
+    completions
+}
+
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
+    _cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let original_input = partial;
-    let (base_dir_name, partial) = partial_from(partial);
+    let mut original_path = Path::new(partial);
+    let mut cwd = ".";
+    if original_path.is_relative() {
+        if original_path.starts_with("..") {
+            original_path = original_path.strip_prefix("..").unwrap();
+            cwd = "..";
+        }
 
-    let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
-    // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
-    // which we don't want in this case (if we did, base_dir would already be ".")
-    if base_dir == Path::new("") {
-        return Vec::new();
+        if original_path.starts_with("..") {
+            original_path = original_path.strip_prefix("..").unwrap();
+        }
+    } else {
+        original_path = original_path.strip_prefix("/").unwrap();
+        cwd = "/";
     }
 
-    if let Ok(result) = base_dir.read_dir() {
-        return result
-            .filter_map(|entry| {
-                entry.ok().and_then(|entry| {
-                    let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                    if matches(&partial, &file_name, options) {
-                        let mut path = if prepend_base_dir(original_input, &base_dir_name) {
-                            format!("{base_dir_name}{file_name}")
-                        } else {
-                            file_name.to_string()
-                        };
+    let plain_completions =
+        complete_rec(&original_path.to_string_lossy().into_owned(), cwd, options);
 
-                        if entry.path().is_dir() {
-                            path.push(SEP);
-                            file_name.push(SEP);
-                        }
-
-                        // Fix files or folders with quotes or hashes
-                        if path.contains('\'')
-                            || path.contains('"')
-                            || path.contains(' ')
-                            || path.contains('#')
-                            || path.contains('(')
-                            || path.contains(')')
-                            || path.starts_with('0')
-                            || path.starts_with('1')
-                            || path.starts_with('2')
-                            || path.starts_with('3')
-                            || path.starts_with('4')
-                            || path.starts_with('5')
-                            || path.starts_with('6')
-                            || path.starts_with('7')
-                            || path.starts_with('8')
-                            || path.starts_with('9')
-                        {
-                            path = format!("`{path}`");
-                        }
-
-                        Some((span, path))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .collect();
-    }
-
-    Vec::new()
+    plain_completions.into_iter().map(|f| (span, f)).collect()
 }
 
 pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
