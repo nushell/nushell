@@ -150,9 +150,8 @@ fn complete_rec(
             if matches(base, &entry_name, options) {
                 if trail.is_empty() {
                     let path = entry.path();
-                    let mut path_string = path
-                        .strip_prefix(original_cwd)
-                        .unwrap_or(&path)
+                    let mut path_string = pathdiff::diff_paths(path.clone(), original_cwd)
+                        .unwrap_or(path)
                         .to_string_lossy()
                         .into_owned();
                     if entry.path().is_dir() {
@@ -164,9 +163,6 @@ fn complete_rec(
                 }
             }
         }
-        // if completions.is_empty() && trail.is_empty() {
-        //     completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
-        // }
     }
     completions
 }
@@ -192,7 +188,7 @@ pub fn file_path_completion(
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let mut original_path = Path::new(partial);
+    let original_path = Path::new(partial);
 
     if partial.ends_with(SEP) && Path::new(partial).exists() {
         plain_listdir(partial)
