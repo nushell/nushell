@@ -8,7 +8,7 @@ use std::fmt::Display;
 /// `SyntaxShape`s can describe the parsing rules for arguments to a command.
 /// e.g. [`SyntaxShape::GlobPattern`]/[`SyntaxShape::Filepath`] serve the completer,
 /// but don't have an associated [`Value`](crate::Value)
-/// There are additional `SyntaxShapes` that only make sense in particular expressions or keywords
+/// There are additional `SyntaxShape`s that only make sense in particular expressions or keywords
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
     /// Any syntactic form is allowed
