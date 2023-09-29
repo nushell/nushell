@@ -8,8 +8,8 @@ use crate::{
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::hook::eval_hook;
 use nu_cmd_base::util::get_guaranteed_cwd;
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
@@ -26,6 +26,7 @@ use reedline::{
     SqliteBackedHistory, Vi,
 };
 use std::{
+    env::temp_dir,
     io::{self, IsTerminal, Write},
     path::Path,
     sync::atomic::Ordering,
@@ -94,6 +95,7 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
@@ -178,6 +180,14 @@ pub fn evaluate_repl(
             PipelineData::empty(),
             false,
         );
+    }
+
+    if engine_state.get_config().use_kitty_protocol {
+        if line_editor.can_use_kitty_protocol() {
+            line_editor.enable_kitty_protocol();
+        } else {
+            warn!("Terminal doesn't support use_kitty_protocol config");
+        }
     }
 
     loop {
@@ -271,7 +281,11 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
+            .with_cursor_config(cursor_config)
+            .with_transient_prompt(prompt_update::transient_prompt(
+                engine_reference.clone(),
+                stack,
+            ));
         perf(
             "reedline builder",
             start_time,
@@ -318,23 +332,17 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let buffer_editor = if !config.buffer_editor.is_empty() {
-            Some(config.buffer_editor.clone())
-        } else {
-            stack
-                .get_env_var(engine_state, "EDITOR")
-                .map(|v| v.as_string().unwrap_or_default())
-                .filter(|v| !v.is_empty())
-                .or_else(|| {
-                    stack
-                        .get_env_var(engine_state, "VISUAL")
-                        .map(|v| v.as_string().unwrap_or_default())
-                        .filter(|v| !v.is_empty())
-                })
-        };
+        let buffer_editor = get_editor(engine_state, stack, Span::unknown());
 
-        line_editor = if let Some(buffer_editor) = buffer_editor {
-            line_editor.with_buffer_editor(buffer_editor, "nu".into())
+        line_editor = if let Ok((cmd, args)) = buffer_editor {
+            let mut command = std::process::Command::new(&cmd);
+            command.args(args).envs(
+                engine_state
+                    .render_env_vars()
+                    .into_iter()
+                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+            );
+            line_editor.with_buffer_editor(command, temp_file.clone())
         } else {
             line_editor
         };
@@ -508,7 +516,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(tokens.0[0].span, None),
+                                &ShellError::DirectoryNotFound(
+                                    tokens.0[0].span,
+                                    path.to_string_lossy().to_string(),
+                                ),
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)

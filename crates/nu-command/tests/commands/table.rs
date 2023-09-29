@@ -4,7 +4,7 @@ use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn table_0() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table");
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────╮\
@@ -18,7 +18,7 @@ fn table_0() {
 
 #[test]
 fn table_collapse_0() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse");
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse");
     assert_eq!(
         actual.out,
         "╭───┬───┬───╮\
@@ -39,7 +39,7 @@ fn table_collapse_0() {
 fn table_collapse_basic() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: basic }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -61,7 +61,7 @@ fn table_collapse_basic() {
 fn table_collapse_heavy() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: heavy }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -83,7 +83,7 @@ fn table_collapse_heavy() {
 fn table_collapse_compact() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: compact }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -105,7 +105,7 @@ fn table_collapse_compact() {
 fn table_collapse_compact_double() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: compact_double }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -127,7 +127,7 @@ fn table_collapse_compact_double() {
 fn table_collapse_compact_light() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: light }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -149,7 +149,7 @@ fn table_collapse_compact_light() {
 fn table_collapse_none() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: none }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -167,7 +167,7 @@ fn table_collapse_none() {
 fn table_collapse_compact_reinforced() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: reinforced }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -189,7 +189,7 @@ fn table_collapse_compact_reinforced() {
 fn table_collapse_compact_thin() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: thin }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -211,7 +211,7 @@ fn table_collapse_compact_thin() {
 fn table_collapse_hearts() {
     let actual = nu!(nu_repl_code(&[
         "$env.config = { table: { mode: with_love }};",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -234,7 +234,7 @@ fn table_collapse_hearts() {
 #[test]
 fn table_collapse_does_wrapping_for_long_strings() {
     let actual = nu!(
-        "[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --collapse"
+        "[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --width=80 --collapse"
     );
     assert_eq!(
         actual.out,
@@ -250,7 +250,7 @@ fn table_collapse_does_wrapping_for_long_strings() {
 
 #[test]
 fn table_expand_0() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --expand");
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --expand");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬───────────╮\
@@ -271,7 +271,8 @@ fn table_expand_0() {
 fn table_expand_exceed_overlap_0() {
     // no expand
 
-    let actual = nu!("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand");
+    let actual =
+        nu!("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -290,7 +291,7 @@ fn table_expand_exceed_overlap_0() {
     // expand
 
     let actual = nu!(
-        "[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand"
+        "[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand"
     );
 
     assert_eq!(
@@ -310,7 +311,8 @@ fn table_expand_exceed_overlap_0() {
 
 #[test]
 fn table_expand_deep_0() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=1");
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=1");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────────────╮\
@@ -328,7 +330,8 @@ fn table_expand_deep_0() {
 
 #[test]
 fn table_expand_deep_1() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=0");
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=0");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────╮\
@@ -342,7 +345,8 @@ fn table_expand_deep_1() {
 
 #[test]
 fn table_expand_flatten_0() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --expand --flatten ");
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten ");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬───────────────╮\
@@ -361,7 +365,7 @@ fn table_expand_flatten_0() {
 #[test]
 fn table_expand_flatten_1() {
     let actual = nu!(
-        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --expand --flatten --flatten-separator=,"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten --flatten-separator=,"
     );
     assert_eq!(
         actual.out,
@@ -381,7 +385,7 @@ fn table_expand_flatten_1() {
 #[test]
 fn table_expand_flatten_and_deep_1() {
     let actual = nu!(
-        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 [1 1 1] 1]]]] | table --expand --expand-deep=2 --flatten --flatten-separator=,"
+        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 [1 1 1] 1]]]] | table --width=80 --expand --expand-deep=2 --flatten --flatten-separator=,"
     );
 
     assert_eq!(
@@ -405,7 +409,7 @@ fn table_expand_flatten_and_deep_1() {
 
 #[test]
 fn table_expand_record_0() {
-    let actual = nu!("[{c: {d: 1}}] | table --expand");
+    let actual = nu!("[{c: {d: 1}}] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -421,7 +425,8 @@ fn table_expand_record_0() {
 
 #[test]
 fn table_expand_record_1() {
-    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --expand");
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -450,7 +455,7 @@ fn table_expand_record_2() {
         field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
         field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
     }";
-    let actual = nu!(format!("{structure} | table --expand"));
+    let actual = nu!(format!("{structure} | table --width=80 --expand"));
 
     assert_eq!(
         actual.out,
@@ -505,7 +510,7 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                cat a_large_file.txt | table
+                cat a_large_file.txt | table --width=80
             "
         ));
 
@@ -657,7 +662,7 @@ fn test_expand_big_0() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand"
+            "open sample.toml | table --width=80 --expand"
         ));
 
         let expected = join_lines([
@@ -1941,7 +1946,7 @@ fn test_collapse_big_0() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            "open sample.toml | table --collapse"
+            "open sample.toml | table --width=80 --collapse"
         ));
 
         _print_lines(&actual.out, 80);
@@ -2371,7 +2376,7 @@ fn _split_str_by_width(s: &str, w: usize) -> Vec<String> {
 
 #[test]
 fn table_expand_index_offset() {
-    let actual = nu!("1..1002 | table --expand");
+    let actual = nu!("1..1002 | table --width=80 --expand");
     let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
     let expected_suffix = actual.out.strip_suffix(suffix);
     assert!(expected_suffix.is_some(), "{:?}", actual.out);
@@ -2379,7 +2384,7 @@ fn table_expand_index_offset() {
 
 #[test]
 fn table_index_offset() {
-    let actual = nu!("1..1002 | table");
+    let actual = nu!("1..1002 | table --width=80");
     let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
     let expected_suffix = actual.out.strip_suffix(suffix);
     assert!(expected_suffix.is_some(), "{:?}", actual.out);
@@ -2533,20 +2538,25 @@ fn create_theme_output(theme: &str) -> Vec<String> {
         nu!(theme_cmd(
             theme,
             false,
-            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
         ))
         .out,
         nu!(theme_cmd(
             theme,
             true,
-            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
         ))
         .out,
-        nu!(theme_cmd(theme, true, "[[a b, c]; [1 2 3]] | table")).out,
         nu!(theme_cmd(
             theme,
             true,
-            "[[a_looooooong_name b, c]; [1 2 3]] | table"
+            "[[a b, c]; [1 2 3]] | table --width=80"
+        ))
+        .out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a_looooooong_name b, c]; [1 2 3]] | table --width=80"
         ))
         .out,
     ]
@@ -2563,7 +2573,8 @@ fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
 
 #[test]
 fn table_padding_not_default() {
-    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table");
+    let actual =
+        nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80");
     assert_eq!(
         actual.out,
         "╭───────────┬───────────┬───────────┬────────────────────────╮\
@@ -2578,7 +2589,7 @@ fn table_padding_not_default() {
 #[test]
 fn table_padding_zero() {
     let actual = nu!(
-        "$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"
+        "$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
     );
     assert_eq!(
         actual.out,
@@ -2593,7 +2604,9 @@ fn table_padding_zero() {
 
 #[test]
 fn table_expand_padding_not_default() {
-    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    let actual = nu!(
+        "$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -e"
+    );
     assert_eq!(
         actual.out,
         "╭─────────────┬─────────────┬─────────────┬────────────────────────────────────╮\
@@ -2611,7 +2624,7 @@ fn table_expand_padding_not_default() {
 
 #[test]
 fn table_expand_padding_zero() {
-    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -e");
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -e");
     assert_eq!(
         actual.out,
         "╭─┬─┬─┬─────╮\
@@ -2629,7 +2642,9 @@ fn table_expand_padding_zero() {
 
 #[test]
 fn table_collapse_padding_not_default() {
-    let actual = nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    let actual = nu!(
+        "$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -c"
+    );
     assert_eq!(
         actual.out,
         "╭───────────┬───────────┬───────────╮\
@@ -2648,7 +2663,7 @@ fn table_collapse_padding_not_default() {
 
 #[test]
 fn table_collapse_padding_zero() {
-    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table -c");
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -c");
     assert_eq!(
         actual.out,
         "╭─┬─┬─╮\
@@ -2668,7 +2683,7 @@ fn table_collapse_padding_zero() {
 #[test]
 fn table_leading_trailing_space_bg() {
     let actual = nu!(
-        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table"#
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80"#
     );
     assert_eq!(
         actual.out,
@@ -2679,7 +2694,7 @@ fn table_leading_trailing_space_bg() {
 #[test]
 fn table_leading_trailing_space_bg_expand() {
     let actual = nu!(
-        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --expand"#
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80 --expand"#
     );
     assert_eq!(
         actual.out,
@@ -2690,22 +2705,22 @@ fn table_leading_trailing_space_bg_expand() {
 #[test]
 fn table_abbreviation() {
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 100"#
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 100"#
     );
     assert_eq!(actual.out, "╭───┬───┬───┬────────────────╮│ # │ a │ b │       c        │├───┼───┼───┼────────────────┤│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] ││ 2 │ 1 │ 2 │              3 ││ 3 │ 1 │ 2 │              3 ││ 4 │ 1 │ 2 │              3 ││ 5 │ 1 │ 2 │              3 ││ 6 │ 1 │ 2 │              3 │╰───┴───┴───┴────────────────╯");
 
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 2"#
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 2"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 1"#
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 1"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
 
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 0"#
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 0"#
     );
     assert_eq!(actual.out, "╭───┬─────╮│ 0 │ ... │╰───┴─────╯");
 }
@@ -2713,17 +2728,17 @@ fn table_abbreviation() {
 #[test]
 fn table_abbreviation_kv() {
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 100"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 100"#
     );
     assert_eq!(actual.out, "╭───┬───────────────────╮│ a │ 1                 ││ b │ {record 3 fields} ││ c │ [list 4 items]    ││ e │ 1                 ││ q │ 2                 ││ t │ 4                 ││ r │ 1                 ││ x │ 9                 │╰───┴───────────────────╯");
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 2"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 2"#
     );
     assert_eq!(actual.out, "╭─────┬───────────────────╮│ a   │ 1                 ││ b   │ {record 3 fields} ││ ... │ ...               ││ r   │ 1                 ││ x   │ 9                 │╰─────┴───────────────────╯");
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 1"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 1"#
     );
     assert_eq!(
         actual.out,
@@ -2731,7 +2746,7 @@ fn table_abbreviation_kv() {
     );
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 0"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 0"#
     );
     assert_eq!(actual.out, "╭─────┬─────╮│ ... │ ... │╰─────┴─────╯");
 }
@@ -2739,17 +2754,17 @@ fn table_abbreviation_kv() {
 #[test]
 fn table_abbreviation_kv_expand() {
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 100 -e"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 100 -e"#
     );
     assert_eq!(actual.out, "╭───┬───────────────────╮│ a │ 1                 ││   │ ╭───┬───────────╮ ││ b │ │ a │ 1         │ ││   │ │   │ ╭───┬───╮ │ ││   │ │ b │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ │   │ ╭───┬───╮ │ ││   │ │ c │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ ╰───┴───────────╯ ││   │ ╭───┬───────────╮ ││ c │ │ 0 │         1 │ ││   │ │ 1 │         2 │ ││   │ │ 2 │ ╭───┬───╮ │ ││   │ │   │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ │ 3 │         3 │ ││   │ ╰───┴───────────╯ ││ e │ 1                 ││ q │ 2                 ││ t │ 4                 ││ r │ 1                 ││ x │ 9                 │╰───┴───────────────────╯");
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 2 -e"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 2 -e"#
     );
     assert_eq!(actual.out, "╭─────┬───────────────────╮│ a   │ 1                 ││     │ ╭───┬───────────╮ ││ b   │ │ a │ 1         │ ││     │ │   │ ╭───┬───╮ │ ││     │ │ b │ │ 0 │ 1 │ │ ││     │ │   │ │ 1 │ 2 │ │ ││     │ │   │ │ 2 │ 3 │ │ ││     │ │   │ ╰───┴───╯ │ ││     │ │   │ ╭───┬───╮ │ ││     │ │ c │ │ 0 │ 1 │ │ ││     │ │   │ │ 1 │ 2 │ │ ││     │ │   │ │ 2 │ 3 │ │ ││     │ │   │ ╰───┴───╯ │ ││     │ ╰───┴───────────╯ ││ ... │ ...               ││ r   │ 1                 ││ x   │ 9                 │╰─────┴───────────────────╯");
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 1 -e"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 1 -e"#
     );
     assert_eq!(
         actual.out,
@@ -2757,7 +2772,7 @@ fn table_abbreviation_kv_expand() {
     );
 
     let actual = nu!(
-        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table -a 0 -e"#
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 0 -e"#
     );
     assert_eq!(actual.out, "╭─────┬─────╮│ ... │ ... │╰─────┴─────╯");
 }
@@ -2765,22 +2780,22 @@ fn table_abbreviation_kv_expand() {
 #[test]
 fn table_abbreviation_by_config() {
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
     );
     assert_eq!(actual.out, "╭───┬───┬───┬────────────────╮│ # │ a │ b │       c        │├───┼───┼───┼────────────────┤│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] ││ 2 │ 1 │ 2 │              3 ││ 3 │ 1 │ 2 │              3 ││ 4 │ 1 │ 2 │              3 ││ 5 │ 1 │ 2 │              3 ││ 6 │ 1 │ 2 │              3 │╰───┴───┴───┴────────────────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 0; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table"#
+        r#"$env.config.table.abbreviated_row_count = 0; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
     );
     assert_eq!(actual.out, "╭───┬─────╮│ 0 │ ... │╰───┴─────╯");
 }
@@ -2788,12 +2803,12 @@ fn table_abbreviation_by_config() {
 #[test]
 fn table_abbreviation_by_config_override() {
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 1"#
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 1"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
 
     let actual = nu!(
-        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table -a 2"#
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 2"#
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 }

@@ -103,7 +103,7 @@ impl Command for Cp {
         if is_directory && !destination.exists() {
             return Err(ShellError::DirectoryNotFound(
                 dst.span,
-                Some("destination directory does not exist".to_string()),
+                destination.to_string_lossy().to_string(),
             ));
         }
         let ctrlc = engine_state.ctrlc.clone();
