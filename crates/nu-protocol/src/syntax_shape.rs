@@ -29,8 +29,8 @@ pub enum SyntaxShape {
     /// A closure is allowed, eg `{|| start this thing}`
     Closure(Option<Vec<SyntaxShape>>),
 
-    /// A custom shape with custom completion logic
-    Custom(Box<SyntaxShape>, DeclId),
+    /// A [`SyntaxShape`] with custom completion logic
+    CompleterWrapper(Box<SyntaxShape>, DeclId),
 
     /// A datetime value, eg `2022-02-02` or `2019-10-12T07:20:50.52+00:00`
     DateTime,
@@ -144,7 +144,7 @@ impl SyntaxShape {
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
-            SyntaxShape::Custom(custom, _) => custom.to_type(),
+            SyntaxShape::CompleterWrapper(custom, _) => custom.to_type(),
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
@@ -245,7 +245,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::Custom(x, _) => write!(f, "custom<{x}>"),
+            SyntaxShape::CompleterWrapper(x, _) => write!(f, "custom<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");
