@@ -245,7 +245,7 @@ impl Display for SyntaxShape {
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::Boolean => write!(f, "bool"),
             SyntaxShape::Error => write!(f, "error"),
-            SyntaxShape::CompleterWrapper(x, _) => write!(f, "custom<{x}>"),
+            SyntaxShape::CompleterWrapper(x, _) => write!(f, "completable<{x}>"),
             SyntaxShape::OneOf(list) => {
                 let arg_vec: Vec<_> = list.iter().map(|x| x.to_string()).collect();
                 let arg_string = arg_vec.join(", ");
