@@ -1015,9 +1015,7 @@ pub fn eval_block(
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        let mut i = 0;
-
-        while i < pipeline.elements.len() {
+        for i in 0..pipeline.elements.len() {
             let redirect_stderr = redirect_stderr
                 || ((i < pipeline.elements.len() - 1)
                     && (matches!(
@@ -1074,8 +1072,6 @@ pub fn eval_block(
                     }
                 }
             }
-
-            i += 1;
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
