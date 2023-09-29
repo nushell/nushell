@@ -2759,7 +2759,7 @@ pub fn parse_shape_name(
                 let decl_id = working_set.find_decl(command_name);
 
                 if let Some(decl_id) = decl_id {
-                    return SyntaxShape::Custom(Box::new(shape), decl_id);
+                    return SyntaxShape::CompleterWrapper(Box::new(shape), decl_id);
                 } else {
                     working_set.error(ParseError::UnknownCommand(cmd_span));
                     return shape;
@@ -4666,7 +4666,7 @@ pub fn parse_value(
     }
 
     match shape {
-        SyntaxShape::Custom(shape, custom_completion) => {
+        SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
             expression.custom_completion = Some(*custom_completion);
             expression
