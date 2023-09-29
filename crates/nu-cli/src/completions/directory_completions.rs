@@ -14,12 +14,12 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct DirectoryCompletion {
-    engine_state: Arc<EngineState>,
+    _engine_state: Arc<EngineState>,
 }
 
 impl DirectoryCompletion {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self { engine_state }
+    pub fn new(_engine_state: Arc<EngineState>) -> Self {
+        Self { _engine_state }
     }
 }
 
@@ -180,21 +180,19 @@ fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<S
             .filter(|e| fs::metadata(e.path()).map(|e| e.is_dir()).unwrap_or(false))
         {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
-            if matches(base, &entry_name, options) {
-                if entry.path().is_dir() {
-                    if trail.is_empty() {
-                        let mut path = entry.path().to_string_lossy().into_owned();
-                        path.push(SEP);
-                        completions.push(escape_path(path));
-                    } else {
-                        completions.extend(complete_rec(trail, &entry.path(), options));
-                    }
+            if matches(base, &entry_name, options) && entry.path().is_dir() {
+                if trail.is_empty() {
+                    let mut path = entry.path().to_string_lossy().into_owned();
+                    path.push(SEP);
+                    completions.push(escape_path(path));
+                } else {
+                    completions.extend(complete_rec(trail, &entry.path(), options));
                 }
             }
         }
-        if completions.is_empty() && trail.is_empty() {
-            completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
-        }
+        // if completions.is_empty() && trail.is_empty() {
+        //     completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
+        // }
     }
     completions
 }

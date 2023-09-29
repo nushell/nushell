@@ -13,12 +13,12 @@ const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct FileCompletion {
-    engine_state: Arc<EngineState>,
+    _engine_state: Arc<EngineState>,
 }
 
 impl FileCompletion {
-    pub fn new(engine_state: Arc<EngineState>) -> Self {
-        Self { engine_state }
+    pub fn new(_engine_state: Arc<EngineState>) -> Self {
+        Self { _engine_state }
     }
 }
 
@@ -149,9 +149,9 @@ fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<S
                 }
             }
         }
-        if completions.is_empty() && trail.is_empty() {
-            completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
-        }
+        // if completions.is_empty() && trail.is_empty() {
+        //     completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
+        // }
     }
     completions
 }
