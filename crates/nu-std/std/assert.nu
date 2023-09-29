@@ -116,7 +116,7 @@ export def error [
     main ($error_raised) $message --error-label {
         start: (metadata $code).span.start
         end: (metadata $code).span.end
-        text: $"There were no error during code execution: (view source $code)"
+        text: $"There were no error during code execution:\n(view source $code)"
     }
 }
 
@@ -133,7 +133,7 @@ export def equal [left: any, right: any, message?: string] {
     main ($left == $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"They are not equal. Left = '($left)'. Right = '($right)'."
+        text: $"These are not equal.\nLeft = '($left | to nuon --raw)'\nRight = '($right | to nuon --raw)'"
     }
 }
 
@@ -150,7 +150,7 @@ export def "not equal" [left: any, right: any, message?: string] {
     main ($left != $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"They both are '($left)'."
+        text: $"These are both '($left | to nuon --raw)'."
     }
 }
 
@@ -167,7 +167,7 @@ export def "less or equal" [left: any, right: any, message?: string] {
     main ($left <= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: '($left)', Right: '($right)'"
+        text: $"The condition *left <= right* is not satisfied.\nLeft: '($left)'\nRight: '($right)'"
     }
 }
 
@@ -183,7 +183,7 @@ export def less [left: any, right: any, message?: string] {
     main ($left < $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: '($left)', Right: '($right)'"
+        text: $"The condition *left < right* is not satisfied.\nLeft: '($left)'\nRight: '($right)'"
     }
 }
 
@@ -199,7 +199,7 @@ export def greater [left: any, right: any, message?: string] {
     main ($left > $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: '($left)', Right: '($right)'"
+        text: $"The condition *left > right* is not satisfied.\nLeft: '($left)'\nRight: '($right)'"
     }
 }
 
@@ -216,7 +216,7 @@ export def "greater or equal" [left: any, right: any, message?: string] {
     main ($left >= $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Left: '($left)', Right: '($right)'"
+        text: $"The condition *left >= right* is not satisfied.\nLeft: '($left)'\nRight: '($right)'"
     }
 }
 
@@ -233,7 +233,7 @@ export def length [left: list, right: int, message?: string] {
     main (($left | core length) == $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"Length of ($left) is ($left | core length), not ($right)"
+        text: $"This does not have the correct length:\nvalue: ($left | to nuon --raw)\nlength: ($left | core length)\nexpected: ($right)"
     }
 }
 
@@ -250,6 +250,6 @@ export def "str contains" [left: string, right: string, message?: string] {
     main ($left | core str contains $right) $message --error-label {
         start: (metadata $left).span.start
         end: (metadata $right).span.end
-        text: $"'($left)' does not contain '($right)'."
+        text: $"This does not contain '($right)'.\nvalue: ($left | to nuon --raw)"
     }
 }
