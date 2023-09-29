@@ -73,7 +73,7 @@ pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
 
     if config.use_kitty_protocol {
         if let Ok(false) = crossterm::terminal::supports_keyboard_enhancement() {
-            println!("WARN: The terminal doesn't support use_kitty_protocol config.");
+            println!("WARN: The terminal doesn't support use_kitty_protocol config.\r");
         }
 
         // enable kitty protocol
