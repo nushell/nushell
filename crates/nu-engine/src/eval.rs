@@ -1015,30 +1015,34 @@ pub fn eval_block(
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        for i in 0..pipeline.elements.len() {
+        let mut elements_iter = pipeline.elements.iter().peekable();
+        while let Some(element) = elements_iter.next() {
             let redirect_stderr = redirect_stderr
-                || ((i < pipeline.elements.len() - 1)
-                    && (matches!(
-                        pipeline.elements[i + 1],
+                || (elements_iter.peek().map_or(false, |next_element| {
+                    matches!(
+                        next_element,
                         PipelineElement::Redirection(_, Redirection::Stderr, _)
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
-                    )));
+                    )
+                }));
+
             let redirect_stdout = redirect_stdout
-                || (i != pipeline.elements.len() - 1)
-                    && (matches!(
-                        pipeline.elements[i + 1],
+                || (elements_iter.peek().map_or(false, |next_element| {
+                    matches!(
+                        next_element,
                         PipelineElement::Redirection(_, Redirection::Stdout, _)
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::Expression(..)
                             | PipelineElement::SeparateRedirection { .. }
-                    ));
+                    )
+                }));
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
-                &pipeline.elements[i],
+                element,
                 input,
                 redirect_stdout,
                 redirect_stderr,
