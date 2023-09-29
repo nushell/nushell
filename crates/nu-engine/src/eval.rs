@@ -1026,6 +1026,15 @@ pub fn eval_block(
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
                     )));
+            let redirect_stdout = redirect_stdout
+                || (i != pipeline.elements.len() - 1)
+                    && (matches!(
+                        pipeline.elements[i + 1],
+                        PipelineElement::Redirection(_, Redirection::Stdout, _)
+                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                            | PipelineElement::Expression(..)
+                            | PipelineElement::SeparateRedirection { .. }
+                    ));
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1033,15 +1042,7 @@ pub fn eval_block(
                 stack,
                 &pipeline.elements[i],
                 input,
-                redirect_stdout
-                    || (i != pipeline.elements.len() - 1)
-                        && (matches!(
-                            pipeline.elements[i + 1],
-                            PipelineElement::Redirection(_, Redirection::Stdout, _)
-                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                                | PipelineElement::Expression(..)
-                                | PipelineElement::SeparateRedirection { .. }
-                        )),
+                redirect_stdout,
                 redirect_stderr,
             );
 
