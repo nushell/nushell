@@ -124,11 +124,6 @@ fn glob_ignore_files() {
 // clone of fs::create_file_at removing the parent panic, whose purpose I do not grok.
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let full_path = full_path.as_ref();
-
-    //if full_path.parent().is_some() {
-    //    panic!("path exists");
-    //}
-
     std::fs::write(full_path, b"fake data")
 }
 
