@@ -144,7 +144,7 @@ impl SyntaxShape {
             SyntaxShape::Closure(_) => Type::Closure,
             SyntaxShape::Binary => Type::Binary,
             SyntaxShape::CellPath => Type::Any,
-            SyntaxShape::CompleterWrapper(custom, _) => custom.to_type(),
+            SyntaxShape::CompleterWrapper(inner, _) => inner.to_type(),
             SyntaxShape::DateTime => Type::Date,
             SyntaxShape::Duration => Type::Duration,
             SyntaxShape::Expression => Type::Any,
