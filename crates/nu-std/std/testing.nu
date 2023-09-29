@@ -22,51 +22,31 @@ def valid-annotations [] {
 }
 
 # Returns a table containing the list of function names together with their annotations (comments above the declaration)
-#
-# The way this works is we first generate an ast for a file and then extract all tokens containing keyword def with internalcall shape
-# Then for each token we extract the next token (the actual function name) and the previous token (usually closing bracket of previous function)
-# We then open the file as raw text and extract the last line of substring starting from the span end of previous token up to span start of the def token which contains the annotation and surrounding whitespaces
-# We take the last line only in order to not pick up unrelated comments from the source code
 def get-annotated [
     file: path
-] {
-    let raw_file = (open $file)
-
-    let ast = (
-        ^$nu.current-exe --no-config-file --no-std-lib --ide-ast $file
-        | from json
+] path -> table<function_name: string, annotation: string> {
+    let raw_file = (
+        open $file
+        | lines
         | enumerate
         | flatten
     )
 
-    $ast
-    | where content == def and shape == shape_internalcall
-    | insert function_name {|x|
-        $ast
-        | get ($x.index + 1)
-        | get content
-    }
+    $raw_file
+    | where item starts-with def and index > 0
     | insert annotation {|x|
-        # index == 0 means the function is defined on the first lines of the file in which case there will be no preceding tokens
-        if $x.index > 0 {
-            let preceding_span = (
-                $ast
-                | get ($x.index - 1)
-                | get span
-            )
-            $raw_file
-            | str substring $preceding_span.end..$x.span.start
-            | lines
-            | where $it != ''
-            | last
-            | str trim
-            | str join (char nl)
-        } else {
-            ''
-        }
+        $raw_file
+        | get ($x.index - 1)
+        | get item
+        | str trim
     }
-    | select function_name annotation
-
+    | where annotation in (valid-annotations|columns)
+    | reject index
+    | update item {
+        split column -c ' '
+        | get column2.0
+    }
+    | rename function_name
 }
 
 # Takes table of function names and their annotations such as the one returned by get-annotated
@@ -75,7 +55,7 @@ def get-annotated [
 # Annotations that allow multiple functions are of type list<string>
 # Other annotations are of type string
 # Result gets merged with the template record so that the output shape remains consistent regardless of the table content
-def create-test-record [] {
+def create-test-record [] nothing -> record<before-each: string, after-each: string, before-all: string, after-all: string, test: list<string>, test-skip: list<string>> {
     let input = $in
 
     let template_record = {
@@ -88,7 +68,6 @@ def create-test-record [] {
 
     let test_record = (
         $input
-        | where annotation in (valid-annotations|columns)
         | update annotation {|x|
             valid-annotations
             | get $x.annotation
@@ -206,7 +185,7 @@ export def ($test_function_name) [] {
 def run-tests-for-module [
     module: record<file: path name: string before-each: string after-each: string before-all: string after-all: string test: list test-skip: list>
     threads: int
-] {
+] -> table<file: path, name: string, test: string, result: string> {
     let global_context = if not ($module.before-all|is-empty) {
             log info $"Running before-all for module ($module.name)"
             run-test {
@@ -354,11 +333,14 @@ export def run-tests [
 
     let modules = (
         ls ($path | path join $module_search_pattern)
-        | par-each --threads $threads {|row| {file: $row.name name: ($row.name | path parse | get stem)}}
-        | insert commands {|module|
-            get-annotated $module.file
+        | par-each --threads $threads {|row|
+            {
+                file: $row.name
+                name: ($row.name | path parse | get stem)
+                commands: (get-annotated $row.name)
+            }
         }
-        | filter {|x| ($x.commands|length) > 0 and ($x.commands.annotation|any {|y| $y in (valid-annotations|columns)})} # if file has no private functions at all or no functions annotated with a valid annotation we drop it
+        | filter {|x| ($x.commands|length) > 0}
         | upsert commands {|module|
             $module.commands
             | create-test-record
