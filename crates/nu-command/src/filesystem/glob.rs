@@ -123,7 +123,7 @@ impl Command for Glob {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax/blob/master/README.md"#
+        r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
     }
 
     fn run(
