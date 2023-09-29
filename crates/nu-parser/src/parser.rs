@@ -2696,7 +2696,15 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
-//TODO: Handle error case for unknown shapes
+/// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
+/// Also handles the specification of custom completions with `type@completer`.
+///
+/// Used in:
+/// - `: ` argument type (+completer) positions in signatures
+/// - `type->type` input/output type pairs
+/// - `let name: type` variable type infos
+///
+/// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
@@ -2757,6 +2765,7 @@ pub fn parse_shape_name(
                     return shape;
                 }
             } else {
+                //TODO: Handle error case for unknown shapes
                 working_set.error(ParseError::UnknownType(span));
                 return SyntaxShape::Any;
             }
