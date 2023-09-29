@@ -8,7 +8,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use super::{partial_from, prepend_base_dir, SortBy};
+use super::SortBy;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 
@@ -33,11 +33,10 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = self.engine_state.current_work_dir();
         let partial = String::from_utf8_lossy(&prefix).to_string();
 
         // Filter only the folders
-        let output: Vec<_> = directory_completion(span, &partial, &cwd, options)
+        let output: Vec<_> = directory_completion(span, &partial, None, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -105,66 +104,97 @@ impl Completer for DirectoryCompletion {
     }
 }
 
+pub fn plain_listdir(source: &str) -> Vec<String> {
+    let mut completions = vec![];
+
+    if let Ok(result) = Path::new(source).read_dir() {
+        for entry in result.filter_map(|e| e.ok()) {
+            let mut path = entry.path().to_string_lossy().into_owned();
+            if entry.path().is_dir() {
+                path.push(SEP);
+                completions.push(escape_path(path));
+            }
+        }
+    }
+    completions
+}
+
 pub fn directory_completion(
     span: nu_protocol::Span,
     partial: &str,
-    cwd: &str,
+    maybe_cwd: Option<&str>,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let original_input = partial;
+    let mut original_path = Path::new(partial);
 
-    let (base_dir_name, partial) = partial_from(partial);
+    let cwd = match maybe_cwd {
+        Some(cwd) => cwd,
+        None => {
+            let mut alt_cwd = ".";
+            if original_path.is_relative() {
+                if original_path.starts_with("..") {
+                    original_path = original_path.strip_prefix("..").unwrap_or(original_path);
+                    alt_cwd = "..";
+                }
 
-    let base_dir = nu_path::expand_path_with(&base_dir_name, cwd);
+                if original_path.starts_with(".") {
+                    original_path = original_path.strip_prefix(".").unwrap_or(original_path);
+                }
+            } else {
+                original_path = original_path.strip_prefix("/").unwrap_or(original_path);
+                alt_cwd = "/";
+            }
+            alt_cwd
+        }
+    };
 
-    // This check is here as base_dir.read_dir() with base_dir == "" will open the current dir
-    // which we don't want in this case (if we did, base_dir would already be ".")
-    if base_dir == Path::new("") {
-        return Vec::new();
+    if partial.ends_with(SEP) && Path::new(partial).exists() {
+        plain_listdir(partial)
+    } else {
+        complete_rec(&original_path.to_string_lossy(), Path::new(cwd), options)
     }
+    .into_iter()
+    .map(|f| (span, f))
+    .collect()
+}
 
-    if let Ok(result) = base_dir.read_dir() {
-        return result
-            .filter_map(|entry| {
-                entry.ok().and_then(|entry| {
-                    if let Ok(metadata) = fs::metadata(entry.path()) {
-                        if metadata.is_dir() {
-                            let mut file_name = entry.file_name().to_string_lossy().into_owned();
-                            if matches(&partial, &file_name, options) {
-                                let mut path = if prepend_base_dir(original_input, &base_dir_name) {
-                                    format!("{base_dir_name}{file_name}")
-                                } else {
-                                    file_name.to_string()
-                                };
+fn escape_path(path: String) -> String {
+    if path.contains(['\'', '"', ' ', '#']) {
+        format!("`{path}`")
+    } else {
+        path
+    }
+}
 
-                                if entry.path().is_dir() {
-                                    path.push(SEP);
-                                    file_name.push(SEP);
-                                }
+fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<String> {
+    let (base, trail) = match partial.split_once(SEP) {
+        Some((base, trail)) => (base, trail),
+        None => (partial, ""),
+    };
 
-                                // Fix files or folders with quotes or hash
-                                if path.contains('\'')
-                                    || path.contains('"')
-                                    || path.contains(' ')
-                                    || path.contains('#')
-                                {
-                                    path = format!("`{path}`");
-                                }
+    let mut completions = vec![];
 
-                                Some((span, path))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
+    if let Ok(result) = cwd.read_dir() {
+        for entry in result
+            .filter_map(|e| e.ok())
+            .filter(|e| fs::metadata(e.path()).map(|e| e.is_dir()).unwrap_or(false))
+        {
+            let entry_name = entry.file_name().to_string_lossy().into_owned();
+            if matches(base, &entry_name, options) {
+                if entry.path().is_dir() {
+                    if trail.is_empty() {
+                        let mut path = entry.path().to_string_lossy().into_owned();
+                        path.push(SEP);
+                        completions.push(escape_path(path));
                     } else {
-                        None
+                        completions.extend(complete_rec(trail, &entry.path(), options));
                     }
-                })
-            })
-            .collect();
+                }
+            }
+        }
+        if completions.is_empty() && trail.is_empty() {
+            completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
+        }
     }
-
-    Vec::new()
+    completions
 }

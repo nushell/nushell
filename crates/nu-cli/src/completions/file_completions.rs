@@ -32,9 +32,8 @@ impl Completer for FileCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let cwd = self.engine_state.current_work_dir();
         let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(span, &prefix, &cwd, options)
+        let output: Vec<_> = file_path_completion(span, &prefix, None, options)
             .into_iter()
             .map(move |x| Suggestion {
                 value: x.1,
@@ -118,29 +117,16 @@ pub fn partial_from(input: &str) -> (String, String) {
 
 // Fix files or folders with quotes or hashes
 fn escape_path(path: String) -> String {
-    if path.contains('\'')
-        || path.contains('"')
-        || path.contains(' ')
-        || path.contains('#')
-        || path.contains('(')
-        || path.contains(')')
-        || path.starts_with('0')
-        || path.starts_with('1')
-        || path.starts_with('2')
-        || path.starts_with('3')
-        || path.starts_with('4')
-        || path.starts_with('5')
-        || path.starts_with('6')
-        || path.starts_with('7')
-        || path.starts_with('8')
-        || path.starts_with('9')
-    {
-        return format!("`{path}`");
+    if path.contains([
+        '\'', '"', ' ', '#', '(', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    ]) {
+        format!("`{path}`")
+    } else {
+        path
     }
-    path
 }
 
-fn complete_rec(partial: &str, cwd: &str, options: &CompletionOptions) -> Vec<String> {
+fn complete_rec(partial: &str, cwd: &Path, options: &CompletionOptions) -> Vec<String> {
     let (base, trail) = match partial.split_once(SEP) {
         Some((base, trail)) => (base, trail),
         None => (partial, ""),
@@ -148,26 +134,37 @@ fn complete_rec(partial: &str, cwd: &str, options: &CompletionOptions) -> Vec<St
 
     let mut completions = vec![];
 
-    let here = Path::new(cwd);
-    if let Ok(result) = here.read_dir() {
-        for entry in
-            result.filter_map(|e| e.ok().map(|e| e.file_name().to_string_lossy().into_owned()))
-        {
-            if matches(base, &entry, options) {
+    if let Ok(result) = cwd.read_dir() {
+        for entry in result.filter_map(|e| e.ok()) {
+            let entry_name = entry.file_name().to_string_lossy().into_owned();
+            if matches(base, &entry_name, options) {
                 if trail.is_empty() {
-                    let path = format!("{}{}{}", cwd, SEP, entry);
+                    let mut path = entry.path().to_string_lossy().into_owned();
+                    if entry.path().is_dir() {
+                        path.push(SEP);
+                    }
                     completions.push(escape_path(path));
-                } else {
-                    completions.extend(complete_rec(
-                        trail,
-                        &here.join(entry).to_string_lossy(),
-                        options,
-                    ));
+                } else if entry.path().is_dir() {
+                    completions.extend(complete_rec(trail, &entry.path(), options));
                 }
             }
         }
         if completions.is_empty() && trail.is_empty() {
-            let path = format!("{}{}{}", cwd, SEP, base);
+            completions.push(escape_path(cwd.join(base).to_string_lossy().into_owned()));
+        }
+    }
+    completions
+}
+
+pub fn plain_listdir(source: &str) -> Vec<String> {
+    let mut completions = vec![];
+
+    if let Ok(result) = Path::new(source).read_dir() {
+        for entry in result.filter_map(|e| e.ok()) {
+            let mut path = entry.path().to_string_lossy().into_owned();
+            if entry.path().is_dir() {
+                path.push(SEP);
+            }
             completions.push(escape_path(path));
         }
     }
@@ -177,28 +174,40 @@ fn complete_rec(partial: &str, cwd: &str, options: &CompletionOptions) -> Vec<St
 pub fn file_path_completion(
     span: nu_protocol::Span,
     partial: &str,
-    _cwd: &str,
+    maybe_cwd: Option<&str>,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
     let mut original_path = Path::new(partial);
-    let mut cwd = ".";
-    if original_path.is_relative() {
-        if original_path.starts_with("..") {
-            original_path = original_path.strip_prefix("..").unwrap_or(original_path);
-            cwd = "..";
-        }
 
-        if original_path.starts_with("..") {
-            original_path = original_path.strip_prefix("..").unwrap_or(original_path);
+    let cwd = match maybe_cwd {
+        Some(cwd) => cwd,
+        None => {
+            let mut alt_cwd = ".";
+            if original_path.is_relative() {
+                if original_path.starts_with("..") {
+                    original_path = original_path.strip_prefix("..").unwrap_or(original_path);
+                    alt_cwd = "..";
+                }
+
+                if original_path.starts_with(".") {
+                    original_path = original_path.strip_prefix(".").unwrap_or(original_path);
+                }
+            } else {
+                original_path = original_path.strip_prefix("/").unwrap_or(original_path);
+                alt_cwd = "/";
+            }
+            alt_cwd
         }
+    };
+
+    if partial.ends_with(SEP) && Path::new(partial).exists() {
+        plain_listdir(partial)
     } else {
-        original_path = original_path.strip_prefix("/").unwrap_or(original_path);
-        cwd = "/";
+        complete_rec(&original_path.to_string_lossy(), Path::new(cwd), options)
     }
-
-    let plain_completions = complete_rec(&original_path.to_string_lossy(), cwd, options);
-
-    plain_completions.into_iter().map(|f| (span, f)).collect()
+    .into_iter()
+    .map(|f| (span, f))
+    .collect()
 }
 
 pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
@@ -210,24 +219,4 @@ pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
     }
 
     options.match_algorithm.matches_str(from, partial)
-}
-
-/// Returns whether the base_dir should be prepended to the file path
-pub fn prepend_base_dir(input: &str, base_dir: &str) -> bool {
-    if base_dir == format!(".{SEP}") {
-        // if the current base_dir path is the local folder we only add a "./" prefix if the user
-        // input already includes a local folder prefix.
-        let manually_entered = {
-            let mut chars = input.chars();
-            let first_char = chars.next();
-            let second_char = chars.next();
-
-            first_char == Some('.') && second_char.map(is_separator).unwrap_or(false)
-        };
-
-        manually_entered
-    } else {
-        // always prepend the base dir if it is a subfolder
-        true
-    }
 }
