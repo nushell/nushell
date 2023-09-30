@@ -1,7 +1,4 @@
-use crate::completions::{
-    completion_common::{complete_rec, escape_path},
-    Completer, CompletionOptions,
-};
+use crate::completions::{completion_common::complete_item, Completer, CompletionOptions};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -123,61 +120,13 @@ pub fn partial_from(input: &str) -> (String, String) {
     (base.to_string(), rest.to_string())
 }
 
-pub fn plain_listdir(source: &str) -> Vec<String> {
-    let mut completions = vec![];
-
-    if let Ok(result) = Path::new(source).read_dir() {
-        for entry in result.filter_map(|e| e.ok()) {
-            let mut path = entry.path().to_string_lossy().into_owned();
-            if entry.path().is_dir() {
-                path.push(SEP);
-            }
-            completions.push(escape_path(path, false));
-        }
-    }
-    completions
-}
-
 pub fn file_path_completion(
     span: nu_protocol::Span,
-    mut partial: &str,
+    partial: &str,
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    if cfg!(target_os = "windows") {
-        if let [_, ':'] = partial.chars().collect::<Vec<_>>()[..] {
-            return plain_listdir(&format!("{}{}", partial, SEP))
-                .into_iter()
-                .map(|f| (span, f))
-                .collect();
-        }
-    }
-
-    if partial.ends_with(SEP) && Path::new(partial).exists() {
-        plain_listdir(partial)
-    } else {
-        let mut original_cwd = cwd;
-        let mut cwd = Path::new(cwd);
-        if cfg!(target_os = "windows") {
-            match partial.chars().collect::<Vec<_>>()[..] {
-                [_, ':', s, ..] if s == SEP || s == '/' => {
-                    cwd = Path::new(&partial[0..3]);
-                    original_cwd = "";
-                    partial = &partial[3..];
-                }
-                ['/', ..] => {
-                    cwd = Path::new("/");
-                    original_cwd = "";
-                    partial = &partial[1..];
-                }
-                _ => {}
-            };
-        }
-        complete_rec(partial, cwd, original_cwd, options, false)
-    }
-    .into_iter()
-    .map(|f| (span, f))
-    .collect()
+    complete_item(false, span, partial, cwd, options)
 }
 
 pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
