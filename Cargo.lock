@@ -2422,12 +2422,24 @@ dependencies = [
 
 [[package]]
 name = "miette"
+version = "4.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c90329e44f9208b55f45711f9558cec15d7ef8295cc65ecd6d4188ae8edc58c"
+dependencies = [
+ "miette-derive 4.7.1",
+ "once_cell",
+ "thiserror",
+ "unicode-width",
+]
+
+[[package]]
+name = "miette"
 version = "5.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59bb584eaeeab6bd0226ccf3509a69d7936d148cf3d036ad350abe35e8c6856e"
 dependencies = [
  "is-terminal",
- "miette-derive",
+ "miette-derive 5.10.0",
  "once_cell",
  "owo-colors",
  "supports-color",
@@ -2437,6 +2449,17 @@ dependencies = [
  "textwrap",
  "thiserror",
  "unicode-width",
+]
+
+[[package]]
+name = "miette-derive"
+version = "4.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b5bc45b761bcf1b5e6e6c4128cd93b84c218721a8d9b894aa0aff4ed180174c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -2671,7 +2694,7 @@ dependencies = [
  "crossterm 0.27.0",
  "ctrlc",
  "log",
- "miette",
+ "miette 5.10.0",
  "mimalloc",
  "nix 0.27.0",
  "nu-ansi-term",
@@ -2728,7 +2751,7 @@ dependencies = [
  "fuzzy-matcher",
  "is_executable",
  "log",
- "miette",
+ "miette 5.10.0",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -2753,11 +2776,14 @@ name = "nu-cmd-base"
 version = "0.85.1"
 dependencies = [
  "indexmap 2.0.0",
- "miette",
+ "miette 5.10.0",
  "nu-engine",
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-test-support",
+ "rstest",
+ "wax",
 ]
 
 [[package]]
@@ -2864,7 +2890,7 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
- "miette",
+ "miette 5.10.0",
  "mime",
  "mime_guess",
  "mockito",
@@ -3032,7 +3058,7 @@ dependencies = [
  "fancy-regex",
  "indexmap 2.0.0",
  "lru",
- "miette",
+ "miette 5.10.0",
  "nu-path",
  "nu-system",
  "nu-test-support",
@@ -3051,7 +3077,7 @@ dependencies = [
 name = "nu-std"
 version = "0.85.1"
 dependencies = [
- "miette",
+ "miette 5.10.0",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -4396,9 +4422,9 @@ dependencies = [
 
 [[package]]
 name = "rstest"
-version = "0.18.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b96577ca10cb3eade7b337eb46520108a67ca2818a24d0b63f41fd62bc9651c"
+checksum = "97eeab2f3c0a199bc4be135c36c924b6590b88c377d416494288c14f2db30199"
 dependencies = [
  "futures",
  "futures-timer",
@@ -4408,9 +4434,9 @@ dependencies = [
 
 [[package]]
 name = "rstest_macros"
-version = "0.18.1"
+version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225e674cf31712b8bb15fdbca3ec0c1b9d825c5a24407ff2b7e005fb6a29ba03"
+checksum = "d428f8247852f894ee1be110b375111b586d4fa431f6c46e64ba5a0dcccbe605"
 dependencies = [
  "cfg-if",
  "glob",
@@ -5731,6 +5757,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 
 [[package]]
+name = "vec1"
+version = "1.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bda7c41ca331fe9a1c278a9e7ee055f4be7f5eb1c2b72f079b4ff8b5fce9d5c"
+
+[[package]]
 name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5864,12 +5896,14 @@ dependencies = [
  "bstr 0.2.17",
  "const_format",
  "itertools 0.10.5",
+ "miette 4.7.1",
  "nom",
  "nom-supreme",
  "pori",
  "regex",
  "smallvec",
  "thiserror",
+ "vec1",
  "walkdir",
 ]
 
