@@ -128,22 +128,40 @@ pub fn plain_listdir(source: &str) -> Vec<String> {
 
 pub fn directory_completion(
     span: nu_protocol::Span,
-    partial: &str,
+    mut partial: &str,
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
-    let original_path = Path::new(partial);
+    if cfg!(target_os = "windows") {
+        if let [_, ':'] = partial.chars().collect::<Vec<_>>()[..] {
+            return plain_listdir(&format!("{}{}", partial, SEP))
+                .into_iter()
+                .map(|f| (span, f))
+                .collect();
+        }
+    }
 
     if partial.ends_with(SEP) && Path::new(partial).exists() {
         plain_listdir(partial)
     } else {
-        complete_rec(
-            &original_path.to_string_lossy(),
-            Path::new(cwd),
-            cwd,
-            options,
-            true,
-        )
+        let mut original_cwd = cwd;
+        let mut cwd = Path::new(cwd);
+        if cfg!(target_os = "windows") {
+            match partial.chars().collect::<Vec<_>>()[..] {
+                [_, ':', s, ..] if s == SEP || s == '/' => {
+                    cwd = Path::new(&partial[0..3]);
+                    original_cwd = "";
+                    partial = &partial[3..];
+                }
+                ['/', ..] => {
+                    cwd = Path::new("/");
+                    original_cwd = "";
+                    partial = &partial[1..];
+                }
+                _ => {}
+            };
+        }
+        complete_rec(partial, cwd, original_cwd, options, true)
     }
     .into_iter()
     .map(|f| (span, f))
