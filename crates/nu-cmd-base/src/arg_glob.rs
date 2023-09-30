@@ -11,10 +11,10 @@ const FS_CMD_WALK_BEHAVIOR: WalkBehavior = WalkBehavior {
 
 // expand a glob into matching paths, using FS_CMD_WALK_BEHAVIOR
 //todo: see about returning WalkError or BuildError, or enabling miette and dealing with diagnostic
-pub fn arg_glob<'a>(
-    pattern: &'a Spanned<String>, // the glob
-    include_dirs: bool,           // include dirs in results.  Default (f) only include files
-    cwd: &PathBuf,                // current working directory
+pub fn arg_glob(
+    pattern: &Spanned<String>, // the glob
+    include_dirs: bool,        // include dirs in results.  Default (f) only include files
+    cwd: &PathBuf,             // current working directory
 ) -> Result<Vec<PathBuf>, ShellError> {
     let (prefix, glob) = match Glob::new(&pattern.item) {
         Ok(p) => p.partition(),
@@ -63,7 +63,7 @@ mod test {
     fn does_something() {
         let act = arg_glob(&test_glob("*"), true, &PathBuf::from("."));
         assert!(act.is_ok());
-        assert!(act.expect("was OK").len() > 0)
+        assert!(!act.expect("was OK").is_empty())
     }
 
     #[test]
@@ -95,7 +95,7 @@ mod test {
                 EmptyFile("trish.txt"),
             ]);
 
-            let res = arg_glob(&test_glob(pat), with_dirs, &dirs.test.into()).expect("no error");
+            let res = arg_glob(&test_glob(pat), with_dirs, &dirs.test).expect("no error");
 
             assert_eq!(exp_count, res.len(), "Expected : Actual");
         })
