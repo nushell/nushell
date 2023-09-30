@@ -197,8 +197,8 @@ impl<'a> RecordView<'a> {
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
-            Orientation::Top | Orientation::Bottom => (row, column),
-            Orientation::Left | Orientation::Right => (column, row),
+            Orientation::Top => (row, column),
+            Orientation::Left => (column, row),
         };
 
         layer.records[row][column].clone()
@@ -227,11 +227,11 @@ impl<'a> RecordView<'a> {
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
-            Orientation::Top | Orientation::Bottom => {
+            Orientation::Top => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
 
-            Orientation::Left | Orientation::Right => {
+            Orientation::Left => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
         }
@@ -350,9 +350,7 @@ impl View for RecordView<'_> {
             if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
                 let orientation = match orientation.as_str() {
                     "left" => Some(Orientation::Left),
-                    "right" => Some(Orientation::Right),
                     "top" => Some(Orientation::Top),
-                    "bottom" => Some(Orientation::Bottom),
                     _ => None,
                 };
 
@@ -375,9 +373,8 @@ fn get_element_info(
 ) -> Option<&ElementInfo> {
     let with_head = with_head as usize;
     let index = match orientation {
-        Orientation::Top | Orientation::Bottom => column * (count_rows + with_head) + row + 1,
+        Orientation::Top => column * (count_rows + with_head) + row + 1,
         Orientation::Left => (column + with_head) * count_rows + row,
-        Orientation::Right => column * count_rows + row,
     };
 
     layout.data.get(index)
@@ -424,15 +421,15 @@ impl<'a> RecordLayer<'a> {
 
     fn count_rows(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.records.len(),
-            Orientation::Left | Orientation::Right => self.columns.len(),
+            Orientation::Top => self.records.len(),
+            Orientation::Left => self.columns.len(),
         }
     }
 
     fn count_columns(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.columns.len(),
-            Orientation::Left | Orientation::Right => self.records.len(),
+            Orientation::Top => self.columns.len(),
+            Orientation::Left => self.records.len(),
         }
     }
 

@@ -31,12 +31,11 @@ pub struct TableW<'a> {
     style_computer: &'a StyleComputer<'a>,
 }
 
+// Basically: where's the header of the value being displayed? Usually at the top for tables, on the left for records
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Orientation {
     Top,
-    Bottom,
     Left,
-    Right,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -99,7 +98,7 @@ impl StatefulWidget for TableW<'_> {
             return;
         }
 
-        let is_horizontal = matches!(self.head_position, Orientation::Top | Orientation::Bottom);
+        let is_horizontal = matches!(self.head_position, Orientation::Top);
         if is_horizontal {
             self.render_table_horizontal(area, buf, state);
         } else {
@@ -126,39 +125,19 @@ impl<'a> TableW<'a> {
         let mut data_y = area.y;
         let mut head_y = area.y;
 
-        let is_head_top = matches!(self.head_position, Orientation::Top);
-        let is_head_bottom = matches!(self.head_position, Orientation::Bottom);
-
         if show_head {
-            if is_head_top {
+            data_y += 1;
+            data_height -= 1;
+
+            if self.style.header_top {
                 data_y += 1;
                 data_height -= 1;
-
-                if self.style.header_top {
-                    data_y += 1;
-                    data_height -= 1;
-                    head_y += 1
-                }
-
-                if self.style.header_bottom {
-                    data_y += 1;
-                    data_height -= 1;
-                }
+                head_y += 1
             }
 
-            if is_head_bottom {
+            if self.style.header_bottom {
+                data_y += 1;
                 data_height -= 1;
-                head_y = area.y + data_height;
-
-                if self.style.header_top && self.style.header_bottom {
-                    data_height -= 2;
-                    head_y -= 1
-                } else if self.style.header_top {
-                    data_height -= 1;
-                } else if self.style.header_bottom {
-                    data_height -= 1;
-                    head_y -= 1
-                }
             }
         }
 
@@ -178,12 +157,7 @@ impl<'a> TableW<'a> {
             let bottom = self.style.header_bottom;
 
             if top || bottom {
-                if is_head_top {
-                    render_header_borders(buf, area, 1, splitline_s, top, bottom);
-                } else if is_head_bottom {
-                    let area = Rect::new(area.x, area.y + data_height, area.width, area.height);
-                    render_header_borders(buf, area, 1, splitline_s, top, bottom);
-                }
+                render_header_borders(buf, area, 1, splitline_s, top, bottom);
             }
         }
 
@@ -199,10 +173,9 @@ impl<'a> TableW<'a> {
             );
 
             if self.style.index_line {
-                let head_t = show_head && is_head_top && self.style.header_bottom;
-                let head_b = show_head && is_head_bottom && self.style.header_top;
+                let head_t = show_head && self.style.header_bottom;
                 width +=
-                    render_vertical(buf, width, data_y, data_height, head_t, head_b, splitline_s);
+                    render_vertical(buf, width, data_y, data_height, head_t, false, splitline_s);
             }
         }
 
@@ -292,9 +265,8 @@ impl<'a> TableW<'a> {
         }
 
         if self.style.shift_line && width < area.width {
-            let head_t = show_head && is_head_top && self.style.header_bottom;
-            let head_b = show_head && is_head_bottom && self.style.header_top;
-            width += render_vertical(buf, width, data_y, data_height, head_t, head_b, splitline_s);
+            let head_t = show_head && self.style.header_bottom;
+            width += render_vertical(buf, width, data_y, data_height, head_t, false, splitline_s);
         }
 
         let rest = area.width.saturating_sub(width);
@@ -321,11 +293,7 @@ impl<'a> TableW<'a> {
         let splitline_s = self.style.splitline_style;
         let shift_column_s = self.style.shift_line_style;
 
-        let is_head_left = matches!(self.head_position, Orientation::Left);
-        let is_head_right = matches!(self.head_position, Orientation::Right);
-
         let mut left_w = 0;
-        let mut right_w = 0;
 
         if show_index {
             let area = Rect::new(area.x, area.y, area.width, area.height);
@@ -363,52 +331,29 @@ impl<'a> TableW<'a> {
                 .map(|s| head_row_text(s, self.style_computer))
                 .collect::<Vec<_>>();
 
-            if is_head_left {
-                let have_index_line = show_index && self.style.index_line;
-                if !have_index_line && self.style.header_top {
-                    let x = area.x + left_w;
-                    left_w +=
-                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-                }
-
+            let have_index_line = show_index && self.style.index_line;
+            if !have_index_line && self.style.header_top {
                 let x = area.x + left_w;
-                left_w += render_space(buf, x, area.y, 1, padding_cell_l);
+                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
+            }
+
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, 1, padding_cell_l);
+            let x = area.x + left_w;
+            left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
+            let x = area.x + left_w;
+            left_w += render_space(buf, x, area.y, 1, padding_cell_r);
+
+            let layout_x = left_w - padding_cell_r - columns_width as u16;
+            for (i, (text, _)) in columns.iter().enumerate() {
+                state
+                    .layout
+                    .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
+            }
+
+            if self.style.header_bottom {
                 let x = area.x + left_w;
-                left_w += render_column(buf, x, area.y, columns_width as u16, &columns);
-                let x = area.x + left_w;
-                left_w += render_space(buf, x, area.y, 1, padding_cell_r);
-
-                let layout_x = left_w - padding_cell_r - columns_width as u16;
-                for (i, (text, _)) in columns.iter().enumerate() {
-                    state
-                        .layout
-                        .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
-                }
-
-                if self.style.header_bottom {
-                    let x = area.x + left_w;
-                    left_w +=
-                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-                }
-            } else if is_head_right {
-                if self.style.header_bottom {
-                    let x = area.x + area.width - 1;
-                    right_w +=
-                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-                }
-
-                let x = area.x + area.width - right_w - padding_cell_r;
-                right_w += render_space(buf, x, area.y, 1, padding_cell_r);
-                let x = area.x + area.width - right_w - columns_width as u16;
-                right_w += render_column(buf, x, area.y, columns_width as u16, &columns);
-                let x = area.x + area.width - right_w - padding_cell_l;
-                right_w += render_space(buf, x, area.y, 1, padding_cell_l);
-
-                if self.style.header_top {
-                    let x = area.x + area.width - right_w - 1;
-                    right_w +=
-                        render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-                }
+                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
             }
         }
 
@@ -426,7 +371,7 @@ impl<'a> TableW<'a> {
             }
 
             let column_width = column_width as u16;
-            let available = area.width - left_w - right_w;
+            let available = area.width - left_w;
             let is_last = col + 1 == self.data.len();
             let pad = padding_cell_l + padding_cell_r;
             let (column_width, ok, shift) =

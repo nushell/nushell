@@ -103,6 +103,7 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
+mod unfold;
 mod uniq;
 mod uniq_by;
 mod update;
