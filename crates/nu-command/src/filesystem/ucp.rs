@@ -1,21 +1,16 @@
-use nu_engine::CallExt;
-use nu_path::expand_to_real_path;
+use nu_cmd_base::arg_glob::arg_glob;
+use nu_engine::{current_dir, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+
 use std::path::PathBuf;
 use uu_cp::{BackupMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[cfg(not(target_os = "windows"))]
 const PATH_SEPARATOR: &str = "/";
@@ -155,31 +150,19 @@ impl Command for UCp {
             ));
         };
         // paths now contains the sources
-        let sources: Vec<Vec<PathBuf>> = paths
-            .iter()
-            .map(|p| {
-                // Need to expand too make it work with globbing
-                let expanded_src = expand_to_real_path(&p.item);
-                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => {
-                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(p.span));
-                        }
-                        Ok(f)
-                    }
-                    Err(e) => Err(ShellError::GenericError(
-                        e.to_string(),
-                        "invalid pattern".to_string(),
-                        Some(p.span),
-                        None,
-                        Vec::new(),
-                    )),
-                }
-            })
-            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
 
-        let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
+        let cwd = current_dir(engine_state, stack)?;
+
+        let mut sources: Vec<PathBuf> = Vec::new();
+
+        for p in paths {
+            let mut exp_files = arg_glob(&p, true, &cwd)?;
+            if exp_files.is_empty() {
+                return Err(ShellError::FileNotFound(p.span));
+            }
+            sources.append(&mut exp_files);
+        }
+
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,

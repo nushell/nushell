@@ -1,7 +1,7 @@
 // utilities for expanding globs in command arguments
 use nu_protocol::{ShellError, Spanned};
-use std::path::{Path, PathBuf};
-use wax::{Glob, LinkBehavior, WalkBehavior, WalkError};
+use std::path::PathBuf;
+use wax::{Glob, LinkBehavior, WalkBehavior};
 
 // standard glob options to use for filesystem command arguments
 const FS_CMD_WALK_BEHAVIOR: WalkBehavior = WalkBehavior {
@@ -28,10 +28,7 @@ pub fn arg_glob<'a>(
         Err(e) if e.to_string().contains("os error 2") =>
         // path we're trying to glob doesn't exist,
         {
-            return Err(ShellError::InvalidGlobPattern(
-                "Directory not found".to_string(),
-                pattern.span,
-            ))
+            PathBuf::new() // ensure glob doesn't match anything
         }
         Err(e) => return Err(ShellError::ErrorExpandingGlob(format!("{e}"), pattern.span)),
     };

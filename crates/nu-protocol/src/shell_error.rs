@@ -1137,7 +1137,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Invalid glob pattern")]
     #[diagnostic(
         code(nu::shell::invalid_glob_pattern),
-        help("Refer to xxx for help on wax glob patterns.")
+        help("Refer to https://docs.rs/crate/wax/latest for help on glob patterns.")
     )]
     InvalidGlobPattern(String, #[label = "Error {0} in glob pattern."] Span),
 
@@ -1152,10 +1152,7 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         help("Correct glob pattern or file access issue")
     )]
     //todo: add error detail
-    ErrorExpandingGlob(
-        String,
-        #[label = "Error {0} while expanding glob pattern"] Span,
-    ),
+    ErrorExpandingGlob(String, #[label = "{0}"] Span),
 }
 
 // TODO: Implement as From trait
