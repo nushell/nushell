@@ -44,10 +44,6 @@ pub struct TableStyle {
     pub shift_line_style: NuStyle,
     pub show_index: bool,
     pub show_header: bool,
-    pub header_top: bool,
-    pub header_bottom: bool,
-    pub shift_line: bool,
-    pub index_line: bool,
     pub padding_index_left: usize,
     pub padding_index_right: usize,
     pub padding_column_left: usize,
@@ -129,16 +125,14 @@ impl<'a> TableW<'a> {
             data_y += 1;
             data_height -= 1;
 
-            if self.style.header_top {
-                data_y += 1;
-                data_height -= 1;
-                head_y += 1
-            }
+            // top line
+            data_y += 1;
+            data_height -= 1;
+            head_y += 1;
 
-            if self.style.header_bottom {
-                data_y += 1;
-                data_height -= 1;
-            }
+            // bottom line
+            data_y += 1;
+            data_height -= 1;
         }
 
         if area.width == 0 || area.height == 0 {
@@ -152,13 +146,7 @@ impl<'a> TableW<'a> {
         }
 
         if show_head {
-            // fixme: color from config
-            let top = self.style.header_top;
-            let bottom = self.style.header_bottom;
-
-            if top || bottom {
-                render_header_borders(buf, area, 1, splitline_s, top, bottom);
-            }
+            render_header_borders(buf, area, 1, splitline_s);
         }
 
         if show_index {
@@ -172,11 +160,15 @@ impl<'a> TableW<'a> {
                 padding_index_r,
             );
 
-            if self.style.index_line {
-                let head_t = show_head && self.style.header_bottom;
-                width +=
-                    render_vertical(buf, width, data_y, data_height, head_t, false, splitline_s);
-            }
+            width += render_vertical(
+                buf,
+                width,
+                data_y,
+                data_height,
+                show_head,
+                false,
+                splitline_s,
+            );
         }
 
         let mut do_render_shift_column = false;
@@ -252,21 +244,22 @@ impl<'a> TableW<'a> {
             }
         }
 
-        if do_render_shift_column {
-            // we actually want to show a shift only in header.
-            //
-            // render_shift_column(buf, used_width, head_offset, available_height);
-
-            if show_head {
-                width += render_space(buf, width, data_y, data_height, padding_cell_l);
-                width += render_shift_column(buf, width, head_y, 1, shift_column_s);
-                width += render_space(buf, width, data_y, data_height, padding_cell_r);
-            }
+        if do_render_shift_column && show_head {
+            width += render_space(buf, width, data_y, data_height, padding_cell_l);
+            width += render_shift_column(buf, width, head_y, 1, shift_column_s);
+            width += render_space(buf, width, data_y, data_height, padding_cell_r);
         }
 
-        if self.style.shift_line && width < area.width {
-            let head_t = show_head && self.style.header_bottom;
-            width += render_vertical(buf, width, data_y, data_height, head_t, false, splitline_s);
+        if width < area.width {
+            width += render_vertical(
+                buf,
+                width,
+                data_y,
+                data_height,
+                show_head,
+                false,
+                splitline_s,
+            );
         }
 
         let rest = area.width.saturating_sub(width);
@@ -306,10 +299,15 @@ impl<'a> TableW<'a> {
                 padding_index_r,
             );
 
-            if self.style.index_line {
-                let x = area.x + left_w;
-                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-            }
+            left_w += render_vertical(
+                buf,
+                area.x + left_w,
+                area.y,
+                area.height,
+                false,
+                false,
+                splitline_s,
+            );
         }
 
         let mut columns = &self.columns[self.index_row..];
@@ -331,8 +329,7 @@ impl<'a> TableW<'a> {
                 .map(|s| head_row_text(s, self.style_computer))
                 .collect::<Vec<_>>();
 
-            let have_index_line = show_index && self.style.index_line;
-            if !have_index_line && self.style.header_top {
+            if !show_index {
                 let x = area.x + left_w;
                 left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
             }
@@ -351,10 +348,15 @@ impl<'a> TableW<'a> {
                     .push(text, layout_x, area.y + i as u16, columns_width as u16, 1);
             }
 
-            if self.style.header_bottom {
-                let x = area.x + left_w;
-                left_w += render_vertical(buf, x, area.y, area.height, false, false, splitline_s);
-            }
+            left_w += render_vertical(
+                buf,
+                area.x + left_w,
+                area.y,
+                area.height,
+                false,
+                false,
+                splitline_s,
+            );
         }
 
         let mut do_render_shift_column = false;
@@ -525,30 +527,12 @@ impl Widget for IndexColumn<'_> {
     }
 }
 
-fn render_header_borders(
-    buf: &mut Buffer,
-    area: Rect,
-    span: u16,
-    style: NuStyle,
-    top: bool,
-    bottom: bool,
-) -> (u16, u16) {
-    let mut i = 0;
-    let mut borders = Borders::NONE;
-    if top {
-        borders |= Borders::TOP;
-        i += 1;
-    }
-
-    if bottom {
-        borders |= Borders::BOTTOM;
-        i += 1;
-    }
-
+fn render_header_borders(buf: &mut Buffer, area: Rect, span: u16, style: NuStyle) -> (u16, u16) {
+    let borders = Borders::TOP | Borders::BOTTOM;
     let block = Block::default()
         .borders(borders)
         .border_style(nu_style_to_tui(style));
-    let height = i + span;
+    let height = span + 2;
     let area = Rect::new(area.x, area.y, area.width, height);
     block.render(area, buf);
 
