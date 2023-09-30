@@ -536,13 +536,7 @@ mod completer_tests {
         for (line, has_result, begins_with, expected_values) in dataset {
             let result = completer.completion_helper(line, line.len());
             // Test whether the result is empty or not
-            assert_eq!(
-                !result.is_empty(),
-                has_result,
-                "line: {}, results: {:?}",
-                line,
-                result
-            );
+            assert_eq!(!result.is_empty(), has_result, "line: {}", line);
 
             // Test whether the result begins with the expected value
             result
