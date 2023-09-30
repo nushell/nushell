@@ -105,7 +105,7 @@ impl Command for SubCommand {
                 result: Some(Value::filesize(2, Span::test_data())),
             },
             Example {
-                description: "Convert decimal to filesize",
+                description: "Convert float to filesize",
                 example: "8.3 | into filesize",
                 result: Some(Value::filesize(8, Span::test_data())),
             },

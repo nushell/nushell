@@ -75,10 +75,6 @@ impl<'a> RecordView<'a> {
         self.theme.cursor.selected_column = Some(style)
     }
 
-    pub fn show_cursor(&mut self, b: bool) {
-        self.theme.cursor.show_cursor = b;
-    }
-
     pub fn set_line_head_top(&mut self, b: bool) {
         self.theme.table.header_top = b;
     }
@@ -679,27 +675,33 @@ fn convert_records_to_string(
 }
 
 fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
+    // highlight selected column
     if let Some(style) = theme.selected_column {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
         f.render_widget(highlight_block.clone(), area);
     }
 
+    // highlight selected row
     if let Some(style) = theme.selected_row {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(area.x, info.area.y, area.width, 1);
         f.render_widget(highlight_block.clone(), area);
     }
 
-    if let Some(style) = theme.selected_cell {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    if theme.show_cursor {
-        f.set_cursor(info.area.x, info.area.y);
-    }
+    // highlight selected cell
+    let cell_style = match theme.selected_cell {
+        Some(s) => s,
+        None => {
+            let mut style = nu_ansi_term::Style::new();
+            // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
+            style.background = Some(nu_ansi_term::Color::LightBlue);
+            style
+        }
+    };
+    let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
+    let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
+    f.render_widget(highlight_block.clone(), area)
 }
 
 fn build_last_value(v: &RecordView) -> Value {
@@ -849,7 +851,6 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.cursor.selected_cell = colors.get("selected_cell").cloned();
     theme.cursor.selected_row = colors.get("selected_row").cloned();
     theme.cursor.selected_column = colors.get("selected_column").cloned();
-    theme.cursor.show_cursor = config_get_bool(config, "show_cursor", true);
 
     theme.table.header_top = config_get_bool(config, "line_head_top", true);
     theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
@@ -893,5 +894,4 @@ struct CursorStyle {
     selected_cell: Option<NuStyle>,
     selected_column: Option<NuStyle>,
     selected_row: Option<NuStyle>,
-    show_cursor: bool,
 }

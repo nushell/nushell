@@ -8,7 +8,7 @@ use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
@@ -48,7 +48,7 @@ pub trait PluginEncoder: Clone {
     ) -> Result<PluginResponse, ShellError>;
 }
 
-pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+pub(crate) fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
             let mut process = std::process::Command::new(shell);
@@ -124,7 +124,7 @@ pub(crate) fn call_plugin(
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
-    shell: &Option<PathBuf>,
+    shell: Option<&Path>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<PluginSignature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);

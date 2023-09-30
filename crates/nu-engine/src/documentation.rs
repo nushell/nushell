@@ -321,7 +321,7 @@ fn get_documentation(
 // document shape helps showing more useful information
 pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     match shape {
-        SyntaxShape::Custom(inner_shape, _) => *inner_shape,
+        SyntaxShape::CompleterWrapper(inner_shape, _) => *inner_shape,
         _ => shape,
     }
 }

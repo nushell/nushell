@@ -76,6 +76,7 @@ pub struct Config {
     pub table_move_header: bool,
     pub table_show_empty: bool,
     pub table_indent: TableIndent,
+    pub table_abbreviation_threshold: Option<usize>,
     pub use_ls_colors: bool,
     pub color_config: HashMap<String, Value>,
     pub use_grid_icons: bool,
@@ -97,7 +98,7 @@ pub struct Config {
     pub hooks: Hooks,
     pub rm_always_trash: bool,
     pub shell_integration: bool,
-    pub buffer_editor: String,
+    pub buffer_editor: Value,
     pub table_index_mode: TableIndexMode,
     pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
@@ -114,6 +115,7 @@ pub struct Config {
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
     pub error_style: String,
+    pub use_kitty_protocol: bool,
 }
 
 impl Default for Config {
@@ -134,6 +136,7 @@ impl Default for Config {
             trim_strategy: TRIM_STRATEGY_DEFAULT,
             table_move_header: false,
             table_indent: TableIndent { left: 1, right: 1 },
+            table_abbreviation_threshold: None,
 
             datetime_normal_format: None,
             datetime_table_format: None,
@@ -164,7 +167,7 @@ impl Default for Config {
             use_grid_icons: true,
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
-            buffer_editor: String::new(),
+            buffer_editor: Value::nothing(Span::unknown()),
             use_ansi_coloring: true,
             bracketed_paste: true,
             edit_mode: "emacs".into(),
@@ -178,6 +181,8 @@ impl Default for Config {
             keybindings: Vec::new(),
 
             error_style: "fancy".into(),
+
+            use_kitty_protocol: false,
         }
     }
 }
@@ -1023,6 +1028,17 @@ impl Value {
                                     "show_empty" => {
                                         try_bool!(cols, vals, index, span, table_show_empty)
                                     }
+                                    "abbreviated_row_count" => {
+                                        if let Ok(b) = value.as_int() {
+                                            if b < 0 {
+                                                invalid!(Some(span), "should be an int unsigned");
+                                            }
+
+                                            config.table_abbreviation_threshold = Some(b as usize);
+                                        } else {
+                                            invalid!(Some(span), "should be an int");
+                                        }
+                                    }
                                     x => {
                                         invalid_key!(
                                             cols,
@@ -1171,13 +1187,20 @@ impl Value {
                     "shell_integration" => {
                         try_bool!(cols, vals, index, span, shell_integration);
                     }
-                    "buffer_editor" => {
-                        if let Ok(v) = value.as_string() {
-                            config.buffer_editor = v.to_lowercase();
-                        } else {
-                            invalid!(Some(span), "should be a string");
+                    "buffer_editor" => match value {
+                        Value::Nothing { .. } | Value::String { .. } => {
+                            config.buffer_editor = value.clone();
                         }
-                    }
+                        Value::List { vals, .. }
+                            if vals.iter().all(|val| matches!(val, Value::String { .. })) =>
+                        {
+                            config.buffer_editor = value.clone();
+                        }
+                        _ => {
+                            dbg!(value);
+                            invalid!(Some(span), "should be a string, list<string>, or null");
+                        }
+                    },
                     "show_banner" => {
                         try_bool!(cols, vals, index, span, show_banner);
                     }
@@ -1186,6 +1209,9 @@ impl Value {
                     }
                     "bracketed_paste" => {
                         try_bool!(cols, vals, index, span, bracketed_paste);
+                    }
+                    "use_kitty_protocol" => {
+                        try_bool!(cols, vals, index, span, use_kitty_protocol);
                     }
                     // Menus
                     "menus" => match create_menus(value) {

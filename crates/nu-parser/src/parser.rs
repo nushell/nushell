@@ -17,7 +17,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, IN_VARIABLE_ID, NOTHING_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1425,6 +1425,21 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Expression 
             return garbage(span);
         }
     };
+    // Avoid calling sub-parsers on unmatched parens, to prevent quadratic time on things like ((((1..2))))
+    // No need to call the expensive parse_value on "((((1"
+    if dotdot_pos[0] > 0 {
+        let (_tokens, err) = lex(
+            &contents[..dotdot_pos[0]],
+            span.start,
+            &[],
+            &[b'.', b'?'],
+            true,
+        );
+        if let Some(_err) = err {
+            working_set.error(ParseError::Expected("Valid expression before ..", span));
+            return garbage(span);
+        }
+    }
 
     let (inclusion, range_op_str, range_op_span) = if let Some(pos) = token.find("..<") {
         if pos == range_op_pos {
@@ -1795,7 +1810,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
 
     if contents == b"$nothing" {
         return Expression {
-            expr: Expr::Nothing,
+            expr: Expr::Var(nu_protocol::NOTHING_VARIABLE_ID),
             span,
             ty: Type::Nothing,
             custom_completion: None,
@@ -2681,7 +2696,15 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
-//TODO: Handle error case for unknown shapes
+/// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
+/// Also handles the specification of custom completions with `type@completer`.
+///
+/// Used in:
+/// - `: ` argument type (+completer) positions in signatures
+/// - `type->type` input/output type pairs
+/// - `let name: type` variable type infos
+///
+/// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
@@ -2702,34 +2725,22 @@ pub fn parse_shape_name(
         b"bool" => SyntaxShape::Boolean,
         b"cell-path" => SyntaxShape::CellPath,
         b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
-        b"cond" => SyntaxShape::RowCondition,
-        // b"custom" => SyntaxShape::Custom(Box::new(SyntaxShape::Any), SyntaxShape::Int),
         b"datetime" => SyntaxShape::DateTime,
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
-        b"expr" => SyntaxShape::Expression,
-        b"float" | b"decimal" => SyntaxShape::Decimal,
+        b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
-        b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
         b"int" => SyntaxShape::Int,
-        b"import-pattern" => SyntaxShape::ImportPattern,
-        b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
-        b"math" => SyntaxShape::MathExpression,
         b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
-        b"one-of" => SyntaxShape::OneOf(vec![]),
-        b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
         _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
-        b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
-        b"variable" => SyntaxShape::Variable,
-        b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
             if bytes.contains(&b'@') {
                 let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
@@ -2748,12 +2759,13 @@ pub fn parse_shape_name(
                 let decl_id = working_set.find_decl(command_name);
 
                 if let Some(decl_id) = decl_id {
-                    return SyntaxShape::Custom(Box::new(shape), decl_id);
+                    return SyntaxShape::CompleterWrapper(Box::new(shape), decl_id);
                 } else {
                     working_set.error(ParseError::UnknownCommand(cmd_span));
                     return shape;
                 }
             } else {
+                //TODO: Handle error case for unknown shapes
                 working_set.error(ParseError::UnknownType(span));
                 return SyntaxShape::Any;
             }
@@ -3083,10 +3095,22 @@ pub fn parse_var_with_opt_type(
     if bytes.ends_with(b":") {
         // We end with colon, so the next span should be the type
         if *spans_idx + 1 < spans.len() {
+            let span_beginning = *spans_idx;
             *spans_idx += 1;
-            let type_bytes = working_set.get_span_contents(spans[*spans_idx]).to_vec();
+            // signature like record<a: int b: int> is broken into multiple spans due to
+            // whitespaces. Collect the rest into one span and work on it
+            let full_span = span(&spans[*spans_idx..]);
+            let type_bytes = working_set.get_span_contents(full_span).to_vec();
 
-            let ty = parse_type(working_set, &type_bytes, spans[*spans_idx]);
+            let (tokens, parse_error) =
+                lex_signature(&type_bytes, full_span.start, &[b','], &[], true);
+
+            if let Some(parse_error) = parse_error {
+                working_set.parse_errors.push(parse_error);
+            }
+
+            let ty = parse_type(working_set, &type_bytes, tokens[0].span);
+            *spans_idx += spans.len() - *spans_idx - 1;
 
             let var_name = bytes[0..(bytes.len() - 1)].to_vec();
 
@@ -3103,7 +3127,7 @@ pub fn parse_var_with_opt_type(
             (
                 Expression {
                     expr: Expr::VarDecl(id),
-                    span: span(&spans[*spans_idx - 1..*spans_idx + 1]),
+                    span: span(&spans[span_beginning..*spans_idx + 1]),
                     ty: ty.clone(),
                     custom_completion: None,
                 },
@@ -3200,7 +3224,7 @@ pub fn parse_input_output_types(
         full_span.end -= 1;
     }
 
-    let (tokens, parse_error) = lex(bytes, full_span.start, &[b','], &[], true);
+    let (tokens, parse_error) = lex_signature(bytes, full_span.start, &[b','], &[], true);
 
     if let Some(parse_error) = parse_error {
         working_set.parse_errors.push(parse_error);
@@ -3374,6 +3398,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::ArgMode;
+    let mut arg_explicit_type = false;
 
     for token in &output {
         match token {
@@ -3428,6 +3453,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             working_set.error(ParseError::Expected("default value", span));
                         }
                     }
+                    arg_explicit_type = false;
                 } else {
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
@@ -3703,13 +3729,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         *shape = syntax_shape;
                                     }
                                     Arg::Flag(Flag { arg, var_id, .. }) => {
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if syntax_shape != SyntaxShape::Boolean {
-                                            working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
-                                            *arg = Some(syntax_shape)
-                                        }
+                                        working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        *arg = Some(syntax_shape);
                                     }
                                 }
+                                arg_explicit_type = true;
                             }
                             parse_mode = ParseMode::ArgMode;
                         }
@@ -3732,10 +3756,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Any => {
-                                                working_set.set_variable_type(
-                                                    var_id,
-                                                    expression.ty.clone(),
-                                                );
+                                                if !arg_explicit_type {
+                                                    working_set.set_variable_type(
+                                                        var_id,
+                                                        expression.ty.clone(),
+                                                    );
+                                                }
                                             }
                                             _ => {
                                                 if !type_compatible(var_type, &expression.ty) {
@@ -3763,7 +3789,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             None
                                         };
 
-                                        *shape = expression.ty.to_shape();
+                                        if !arg_explicit_type {
+                                            *shape = expression.ty.to_shape();
+                                        }
                                         *required = false;
                                     }
                                     Arg::RestPositional(..) => {
@@ -3796,27 +3824,28 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with a boolean type are just present/not-present switches
-                                        if var_type != &Type::Bool {
-                                            match var_type {
-                                                Type::Any => {
+                                        // Flags with no TypeMode are just present/not-present switches
+                                        // in the case, `var_type` is any.
+                                        match var_type {
+                                            Type::Any => {
+                                                if !arg_explicit_type {
                                                     *arg = Some(expression_ty.to_shape());
                                                     working_set
                                                         .set_variable_type(var_id, expression_ty);
                                                 }
-                                                t => {
-                                                    if t != &expression_ty {
-                                                        working_set.error(
-                                                            ParseError::AssignmentMismatch(
-                                                                "Default value is the wrong type"
-                                                                    .into(),
-                                                                format!(
+                                            }
+                                            t => {
+                                                if !type_compatible(t, &expression_ty) {
+                                                    working_set.error(
+                                                        ParseError::AssignmentMismatch(
+                                                            "Default value is the wrong type"
+                                                                .into(),
+                                                            format!(
                                                             "expected default value to be `{t}`"
                                                                 ),
-                                                                expression_span,
-                                                            ),
-                                                        )
-                                                    }
+                                                            expression_span,
+                                                        ),
+                                                    )
                                                 }
                                             }
                                         }
@@ -4004,29 +4033,18 @@ fn parse_table_expression(working_set: &mut StateWorkingSet, span: Span) -> Expr
         working_set.error(err);
     }
 
-    let head = if let Some(first) = tokens.first() {
-        if working_set.get_span_contents(first.span).starts_with(b"[") {
-            parse_list_expression(working_set, first.span, &SyntaxShape::Any)
-        } else {
-            return parse_list_expression(working_set, span, &SyntaxShape::Any);
-        }
-    } else {
+    // Check that we have all arguments first, before trying to parse the first
+    // in order to avoid exponential parsing time
+    let [first, second, rest @ ..] = &tokens[..] else {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    if tokens
-        .get(1)
-        .filter(|second| second.contents == TokenContents::Semicolon)
-        .is_none()
+    if !working_set.get_span_contents(first.span).starts_with(b"[")
+        || second.contents != TokenContents::Semicolon
+        || rest.is_empty()
     {
         return parse_list_expression(working_set, span, &SyntaxShape::Any);
     };
-
-    let rest = &tokens[2..];
-    if rest.is_empty() {
-        return parse_list_expression(working_set, span, &SyntaxShape::Any);
-    }
-
+    let head = parse_list_expression(working_set, first.span, &SyntaxShape::Any);
     let head = {
         let Expression {
             expr: Expr::List(vals),
@@ -4648,13 +4666,13 @@ pub fn parse_value(
     }
 
     match shape {
-        SyntaxShape::Custom(shape, custom_completion) => {
+        SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
             expression.custom_completion = Some(*custom_completion);
             expression
         }
         SyntaxShape::Number => parse_number(working_set, span),
-        SyntaxShape::Decimal => parse_float(working_set, span),
+        SyntaxShape::Float => parse_float(working_set, span),
         SyntaxShape::Int => parse_int(working_set, span),
         SyntaxShape::Duration => parse_duration(working_set, span),
         SyntaxShape::DateTime => parse_datetime(working_set, span),
@@ -6097,7 +6115,9 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            if (*var_id > NOTHING_VARIABLE_ID || *var_id == IN_VARIABLE_ID)
+                && !seen.contains(var_id)
+            {
                 output.push((*var_id, expr.span));
             }
         }

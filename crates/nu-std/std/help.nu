@@ -100,7 +100,7 @@ def "nu-complete list-externs" [] {
 
 def build-help-header [
     text: string
-    --no-newline (-n): bool
+    --no-newline (-n)
 ] {
     let header = $"(ansi green)($text)(ansi reset):"
 

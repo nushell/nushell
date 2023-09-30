@@ -44,3 +44,14 @@ def path_add [] {
 def banner [] {
     std assert ((std banner | lines | length) == 15)
 }
+
+#[test]
+def repeat_things [] {
+    std assert error { "foo" | std repeat -1 }
+
+    for x in ["foo", [1 2], {a: 1}] {
+        std assert equal ($x | std repeat 0) []
+        std assert equal ($x | std repeat 1) [$x]
+        std assert equal ($x | std repeat 2) [$x $x]
+    }
+}

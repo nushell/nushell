@@ -135,12 +135,12 @@ fn converts_to_int() {
 }
 
 #[test]
-fn converts_to_decimal() {
+fn converts_to_float() {
     let actual = nu!(pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | into decimal
+            | into float
             | math sum
         "#
     ));

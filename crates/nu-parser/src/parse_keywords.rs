@@ -1943,7 +1943,10 @@ pub fn parse_module_file_or_dir(
         let mod_nu_path = module_path.clone().join("mod.nu");
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
-            working_set.error(ParseError::ModuleMissingModNuFile(path_span));
+            working_set.error(ParseError::ModuleMissingModNuFile(
+                module_path.path().to_string_lossy().to_string(),
+                path_span,
+            ));
             return None;
         }
 
@@ -2887,7 +2890,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     if !working_set
         .unique_overlay_names()
-        .contains(&overlay_name.as_bytes().to_vec())
+        .contains(&overlay_name.as_bytes())
     {
         working_set.error(ParseError::ActiveOverlayNotFound(overlay_name_span));
         return pipeline;
@@ -3595,13 +3598,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
         let signatures = signature.map_or_else(
             || {
-                let signatures = get_signature(&path, &shell, &current_envs).map_err(|err| {
-                    ParseError::LabeledError(
-                        "Error getting signatures".into(),
-                        err.to_string(),
-                        spans[0],
-                    )
-                });
+                let signatures =
+                    get_signature(&path, shell.as_deref(), &current_envs).map_err(|err| {
+                        ParseError::LabeledError(
+                            "Error getting signatures".into(),
+                            err.to_string(),
+                            spans[0],
+                        )
+                    });
 
                 if signatures.is_ok() {
                     // mark plugins file as dirty only when the user is registering plugins

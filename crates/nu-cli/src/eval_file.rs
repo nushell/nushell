@@ -2,7 +2,7 @@ use crate::util::eval_source;
 use log::info;
 use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_engine::eval_block_with_early_return;
+use nu_engine::eval_block;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
@@ -116,9 +116,8 @@ pub fn evaluate_file(
         if block.signature.name == "main" {
             block.signature.name = source_filename.to_string_lossy().to_string();
         } else if block.signature.name.starts_with("main ") {
-            block.signature.name = source_filename.to_string_lossy().to_string()
-                + " "
-                + &String::from_utf8_lossy(&block.signature.name.as_bytes()[5..]);
+            block.signature.name =
+                source_filename.to_string_lossy().to_string() + " " + &block.signature.name[5..];
         }
     }
 
@@ -127,14 +126,22 @@ pub fn evaluate_file(
     if engine_state.find_decl(b"main", &[]).is_some() {
         let args = format!("main {}", args.join(" "));
 
-        let pipeline_data = eval_block_with_early_return(
+        let pipeline_data = eval_block(
             engine_state,
             stack,
             &block,
             PipelineData::empty(),
             false,
             false,
-        )
+        );
+        let pipeline_data = match pipeline_data {
+            Err(ShellError::Return(_, _)) => {
+                // allows early exists before `main` is run.
+                return Ok(());
+            }
+
+            x => x,
+        }
         .unwrap_or_else(|e| {
             let working_set = StateWorkingSet::new(engine_state);
             report_error(&working_set, &e);

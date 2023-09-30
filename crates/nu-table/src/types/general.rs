@@ -3,7 +3,7 @@ use nu_engine::column::get_columns;
 use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
 
 use crate::{
-    clean_charset,
+    clean_charset, colorize_space,
     common::{
         create_nu_table_config, get_empty_style, get_header_style, get_index_style,
         get_value_style, NuText, INDEX_COLUMN_NAME,
@@ -29,6 +29,8 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
             let left = opts.config.table_indent.left;
             let right = opts.config.table_indent.right;
             out.table.set_indent(left, right);
+
+            colorize_space(out.table.get_records_mut(), opts.style_computer);
 
             let table_config =
                 create_nu_table_config(opts.config, opts.style_computer, &out, false);
@@ -56,6 +58,8 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
         row.push(key);
         row.push(value);
     }
+
+    colorize_space(&mut data, opts.style_computer);
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());

@@ -8,7 +8,7 @@ fn into_filesize_int() {
 }
 
 #[test]
-fn into_filesize_decimal() {
+fn into_filesize_float() {
     let actual = nu!("1.2 | into filesize");
 
     assert!(actual.out.contains("1 B"));

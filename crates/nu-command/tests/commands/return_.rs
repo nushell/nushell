@@ -23,3 +23,12 @@ fn return_works_in_script_without_def_main() {
 
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn return_works_in_script_with_def_main() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats",
+        pipeline("nu early_return_outside_main.nu")
+    );
+    assert!(actual.err.is_empty());
+}

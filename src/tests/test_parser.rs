@@ -440,7 +440,7 @@ fn string_escape_interpolation2() -> TestResult {
 #[test]
 fn proper_rest_types() -> TestResult {
     run_test(
-        r#"def foo [--verbose(-v): bool, # my test flag
+        r#"def foo [--verbose(-v), # my test flag
                    ...rest: int # my rest comment
                 ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
         "not verbose!",
@@ -453,6 +453,13 @@ fn single_value_row_condition() -> TestResult {
         r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
         "2",
     )
+}
+
+#[test]
+fn performance_nested_lists() -> TestResult {
+    // Parser used to be exponential on deeply nested lists
+    // TODO: Add a timeout
+    fail_test(r#"[[[[[[[[[[[[[[[[[[[[[[[[[[[["#, "Unexpected end of code")
 }
 
 #[test]
