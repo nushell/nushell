@@ -16,7 +16,18 @@ pub fn arg_glob(
     include_dirs: bool,        // include dirs in results.  Default (f) only include files
     cwd: &PathBuf,             // current working directory
 ) -> Result<Vec<PathBuf>, ShellError> {
-    let (prefix, glob) = match Glob::new(&pattern.item) {
+    // eventually, windows only, and with better performance
+    // transform something like: C:\Users\me\.../{abc,def}*.txt to C\:/Users/me/.../{abc,def}*.txt
+    // such a string has good chance of working as a rooted glob pattern on Windows
+    // User will have to quote metachars with [c] rather than \c.
+    let processed_pattern = pattern
+        .item
+        .replace('\\', "/")
+        .replace(r#":/"#, r#"\:/"#) // must come after above
+        .replace('(', r#"\("#) // when path includes Program Files (x86)
+        .replace(')', r#"\)"#);
+
+    let (prefix, glob) = match Glob::new(&processed_pattern) {
         Ok(p) => p.partition(),
         Err(e) => {
             return Err(ShellError::InvalidGlobPattern(e.to_string(), pattern.span));
@@ -76,6 +87,7 @@ mod test {
     #[rstest]
     #[case("*", false, 3, "no dirs")]
     #[case("*", true, 4, "incl dirs")]
+    #[case(r#"C:\Users\me\*"#, true, 0, "test windows transform")]
     fn glob_subdirs(
         #[case] pat: &str,
         #[case] with_dirs: bool,
