@@ -107,7 +107,7 @@ pub fn complete_item(
     if corrected_path.ends_with(SEP) && tilde_expanded.exists() {
         plain_listdir(
             want_directory,
-            &tilde_expanded.to_string_lossy().into_owned(),
+            &tilde_expanded.to_string_lossy(),
             tilde_exists,
         )
     } else {
