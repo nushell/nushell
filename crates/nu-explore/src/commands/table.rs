@@ -33,7 +33,6 @@ struct TableSettings {
     selected_cell_s: Option<Style>,
     selected_row_s: Option<Style>,
     selected_column_s: Option<Style>,
-    show_cursor: Option<bool>,
     padding_column_left: Option<usize>,
     padding_column_right: Option<usize>,
     padding_index_left: Option<usize>,
@@ -96,8 +95,6 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_bottom"),
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_shift"),
             ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
-
-            ConfigOption::boolean(":table group", "Show cursor", "table.show_cursor"),
 
             ConfigOption::new(":table group", "Color of selected cell", "table.selected_cell", default_color_list()),
             ConfigOption::new(":table group", "Color of selected row", "table.selected_row", default_color_list()),
@@ -162,10 +159,6 @@ impl ViewCommand for TableCmd {
 
         if self.settings.line_shift.unwrap_or(false) {
             view.set_line_trailing(true);
-        }
-
-        if self.settings.show_cursor.unwrap_or(false) {
-            view.show_cursor(true);
         }
 
         if let Some(style) = self.settings.selected_cell_s {

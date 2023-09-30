@@ -2696,7 +2696,15 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
-//TODO: Handle error case for unknown shapes
+/// Parse the literals of [`Type`]-like [`SyntaxShape`]s including inner types.
+/// Also handles the specification of custom completions with `type@completer`.
+///
+/// Used in:
+/// - `: ` argument type (+completer) positions in signatures
+/// - `type->type` input/output type pairs
+/// - `let name: type` variable type infos
+///
+/// NOTE: Does not provide a mapping to every [`SyntaxShape`]
 pub fn parse_shape_name(
     working_set: &mut StateWorkingSet,
     bytes: &[u8],
@@ -2717,34 +2725,22 @@ pub fn parse_shape_name(
         b"bool" => SyntaxShape::Boolean,
         b"cell-path" => SyntaxShape::CellPath,
         b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
-        b"cond" => SyntaxShape::RowCondition,
-        // b"custom" => SyntaxShape::Custom(Box::new(SyntaxShape::Any), SyntaxShape::Int),
         b"datetime" => SyntaxShape::DateTime,
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
         b"error" => SyntaxShape::Error,
-        b"expr" => SyntaxShape::Expression,
         b"float" => SyntaxShape::Float,
         b"filesize" => SyntaxShape::Filesize,
-        b"full-cell-path" => SyntaxShape::FullCellPath,
         b"glob" => SyntaxShape::GlobPattern,
         b"int" => SyntaxShape::Int,
-        b"import-pattern" => SyntaxShape::ImportPattern,
-        b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
         _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
-        b"math" => SyntaxShape::MathExpression,
         b"nothing" => SyntaxShape::Nothing,
         b"number" => SyntaxShape::Number,
-        b"one-of" => SyntaxShape::OneOf(vec![]),
-        b"operator" => SyntaxShape::Operator,
         b"path" => SyntaxShape::Filepath,
         b"range" => SyntaxShape::Range,
         _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
-        b"signature" => SyntaxShape::Signature,
         b"string" => SyntaxShape::String,
         _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
-        b"variable" => SyntaxShape::Variable,
-        b"var-with-opt-type" => SyntaxShape::VarWithOptType,
         _ => {
             if bytes.contains(&b'@') {
                 let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
@@ -2763,12 +2759,13 @@ pub fn parse_shape_name(
                 let decl_id = working_set.find_decl(command_name);
 
                 if let Some(decl_id) = decl_id {
-                    return SyntaxShape::Custom(Box::new(shape), decl_id);
+                    return SyntaxShape::CompleterWrapper(Box::new(shape), decl_id);
                 } else {
                     working_set.error(ParseError::UnknownCommand(cmd_span));
                     return shape;
                 }
             } else {
+                //TODO: Handle error case for unknown shapes
                 working_set.error(ParseError::UnknownType(span));
                 return SyntaxShape::Any;
             }
@@ -4669,7 +4666,7 @@ pub fn parse_value(
     }
 
     match shape {
-        SyntaxShape::Custom(shape, custom_completion) => {
+        SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
             expression.custom_completion = Some(*custom_completion);
             expression

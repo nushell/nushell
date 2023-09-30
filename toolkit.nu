@@ -34,27 +34,19 @@ export def fmt [
 export def clippy [
     --verbose # print extra information about the command's progress
     --features: list<string> # the list of features to run *Clippy* on
-    --workspace # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
-    try {
-        if $workspace {(
-            cargo clippy
-                --workspace
-            --
-                -D warnings
-                -D clippy::unwrap_used
-        )} else {(
-            cargo clippy
-                --features ($features | str join ",")
-            --
-                -D warnings
-                -D clippy::unwrap_used
-        )}
-    } catch {
+    try {(
+        cargo clippy
+            --workspace
+            --tests
+            --features ($features | str join ",")
+        --
+            -D warnings
+    )} catch {
         error make --unspanned {
             msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }

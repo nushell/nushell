@@ -171,12 +171,11 @@ impl Command for Open {
                         metadata: None,
                         trim_end_newline: false,
                     };
-
                     let ext = if raw {
                         None
                     } else {
                         path.extension()
-                            .map(|name| name.to_string_lossy().to_string())
+                            .map(|name| name.to_string_lossy().to_string().to_lowercase())
                     };
 
                     if let Some(ext) = ext {
