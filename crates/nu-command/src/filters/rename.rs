@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
@@ -5,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Rename;
@@ -22,7 +24,7 @@ impl Command for Rename {
             ])
             .named(
                 "column",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                SyntaxShape::Record(vec![]),
                 "column name to be changed",
                 Some('c'),
             )
@@ -76,7 +78,7 @@ impl Command for Rename {
             },
             Example {
                 description: "Rename a specific column",
-                example: "[[a, b, c]; [1, 2, 3]] | rename -c [a ham]",
+                example: "[[a, b, c]; [1, 2, 3]] | rename -c { a: ham }",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
@@ -111,34 +113,35 @@ fn rename(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let specified_column: Option<Vec<String>> = call.get_flag(engine_state, stack, "column")?;
-    // get the span for the column's name to be changed and for the given list
-    let column_flag: Option<Value> = call.get_flag(engine_state, stack, "column")?;
-    let (specified_col_span, list_span) = match column_flag {
-        Some(column_flag) => {
-            let column_span = column_flag.span();
-            match column_flag {
-                Value::List { vals: columns, .. } => {
-                    if columns.is_empty() {
-                        return Err(ShellError::TypeMismatch { err_message: "The column list cannot be empty and must contain only two values: the column's name and its replacement value"
-                        .to_string(), span: column_span });
-                    } else {
-                        (Some(columns[0].span()), column_span)
+    let specified_column: Option<Record> = call.get_flag(engine_state, stack, "column")?;
+    // convert from Record to HashMap for easily query.
+    let specified_column: Option<IndexMap<String, String>> = match specified_column {
+        Some(query) => {
+            let mut columns = IndexMap::new();
+            for (col, val) in query {
+                let val_span = val.span();
+                match val {
+                    Value::String { val, .. } => {
+                        columns.insert(col, val);
+                    }
+                    _ => {
+                        return Err(ShellError::TypeMismatch {
+                            err_message: "new column name must be a string".to_owned(),
+                            span: val_span,
+                        });
                     }
                 }
-                _ => (None, call.head),
             }
+            if columns.is_empty() {
+                return Err(ShellError::TypeMismatch {
+                    err_message: "The column info cannot be empty".to_owned(),
+                    span: call.head,
+                });
+            }
+            Some(columns)
         }
-        None => (None, call.head),
+        None => None,
     };
-
-    if let Some(ref cols) = specified_column {
-        if cols.len() != 2 {
-            return Err(ShellError::TypeMismatch { err_message: "The column list must contain only two values: the column's name and its replacement value"
-                        .to_string(), span: list_span });
-        }
-    }
-
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
     let block_info =
@@ -195,28 +198,31 @@ fn rename(
                         } else {
                             match &specified_column {
                                 Some(c) => {
-                                    // check if the specified column to be renamed exists
-                                    if !record.cols.contains(&c[0]) {
+                                    let mut column_to_rename: HashSet<String> = HashSet::from_iter(c.keys().cloned());
+                                    for val in record.cols.iter_mut() {
+                                        if c.contains_key(val) {
+                                            column_to_rename.remove(val);
+                                            *val = c.get(val).expect("already check exists").to_owned();
+                                        }
+                                    }
+                                    if !column_to_rename.is_empty() {
+                                        let not_exists_column =
+                                            column_to_rename.into_iter().next().expect(
+                                                "already checked column to rename still exists",
+                                            );
                                         return Value::error(
                                             ShellError::UnsupportedInput(
                                                 format!(
-                                                    "The column '{}' does not exist in the input",
-                                                    &c[0]
+                                                    "The column '{not_exists_column}' does not exist in the input",
                                                 ),
                                                 "value originated from here".into(),
                                                 // Arrow 1 points at the specified column name,
-                                                specified_col_span.unwrap_or(head_span),
+                                                head_span,
                                                 // Arrow 2 points at the input value.
                                                 span,
                                             ),
                                             span,
                                         );
-                                    }
-                                    for (idx, val) in record.cols.iter_mut().enumerate() {
-                                        if *val == c[0] {
-                                            record.cols[idx] = c[1].to_string();
-                                            break;
-                                        }
                                     }
                                 }
                                 None => {
