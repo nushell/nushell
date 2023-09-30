@@ -1,4 +1,7 @@
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::{complete_rec, escape_path},
+    Completer, CompletionOptions,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -120,53 +123,6 @@ pub fn partial_from(input: &str) -> (String, String) {
     (base.to_string(), rest.to_string())
 }
 
-// Fix files or folders with quotes or hashes
-fn escape_path(path: String) -> String {
-    if path.contains([
-        '\'', '"', ' ', '#', '(', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-    ]) {
-        format!("`{path}`")
-    } else {
-        path
-    }
-}
-
-fn complete_rec(
-    partial: &str,
-    cwd: &Path,
-    original_cwd: &str,
-    options: &CompletionOptions,
-) -> Vec<String> {
-    let (base, trail) = match partial.split_once(SEP) {
-        Some((base, trail)) => (base, trail),
-        None => (partial, ""),
-    };
-
-    let mut completions = vec![];
-
-    if let Ok(result) = cwd.read_dir() {
-        for entry in result.filter_map(|e| e.ok()) {
-            let entry_name = entry.file_name().to_string_lossy().into_owned();
-            if matches(base, &entry_name, options) {
-                if trail.is_empty() {
-                    let path = entry.path();
-                    let mut path_string = pathdiff::diff_paths(path.clone(), original_cwd)
-                        .unwrap_or(path)
-                        .to_string_lossy()
-                        .into_owned();
-                    if entry.path().is_dir() {
-                        path_string.push(SEP);
-                    }
-                    completions.push(escape_path(path_string));
-                } else if entry.path().is_dir() {
-                    completions.extend(complete_rec(trail, &entry.path(), original_cwd, options));
-                }
-            }
-        }
-    }
-    completions
-}
-
 pub fn plain_listdir(source: &str) -> Vec<String> {
     let mut completions = vec![];
 
@@ -176,7 +132,7 @@ pub fn plain_listdir(source: &str) -> Vec<String> {
             if entry.path().is_dir() {
                 path.push(SEP);
             }
-            completions.push(escape_path(path));
+            completions.push(escape_path(path, false));
         }
     }
     completions
@@ -198,6 +154,7 @@ pub fn file_path_completion(
             Path::new(cwd),
             cwd,
             options,
+            false,
         )
     }
     .into_iter()

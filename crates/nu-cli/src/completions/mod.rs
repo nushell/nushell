@@ -1,6 +1,7 @@
 mod base;
 mod command_completions;
 mod completer;
+mod completion_common;
 mod completion_options;
 mod custom_completions;
 mod directory_completions;

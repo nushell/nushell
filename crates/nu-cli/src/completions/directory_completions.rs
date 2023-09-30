@@ -1,10 +1,12 @@
-use crate::completions::{matches, Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::{complete_rec, escape_path},
+    Completer, CompletionOptions,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -117,7 +119,7 @@ pub fn plain_listdir(source: &str) -> Vec<String> {
             let mut path = entry.path().to_string_lossy().into_owned();
             if entry.path().is_dir() {
                 path.push(SEP);
-                completions.push(escape_path(path));
+                completions.push(escape_path(path, true));
             }
         }
     }
@@ -140,54 +142,10 @@ pub fn directory_completion(
             Path::new(cwd),
             cwd,
             options,
+            true,
         )
     }
     .into_iter()
     .map(|f| (span, f))
     .collect()
-}
-
-fn escape_path(path: String) -> String {
-    if path.contains(['\'', '"', ' ', '#']) {
-        format!("`{path}`")
-    } else {
-        path
-    }
-}
-
-fn complete_rec(
-    partial: &str,
-    cwd: &Path,
-    original_cwd: &str,
-    options: &CompletionOptions,
-) -> Vec<String> {
-    let (base, trail) = match partial.split_once(SEP) {
-        Some((base, trail)) => (base, trail),
-        None => (partial, ""),
-    };
-
-    let mut completions = vec![];
-
-    if let Ok(result) = cwd.read_dir() {
-        for entry in result
-            .filter_map(|e| e.ok())
-            .filter(|e| fs::metadata(e.path()).map(|e| e.is_dir()).unwrap_or(false))
-        {
-            let entry_name = entry.file_name().to_string_lossy().into_owned();
-            if matches(base, &entry_name, options) && entry.path().is_dir() {
-                if trail.is_empty() {
-                    let path = entry.path();
-                    let mut path_string = pathdiff::diff_paths(path.clone(), original_cwd)
-                        .unwrap_or(path)
-                        .to_string_lossy()
-                        .into_owned();
-                    path_string.push(SEP);
-                    completions.push(escape_path(path_string));
-                } else {
-                    completions.extend(complete_rec(trail, &entry.path(), original_cwd, options));
-                }
-            }
-        }
-    }
-    completions
 }
