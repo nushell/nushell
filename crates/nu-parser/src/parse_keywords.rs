@@ -478,6 +478,7 @@ pub fn parse_def(
     };
 
     let has_env = call.has_flag("env");
+    let has_wrapped = call.has_flag("wrapped");
 
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
@@ -519,6 +520,23 @@ pub fn parse_def(
     let mut result = None;
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
+        if has_wrapped && signature.rest_positional.is_none() {
+            working_set.error(ParseError::InternalError(
+                "Extern block must have a rest positional argument".into(),
+                name_expr.span,
+            ));
+
+            return (
+                Pipeline::from_vec(vec![Expression {
+                    expr: Expr::Call(call),
+                    span: call_span,
+                    ty: Type::Any,
+                    custom_completion: None,
+                }]),
+                result,
+            );
+        }
+
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
@@ -526,6 +544,7 @@ pub fn parse_def(
             *signature = signature.add_help();
             signature.usage = usage;
             signature.extra_usage = extra_usage;
+            signature.allows_unknown_args = has_wrapped;
 
             *declaration = signature.clone().into_block_command(block_id);
 
