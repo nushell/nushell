@@ -203,14 +203,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TABLE_SPLIT_LINE: Style = color(Some(Color::Rgb(64, 64, 64)), None);
 
-    const TABLE_LINE_HEADER_TOP: bool = true;
-
-    const TABLE_LINE_HEADER_BOTTOM: bool = true;
-
-    const TABLE_LINE_INDEX: bool = true;
-
-    const TABLE_LINE_SHIFT: bool = true;
-
     const TABLE_SELECT_CELL: Style = color(None, None);
 
     const TABLE_SELECT_ROW: Style = color(None, None);
@@ -249,10 +241,6 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
         insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
-        insert_bool(&mut hm, "line_head_top", TABLE_LINE_HEADER_TOP);
-        insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
-        insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
-        insert_bool(&mut hm, "line_index", TABLE_LINE_INDEX);
 
         config.insert(String::from("table"), map_into_value(hm));
     }
