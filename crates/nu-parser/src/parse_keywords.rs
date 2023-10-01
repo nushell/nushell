@@ -520,21 +520,43 @@ pub fn parse_def(
     let mut result = None;
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
-        if has_wrapped && signature.rest_positional.is_none() {
-            working_set.error(ParseError::InternalError(
-                "Extern block must have a rest positional argument".into(),
-                name_expr.span,
-            ));
+        if has_wrapped {
+            if let Some(rest) = &signature.rest_positional {
+                if let Some(var_id) = rest.var_id {
+                    let rest_var = &working_set.get_variable(var_id);
 
-            return (
-                Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: Type::Any,
-                    custom_completion: None,
-                }]),
-                result,
-            );
+                    if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String))
+                    {
+                        working_set.error(ParseError::TypeMismatchHelp(
+                            Type::List(Box::new(Type::String)),
+                            rest_var.ty.clone(),
+                            rest_var.declaration_span,
+                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            result,
+                        );
+                    }
+                }
+            } else {
+                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    result,
+                );
+            }
         }
 
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {

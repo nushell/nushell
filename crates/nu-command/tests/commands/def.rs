@@ -278,3 +278,16 @@ fn def_cursed_wrapped_flag_positions_2() {
     let actual = nu!("def spam [...rest]: nothing -> nothing { $rest.0 } --wrapped; spam --foo");
     assert_eq!(actual.out, "--foo");
 }
+
+#[test]
+fn def_wrapped_missing_rest_error() {
+    let actual = nu!("def --wrapped spam [] {}");
+    assert!(actual.err.contains("missing_positional"))
+}
+
+#[test]
+fn def_wrapped_wrong_rest_type_error() {
+    let actual = nu!("def --wrapped spam [...eggs: list<string>] { $eggs }");
+    assert!(actual.err.contains("type_mismatch_help"));
+    assert!(actual.err.contains("of ...eggs to 'string'"));
+}
