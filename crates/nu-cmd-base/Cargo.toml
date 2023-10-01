@@ -16,7 +16,7 @@ nu-path = { path = "../nu-path", version = "0.85.1" }
 nu-protocol = { version = "0.85.1", path = "../nu-protocol" }
 indexmap = { version = "2.0" }
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
-wax = { version = "0.5.0", features = ["diagnostics"] }
+wax = { version = "0.5.0", features = ["diagnostics", "miette"] }
 
 [dev-dependencies]
 nu-test-support = { version = "0.85.1", path = "../nu-test-support" }

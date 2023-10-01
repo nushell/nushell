@@ -16,18 +16,12 @@ pub fn arg_glob(
     include_dirs: bool,        // include dirs in results.  Default (f) only include files
     cwd: &PathBuf,             // current working directory
 ) -> Result<Vec<PathBuf>, ShellError> {
-    // eventually, windows only, and with better performance
-    // transform something like: C:\Users\me\.../{abc,def}*.txt to C\:/Users/me/.../{abc,def}*.txt
-    // such a string has good chance of working as a rooted glob pattern on Windows
-    // User will have to quote metachars with [c] rather than \c.
-    let processed_pattern = pattern
-        .item
-        .replace('\\', "/")
-        .replace(r#":/"#, r#"\:/"#) // must come after above
-        .replace('(', r#"\("#) // when path includes Program Files (x86)
-        .replace(')', r#"\)"#);
+    #[cfg(windows)]
+    let processed_item = &windows_pattern_hack(pattern.item);
+    #[cfg(not(windows))]
+    let processed_item = &pattern.item;
 
-    let (prefix, glob) = match Glob::new(&processed_pattern) {
+    let (prefix, glob) = match Glob::new(processed_item) {
         Ok(p) => p.partition(),
         Err(e) => {
             return Err(ShellError::InvalidGlobPattern(e.to_string(), pattern.span));
@@ -53,6 +47,24 @@ pub fn arg_glob(
         rv.push(w.path().to_path_buf())
     }
     Ok(rv)
+}
+
+#[cfg(any(windows, test))]
+// Sanitize a glob pattern for use on windows.
+// this allows filesystem commands like `cp` to accept an arg that can be a path or a glob.
+// Deal with 3 aspects of windows paths that can confound glob patterns:
+// * path separator: change `\` to `/`. Rust file API on windows supports this in folder separators and in UNC paths.
+// * drive letter colon: change `C:` to `C\:`
+// * quote parens (such as the infamous `Program Files (x86)`).
+// But this means user cannot use `\` to quote other metachars.
+// (Windows) users of glob should adopt the habit of quoting with single char classes, e.g instead of `\*`, use `[*]`.
+// e.g transform something like: `C:\Users\me\.../{abc,def}*.txt` to `C\:/Users/me/.../{abc,def}*.txt`
+//todo: investigate enhancing [wax] to support this more elegantly.
+pub fn windows_pattern_hack(pat: &str) -> String {
+    pat.replace('\\', "/")
+        .replace(r#":/"#, r#"\:/"#) // must come after above
+        .replace('(', r#"\("#) // when path includes Program Files (x86)
+        .replace(')', r#"\)"#)
 }
 
 #[cfg(test)]
@@ -87,7 +99,6 @@ mod test {
     #[rstest]
     #[case("*", false, 3, "no dirs")]
     #[case("*", true, 4, "incl dirs")]
-    #[case(r#"C:\Users\me\*"#, true, 0, "test windows transform")]
     fn glob_subdirs(
         #[case] pat: &str,
         #[case] with_dirs: bool,
@@ -111,5 +122,68 @@ mod test {
 
             assert_eq!(exp_count, res.len(), "Expected : Actual");
         })
+    }
+
+    #[rstest]
+    #[case("**/*.{abc,def}", "**/*.{abc,def}")]
+    #[case(r#"/c/d/e"#, r#"/c/d/e"#)]
+    #[case(r#"\Users\me\mine.txt"#, r#"/Users/me/mine.txt"#)]
+    #[case(
+        r#"C:\Program Files (x86)\nushell\bin\nu"#,
+        r#"C\:/Program Files \(x86\)/nushell/bin/nu"#
+    )]
+    #[ignore = "should work on windows, check later"]
+    #[case(
+        r#"\\localhost\shareme\foo\bar/**"#,
+        r#"//localhost/shareme/foo/bar/**"#
+    )]
+
+    fn test_windows_pattern_hack_works(#[case] pat: &str, #[case] expected: &str) {
+        let act_pat = windows_pattern_hack(pat);
+        assert_eq!(expected, act_pat);
+
+        match Glob::new(&act_pat) {
+            Ok(_) => {}
+            Err(e) => {
+                /*for d in e.locations() {
+                    let (start, n) = e.span();
+                    let fragment = &act_pat[start..][..n];
+                    eprintln!("in sub-expression `{}`: {}", fragment, e);
+                }*/
+                panic!("glob err: {}", e);
+            }
+        }
+    }
+
+    // highlight the cases where the hack breaks the glob and the user must devise alternate quoting.
+    #[rstest]
+    #[case(r#"C:xyzzy"#, r#"C[:]xyzzy"#, r#"C:xyzzy"#)]
+
+    fn test_windows_pattern_hack_fails(
+        #[case] failing_pat: &str,
+        #[case] working_pat: &str,
+        #[case] _expected: &str,
+    ) {
+        let act_pat = windows_pattern_hack(failing_pat);
+        // the hacked pattern might not give the desired output pattern to feed to glob.
+        // or, even if it does, that pattern won't parse.
+
+        assert!(Glob::new(&act_pat).is_err());
+
+        let act_pat = windows_pattern_hack(working_pat);
+        //no! assert_eq!(expected, act_pat);
+        // but we claim that the pattern globs to the right thing.  Check here that it at least parses.
+
+        match Glob::new(&act_pat) {
+            Ok(_) => {}
+            Err(e) => {
+                /*for d in e.locations() {
+                    let (start, n) = e.span();
+                    let fragment = &act_pat[start..][..n];
+                    eprintln!("in sub-expression `{}`: {}", fragment, e);
+                }*/
+                panic!("glob err: {}", e);
+            }
+        }
     }
 }

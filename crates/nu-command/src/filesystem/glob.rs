@@ -74,7 +74,7 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                    "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
@@ -172,7 +172,12 @@ impl Command for Glob {
             usize::MAX
         };
 
-        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+        #[cfg(windows)]
+        let pat_str = windows_pattern_hack(&glob_pattern.item); // make most windows absolute paths into legal glob pats
+        #[cfg(not(windows))]
+        let pat_str = &glob_pattern.item;
+
+        let (prefix, glob) = match WaxGlob::new(pat_str) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(
