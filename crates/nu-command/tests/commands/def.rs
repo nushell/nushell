@@ -46,7 +46,7 @@ fn def_errors_with_no_space_between_params_and_name_1() {
 
 #[test]
 fn def_errors_with_no_space_between_params_and_name_2() {
-    let actual = nu!("def-env test-command() {}");
+    let actual = nu!("def --env test-command() {}");
 
     assert!(actual.err.contains("expected space"));
 }

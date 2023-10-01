@@ -117,7 +117,7 @@ is described below:
       a main command as well.  
       Use `export def` to make these names public to your users.
     * If your command is updating environment variables, you must use
-      `export def-env` (instead of `export def`) to define the subcommand,
+      `export def --env` (instead of `export def`) to define the subcommand,
       `export-env {}` to initialize the environment variables and `let-env` to
       update them. For an example of a custom command which modifies
       environment variables, see: `./crates/nu-std/lib/dirs.nu`.  
