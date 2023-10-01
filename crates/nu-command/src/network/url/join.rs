@@ -275,7 +275,10 @@ impl UrlComponents {
                             }),
                             ..self
                         }),
-                        _ => Ok(self),
+                        _ => {
+                            println!("warning: '{key}' not a valid URL key");
+                            Ok(self)
+                        }
                     }
                 }
             }
