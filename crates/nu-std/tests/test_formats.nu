@@ -1,12 +1,20 @@
 use std assert
 
 def ndjson_test_data1 [] {
-  "{\"a\": 1}
-{\"a\": 2}
-{\"a\": 3}
-{\"a\": 4}
-{\"a\": 5}
-{\"a\": 6}"
+  let lines = [
+    "{\"a\": 1}",
+    "{\"a\": 2}",
+    "{\"a\": 3}",
+    "{\"a\": 4}",
+    "{\"a\": 5}",
+    "{\"a\": 6}",
+  ]
+
+  if $nu.os-info.name == "windows" {
+    $lines | str join "\r\n"
+  } else {
+    $lines | str join "\n"
+  }
 }
 
 #[test]
