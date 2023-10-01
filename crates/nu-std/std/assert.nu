@@ -138,8 +138,8 @@ export def equal [left: any, right: any, message?: string] {
         end: (metadata $right).span.end
         text: (
             "These are not equal.\n"
-         + $"        Left = '($left | to nuon --raw)'\n"
-         + $"        Right = '($right | to nuon --raw)'"
+         + $"        Left  : '($left | to nuon --raw)'\n"
+         + $"        Right : '($right | to nuon --raw)'"
         )
     }
 }
@@ -176,8 +176,8 @@ export def "less or equal" [left: any, right: any, message?: string] {
         end: (metadata $right).span.end
         text: (
             "The condition *left <= right* is not satisfied.\n"
-         + $"        Left: '($left)'\n"
-         + $"        Right: '($right)'"
+         + $"        Left  : '($left)'\n"
+         + $"        Right : '($right)'"
         )
     }
 }
@@ -196,8 +196,8 @@ export def less [left: any, right: any, message?: string] {
         end: (metadata $right).span.end
         text: (
             "The condition *left < right* is not satisfied.\n"
-         + $"        Left: '($left)'\n"
-         + $"        Right: '($right)'"
+         + $"        Left  : '($left)'\n"
+         + $"        Right : '($right)'"
         )
     }
 }
@@ -216,8 +216,8 @@ export def greater [left: any, right: any, message?: string] {
         end: (metadata $right).span.end
         text: (
             "The condition *left > right* is not satisfied.\n"
-         + $"        Left: '($left)'\n"
-         + $"        Right: '($right)'"
+         + $"        Left  : '($left)'\n"
+         + $"        Right : '($right)'"
         )
     }
 }
@@ -237,8 +237,8 @@ export def "greater or equal" [left: any, right: any, message?: string] {
         end: (metadata $right).span.end
         text: (
             "The condition *left < right* is not satisfied.\n"
-         + $"        Left: '($left)'\n"
-         + $"        Right: '($right)'"
+         + $"        Left  : '($left)'\n"
+         + $"        Right : '($right)'"
         )
     }
 }
@@ -258,9 +258,9 @@ export def length [left: list, right: int, message?: string] {
         end: (metadata $right).span.end
         text: (
             "This does not have the correct length:\n"
-         + $"        value: ($left | to nuon --raw)\n"
-         + $"        length: ($left | core length)\n"
-         + $"        expected: ($right)"
+         + $"        value    : ($left | to nuon --raw)\n"
+         + $"        length   : ($left | core length)\n"
+         + $"        expected : ($right)"
         )
     }
 }
