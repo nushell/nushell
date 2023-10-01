@@ -75,22 +75,6 @@ impl<'a> RecordView<'a> {
         self.theme.cursor.selected_column = Some(style)
     }
 
-    pub fn set_line_head_top(&mut self, b: bool) {
-        self.theme.table.header_top = b;
-    }
-
-    pub fn set_line_head_bottom(&mut self, b: bool) {
-        self.theme.table.header_bottom = b;
-    }
-
-    pub fn set_line_trailing(&mut self, b: bool) {
-        self.theme.table.shift_line = b;
-    }
-
-    pub fn set_line_index(&mut self, b: bool) {
-        self.theme.table.index_line = b;
-    }
-
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
         self.theme.table.padding_column_left = left;
         self.theme.table.padding_column_right = right;
@@ -851,11 +835,6 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.cursor.selected_cell = colors.get("selected_cell").cloned();
     theme.cursor.selected_row = colors.get("selected_row").cloned();
     theme.cursor.selected_column = colors.get("selected_column").cloned();
-
-    theme.table.header_top = config_get_bool(config, "line_head_top", true);
-    theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
-    theme.table.shift_line = config_get_bool(config, "line_shift", true);
-    theme.table.index_line = config_get_bool(config, "line_index", true);
 
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);

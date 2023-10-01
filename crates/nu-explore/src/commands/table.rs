@@ -25,10 +25,6 @@ pub struct TableCmd {
 #[derive(Debug, Default, Clone)]
 struct TableSettings {
     orientation: Option<Orientation>,
-    line_head_top: Option<bool>,
-    line_head_bottom: Option<bool>,
-    line_shift: Option<bool>,
-    line_index: Option<bool>,
     split_line_s: Option<Style>,
     selected_cell_s: Option<Style>,
     selected_row_s: Option<Style>,
@@ -91,11 +87,6 @@ impl ViewCommand for TableCmd {
             ConfigOption::boolean(":table group", "Show index", "table.show_index"),
             ConfigOption::boolean(":table group", "Show header", "table.show_head"),
 
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_top"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_head_bottom"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_shift"),
-            ConfigOption::boolean(":table group", "Lines are lines", "table.line_index"),
-
             ConfigOption::new(":table group", "Color of selected cell", "table.selected_cell", default_color_list()),
             ConfigOption::new(":table group", "Color of selected row", "table.selected_row", default_color_list()),
             ConfigOption::new(":table group", "Color of selected column", "table.selected_column", default_color_list()),
@@ -143,22 +134,6 @@ impl ViewCommand for TableCmd {
 
         if let Some(o) = self.settings.orientation {
             view.set_orientation_current(o);
-        }
-
-        if self.settings.line_head_bottom.unwrap_or(false) {
-            view.set_line_head_bottom(true);
-        }
-
-        if self.settings.line_head_top.unwrap_or(false) {
-            view.set_line_head_top(true);
-        }
-
-        if self.settings.line_index.unwrap_or(false) {
-            view.set_line_index(true);
-        }
-
-        if self.settings.line_shift.unwrap_or(false) {
-            view.set_line_trailing(true);
         }
 
         if let Some(style) = self.settings.selected_cell_s {

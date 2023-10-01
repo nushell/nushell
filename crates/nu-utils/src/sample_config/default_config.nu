@@ -192,10 +192,6 @@ $env.config = {
             selected_cell: {bg: light_blue},
             selected_row: {},
             selected_column: {},
-            line_head_top: true,
-            line_head_bottom: true,
-            line_shift: true,
-            line_index: true,
         },
     }
 
