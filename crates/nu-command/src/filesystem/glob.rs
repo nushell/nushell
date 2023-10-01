@@ -178,7 +178,7 @@ impl Command for Glob {
         #[cfg(not(windows))]
         let pat_str = &glob_pattern.item;
 
-        let (prefix, glob) = match WaxGlob::new(&pat_str) {
+        let (prefix, glob) = match WaxGlob::new(pat_str) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(
