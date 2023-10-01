@@ -17,7 +17,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, IN_VARIABLE_ID, NOTHING_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1808,14 +1808,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents == b"$nothing" {
-        return Expression {
-            expr: Expr::Var(nu_protocol::NOTHING_VARIABLE_ID),
-            span,
-            ty: Type::Nothing,
-            custom_completion: None,
-        };
-    } else if contents == b"$nu" {
+    if contents == b"$nu" {
         return Expression {
             expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
             span,
@@ -6115,9 +6108,7 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > NOTHING_VARIABLE_ID || *var_id == IN_VARIABLE_ID)
-                && !seen.contains(var_id)
-            {
+            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
                 output.push((*var_id, expr.span));
             }
         }
