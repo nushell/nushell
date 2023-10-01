@@ -157,15 +157,6 @@ fn def_with_paren_params() {
 }
 
 #[test]
-fn extern_with_block() {
-    let actual = nu!(
-        "extern-wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
-    );
-
-    assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
-}
-
-#[test]
 fn def_default_value_shouldnt_restrict_explicit_type() {
     let actual = nu!("def foo [x: any = null] { $x }; foo 1");
     assert_eq!(actual.out, "1");
@@ -192,4 +183,28 @@ fn def_boolean_flags() {
     // boolean flags' default value should be null
     let actual = nu!("def foo [--x: bool] { $x == null }; foo");
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn def_wrapped_with_block() {
+    let actual = nu!(
+        "def --wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
+    );
+
+    assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
+}
+
+#[test]
+fn def_wrapped_from_module() {
+    let actual = nu!(r#"module spam {
+            export def --wrapped my-echo [...rest] { ^echo $rest }
+        }
+
+        use spam
+        spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        "#);
+
+    assert!(actual
+        .out
+        .contains("foo -b -as -9 --abc -- -Dxmy=AKOO - bar"));
 }

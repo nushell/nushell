@@ -19,11 +19,11 @@ impl Command for ExportDef {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export def")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("env", "keep the environment defined inside the command", None)
-            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .required("def_name", SyntaxShape::String, "command name")
             .required("params", SyntaxShape::Signature, "parameters")
             .required("block", SyntaxShape::Block, "body of the definition")
+            .switch("env", "keep the environment defined inside the command", None)
+            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .category(Category::Core)
     }
 
