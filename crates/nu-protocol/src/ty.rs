@@ -10,6 +10,8 @@ use crate::SyntaxShape;
 #[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     Any,
+    AnyTable,
+    AnyRecord,
     Binary,
     Block,
     Bool,
@@ -59,6 +61,8 @@ impl Type {
             (Type::Float, Type::Number) => true,
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
+            (Type::Record(_), Type::AnyRecord) => true,
+            (Type::Table(_), Type::AnyTable) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
@@ -104,6 +108,8 @@ impl Type {
             Type::Nothing => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
+            Type::AnyRecord => SyntaxShape::Record(vec![]),
+            Type::AnyTable => SyntaxShape::Table(vec![]),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
@@ -128,8 +134,8 @@ impl Type {
             Type::Float => String::from("float"),
             Type::Int => String::from("int"),
             Type::Range => String::from("range"),
-            Type::Record(_) => String::from("record"),
-            Type::Table(_) => String::from("table"),
+            Type::Record(_) | Type::AnyRecord => String::from("record"),
+            Type::Table(_) | Type::AnyTable => String::from("table"),
             Type::List(_) => String::from("list"),
             Type::MatchPattern => String::from("match-pattern"),
             Type::Nothing => String::from("nothing"),
@@ -173,6 +179,7 @@ impl Display for Type {
                     )
                 }
             }
+            Type::AnyRecord => write!(f, "record<any>"),
             Type::Table(columns) => {
                 if columns.is_empty() {
                     write!(f, "table")
@@ -188,6 +195,7 @@ impl Display for Type {
                     )
                 }
             }
+            Type::AnyTable => write!(f, "table<any>"),
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),

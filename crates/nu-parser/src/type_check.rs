@@ -58,6 +58,11 @@ pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
         (Type::Closure, Type::Block) => true,
         (Type::Any, _) => true,
         (_, Type::Any) => true,
+        (Type::Table(_), Type::AnyTable) => true,
+        (Type::Record(_), Type::AnyRecord) => true,
+        (Type::List(_), Type::AnyTable) => true,
+        (Type::AnyTable, Type::Table(_)) => true,
+        (Type::AnyRecord, Type::Record(_)) => true,
         (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
             is_compatible(lhs, rhs)
         }
