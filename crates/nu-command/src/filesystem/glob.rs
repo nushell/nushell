@@ -176,9 +176,9 @@ impl Command for Glob {
         #[cfg(windows)]
         let pat_str = windows_pattern_hack(&glob_pattern.item); // make most windows absolute paths into legal glob pats
         #[cfg(not(windows))]
-        let pat_str = &glob_pattern.item;
+        let pat_str = glob_pattern.item;
 
-        let (prefix, glob) = match WaxGlob::new(pat_str) {
+        let (prefix, glob) = match WaxGlob::new(&pat_str) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(
