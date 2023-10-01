@@ -17,7 +17,7 @@ pub fn arg_glob(
     cwd: &PathBuf,             // current working directory
 ) -> Result<Vec<PathBuf>, ShellError> {
     #[cfg(windows)]
-    let processed_item = &windows_pattern_hack(pattern.item);
+    let processed_item = &windows_pattern_hack(&pattern.item);
     #[cfg(not(windows))]
     let processed_item = &pattern.item;
 
