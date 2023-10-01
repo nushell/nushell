@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Call, PathMember},
+    ast::{Call, CellPath, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
@@ -394,11 +394,20 @@ impl PipelineData {
             }
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
             PipelineData::Empty => Err(ShellError::IOError(format!(
-                "can't follow path '{:?}' in empty stream",
-                cell_path
+                "can't follow path '{}' in empty stream",
+                CellPath {
+                    members: cell_path.to_vec()
+                }
+                .into_string()
             ))),
             PipelineData::ExternalStream { span, .. } => Err(ShellError::IOErrorSpanned(
-                format!("can't follow path '{:?}' in external stream", cell_path,),
+                format!(
+                    "can't follow path '{}' in external stream",
+                    CellPath {
+                        members: cell_path.to_vec()
+                    }
+                    .into_string()
+                ),
                 span,
             )),
         }
