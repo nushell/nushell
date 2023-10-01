@@ -291,3 +291,11 @@ fn def_wrapped_wrong_rest_type_error() {
     assert!(actual.err.contains("type_mismatch_help"));
     assert!(actual.err.contains("of ...eggs to 'string'"));
 }
+
+#[test]
+fn def_env_wrapped() {
+    let actual = nu!(
+        "def --env --wrapped spam [...eggs: string] { $env.SPAM = $eggs.0 }; spam bacon; $env.SPAM"
+    );
+    assert_eq!(actual.out, "bacon");
+}
