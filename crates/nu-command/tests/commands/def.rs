@@ -208,3 +208,73 @@ fn def_wrapped_from_module() {
         .out
         .contains("foo -b -as -9 --abc -- -Dxmy=AKOO - bar"));
 }
+
+#[test]
+fn def_cursed_env_flag_positions() {
+    let actual = nu!("def spam --env [] { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("def spam --env []: nothing -> nothing { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn def_cursed_env_flag_positions_2() {
+    let actual = nu!("def spam [] --env { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual = nu!("def spam [] { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("def spam []: nothing -> nothing { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn export_def_cursed_env_flag_positions() {
+    let actual = nu!("export def spam --env [] { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("export def spam --env []: nothing -> nothing { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn export_def_cursed_env_flag_positions_2() {
+    let actual = nu!("export def spam [] --env { $env.SPAM = 'spam' }; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual = nu!("export def spam [] { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+
+    let actual =
+        nu!("export def spam []: nothing -> nothing { $env.SPAM = 'spam' } --env; spam; $env.SPAM");
+    assert_eq!(actual.out, "spam");
+}
+
+#[test]
+fn def_cursed_wrapped_flag_positions() {
+    let actual = nu!("def spam --wrapped [...rest] { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam --wrapped [...rest]: nothing -> nothing { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+}
+
+#[test]
+#[ignore = "TODO: Investigate why it's not working, it might be the signature parsing"]
+fn def_cursed_wrapped_flag_positions_2() {
+    let actual = nu!("def spam [...rest] --wrapped { $rest.0 }; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam [...rest] { $rest.0 } --wrapped; spam --foo");
+    assert_eq!(actual.out, "--foo");
+
+    let actual = nu!("def spam [...rest]: nothing -> nothing { $rest.0 } --wrapped; spam --foo");
+    assert_eq!(actual.out, "--foo");
+}
