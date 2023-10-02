@@ -820,6 +820,7 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('~')
         || orig.starts_with('/')
         || orig.starts_with('\\')
+        || orig.ends_with(std::path::MAIN_SEPARATOR)
 }
 
 #[test]
