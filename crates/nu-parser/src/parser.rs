@@ -5337,7 +5337,7 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, None),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, None).0,
         b"extern" | b"extern-wrapped" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"const" => parse_const(working_set, &lite_command.parts),

@@ -259,7 +259,7 @@ fn use_main_4() {
 #[test]
 fn use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { $env.SPAM = "spam" } }"#,
+        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
         r#"use spam"#,
         r#"spam"#,
         r#"$env.SPAM"#,

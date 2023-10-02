@@ -1118,3 +1118,12 @@ fn pipe_input_to_print() {
     assert_eq!(actual.out, "foo");
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn command_not_found_error_shows_not_found_2() {
+    let actual = nu!(r#"
+            export def --wrapped my-foo [...rest] { foo };
+            my-foo
+        "#);
+    assert!(actual.err.contains("did you mean"));
+}

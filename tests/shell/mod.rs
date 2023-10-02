@@ -207,7 +207,7 @@ fn run_script_that_looks_like_module() {
             "export use spam eggs",
             "export def foo [] { eggs }",
             "export alias bar = foo",
-            "export def-env baz [] { bar }",
+            "export def --env baz [] { bar }",
             "baz",
         ];
 
