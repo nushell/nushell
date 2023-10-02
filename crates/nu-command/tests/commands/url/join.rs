@@ -245,7 +245,7 @@ fn url_join_with_invalid_port() {
 
     assert!(actual
         .err
-        .contains("Port parameter should represent an unsigned integer"));
+        .contains("Port parameter should represent an unsigned int"));
 
     let actual = nu!(pipeline(
         r#"
