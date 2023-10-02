@@ -1,5 +1,3 @@
-#[cfg(windows)]
-use nu_cmd_base::arg_glob::windows_pattern_hack;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -173,12 +171,7 @@ impl Command for Glob {
             usize::MAX
         };
 
-        #[cfg(windows)]
-        let pat_str = windows_pattern_hack(&glob_pattern.item); // make most windows absolute paths into legal glob pats
-        #[cfg(not(windows))]
-        let pat_str = glob_pattern.item;
-
-        let (prefix, glob) = match WaxGlob::new(&pat_str) {
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
             Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(

@@ -1,5 +1,7 @@
 // utilities for expanding globs in command arguments
 use nu_protocol::{ShellError, Spanned};
+use std::fs;
+use std::io::ErrorKind;
 use std::path::PathBuf;
 use wax::{Glob, LinkBehavior, WalkBehavior};
 
@@ -9,19 +11,33 @@ const FS_CMD_WALK_BEHAVIOR: WalkBehavior = WalkBehavior {
     link: LinkBehavior::ReadTarget,
 };
 
-// expand a glob into matching paths, using FS_CMD_WALK_BEHAVIOR
+// handle an argument that could be a literal path or a glob.
+// if literal path, return just that (whether user can access it or not).
+// if glob, expand into matching paths, using FS_CMD_WALK_BEHAVIOR
 //todo: see about returning WalkError or BuildError, or enabling miette and dealing with diagnostic
 pub fn arg_glob(
-    pattern: &Spanned<String>, // the glob
+    pattern: &Spanned<String>, // alleged path or glob
     include_dirs: bool,        // include dirs in results.  Default (f) only include files
     cwd: &PathBuf,             // current working directory
 ) -> Result<Vec<PathBuf>, ShellError> {
-    #[cfg(windows)]
-    let processed_item = &windows_pattern_hack(&pattern.item);
-    #[cfg(not(windows))]
-    let processed_item = &pattern.item;
+    // stat the path first, return path if not not found.
+    match fs::metadata(&pattern.item) {
+        Ok(_metadata) => {
+            let normalized_path = nu_path::canonicalize_with(&pattern.item, cwd)?;
+            return Ok(vec![normalized_path]);
+        }
+        Err(e) if e.kind() == ErrorKind::NotFound => {
+            // fall through and try the glob
+        }
+        Err(_) => {
+            // no access, invalid chars in file, anything else: there was something at that path, return it to caller
+            let normalized_path = nu_path::canonicalize_with(&pattern.item, cwd)?;
+            return Ok(vec![normalized_path]);
+        }
+    }
 
-    let (prefix, glob) = match Glob::new(processed_item) {
+    // user wasn't referring to a specific thing in filesystem, try to glob it.
+    let (prefix, glob) = match Glob::new(&pattern.item) {
         Ok(p) => p.partition(),
         Err(e) => {
             return Err(ShellError::InvalidGlobPattern(e.to_string(), pattern.span));
@@ -49,24 +65,6 @@ pub fn arg_glob(
     Ok(rv)
 }
 
-#[cfg(any(windows, test))]
-// Sanitize a glob pattern for use on windows.
-// this allows filesystem commands like `cp` to accept an arg that can be a path or a glob.
-// Deal with 3 aspects of windows paths that can confound glob patterns:
-// * path separator: change `\` to `/`. Rust file API on windows supports this in folder separators and in UNC paths.
-// * drive letter colon: change `C:` to `C\:`
-// * quote parens (such as the infamous `Program Files (x86)`).
-// But this means user cannot use `\` to quote other metachars.
-// (Windows) users of glob should adopt the habit of quoting with single char classes, e.g instead of `\*`, use `[*]`.
-// e.g transform something like: `C:\Users\me\.../{abc,def}*.txt` to `C\:/Users/me/.../{abc,def}*.txt`
-//todo: investigate enhancing [wax] to support this more elegantly.
-pub fn windows_pattern_hack(pat: &str) -> String {
-    pat.replace('\\', "/")
-        .replace(r#":/"#, r#"\:/"#) // must come after above
-        .replace('(', r#"\("#) // when path includes Program Files (x86)
-        .replace(')', r#"\)"#)
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -75,25 +73,24 @@ mod test {
     use nu_test_support::playground::Playground;
     use rstest::rstest;
 
-    fn test_glob(pat: &str) -> Spanned<String> {
+    fn spanned_string(str: &str) -> Spanned<String> {
         Spanned {
-            item: pat.to_string(),
-            span: Span::unknown(),
+            item: str.to_string(),
+            span: Span::test_data(),
         }
     }
 
     #[test]
     fn does_something() {
-        let act = arg_glob(&test_glob("*"), true, &PathBuf::from("."));
+        let act = arg_glob(&spanned_string("*"), true, &PathBuf::from("."));
         assert!(act.is_ok());
         assert!(!act.expect("was OK").is_empty())
     }
 
     #[test]
     fn glob_format_error() {
-        let act = arg_glob(&test_glob(r#"ab{c]def"#), false, &PathBuf::from("."));
+        let act = arg_glob(&spanned_string(r#"ab{c]def"#), false, &PathBuf::from("."));
         assert!(act.is_err());
-        println!("act was {:#?}", act);
     }
 
     #[rstest]
@@ -118,72 +115,66 @@ mod test {
                 EmptyFile("trish.txt"),
             ]);
 
-            let res = arg_glob(&test_glob(pat), with_dirs, &dirs.test).expect("no error");
+            let res = arg_glob(&spanned_string(pat), with_dirs, &dirs.test).expect("no error");
 
             assert_eq!(exp_count, res.len(), "Expected : Actual");
         })
     }
 
     #[rstest]
-    #[case("**/*.{abc,def}", "**/*.{abc,def}")]
-    #[case(r#"/c/d/e"#, r#"/c/d/e"#)]
-    #[case(r#"\Users\me\mine.txt"#, r#"/Users/me/mine.txt"#)]
-    #[case(
-        r#"C:\Program Files (x86)\nushell\bin\nu"#,
-        r#"C\:/Program Files \(x86\)/nushell/bin/nu"#
-    )]
-    #[ignore = "should work on windows, check later"]
-    #[case(
-        r#"\\localhost\shareme\foo\bar/**"#,
-        r#"//localhost/shareme/foo/bar/**"#
-    )]
+    #[case("yehuda.txt", true, 1, "matches literal path")]
+    #[case("*", false, 3, "matches glob")]
+    #[case(r#"bad[glob.foo"#, true, 1, "matches literal, would be bad glob pat")]
+    fn exact_vs_glob(
+        #[case] pat: &str,
+        #[case] exp_matches_input: bool,
+        #[case] exp_count: usize,
+        #[case] _tag: &str,
+    ) {
+        Playground::setup("exact_vs_glob", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                EmptyFile("yehuda.txt"),
+                EmptyFile("jttxt"),
+                EmptyFile("bad[glob.foo"),
+            ]);
 
-    fn test_windows_pattern_hack_works(#[case] pat: &str, #[case] expected: &str) {
-        let act_pat = windows_pattern_hack(pat);
-        assert_eq!(expected, act_pat);
+            // Playground doesn't actually change process cwd, which fs::metadata is going to depend on
+            // so we make the input an absolute path, so at least arg_glob() will stat the right thing.  Good enough for unit test.
+            let abs_pat = dirs.test.join(pat).to_string_lossy().to_string();
 
-        match Glob::new(&act_pat) {
-            Ok(_) => {}
-            Err(e) => {
-                /*for d in e.locations() {
-                    let (start, n) = e.span();
-                    let fragment = &act_pat[start..][..n];
-                    eprintln!("in sub-expression `{}`: {}", fragment, e);
-                }*/
-                panic!("glob err: {}", e);
+            let res = arg_glob(&spanned_string(&abs_pat), true, &dirs.test).expect("no error");
+
+            if exp_matches_input {
+                assert_eq!(exp_count, res.len(), "matches input, but count not 1? ");
+                assert_eq!(nu_path::canonicalize_with(pat, dirs.test).expect("canonicalize_with?"), res[0])
+
+            } else {
+                assert_eq!(exp_count, res.len(), "Expected : Actual");
             }
-        }
+        })
     }
 
-    // highlight the cases where the hack breaks the glob and the user must devise alternate quoting.
     #[rstest]
-    #[case(r#"C:xyzzy"#, r#"C[:]xyzzy"#, r#"C:xyzzy"#)]
-
-    fn test_windows_pattern_hack_fails(
-        #[case] failing_pat: &str,
-        #[case] working_pat: &str,
-        #[case] _expected: &str,
+    #[case(r#"realbad[glob.foo"#, true, 1, "error, bad glob")]
+    fn exact_vs_glob_bad_glob(      // if path doesn't exist but pattern is not valid glob, should get error.
+        #[case] pat: &str,
+        #[case] _exp_matches_input: bool,
+        #[case] _exp_count: usize,
+        #[case] _tag: &str,
     ) {
-        let act_pat = windows_pattern_hack(failing_pat);
-        // the hacked pattern might not give the desired output pattern to feed to glob.
-        // or, even if it does, that pattern won't parse.
+        Playground::setup("exact_vs_glob_bad_glob", |dirs, sandbox| {
+            sandbox.with_files(vec![
+                EmptyFile("yehuda.txt"),
+                EmptyFile("jttxt"),
+                EmptyFile("bad[glob.foo"),
+            ]);
 
-        assert!(Glob::new(&act_pat).is_err());
+            // Playground doesn't actually change process cwd, which fs::metadata is going to depend on
+            // so we make the input an absolute path, so at least arg_glob() will stat the right thing.  Good enough for unit test.
+            let abs_pat = dirs.test.join(pat).to_string_lossy().to_string();
 
-        let act_pat = windows_pattern_hack(working_pat);
-        //no! assert_eq!(expected, act_pat);
-        // but we claim that the pattern globs to the right thing.  Check here that it at least parses.
-
-        match Glob::new(&act_pat) {
-            Ok(_) => {}
-            Err(e) => {
-                /*for d in e.locations() {
-                    let (start, n) = e.span();
-                    let fragment = &act_pat[start..][..n];
-                    eprintln!("in sub-expression `{}`: {}", fragment, e);
-                }*/
-                panic!("glob err: {}", e);
-            }
-        }
+            let res = arg_glob(&spanned_string(&abs_pat), true, &dirs.test).expect_err("no error");
+            assert!(res.to_string().contains("Invalid glob pattern"));
+        })
     }
 }
