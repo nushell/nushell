@@ -100,7 +100,6 @@ pub struct Config {
     pub shell_integration: bool,
     pub buffer_editor: Value,
     pub table_index_mode: TableIndexMode,
-    pub cd_with_abbreviations: bool,
     pub case_sensitive_completions: bool,
     pub enable_external_completion: bool,
     pub trim_strategy: TrimStrategy,
@@ -127,8 +126,6 @@ impl Default for Config {
             show_clickable_links_in_ls: true,
 
             rm_always_trash: false,
-
-            cd_with_abbreviations: false,
 
             table_mode: "rounded".into(),
             table_index_mode: TableIndexMode::Always,
@@ -387,19 +384,14 @@ impl Value {
                             for index in (0..cols.len()).rev() {
                                 let value = &vals[index];
                                 let key2 = cols[index].as_str();
-                                match key2 {
-                                    "abbreviations" => {
-                                        try_bool!(cols, vals, index, span, cd_with_abbreviations)
-                                    }
-                                    x => {
-                                        invalid_key!(
-                                            cols,
-                                            vals,
-                                            index,
-                                            Some(value.span()),
-                                            "$env.config.{key}.{x} is an unknown config setting"
-                                        );
-                                    }
+                                {
+                                    invalid_key!(
+                                        cols,
+                                        vals,
+                                        index,
+                                        Some(value.span()),
+                                        "$env.config.{key}.{key2} is an unknown config setting"
+                                    );
                                 }
                             }
                         } else {

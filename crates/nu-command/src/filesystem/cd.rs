@@ -1,4 +1,3 @@
-use crate::filesystem::cd_query::query;
 #[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
@@ -62,8 +61,6 @@ impl Command for Cd {
     ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
-        let config = engine_state.get_config();
-        let use_abbrev = config.cd_with_abbreviations;
 
         let path_val = {
             if let Some(path) = path_val {
@@ -86,22 +83,10 @@ impl Command for Cd {
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
                             Err(_) => {
-                                if use_abbrev {
-                                    match query(&path, None, v.span) {
-                                        Ok(p) => p,
-                                        Err(_) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                path.to_string_lossy().to_string(),
-                                            ))
-                                        }
-                                    }
-                                } else {
-                                    return Err(ShellError::DirectoryNotFound(
-                                        v.span,
-                                        path.to_string_lossy().to_string(),
-                                    ));
-                                }
+                                return Err(ShellError::DirectoryNotFound(
+                                    v.span,
+                                    path.to_string_lossy().to_string(),
+                                ));
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -115,42 +100,17 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                if use_abbrev {
-                                    // if it's not a dir, let's check to see if it's something abbreviated
-                                    match query(&p, None, v.span) {
-                                        Ok(path) => path,
-                                        Err(_) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                p.to_string_lossy().to_string(),
-                                            ))
-                                        }
-                                    };
-                                } else {
-                                    return Err(ShellError::NotADirectory(v.span));
-                                }
+                                return Err(ShellError::NotADirectory(v.span));
                             };
                             p
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
                         Err(_) => {
-                            if use_abbrev {
-                                match query(&path_no_whitespace, None, v.span) {
-                                    Ok(path) => path,
-                                    Err(_) => {
-                                        return Err(ShellError::DirectoryNotFound(
-                                            v.span,
-                                            path_no_whitespace.to_string(),
-                                        ))
-                                    }
-                                }
-                            } else {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    path_no_whitespace.to_string(),
-                                ));
-                            }
+                            return Err(ShellError::DirectoryNotFound(
+                                v.span,
+                                path_no_whitespace.to_string(),
+                            ));
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
@@ -186,11 +146,6 @@ impl Command for Cd {
             Example {
                 description: "Change to your home directory",
                 example: r#"cd ~"#,
-                result: None,
-            },
-            Example {
-                description: "Change to a directory via abbreviations",
-                example: r#"cd d/s/9"#,
                 result: None,
             },
             Example {

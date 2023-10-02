@@ -1,5 +1,4 @@
 mod cd;
-mod cd_query;
 mod cp;
 mod glob;
 mod ls;
@@ -16,7 +15,6 @@ mod watch;
 
 pub use self::open::Open;
 pub use cd::Cd;
-pub use cd_query::query;
 pub use cp::Cp;
 pub use glob::Glob;
 pub use ls::Ls;
