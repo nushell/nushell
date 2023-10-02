@@ -25,13 +25,13 @@ impl Command for BitsOr {
             .required(
                 "target",
                 SyntaxShape::Int,
-                "target integer to perform bit or",
+                "target int to perform bit or",
             )
             .category(Category::Bits)
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise or for integers."
+        "Performs bitwise or for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -85,7 +85,7 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

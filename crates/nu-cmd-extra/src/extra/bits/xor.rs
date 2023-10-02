@@ -25,13 +25,13 @@ impl Command for BitsXor {
             .required(
                 "target",
                 SyntaxShape::Int,
-                "target integer to perform bit xor",
+                "target int to perform bit xor",
             )
             .category(Category::Bits)
     }
 
     fn usage(&self) -> &str {
-        "Performs bitwise xor for integers."
+        "Performs bitwise xor for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -84,7 +84,7 @@ fn operate(value: Value, target: i64, head: Span) -> Value {
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),
