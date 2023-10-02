@@ -13,13 +13,13 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
 
     let mut input_v: Vec<String> = Vec::new();
     for line in input_string.lines() {
-        if line.starts_with(' ') {
+        if line.starts_with(' ') || line.starts_with('\t') {
             match input_v.pop() {
                 None => {
                     input_v.push(line.trim().to_string());
                 }
                 Some(prev_line) => {
-                    input_v.push(prev_line + line.trim());
+                    input_v.push(prev_line + line[1..].trim_end());
                 }
             }
         } else {
