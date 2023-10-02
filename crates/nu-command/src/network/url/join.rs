@@ -227,7 +227,7 @@ impl UrlComponents {
         match value.as_string() {
             Ok(s) => {
                 if s.trim().is_empty() {
-                    Ok(self)
+                    self.check_required(key, value_span)
                 } else {
                     match key.as_str() {
                         "host" => Ok(Self {
@@ -297,6 +297,20 @@ impl UrlComponents {
                     }
                 }
             }
+            _ => self.check_required(key, value_span),
+        }
+    }
+
+    fn check_required(self, key: String, value_span: Span) -> Result<Self, ShellError> {
+        match key.as_str() {
+            "host" => Err(ShellError::ExpectedNonNull {
+                exp_type: "string".into(),
+                span: value_span,
+            }),
+            "scheme" => Err(ShellError::ExpectedNonNull {
+                exp_type: "string".into(),
+                span: value_span,
+            }),
             _ => Ok(self),
         }
     }

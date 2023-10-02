@@ -170,6 +170,19 @@ pub enum ShellError {
         span: Span,
     },
 
+    /// A command parameter is expected to be non-null.
+    ///
+    /// ## Resolution
+    ///
+    /// Pass a non-null value.
+    #[error("Expected {exp_type} found null.")]
+    #[diagnostic(code(nu::shell::expected_non_null))]
+    ExpectedNonNull {
+        exp_type: String,
+        #[label = "expected {exp_type}, found null"]
+        span: Span,
+    },
+
     /// An expected command parameter is missing.
     ///
     /// ## Resolution
