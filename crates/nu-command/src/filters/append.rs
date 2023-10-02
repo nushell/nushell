@@ -41,7 +41,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         vec![
             Example {
                 example: "[0 1 2 3] | append 4",
-                description: "Append one integer to a list",
+                description: "Append one int to a list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -70,7 +70,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[0 1] | append [2 3 4]",
-                description: "Append three integer items",
+                description: "Append three int items",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -81,7 +81,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[0 1] | append [2 nu 4 shell]",
-                description: "Append integers and strings",
+                description: "Append ints and strings",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -93,7 +93,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[0 1] | append 2..4",
-                description: "Append a range of integers to a list",
+                description: "Append a range of ints to a list",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
