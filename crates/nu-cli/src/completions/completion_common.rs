@@ -65,7 +65,7 @@ pub fn plain_listdir(dir: bool, source: &str, home: bool) -> Vec<String> {
     if let Ok(result) = Path::new(source).read_dir() {
         for entry in result.filter_map(|e| e.ok()) {
             let path = entry.path();
-            let path_string = if home {
+            let mut path_string = if home {
                 let completion_without_tilde = path
                     .strip_prefix(home_dir().unwrap_or(PathBuf::new()))
                     .unwrap_or(&path)
@@ -76,6 +76,9 @@ pub fn plain_listdir(dir: bool, source: &str, home: bool) -> Vec<String> {
                 path.to_string_lossy().into_owned()
             };
 
+            if entry.path().is_dir() {
+                path_string.push(SEP);
+            }
             // If we don't want a directory and the entry is a directory, exclude it
             // Apply DeMorgan's law on the above statement
             if !dir || entry.path().is_dir() {
