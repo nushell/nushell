@@ -103,6 +103,9 @@ pub enum SyntaxShape {
     /// A record value, eg `{x: 1, y: 2}`
     Record(Vec<(String, SyntaxShape)>),
 
+    /// A record that is subtype of any other record
+    AnyRecord,
+
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
     RowCondition,
@@ -115,6 +118,9 @@ pub enum SyntaxShape {
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
+
+    /// A table that is subtype of any other record
+    AnyTable,
 
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
@@ -171,11 +177,13 @@ impl SyntaxShape {
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Range,
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
+            SyntaxShape::AnyRecord => Type::AnyRecord,
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature => Type::Signature,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
+            SyntaxShape::AnyTable => Type::AnyTable,
             SyntaxShape::VarWithOptType => Type::Any,
         }
     }
@@ -220,18 +228,20 @@ impl Display for SyntaxShape {
             SyntaxShape::List(x) => write!(f, "list<{x}>"),
             SyntaxShape::Table(columns) => {
                 if columns.is_empty() {
-                    write!(f, "table")
+                    write!(f, "table<>")
                 } else {
                     write!(f, "table<{}>", mk_fmt(columns))
                 }
             }
+            SyntaxShape::AnyTable => write!(f, "table"),
             SyntaxShape::Record(entries) => {
                 if entries.is_empty() {
-                    write!(f, "record")
+                    write!(f, "record<>")
                 } else {
                     write!(f, "record<{}>", mk_fmt(entries))
                 }
             }
+            SyntaxShape::AnyRecord => write!(f, "record"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),

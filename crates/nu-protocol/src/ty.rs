@@ -108,8 +108,8 @@ impl Type {
             Type::Nothing => SyntaxShape::Nothing,
             Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
             Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
-            Type::AnyRecord => SyntaxShape::Record(vec![]),
-            Type::AnyTable => SyntaxShape::Table(vec![]),
+            Type::AnyRecord => SyntaxShape::AnyRecord,
+            Type::AnyTable => SyntaxShape::AnyTable,
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
@@ -166,7 +166,7 @@ impl Display for Type {
             Type::Range => write!(f, "range"),
             Type::Record(fields) => {
                 if fields.is_empty() {
-                    write!(f, "record")
+                    write!(f, "record<>")
                 } else {
                     write!(
                         f,
@@ -179,10 +179,10 @@ impl Display for Type {
                     )
                 }
             }
-            Type::AnyRecord => write!(f, "record<any>"),
+            Type::AnyRecord => write!(f, "record"),
             Type::Table(columns) => {
                 if columns.is_empty() {
-                    write!(f, "table")
+                    write!(f, "table<>")
                 } else {
                     write!(
                         f,
@@ -195,7 +195,7 @@ impl Display for Type {
                     )
                 }
             }
-            Type::AnyTable => write!(f, "table<any>"),
+            Type::AnyTable => write!(f, "table"),
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),

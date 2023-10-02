@@ -22,10 +22,7 @@ impl Command for GroupBy {
             // example. Perhaps Table should be a subtype of List, in which case
             // the current signature would suffice even when a Table example
             // exists.
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::AnyRecord,
-            )])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::AnyRecord)])
             .optional(
                 "grouper",
                 SyntaxShape::OneOf(vec![

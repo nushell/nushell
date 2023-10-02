@@ -2795,16 +2795,16 @@ fn parse_collection_shape(
     };
 
     if bytes == name.as_bytes() {
-        mk_shape(vec![])
+        return if is_table {
+            SyntaxShape::AnyTable
+        } else {
+            SyntaxShape::AnyRecord
+        };
     } else if bytes.starts_with(prefix) {
         let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len) else {
             return SyntaxShape::Any;
         };
 
-        // record<> or table<>
-        if inner_span.end - inner_span.start == 0 {
-            return mk_shape(vec![]);
-        }
         let source = working_set.get_span_contents(inner_span);
         let (tokens, err) = lex_signature(
             source,
