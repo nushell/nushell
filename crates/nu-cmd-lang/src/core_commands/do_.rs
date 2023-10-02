@@ -305,7 +305,7 @@ impl Command for Do {
             },
             Example {
                 description: "Run the closure and keep changes to the environment",
-                example: r#"do --env { $env.foo = bar }; $env.foo"#,
+                example: r#"do --env { $env.foo = 'bar' }; $env.foo"#,
                 result: Some(Value::test_string("bar")),
             },
         ]
