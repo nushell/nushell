@@ -286,7 +286,7 @@ impl UrlComponents {
                                 engine_state,
                                 &ShellError::GenericError(
                                     format!("'{key}' is not a valid URL field"),
-                                    format!("Remove '{key}' col from input record"),
+                                    format!("remove '{key}' col from input record"),
                                     Some(span),
                                     None,
                                     vec![],
