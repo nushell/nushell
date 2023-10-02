@@ -22,7 +22,7 @@ impl Command for Flatten {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyTable),
             ])
             .rest(
                 "rest",

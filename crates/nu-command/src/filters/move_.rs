@@ -27,8 +27,8 @@ impl Command for Move {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("move")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyRecord),
+                (Type::Table(vec![]), Type::AnyTable),
             ])
             .rest("columns", SyntaxShape::String, "the columns to move")
             .named(

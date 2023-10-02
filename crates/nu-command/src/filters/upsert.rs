@@ -17,8 +17,8 @@ impl Command for Upsert {
     fn signature(&self) -> Signature {
         Signature::build("upsert")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyRecord),
+                (Type::Table(vec![]), Type::AnyTable),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

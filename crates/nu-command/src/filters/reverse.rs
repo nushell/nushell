@@ -20,7 +20,7 @@ impl Command for Reverse {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::AnyTable),
             ])
             .category(Category::Filters)
     }

@@ -17,7 +17,7 @@ impl Command for SortBy {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort-by")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::AnyTable),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

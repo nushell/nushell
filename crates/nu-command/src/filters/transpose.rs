@@ -28,7 +28,7 @@ impl Command for Transpose {
         Signature::build("transpose")
             .input_output_types(vec![
                 (Type::Table(vec![]), Type::Any),
-                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyTable),
             ])
             .switch(
                 "header-row",

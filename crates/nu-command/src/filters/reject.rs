@@ -19,8 +19,8 @@ impl Command for Reject {
     fn signature(&self) -> Signature {
         Signature::build("reject")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyRecord),
+                (Type::Table(vec![]), Type::AnyTable),
             ])
             .rest(
                 "rest",

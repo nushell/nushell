@@ -19,8 +19,8 @@ impl Command for Rename {
     fn signature(&self) -> Signature {
         Signature::build("rename")
             .input_output_types(vec![
-                (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::AnyRecord),
+                (Type::Table(vec![]), Type::AnyTable),
             ])
             .named(
                 "column",

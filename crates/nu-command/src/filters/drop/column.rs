@@ -16,7 +16,7 @@ impl Command for DropColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Table(vec![]), Type::AnyTable)])
             .optional(
                 "columns",
                 SyntaxShape::Int,

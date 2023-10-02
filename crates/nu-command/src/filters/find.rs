@@ -33,7 +33,7 @@ impl Command for Find {
                 (
                     // For find -p
                     Type::Table(vec![]),
-                    Type::Table(vec![]),
+                    Type::AnyTable,
                 ),
             ])
             .named(

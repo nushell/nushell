@@ -27,7 +27,7 @@ impl Command for Uniq {
                 (
                     // -c
                     Type::List(Box::new(Type::Any)),
-                    Type::Table(vec![]),
+                    Type::AnyTable,
                 ),
             ])
             .switch(

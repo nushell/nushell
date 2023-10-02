@@ -17,7 +17,7 @@ impl Command for SplitBy {
 
     fn signature(&self) -> Signature {
         Signature::build("split-by")
-            .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
+            .input_output_types(vec![(Type::Record(vec![]), Type::AnyRecord)])
             .optional("splitter", SyntaxShape::Any, "the splitter value to use")
             .category(Category::Filters)
     }

@@ -18,7 +18,7 @@ impl Command for Drop {
     fn signature(&self) -> Signature {
         Signature::build("drop")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::AnyTable),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),

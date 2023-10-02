@@ -24,7 +24,7 @@ impl Command for GroupBy {
             // exists.
             .input_output_types(vec![(
                 Type::List(Box::new(Type::Any)),
-                Type::Record(vec![]),
+                Type::AnyRecord,
             )])
             .optional(
                 "grouper",
