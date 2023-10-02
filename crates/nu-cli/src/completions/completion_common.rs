@@ -80,7 +80,7 @@ pub fn complete_item(
             if let Some(Component::RootDir) = components.peek().cloned() {
                 components.next();
             };
-            PathBuf::from(c.as_os_str())
+            [c, Component::RootDir].iter().collect()
         }
         Some(c @ Component::RootDir) => {
             components.next();
