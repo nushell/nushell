@@ -63,8 +63,8 @@ fn cut_string(source: &str, skip: usize, width: usize) -> Cow<'_, str> {
             .map(|(_, b)| b)
             .sum::<usize>();
 
-        let cutted_text = text.get(skip_chars..).expect("must be OK").to_owned();
-        text = Cow::Owned(cutted_text);
+        let cut_text = text.get(skip_chars..).expect("must be OK").to_owned();
+        text = Cow::Owned(cut_text);
     }
 
     if string_width(&text) > width {
