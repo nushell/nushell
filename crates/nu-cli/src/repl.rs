@@ -826,11 +826,11 @@ fn looks_like_path(orig: &str) -> bool {
 #[cfg(windows)]
 #[test]
 fn looks_like_path_windows_drive_path_works() {
-    assert_eq!(looks_like_path("C:"), true);
-    assert_eq!(looks_like_path("D:\\"), true);
-    assert_eq!(looks_like_path("E:/"), true);
-    assert_eq!(looks_like_path("F:\\some_dir"), true);
-    assert_eq!(looks_like_path("G:/some_dir"), true);
+    assert!(looks_like_path("C:"));
+    assert!(looks_like_path("D:\\"));
+    assert!(looks_like_path("E:/"));
+    assert!(looks_like_path("F:\\some_dir"));
+    assert!(looks_like_path("G:/some_dir"));
 }
 
 #[cfg(windows)]
