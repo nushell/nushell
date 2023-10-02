@@ -17,10 +17,10 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
             match input_v.pop() {
                 None => {
                     input_v.push(line.trim().to_string());
-                },
+                }
                 Some(prev_line) => {
                     input_v.push(prev_line + line.trim());
-                },
+                }
             }
         } else {
             input_v.push(line.trim().to_string());
