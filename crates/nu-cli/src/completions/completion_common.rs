@@ -45,7 +45,7 @@ impl OriginalCwd {
     fn apply(&self, p: &Path) -> String {
         let mut ret = match self {
             Self::None => p.to_string_lossy().into_owned(),
-            Self::Some(base) => pathdiff::diff_paths(p.clone(), base)
+            Self::Some(base) => pathdiff::diff_paths(p, base)
                 .unwrap_or(p.to_path_buf())
                 .to_string_lossy()
                 .into_owned(),
@@ -89,11 +89,11 @@ pub fn complete_item(
         Some(Component::Normal(home)) if home.to_string_lossy() == "~" => {
             components.next();
             original_cwd = OriginalCwd::Home(home_dir().unwrap_or(cwd_pathbuf.clone()));
-            PathBuf::from(home_dir().unwrap_or(cwd_pathbuf))
+            home_dir().unwrap_or(cwd_pathbuf)
         }
         _ => {
             original_cwd = OriginalCwd::Some(cwd_pathbuf.clone());
-            PathBuf::from(cwd_pathbuf)
+            cwd_pathbuf
         }
     };
 
