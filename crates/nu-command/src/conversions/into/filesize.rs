@@ -136,7 +136,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Nothing { .. } => Value::filesize(0, value_span),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string and integer".into(),
+                exp_input_type: "string and int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: value_span,

@@ -84,7 +84,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "convert integer to string and append three decimal places",
+                description: "convert int to string and append three decimal places",
                 example: "5 | into string -d 3",
                 result: Some(Value::test_string("5.000")),
             },

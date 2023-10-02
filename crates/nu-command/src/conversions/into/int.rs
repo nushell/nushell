@@ -158,32 +158,32 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert string to integer in table",
+                description: "Convert string to int in table",
                 example: "[[num]; ['-5'] [4] [1.5]] | into int num",
                 result: None,
             },
             Example {
-                description: "Convert string to integer",
+                description: "Convert string to int",
                 example: "'2' | into int",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Convert float to integer",
+                description: "Convert float to int",
                 example: "5.9 | into int",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Convert decimal string to integer",
+                description: "Convert decimal string to int",
                 example: "'5.9' | into int",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Convert file size to integer",
+                description: "Convert file size to int",
                 example: "4KB | into int",
                 result: Some(Value::test_int(4000)),
             },
             Example {
-                description: "Convert bool to integer",
+                description: "Convert bool to int",
                 example: "[false, true] | into int",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(1)],
@@ -191,32 +191,32 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Convert date to integer (Unix nanosecond timestamp)",
+                description: "Convert date to int (Unix nanosecond timestamp)",
                 example: "1983-04-13T12:09:14.123456789-05:00 | into int",
                 result: Some(Value::test_int(419101754123456789)),
             },
             Example {
-                description: "Convert to integer from binary",
+                description: "Convert to int from binary data (radix: 2)",
                 example: "'1101' | into int -r 2",
                 result: Some(Value::test_int(13)),
             },
             Example {
-                description: "Convert to integer from hex",
+                description: "Convert to int from hex",
                 example: "'FF' |  into int -r 16",
                 result: Some(Value::test_int(255)),
             },
             Example {
-                description: "Convert octal string to integer",
+                description: "Convert octal string to int",
                 example: "'0o10132' | into int",
                 result: Some(Value::test_int(4186)),
             },
             Example {
-                description: "Convert 0 padded string to integer",
+                description: "Convert 0 padded string to int",
                 example: "'0010132' | into int",
                 result: Some(Value::test_int(10132)),
             },
             Example {
-                description: "Convert 0 padded string to integer with radix",
+                description: "Convert 0 padded string to int with radix 8",
                 example: "'0010132' | into int -r 8",
                 result: Some(Value::test_int(4186)),
             },
@@ -248,7 +248,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                             return Value::error(
                                 ShellError::CantConvert {
                                     to_type: "float".to_string(),
-                                    from_type: "integer".to_string(),
+                                    from_type: "int".to_string(),
                                     span,
                                     help: None,
                                 },
@@ -327,7 +327,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer, float, filesize, date, string, binary, duration or bool"
+                exp_input_type: "int, float, filesize, date, string, binary, duration, or bool"
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
@@ -376,7 +376,7 @@ fn convert_int(input: &Value, head: Span, radix: u32) -> Value {
         other => {
             return Value::error(
                 ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
+                    exp_input_type: "string and int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),
