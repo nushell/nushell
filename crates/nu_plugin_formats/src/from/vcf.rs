@@ -11,11 +11,22 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     let input_string = input.as_string()?;
     let head = call.head;
 
-    let input_string = input_string
-        .lines()
-        .map(|x| x.trim().to_string())
-        .collect::<Vec<_>>()
-        .join("\n");
+    let mut input_v: Vec<String> = Vec::new();
+    for line in input_string.lines() {
+        if line.starts_with(' ') {
+            match input_v.pop() {
+                None => {
+                    input_v.push(line.trim().to_string());
+                },
+                Some(prev_line) => {
+                    input_v.push(prev_line + line.trim());
+                },
+            }
+        } else {
+            input_v.push(line.trim().to_string());
+        }
+    }
+    let input_string = input_v.join("\n");
 
     let input_bytes = input_string.as_bytes();
     let cursor = std::io::Cursor::new(input_bytes);
