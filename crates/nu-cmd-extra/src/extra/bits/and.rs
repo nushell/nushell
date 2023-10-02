@@ -22,11 +22,7 @@ impl Command for BitsAnd {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .required(
-                "target",
-                SyntaxShape::Int,
-                "target int to perform bit and",
-            )
+            .required("target", SyntaxShape::Int, "target int to perform bit and")
             .category(Category::Bits)
     }
 

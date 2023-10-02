@@ -115,8 +115,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "convert an int to a nushell binary primitive with compact enabled",
+                description: "convert an int to a nushell binary primitive with compact enabled",
                 example: "10 | into binary --compact",
                 result: Some(Value::binary(vec![10], Span::test_data())),
             },

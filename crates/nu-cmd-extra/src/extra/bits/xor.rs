@@ -22,11 +22,7 @@ impl Command for BitsXor {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .required(
-                "target",
-                SyntaxShape::Int,
-                "target int to perform bit xor",
-            )
+            .required("target", SyntaxShape::Int, "target int to perform bit xor")
             .category(Category::Bits)
     }
 

@@ -22,11 +22,7 @@ impl Command for BitsOr {
                     Type::List(Box::new(Type::Int)),
                 ),
             ])
-            .required(
-                "target",
-                SyntaxShape::Int,
-                "target int to perform bit or",
-            )
+            .required("target", SyntaxShape::Int, "target int to perform bit or")
             .category(Category::Bits)
     }
 
