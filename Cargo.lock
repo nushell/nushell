@@ -2897,7 +2897,6 @@ dependencies = [
  "os_pipe",
  "pathdiff",
  "percent-encoding",
- "powierza-coefficient",
  "print-positions",
  "quick-xml",
  "quickcheck",
@@ -4019,12 +4018,6 @@ name = "portable-atomic"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "767eb9f07d4a5ebcb39bbf2d452058a93c011373abf6832e24194a1c3f004794"
-
-[[package]]
-name = "powierza-coefficient"
-version = "1.0.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04123079750026568dff0e68efe1ca676f6686023f3bf7686b87dab661c0375b"
 
 [[package]]
 name = "ppv-lite86"
