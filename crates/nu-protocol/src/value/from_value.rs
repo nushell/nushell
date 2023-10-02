@@ -26,7 +26,7 @@ impl FromValue for Spanned<i64> {
             Value::Duration { val, .. } => Ok(Spanned { item: *val, span }),
 
             v => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "int".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
@@ -43,7 +43,7 @@ impl FromValue for i64 {
             Value::Duration { val, .. } => Ok(*val),
 
             v => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "int".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
@@ -123,7 +123,7 @@ impl FromValue for Spanned<usize> {
             }
 
             v => Err(ShellError::CantConvert {
-                to_type: "non-negative integer".into(),
+                to_type: "non-negative int".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
@@ -159,7 +159,7 @@ impl FromValue for usize {
             }
 
             v => Err(ShellError::CantConvert {
-                to_type: "non-negative integer".into(),
+                to_type: "non-negative int".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
