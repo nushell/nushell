@@ -228,7 +228,6 @@ fn run_export_extern() {
     })
 }
 
-#[ignore]
 #[test]
 #[cfg(not(windows))]
 fn run_in_login_mode() {
