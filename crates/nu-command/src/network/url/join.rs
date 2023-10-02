@@ -82,7 +82,7 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
@@ -98,7 +98,7 @@ impl Command for SubCommand {
                         let url_components = val
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
-                                url.add_component(k, v, span)
+                                url.add_component(k, v, span, engine_state)
                             });
 
                         url_components?.to_url(span)
@@ -137,8 +137,14 @@ impl UrlComponents {
         Default::default()
     }
 
-    pub fn add_component(self, key: String, value: Value, _span: Span) -> Result<Self, ShellError> {
-        let span = value.span();
+    pub fn add_component(
+        self,
+        key: String,
+        value: Value,
+        span: Span,
+        engine_state: &EngineState,
+    ) -> Result<Self, ShellError> {
+        let value_span = value.span();
         if key == "port" {
             return match value {
                 Value::String { val, .. } => {
@@ -154,7 +160,7 @@ impl UrlComponents {
                                 msg: String::from(
                                     "Port parameter should represent an unsigned integer",
                                 ),
-                                span,
+                                span: value_span,
                             }),
                         }
                     }
@@ -205,7 +211,7 @@ impl UrlComponents {
 
                     Ok(Self {
                         query: Some(qs),
-                        params_span: Some(span),
+                        params_span: Some(value_span),
                         ..self
                     })
                 }
@@ -275,7 +281,19 @@ impl UrlComponents {
                             }),
                             ..self
                         }),
-                        _ => Ok(self),
+                        _ => {
+                            nu_protocol::report_error_new(
+                                engine_state,
+                                &ShellError::GenericError(
+                                    format!("'{key}' is not a valid URL field"),
+                                    format!("Remove '{key}' col from input record"),
+                                    Some(span),
+                                    None,
+                                    vec![],
+                                ),
+                            );
+                            Ok(self)
+                        }
                     }
                 }
             }
