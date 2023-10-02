@@ -259,7 +259,7 @@ fn url_join_with_invalid_port() {
 
     assert!(actual
         .err
-        .contains("Port parameter should be an unsigned integer or a string representing it"));
+        .contains("Port parameter should be an unsigned int or a string representing it"));
 }
 
 #[test]
