@@ -146,8 +146,10 @@ mod test {
 
             if exp_matches_input {
                 assert_eq!(exp_count, res.len(), "matches input, but count not 1? ");
-                assert_eq!(nu_path::canonicalize_with(pat, dirs.test).expect("canonicalize_with?"), res[0])
-
+                assert_eq!(
+                    nu_path::canonicalize_with(pat, dirs.test).expect("canonicalize_with?"),
+                    res[0]
+                )
             } else {
                 assert_eq!(exp_count, res.len(), "Expected : Actual");
             }
@@ -156,7 +158,8 @@ mod test {
 
     #[rstest]
     #[case(r#"realbad[glob.foo"#, true, 1, "error, bad glob")]
-    fn exact_vs_glob_bad_glob(      // if path doesn't exist but pattern is not valid glob, should get error.
+    fn exact_vs_glob_bad_glob(
+        // if path doesn't exist but pattern is not valid glob, should get error.
         #[case] pat: &str,
         #[case] _exp_matches_input: bool,
         #[case] _exp_count: usize,

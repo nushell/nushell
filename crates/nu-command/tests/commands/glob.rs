@@ -138,7 +138,6 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 #[case("foo/bar", r#"'*[{]*'"#, &[r#"foo/bar/ab{le"#, "foo/bar/baker", r#"foo/bar/cha}rlie"#], &[r#"foo/bar/ab{le"#], "glob has quoted [] metachars")]
 #[case("foo/bar", r#"'*\{*'"#, &[r#"foo/bar/ab{le"#, "foo/bar/baker", r#"foo/bar/cha}rlie"#], &[r#"foo/bar/ab{le"#], "glob has quoted \\ metachars")]
 
-
 fn glob_files_in_parent(
     #[case] wd: &str,
     #[case] glob: &str,
