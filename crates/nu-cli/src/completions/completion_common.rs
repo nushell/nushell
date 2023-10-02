@@ -5,11 +5,10 @@ use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 fn complete_rec(
     partial: &[String],
     cwd: &Path,
-    original_cwd: &OriginalCwd,
     options: &CompletionOptions,
     dir: bool,
     isdir: bool,
-) -> Vec<String> {
+) -> Vec<PathBuf> {
     let mut completions = vec![];
 
     if let Ok(result) = cwd.read_dir() {
@@ -22,24 +21,12 @@ fn complete_rec(
                     Some(base) if matches(base, &entry_name, options) => {
                         let partial = &partial[1..];
                         if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(
-                                partial,
-                                &path,
-                                original_cwd,
-                                options,
-                                dir,
-                                isdir,
-                            ));
+                            completions.extend(complete_rec(partial, &path, options, dir, isdir))
                         } else {
-                            let path_string = original_cwd.apply(&path);
-                            completions.push(escape_path(path_string, dir));
+                            completions.push(path)
                         }
                     }
-                    None => {
-                        let path_string = original_cwd.apply(&path);
-                        completions.push(escape_path(path_string, dir));
-                    }
-
+                    None => completions.push(path),
                     _ => {}
                 }
             }
@@ -62,13 +49,10 @@ impl OriginalCwd {
                 .unwrap_or(p.to_path_buf())
                 .to_string_lossy()
                 .into_owned(),
-            Self::Home(home) => {
-                if let Ok(suffix) = p.strip_prefix(home) {
-                    format!("~{}{}", SEP, suffix.to_string_lossy())
-                } else {
-                    p.to_string_lossy().into_owned()
-                }
-            }
+            Self::Home(home) => match p.strip_prefix(home) {
+                Ok(suffix) => format!("~{}{}", SEP, suffix.to_string_lossy()),
+                _ => p.to_string_lossy().into_owned(),
+            },
         };
 
         if p.is_dir() {
@@ -131,17 +115,10 @@ pub fn complete_item(
         }
     }
 
-    complete_rec(
-        partial.as_slice(),
-        &cwd,
-        &original_cwd,
-        options,
-        want_directory,
-        isdir,
-    )
-    .into_iter()
-    .map(|p| (span, p))
-    .collect()
+    complete_rec(partial.as_slice(), &cwd, options, want_directory, isdir)
+        .into_iter()
+        .map(|p| (span, escape_path(original_cwd.apply(&p), want_directory)))
+        .collect()
 }
 
 // Fix files or folders with quotes or hashes
