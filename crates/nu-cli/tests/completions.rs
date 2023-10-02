@@ -274,7 +274,7 @@ fn partial_completions() {
     match_suggestions(expected_paths, suggestions);
 
     // Test completion where there is a sneaky `..` in the path
-    let dir_str = file(dir.join("par").join("..").join("fi").join("som"));
+    let dir_str = file(dir.join("par").join("..").join("fi").join("so"));
     let target_dir = format!("rm {dir_str}");
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
