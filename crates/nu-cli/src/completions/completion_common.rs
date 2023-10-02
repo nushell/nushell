@@ -143,6 +143,9 @@ pub fn complete_item(
             rec_input_path = rec_input_path.strip_prefix("..").unwrap_or(rec_input_path);
             cwd = cwd.parent().unwrap_or(cwd);
         }
+        while rec_input_path.starts_with(".") {
+            rec_input_path = rec_input_path.strip_prefix(".").unwrap_or(rec_input_path);
+        }
         complete_rec(
             rec_input_path.to_string_lossy().into_owned().as_str(),
             cwd,
