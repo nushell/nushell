@@ -823,14 +823,26 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.ends_with(std::path::MAIN_SEPARATOR)
 }
 
+#[cfg(windows)]
 #[test]
 fn looks_like_path_windows_drive_path_works() {
-    let on_windows = cfg!(windows);
-    assert_eq!(looks_like_path("C:"), on_windows);
-    assert_eq!(looks_like_path("D:\\"), on_windows);
-    assert_eq!(looks_like_path("E:/"), on_windows);
-    assert_eq!(looks_like_path("F:\\some_dir"), on_windows);
-    assert_eq!(looks_like_path("G:/some_dir"), on_windows);
+    assert_eq!(looks_like_path("C:"), true);
+    assert_eq!(looks_like_path("D:\\"), true);
+    assert_eq!(looks_like_path("E:/"), true);
+    assert_eq!(looks_like_path("F:\\some_dir"), true);
+    assert_eq!(looks_like_path("G:/some_dir"), true);
+}
+
+#[cfg(windows)]
+#[test]
+fn trailing_slash_looks_like_path() {
+    assert!(looks_like_path("foo\\"))
+}
+
+#[cfg(not(windows))]
+#[test]
+fn trailing_slash_looks_like_path() {
+    assert!(looks_like_path("foo/"))
 }
 
 #[test]
