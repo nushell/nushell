@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Call, CellPath, PathMember},
+    ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
