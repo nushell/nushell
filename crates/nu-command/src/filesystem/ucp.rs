@@ -68,12 +68,12 @@ impl Command for UCp {
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "ucp --recursive dir_a dir_b",
+                example: "ucp -r dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "ucp --recursive --verbose dir_a dir_b",
+                example: "ucp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
