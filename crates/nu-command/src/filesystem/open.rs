@@ -174,11 +174,12 @@ impl Command for Open {
                     let exts_opt: Option<Vec<String>> = if raw {
                         None
                     } else {
-                        // path.extension()
-                        //     .map(|name| name.to_string_lossy().to_string().to_lowercase())
-                        let path_str = path.to_string_lossy().to_string().to_lowercase();
-                        path.extension()
-                            .map(|_| extract_extensions(path_str.as_str()))
+                        let path_str = path
+                            .file_name()
+                            .unwrap_or(std::ffi::OsStr::new(path))
+                            .to_string_lossy()
+                            .to_lowercase();
+                        Some(extract_extensions(path_str.as_str()))
                     };
 
                     let converter = exts_opt.and_then(|exts| {
