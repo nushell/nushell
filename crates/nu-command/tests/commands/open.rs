@@ -33,6 +33,36 @@ fn parses_file_with_uppercase_extension() {
         assert_eq!(actual.out, "SGML");
     })
 }
+#[test]
+fn parses_file_with_multiple_extensions() {
+    Playground::setup("open_test_multiple_extensions", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContent("file.tar.gz", "this is a tar.gz file"),
+            FileWithContent("file.tar.xz", "this is a tar.xz file"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                def "from tar.gz" [] { 'opened tar.gz' } ;
+                open file.tar.gz
+            "#
+        ));
+
+        assert_eq!(actual.out, "opened tar.gz");
+
+        let actual2 = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                def "from tar.gz" [] { 'opened tar.gz' } ;
+                def "from xz" [] { 'opened xz' } ;
+                open file.tar.xz
+            "#
+        ));
+
+        assert_eq!(actual2.out, "opened xz");
+    })
+}
 
 #[test]
 fn parses_csv() {
