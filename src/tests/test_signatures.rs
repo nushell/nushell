@@ -136,7 +136,7 @@ fn list_annotations_with_extra_characters() -> TestResult {
 #[test]
 fn record_annotations_none() -> TestResult {
     let input = "def run [rec: record] { $rec }; run {} | describe";
-    let expected = "record";
+    let expected = "record<>";
     run_test(input, expected)
 }
 
@@ -266,7 +266,7 @@ fn record_annotations_with_extra_characters() -> TestResult {
 #[test]
 fn table_annotations_none() -> TestResult {
     let input = "def run [t: table] { $t }; run [[]; []] | describe";
-    let expected = "table";
+    let expected = "table<>";
     run_test(input, expected)
 }
 
