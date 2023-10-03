@@ -359,12 +359,12 @@ impl Command for Cp {
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "cp -r dir_a dir_b",
+                example: "cp --recursive dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "cp -r -v dir_a dir_b",
+                example: "cp --recursive --verbose dir_a dir_b",
                 result: None,
             },
             Example {
@@ -374,7 +374,7 @@ impl Command for Cp {
             },
             Example {
                 description: "Copy only if source file is newer than target file",
-                example: "cp -u a b",
+                example: "cp --update a b",
                 result: None,
             },
         ]
