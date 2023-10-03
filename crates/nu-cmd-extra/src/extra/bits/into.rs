@@ -219,7 +219,7 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer, filesize, string, date, duration, binary or bool".into(),
+                exp_input_type: "int, filesize, string, date, duration, binary, or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),

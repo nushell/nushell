@@ -80,15 +80,13 @@ impl Command for Skip {
                 match v {
                     Value::Int { val, .. } => {
                         val.try_into().map_err(|err| ShellError::TypeMismatch {
-                            err_message: format!(
-                                "Could not convert {val} to unsigned integer: {err}"
-                            ),
+                            err_message: format!("Could not convert {val} to unsigned int: {err}"),
                             span,
                         })?
                     }
                     _ => {
                         return Err(ShellError::TypeMismatch {
-                            err_message: "expected integer".into(),
+                            err_message: "expected int".into(),
                             span,
                         })
                     }

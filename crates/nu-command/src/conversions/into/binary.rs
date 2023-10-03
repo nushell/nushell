@@ -115,8 +115,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "convert an integer to a nushell binary primitive with compact enabled",
+                description: "convert an int to a nushell binary primitive with compact enabled",
                 example: "10 | into binary --compact",
                 result: Some(Value::binary(vec![10], Span::test_data())),
             },
@@ -172,7 +171,7 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer, float, filesize, string, date, duration, binary or bool"
+                exp_input_type: "int, float, filesize, string, date, duration, binary, or bool"
                     .into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,

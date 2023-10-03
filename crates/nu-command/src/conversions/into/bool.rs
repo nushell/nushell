@@ -90,7 +90,7 @@ impl Command for SubCommand {
                 result: Some(Value::bool(true, span)),
             },
             Example {
-                description: "convert integer to boolean",
+                description: "convert int to boolean",
                 example: "1 | into bool",
                 result: Some(Value::bool(true, span)),
             },
@@ -159,7 +159,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "bool, integer, float or string".into(),
+                exp_input_type: "bool, int, float or string".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: other.span(),

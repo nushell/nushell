@@ -41,7 +41,7 @@ impl Command for BitsShr {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift right for integers."
+        "Bitwise shift right for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -159,7 +159,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

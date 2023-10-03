@@ -256,7 +256,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         other => {
             return Value::error(
                 ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
+                    exp_input_type: "string and int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),

@@ -158,7 +158,7 @@ impl UrlComponents {
                             }),
                             Err(_) => Err(ShellError::IncompatibleParametersSingle {
                                 msg: String::from(
-                                    "Port parameter should represent an unsigned integer",
+                                    "Port parameter should represent an unsigned int",
                                 ),
                                 span: value_span,
                             }),
@@ -172,7 +172,7 @@ impl UrlComponents {
                 Value::Error { error, .. } => Err(*error),
                 other => Err(ShellError::IncompatibleParametersSingle {
                     msg: String::from(
-                        "Port parameter should be an unsigned integer or a string representing it",
+                        "Port parameter should be an unsigned int or a string representing it",
                     ),
                     span: other.span(),
                 }),
