@@ -181,15 +181,13 @@ impl Command for Open {
                             .map(|_| extract_extensions(path_str.as_str()))
                     };
 
-                    let converter = exts_opt
-                        .map(|exts| {
-                            exts.iter().find_map(|ext| {
-                                engine_state
-                                    .find_decl(format!("from {}", ext).as_bytes(), &[])
-                                    .map(|id| (id, ext.to_string()))
-                            })
+                    let converter = exts_opt.and_then(|exts| {
+                        exts.iter().find_map(|ext| {
+                            engine_state
+                                .find_decl(format!("from {}", ext).as_bytes(), &[])
+                                .map(|id| (id, ext.to_string()))
                         })
-                        .flatten();
+                    });
 
                     match converter {
                         Some((converter_id, ext)) => {
