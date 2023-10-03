@@ -134,7 +134,7 @@ impl Command for Table {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1.",
-                example: r#"ls | table --start-number 1"#,
+                example: r#"ls | table -n 1"#,
                 result: None,
             },
             Example {
