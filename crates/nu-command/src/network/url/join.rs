@@ -227,7 +227,7 @@ impl UrlComponents {
         match value.as_string() {
             Ok(s) => {
                 if s.trim().is_empty() {
-                    self.check_required(key, value_span)
+                    self.check_required(key, value_span, "empty string".into())
                 } else {
                     match key.as_str() {
                         "host" => Ok(Self {
@@ -297,20 +297,27 @@ impl UrlComponents {
                     }
                 }
             }
-            _ => self.check_required(key, value_span),
+            _ => self.check_required(key, value_span, "null or empty value".into()),
         }
     }
 
-    fn check_required(self, key: String, value_span: Span) -> Result<Self, ShellError> {
+    fn check_required(
+        self,
+        key: String,
+        value_span: Span,
+        invalid_type: String,
+    ) -> Result<Self, ShellError> {
         match key.as_str() {
-            "host" => Err(ShellError::ExpectedNonNull {
-                exp_type: "string".into(),
-                span: value_span,
-            }),
-            "scheme" => Err(ShellError::ExpectedNonNull {
-                exp_type: "string".into(),
-                span: value_span,
-            }),
+            "host" => Err(ShellError::UnsupportedConfigValue(
+                "non-empty string".into(),
+                invalid_type,
+                value_span,
+            )),
+            "scheme" => Err(ShellError::UnsupportedConfigValue(
+                "non-empty string".into(),
+                invalid_type,
+                value_span,
+            )),
             _ => Ok(self),
         }
     }
