@@ -31,7 +31,7 @@ export-env {
         "DEBUG": "D"
     }
 
-    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
 }
 
 def log-types [] {
