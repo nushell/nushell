@@ -90,7 +90,7 @@ impl Command for BitsRor {
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",
-                example: "[15 33 92] | bits ror 2 -n '1'",
+                example: "[15 33 92] | bits ror 2 --number-bytes '1'",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(195),
