@@ -62,6 +62,20 @@ impl OriginalCwd {
     }
 }
 
+fn surround_remove(partial: &str) -> &str {
+    for c in ['`', '"', '\''] {
+        if partial.starts_with(c) {
+            let ret = partial.strip_prefix(c).unwrap_or(partial);
+            return if partial.ends_with(c) {
+                ret.strip_suffix(c).unwrap_or(ret)
+            } else {
+                ret
+            };
+        }
+    }
+    partial
+}
+
 pub fn complete_item(
     want_directory: bool,
     span: nu_protocol::Span,
@@ -69,6 +83,7 @@ pub fn complete_item(
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
+    let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let mut original_cwd = OriginalCwd::None;

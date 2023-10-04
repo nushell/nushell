@@ -1,5 +1,7 @@
 pub mod support;
 
+use std::path::PathBuf;
+
 use nu_cli::NuCompleter;
 use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
@@ -529,6 +531,18 @@ fn file_completion_quoted() {
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
+        format!("`{}`", folder("test dir".into())),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
+
+    let dir: PathBuf = "test dir".into();
+    let target_dir = format!("open '{}'", folder(dir.clone()));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> = vec![
+        format!("`{}`", file(dir.join("double\"quote"))),
+        format!("`{}`", file(dir.join("single'quote"))),
     ];
 
     match_suggestions(expected_paths, suggestions)
