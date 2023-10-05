@@ -125,6 +125,17 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
             },
             Example {
+                description: "Use relative paths, e.g. '..' will go up one directory",
+                example: r"'/home/foo' | path join .. bar | path expand",
+                result: Some(Value::test_string(r"/home/bar")),
+            },
+            Example {
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                example: r"'/home/foo' | path join / bar",
+                result: Some(Value::test_string(r"/bar")),
+            },
+            Example {
                 description: "Join a list of parts into a path",
                 example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
                 result: Some(Value::test_string(r"/home/viking/spam.txt")),
