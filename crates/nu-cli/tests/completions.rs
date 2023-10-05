@@ -541,8 +541,8 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(&target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
-        format!("`{}`", file(dir.join("double\"quote"))),
-        format!("`{}`", file(dir.join("single'quote"))),
+        format!("`{}`", file(dir.join("double quote"))),
+        format!("`{}`", file(dir.join("single quote"))),
     ];
 
     match_suggestions(expected_paths, suggestions)
