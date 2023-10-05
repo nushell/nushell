@@ -89,12 +89,12 @@ impl Command for BytesIndexOf {
             },
             Example {
                 description: "Returns index of pattern, search from end",
-                example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of -e 0x[44 55]",
+                example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of --end 0x[44 55]",
                 result: Some(Value::test_int(6)),
             },
             Example {
                 description: "Returns all matched index",
-                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a 0x[33 44]",
+                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all 0x[33 44]",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
                     Span::test_data(),
@@ -102,7 +102,7 @@ impl Command for BytesIndexOf {
             },
             Example {
                 description: "Returns all matched index, searching from end",
-                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of -a -e 0x[33 44]",
+                example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all --end 0x[33 44]",
                 result: Some(Value::list(
                     vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
                     Span::test_data(),

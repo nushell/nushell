@@ -94,7 +94,7 @@ impl Command for BytesRemove {
             },
             Example {
                 description: "Remove all occurrences of find binary in record field",
-                example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove -a 0x[10] data",
+                example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove --all 0x[10] data",
                 result: Some(Value::test_record(Record {
                     cols: vec!["data".to_string()],
                     vals: vec![Value::test_binary(vec![0xAA, 0xBB])]
@@ -102,7 +102,7 @@ impl Command for BytesRemove {
             },
             Example {
                 description: "Remove occurrences of find binary from end",
-                example: "0x[10 AA 10 BB CC AA 10] | bytes remove -e 0x[10]",
+                example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[10]",
                 result: Some(Value::binary (
                     vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA],
                     Span::test_data(),
