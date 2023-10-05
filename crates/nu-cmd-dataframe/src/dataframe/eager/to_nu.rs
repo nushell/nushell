@@ -61,7 +61,7 @@ impl Command for ToNu {
             },
             Example {
                 description: "Shows tail rows from dataframe",
-                example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu -t -n 1",
+                example: "[[a b]; [1 2] [5 6] [3 4]] | dfr into-df | dfr into-nu --tail --rows 1",
                 result: Some(Value::list(vec![rec_3], Span::test_data())),
             },
             Example {

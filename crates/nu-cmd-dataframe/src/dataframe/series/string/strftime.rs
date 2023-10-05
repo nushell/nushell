@@ -33,7 +33,7 @@ impl Command for StrFTime {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Formats date",
-            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
+            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime --timezone 'UTC');
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr strftime "%Y/%m/%d""#,
             result: Some(
