@@ -197,12 +197,12 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert to int from binary data (radix: 2)",
-                example: "'1101' | into int -r 2",
+                example: "'1101' | into int --radix 2",
                 result: Some(Value::test_int(13)),
             },
             Example {
                 description: "Convert to int from hex",
-                example: "'FF' |  into int -r 16",
+                example: "'FF' |  into int --radix 16",
                 result: Some(Value::test_int(255)),
             },
             Example {
@@ -217,7 +217,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Convert 0 padded string to int with radix 8",
-                example: "'0010132' | into int -r 8",
+                example: "'0010132' | into int --radix 8",
                 result: Some(Value::test_int(4186)),
             },
         ]
