@@ -34,8 +34,8 @@ Current known limitations are:
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "the closure to run",
             )
-            .switch("source", "Collect source code in the report", None)
-            .switch("values", "Collect values in the report", None)
+            .switch("source", "Collect source code in the report", Some('s'))
+            .switch("values", "Collect values in the report", Some('v'))
             .named(
                 "max-depth",
                 SyntaxShape::Int,
@@ -95,7 +95,7 @@ Current known limitations are:
         vec![Example {
             description:
                 "Profile some code, stepping into the `spam` command and collecting source.",
-            example: r#"def spam [] { "spam" }; profile {|| spam | str length } -d 2 --source"#,
+            example: r#"def spam [] { "spam" }; profile {|| spam | str length } --max-depth 2 --source"#,
             result: None,
         }]
     }
