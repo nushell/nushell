@@ -270,9 +270,8 @@ impl EngineState {
         }
 
         // Pull config value from any active overlays
-        if let Some(config_record) = self.get_env_var("config") {
-            let mut config_value = config_record.clone();
-            let (config, error) = config_value.into_config(self.get_config());
+        if let Some(config_record) = self.get_env_var("config").cloned() {
+            let (config, error) = config_record.into_config(self.get_config());
             self.config = config;
             if let Some(e) = error {
                 return Err(e);
