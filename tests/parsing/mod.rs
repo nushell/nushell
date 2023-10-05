@@ -277,3 +277,81 @@ fn parse_let_signature(#[case] phrase: &str) {
     let actual = nu!(phrase);
     assert!(actual.err.is_empty());
 }
+
+#[test]
+fn use_any_record() {
+    let actual = nu!("
+            def test [a: record<b: int>]: record<a: int> -> record<a: int b: int> {
+                merge $a
+            }
+        ");
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn use_any_table() {
+    let actual = nu!("
+        def test []: table<a: int b: int c: string> -> table<b: int c: string> {
+            where a > 10 | select b c
+        }
+    ");
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn check_parse_any_record() {
+    let actual = nu!("
+        def a []: record -> record { $in }
+        def b []: record<a: int> -> nothing {}
+        {a: 10} | a | b
+    ");
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn check_parse_any_table() {
+    let actual = nu!("
+        def a []: table -> table { $in }
+        def b []: table<a: int> -> nothing {}
+        [[a]; [10]] | a | b
+    ");
+
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn any_table_is_not_record() {
+    let actual = nu!("
+        def a []: nothing -> table {
+            [[a b]; [1 2]]
+        }
+
+        def b []: record -> nothing {}
+
+        a | b
+    ");
+
+    assert!(!actual.err.is_empty());
+    // Check that error message says `table` is invalid input not `table<>`
+    assert!(!actual.err.contains("table<>"));
+}
+
+#[test]
+fn any_record_is_not_table() {
+    let actual = nu!("
+        def a []: nothing -> record {
+            {a: 10}
+        }
+
+        def b []: table -> nothing {}
+
+        a | b
+    ");
+
+    assert!(!actual.err.is_empty());
+    // Check that error message says `record` is invalid input not `record<>`
+    assert!(!actual.err.contains("record<>"));
+}
