@@ -169,10 +169,10 @@ impl Command for UCp {
                         let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
                         if any_source_is_dir && !recursive {
                             return Err(ShellError::GenericError(
-                                "Directories must be copied using \"--recursive\"".into(),
+                                "could_not_copy_directory".into(),
                                 "resolves to a directory (not copied)".into(),
                                 Some(p.span),
-                                None,
+                                Some("Directories must be copied using \"--recursive\"".into()),
                                 Vec::new(),
                             ));
                         }
