@@ -90,6 +90,8 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"'C:\Users\viking' | path join spams this_spam.txt",
                 result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
             },
+            // TODO: an example with '..'
+            // TODO: an example with '/'
             Example {
                 description: "Join a list of parts into a path",
                 example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
