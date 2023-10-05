@@ -5,6 +5,7 @@ mod lex;
 mod lite_parser;
 mod parse_keywords;
 mod parse_patterns;
+mod parse_shape_specs;
 mod parser;
 mod parser_path;
 mod type_check;
