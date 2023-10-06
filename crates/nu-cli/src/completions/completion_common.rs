@@ -62,6 +62,22 @@ impl OriginalCwd {
     }
 }
 
+fn surround_remove(partial: &str) -> String {
+    for c in ['`', '"', '\''] {
+        if partial.starts_with(c) {
+            let ret = partial.strip_prefix(c).unwrap_or(partial);
+            return match ret.split(c).collect::<Vec<_>>()[..] {
+                [inside] => inside.to_string(),
+                [inside, outside] if inside.ends_with(is_separator) => {
+                    format!("{inside}{outside}")
+                }
+                _ => ret.to_string(),
+            };
+        }
+    }
+    partial.to_string()
+}
+
 pub fn complete_item(
     want_directory: bool,
     span: nu_protocol::Span,
@@ -69,10 +85,11 @@ pub fn complete_item(
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
+    let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let mut original_cwd = OriginalCwd::None;
-    let mut components = Path::new(partial).components().peekable();
+    let mut components = Path::new(&partial).components().peekable();
     let mut cwd = match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
