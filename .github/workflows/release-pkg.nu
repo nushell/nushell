@@ -188,7 +188,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         cargo install cargo-wix --version 0.3.4
         cargo wix --no-build --nocapture --package nu --output $wixRelease
         # Workaround for https://github.com/softprops/action-gh-release/issues/280
-        let archive = ($wixRelease | str replace -a '\' '/')
+        let archive = ($wixRelease | str replace --all '\' '/')
         print $'archive: ---> ($archive)';
         echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
 
@@ -200,7 +200,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         let pkg = (ls -f $archive | get name)
         if not ($pkg | is-empty) {
             # Workaround for https://github.com/softprops/action-gh-release/issues/280
-            let archive = ($pkg | get 0 | str replace -a '\' '/')
+            let archive = ($pkg | get 0 | str replace --all '\' '/')
             print $'archive: ---> ($archive)'
             echo $"archive=($archive)" | save --append $env.GITHUB_OUTPUT
         }

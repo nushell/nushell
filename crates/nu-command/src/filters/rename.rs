@@ -78,7 +78,7 @@ impl Command for Rename {
             },
             Example {
                 description: "Rename a specific column",
-                example: "[[a, b, c]; [1, 2, 3]] | rename -c { a: ham }",
+                example: "[[a, b, c]; [1, 2, 3]] | rename --column { a: ham }",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
@@ -97,7 +97,7 @@ impl Command for Rename {
             },
             Example {
                 description: "Rename fields based on a given closure",
-                example: "{abc: 1, bbc: 2} | rename -b {str replace -a 'b' 'z'}",
+                example: "{abc: 1, bbc: 2} | rename --block {str replace --all 'b' 'z'}",
                 result: Some(Value::test_record(Record {
                     cols: vec!["azc".to_string(), "zzc".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],
