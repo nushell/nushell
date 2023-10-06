@@ -275,22 +275,22 @@ impl Command for Do {
             },
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
-                example: r#"do -i { thisisnotarealcommand }"#,
+                example: r#"do --ignore-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore shell errors",
-                example: r#"do -s { thisisnotarealcommand }"#,
+                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore external program errors",
-                example: r#"do -p { nu -c 'exit 1' }; echo "I'll still run""#,
+                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {
                 description: "Abort the pipeline if a program returns a non-zero exit code",
-                example: r#"do -c { nu -c 'exit 1' } | myscarycommand"#,
+                example: r#"do --capture-errors { nu --commands 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {
