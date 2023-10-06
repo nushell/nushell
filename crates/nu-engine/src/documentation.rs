@@ -1,6 +1,11 @@
-use nu_protocol::{ast::Call, engine::{EngineState, Stack}, record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value, Type};
-use std::{collections::HashMap, fmt::Write};
 use nu_protocol::ast::{Argument, Expr, Expression};
+use nu_protocol::{
+    ast::Call,
+    engine::{EngineState, Stack},
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
+    Value,
+};
+use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
 
@@ -65,20 +70,12 @@ fn get_documentation(
 ) -> String {
     // Create ansi colors
     //todo make these configurable -- pull from enginestate.config
-    //get_ansi_color_for_component_or_default(&engine_state, "header", "\x1b[32m");
-    let g: String = get_ansi_color_for_component_or_default(
-        &engine_state, "header", "\x1b[32m"
-    ); // default: green
+    let g: String = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
 
-    let c: String = get_ansi_color_for_component_or_default(
-        &engine_state, "row_index", "\x1b[36m"
-    ); // default: cyan
-       // was const bb: &str = "\x1b[1;34m"; // bold blue
-
-
-    let bb: String = get_ansi_color_for_component_or_default(
-        &engine_state, "foreground", "\x1b[94m"
-    ); // default: light blue (nobold, should be bolding the *names*)
+    let c: String = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
+                                                                                                     // was const bb: &str = "\x1b[1;34m"; // bold blue
+    let bb: String =
+        get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
 
     const RESET: &str = "\x1b[0m"; // reset
 
@@ -130,7 +127,7 @@ fn get_documentation(
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(Some(&engine_state), sig, |v| {
+        long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
             nu_highlight_string(
                 &v.into_string_parsable(", ", &engine_state.config),
                 engine_state,
@@ -326,8 +323,11 @@ fn get_documentation(
     }
 }
 
-fn get_ansi_color_for_component_or_default(engine_state: &EngineState, theme_component: &str, default: &str) -> String {
-
+fn get_ansi_color_for_component_or_default(
+    engine_state: &EngineState,
+    theme_component: &str,
+    default: &str,
+) -> String {
     if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
         let mut caller_stack = Stack::new();
         let span = Span::unknown();
@@ -342,9 +342,7 @@ fn get_ansi_color_for_component_or_default(engine_state: &EngineState, theme_com
                 &Call {
                     decl_id,
                     head: span,
-                    arguments: vec![
-                        argument
-                    ],
+                    arguments: vec![argument],
                     redirect_stdout: true,
                     redirect_stderr: true,
                     parser_info: HashMap::new(),
@@ -352,59 +350,70 @@ fn get_ansi_color_for_component_or_default(engine_state: &EngineState, theme_com
                 PipelineData::Empty,
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
-
                     if let Some(index) = str.find('[') {
                         let res = &str[index..];
                         return "\x1b".to_owned() + res.trim();
                     }
-
                 }
             }
         }
     }
 
-    default.to_string().clone()
+    default.to_string()
 }
 
-fn get_argument_for_color_value(engine_state: &&EngineState, default: &str, color: &&Value, span: Span) -> Argument {
+fn get_argument_for_color_value(
+    engine_state: &&EngineState,
+    default: &str,
+    color: &&Value,
+    span: Span,
+) -> Argument {
     match color {
         Value::Record { val, .. } => {
-            let record_exp: Vec<(Expression, Expression)> = val.into_iter()
-                .map(|(k, v)| (Expression {
-                    expr: Expr::String(k.clone()),
-                    span,
-                    ty: Type::String,
-                    custom_completion: None,
-                }, Expression {
-                    expr: Expr::String(v.clone().into_string("", &engine_state.get_config())),
-                    span,
-                    ty: Type::String,
-                    custom_completion: None,
-                })).collect();
+            let record_exp: Vec<(Expression, Expression)> = val
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        Expression {
+                            expr: Expr::String(k.clone()),
+                            span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        },
+                        Expression {
+                            expr: Expr::String(
+                                v.clone().into_string("", engine_state.get_config()),
+                            ),
+                            span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        },
+                    )
+                })
+                .collect();
 
             Argument::Positional(Expression {
                 span: Span::unknown(),
-                ty: Type::Record(vec![("fg".to_string(), Type::String), ("attr".to_string(), Type::String)]),
+                ty: Type::Record(vec![
+                    ("fg".to_string(), Type::String),
+                    ("attr".to_string(), Type::String),
+                ]),
                 expr: Expr::Record(record_exp),
                 custom_completion: None,
             })
-        },
-        Value::String { val, .. } => {
-            Argument::Positional(Expression {
-                span: Span::unknown(),
-                ty: Type::String,
-                expr: Expr::String(val.clone()),
-                custom_completion: None,
-            })
         }
-        _ => {
-            Argument::Positional(Expression {
-                span: Span::unknown(),
-                ty: Type::String,
-                expr: Expr::String(default.to_string()),
-                custom_completion: None,
-            })
-        }
+        Value::String { val, .. } => Argument::Positional(Expression {
+            span: Span::unknown(),
+            ty: Type::String,
+            expr: Expr::String(val.clone()),
+            custom_completion: None,
+        }),
+        _ => Argument::Positional(Expression {
+            span: Span::unknown(),
+            ty: Type::String,
+            expr: Expr::String(default.to_string()),
+            custom_completion: None,
+        }),
     }
 }
 
@@ -432,16 +441,11 @@ where
     // Sometimes we want to get the flags without engine_state
     // For example, in nu-plugin. In that case, we fall back on default values
     if let Some(engine_state) = engine_state_opt {
-        g = get_ansi_color_for_component_or_default(
-            &engine_state, "header", "\x1b[32m"
-        ); // default: green
-        c = get_ansi_color_for_component_or_default(
-            &engine_state, "row_index", "\x1b[36m"
-        ); // default: cyan
-        // was const bb: &str = "\x1b[1;34m"; // bold blue
-        bb = get_ansi_color_for_component_or_default(
-            &engine_state, "foreground", "\x1b[94m"
-        ); // default: light blue (nobold, should be bolding the *names*)
+        g = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
+        c = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
+                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
+        bb = get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m");
+    // default: light blue (nobold, should be bolding the *names*)
     } else {
         g = "\x1b[32m".to_string();
         c = "\x1b[36m".to_string();
