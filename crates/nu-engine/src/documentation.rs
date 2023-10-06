@@ -73,7 +73,7 @@ fn get_documentation(
     let g: String = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
 
     let c: String = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
-                                                                                                     // was const bb: &str = "\x1b[1;34m"; // bold blue
+                                                                                                    // was const bb: &str = "\x1b[1;34m"; // bold blue
     let bb: String =
         get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
 
@@ -440,7 +440,7 @@ where
     if let Some(engine_state) = engine_state_opt {
         g = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
         c = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
-                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
+                                                                                            // was const bb: &str = "\x1b[1;34m"; // bold blue
         bb = get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m");
     // default: light blue (nobold, should be bolding the *names*)
     } else {
