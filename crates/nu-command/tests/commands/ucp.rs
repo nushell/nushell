@@ -93,7 +93,6 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory_impl(progress: b
 
         assert!(actual.err.contains("formats"));
         assert!(actual.err.contains("resolves to a directory (not copied)"));
-        // assert!(actual.err.contains("omitting directory"));
     });
 }
 
