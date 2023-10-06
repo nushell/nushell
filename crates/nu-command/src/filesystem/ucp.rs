@@ -166,6 +166,17 @@ impl Command for UCp {
                         if f.is_empty() {
                             return Err(ShellError::FileNotFound(p.span));
                         }
+                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
+                        if any_source_is_dir && !recursive {
+                            return Err(ShellError::GenericError(
+                                "could_not_copy_directory".into(),
+                                "resolves to a directory (not copied)".into(),
+                                Some(p.span),
+                                Some("Directories must be copied using \"--recursive\"".into()),
+                                Vec::new(),
+                            ));
+                        }
+
                         Ok(f)
                     }
                     Err(e) => Err(ShellError::GenericError(
