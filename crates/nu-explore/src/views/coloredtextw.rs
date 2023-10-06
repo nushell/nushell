@@ -19,7 +19,9 @@ impl<'a> ColoredTextW<'a> {
     }
 
     pub fn what(&self, area: Rect) -> String {
-        cut_string(self.text, self.col, area.width as usize).into_owned()
+        cut_string(self.text, self.col, area.width as usize)
+            .ansi_strip()
+            .into_owned()
     }
 }
 
@@ -45,10 +47,11 @@ fn cut_string(source: &str, skip: usize, width: usize) -> Cow<'_, str> {
         return Cow::Borrowed(source);
     }
 
-    let mut text = source.ansi_strip();
+    let mut text = Cow::Borrowed(source);
 
     if skip > 0 {
-        let skip_chars = text
+        let skip_chars = source
+            .ansi_strip()
             .chars()
             .scan((0usize, 0usize), |acc, c| {
                 acc.0 += unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
@@ -63,7 +66,10 @@ fn cut_string(source: &str, skip: usize, width: usize) -> Cow<'_, str> {
             .map(|(_, b)| b)
             .sum::<usize>();
 
-        let cut_text = text.get(skip_chars..).expect("must be OK").to_owned();
+        let cut_text = source
+            .ansi_get(skip_chars..)
+            .expect("must be OK")
+            .into_owned();
         text = Cow::Owned(cut_text);
     }
 
