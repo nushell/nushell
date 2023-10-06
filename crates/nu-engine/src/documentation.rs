@@ -70,11 +70,13 @@ fn get_documentation(
 ) -> String {
     // Create ansi colors
     //todo make these configurable -- pull from enginestate.config
-    let g: String = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
+    let header_color: String =
+        get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
 
-    let c: String = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
-                                                                                                    // was const bb: &str = "\x1b[1;34m"; // bold blue
-    let bb: String =
+    let table_row_color: String =
+        get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
+                                                                                        // was const bb: &str = "\x1b[1;34m"; // bold blue
+    let text_color: String =
         get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
 
     const RESET: &str = "\x1b[0m"; // reset
@@ -102,25 +104,33 @@ fn get_documentation(
                 // Don't display removed/deprecated commands in the Subcommands list
                     && !matches!(sig.category, Category::Removed)
             {
-                subcommands.push(format!("  {c}{}{RESET} - {}", sig.name, sig.usage));
+                subcommands.push(format!(
+                    "  {table_row_color}{}{RESET} - {}",
+                    sig.name, sig.usage
+                ));
             }
         }
     }
 
     if !sig.search_terms.is_empty() {
         let text = format!(
-            "{g}Search terms{RESET}: {c}{}{}\n\n",
+            "{header_color}Search terms{RESET}: {table_row_color}{}{}\n\n",
             sig.search_terms.join(", "),
             RESET
         );
         let _ = write!(long_desc, "{text}");
     }
 
-    let text = format!("{}Usage{}:\n  > {}\n", g, RESET, sig.call_signature());
+    let text = format!(
+        "{}Usage{}:\n  > {}\n",
+        header_color,
+        RESET,
+        sig.call_signature()
+    );
     let _ = write!(long_desc, "{text}");
 
     if !subcommands.is_empty() {
-        let _ = write!(long_desc, "\n{g}Subcommands{RESET}:\n");
+        let _ = write!(long_desc, "\n{header_color}Subcommands{RESET}:\n");
         subcommands.sort();
         long_desc.push_str(&subcommands.join("\n"));
         long_desc.push('\n');
@@ -140,12 +150,12 @@ fn get_documentation(
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
     {
-        let _ = write!(long_desc, "\n{g}Parameters{RESET}:\n");
+        let _ = write!(long_desc, "\n{header_color}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {c}\"{}\" + {RESET}<{bb}{}{RESET}>: {}",
+                        "  {table_row_color}\"{}\" + {RESET}<{text_color}{}{RESET}>: {}",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -153,7 +163,7 @@ fn get_documentation(
                 }
                 _ => {
                     format!(
-                        "  {c}{}{RESET} <{bb}{}{RESET}>: {}",
+                        "  {table_row_color}{}{RESET} <{text_color}{}{RESET}>: {}",
                         positional.name,
                         document_shape(positional.shape.clone()),
                         positional.desc
@@ -166,7 +176,7 @@ fn get_documentation(
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {c}\"{}\" + {RESET}<{bb}{}{RESET}>: {} (optional)",
+                        "  {table_row_color}\"{}\" + {RESET}<{text_color}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -187,7 +197,7 @@ fn get_documentation(
                     };
 
                     format!(
-                        "  {c}{}{RESET} <{bb}{}{RESET}>: {}{}",
+                        "  {table_row_color}{}{RESET} <{text_color}{}{RESET}>: {}{}",
                         positional.name,
                         document_shape(positional.shape.clone()),
                         positional.desc,
@@ -200,7 +210,7 @@ fn get_documentation(
 
         if let Some(rest_positional) = &sig.rest_positional {
             let text = format!(
-                "  ...{c}{}{RESET} <{bb}{}{RESET}>: {}",
+                "  ...{table_row_color}{}{RESET} <{text_color}{}{RESET}>: {}",
                 rest_positional.name,
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc
@@ -239,7 +249,7 @@ fn get_documentation(
                 PipelineData::Value(Value::list(vals, span), None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    let _ = writeln!(long_desc, "\n{g}Input/output types{RESET}:");
+                    let _ = writeln!(long_desc, "\n{header_color}Input/output types{RESET}:");
                     for line in str.lines() {
                         let _ = writeln!(long_desc, "  {line}");
                     }
@@ -249,7 +259,7 @@ fn get_documentation(
     }
 
     if !examples.is_empty() {
-        let _ = write!(long_desc, "\n{g}Examples{RESET}:");
+        let _ = write!(long_desc, "\n{header_color}Examples{RESET}:");
     }
 
     for example in examples {
@@ -332,7 +342,7 @@ fn get_ansi_color_for_component_or_default(
         let mut caller_stack = Stack::new();
         let span = Span::unknown();
 
-        let argument = get_argument_for_color_value(&engine_state, default, color, span);
+        let argument = get_argument_for_color_value(engine_state, default, color, span);
 
         // Call ansi command using argument
         if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
@@ -360,7 +370,7 @@ fn get_ansi_color_for_component_or_default(
 }
 
 fn get_argument_for_color_value(
-    engine_state: &&EngineState,
+    engine_state: &EngineState,
     default: &str,
     color: &&Value,
     span: Span,
@@ -431,32 +441,34 @@ where
     F: FnMut(&nu_protocol::Value) -> String,
 {
     //todo make these configurable -- pull from enginestate.config
-    let g: String;
-    let c: String;
-    let bb: String;
+    let header_color: String;
+    let table_row_color: String;
+    let text_color: String;
 
     // Sometimes we want to get the flags without engine_state
     // For example, in nu-plugin. In that case, we fall back on default values
     if let Some(engine_state) = engine_state_opt {
-        g = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
-        c = get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
+        header_color = get_ansi_color_for_component_or_default(engine_state, "header", "\x1b[32m"); // default: green
+        table_row_color =
+            get_ansi_color_for_component_or_default(engine_state, "row_index", "\x1b[36m"); // default: cyan
                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
-        bb = get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m");
+        text_color =
+            get_ansi_color_for_component_or_default(engine_state, "foreground", "\x1b[94m");
     // default: light blue (nobold, should be bolding the *names*)
     } else {
-        g = "\x1b[32m".to_string();
-        c = "\x1b[36m".to_string();
-        bb = "\x1b[94m".to_string();
+        header_color = "\x1b[32m".to_string();
+        table_row_color = "\x1b[36m".to_string();
+        text_color = "\x1b[94m".to_string();
     }
 
     const RESET: &str = "\x1b[0m"; // reset
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
-    let _ = write!(long_desc, "\n{g}Flags{RESET}:\n");
+    let _ = write!(long_desc, "\n{header_color}Flags{RESET}:\n");
     for flag in &signature.named {
         let default_str = if let Some(value) = &flag.default_value {
-            format!(" (default: {bb}{}{RESET})", &value_formatter(value))
+            format!(" (default: {text_color}{}{RESET})", &value_formatter(value))
         } else {
             "".to_string()
         };
@@ -465,10 +477,10 @@ where
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  {c}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
+                        "  {table_row_color}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {c}--{}", flag.long)
+                            format!("{D},{RESET} {table_row_color}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -478,10 +490,10 @@ where
                     )
                 } else {
                     format!(
-                        "  {c}-{}{}{RESET} <{bb}{:?}{RESET}> - {}{}\n",
+                        "  {table_row_color}-{}{}{RESET} <{text_color}{:?}{RESET}> - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {c}--{}", flag.long)
+                            format!("{D},{RESET} {table_row_color}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -492,22 +504,22 @@ where
                 }
             } else if flag.required {
                 format!(
-                    "  {c}--{}{RESET} (required parameter) <{bb}{:?}{RESET}> - {}{}\n",
+                    "  {table_row_color}--{}{RESET} (required parameter) <{text_color}{:?}{RESET}> - {}{}\n",
                     flag.long, arg, flag.desc, default_str,
                 )
             } else {
                 format!(
-                    "  {c}--{}{RESET} <{bb}{:?}{RESET}> - {}{}\n",
+                    "  {table_row_color}--{}{RESET} <{text_color}{:?}{RESET}> - {}{}\n",
                     flag.long, arg, flag.desc, default_str,
                 )
             }
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  {c}-{}{}{RESET} (required parameter) - {}{}\n",
+                    "  {table_row_color}-{}{}{RESET} (required parameter) - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {c}--{}", flag.long)
+                        format!("{D},{RESET} {table_row_color}--{}", flag.long)
                     } else {
                         "".into()
                     },
@@ -516,10 +528,10 @@ where
                 )
             } else {
                 format!(
-                    "  {c}-{}{}{RESET} - {}{}\n",
+                    "  {table_row_color}-{}{}{RESET} - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {c}--{}", flag.long)
+                        format!("{D},{RESET} {table_row_color}--{}", flag.long)
                     } else {
                         "".into()
                     },
@@ -529,11 +541,14 @@ where
             }
         } else if flag.required {
             format!(
-                "  {c}--{}{RESET} (required parameter) - {}{}\n",
+                "  {table_row_color}--{}{RESET} (required parameter) - {}{}\n",
                 flag.long, flag.desc, default_str,
             )
         } else {
-            format!("  {c}--{}{RESET} - {}\n", flag.long, flag.desc)
+            format!(
+                "  {table_row_color}--{}{RESET} - {}\n",
+                flag.long, flag.desc
+            )
         };
         long_desc.push_str(&msg);
     }
