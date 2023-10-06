@@ -128,8 +128,8 @@ the output of 'path parse' and 'path split' subcommands."#
             },
             Example {
                 description: "Use relative paths, e.g. '..' will go up one directory",
-                example: r"'/home/foo' | path join .. bar | path expand",
-                result: Some(Value::test_string(r"/home/bar")),
+                example: r"'/home/foo' | path join .. bar",
+                result: Some(Value::test_string(r"/home/foo/../bar")),
             },
             Example {
                 description:
