@@ -350,10 +350,7 @@ fn get_ansi_color_for_component_or_default(
                 PipelineData::Empty,
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    if let Some(index) = str.find('[') {
-                        let res = &str[index..];
-                        return "\x1b".to_owned() + res.trim();
-                    }
+                    return str;
                 }
             }
         }
