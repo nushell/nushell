@@ -193,11 +193,11 @@ impl Command for Open {
                     match converter {
                         Some((converter_id, ext)) => {
                             let decl = engine_state.get_decl(converter_id);
-                            let file_contents = if decl
+                            let input = if decl
                                 .signature()
                                 .usage
                                 .lines()
-                                .any(|line| line.trim() == "nu::AcceptsPath")
+                                .any(|line| line.trim() == "@nu::open::accepts_filepaths")
                             {
                                 PipelineData::Value(
                                     Value::string(path.to_string_lossy().to_string(), call_span),
@@ -208,9 +208,9 @@ impl Command for Open {
                             };
                             let command_output = if let Some(block_id) = decl.get_block_id() {
                                 let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, file_contents, false, false)
+                                eval_block(engine_state, stack, block, input, false, false)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                                decl.run(engine_state, stack, &Call::new(call_span), input)
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError(
