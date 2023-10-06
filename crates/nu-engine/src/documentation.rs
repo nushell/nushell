@@ -1,9 +1,6 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
-    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
-};
+use nu_protocol::{ast::Call, engine::{EngineState, Stack}, record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value, Type};
 use std::{collections::HashMap, fmt::Write};
+use nu_protocol::ast::{Argument, Expr, Expression};
 
 use crate::eval_call;
 
@@ -68,10 +65,21 @@ fn get_documentation(
 ) -> String {
     // Create ansi colors
     //todo make these configurable -- pull from enginestate.config
-    const G: &str = "\x1b[32m"; // green
-    const C: &str = "\x1b[36m"; // cyan
-                                // was const BB: &str = "\x1b[1;34m"; // bold blue
-    const BB: &str = "\x1b[94m"; // light blue (nobold, should be bolding the *names*)
+    //get_ansi_color_for_component_or_default(&engine_state, "header", "\x1b[32m");
+    let g: String = get_ansi_color_for_component_or_default(
+        &engine_state, "header", "\x1b[32m"
+    ); // default: green
+
+    let c: String = get_ansi_color_for_component_or_default(
+        &engine_state, "row_index", "\x1b[36m"
+    ); // default: cyan
+       // was const bb: &str = "\x1b[1;34m"; // bold blue
+
+
+    let bb: String = get_ansi_color_for_component_or_default(
+        &engine_state, "foreground", "\x1b[94m"
+    ); // default: light blue (nobold, should be bolding the *names*)
+
     const RESET: &str = "\x1b[0m"; // reset
 
     let cmd_name = &sig.name;
@@ -97,32 +105,32 @@ fn get_documentation(
                 // Don't display removed/deprecated commands in the Subcommands list
                     && !matches!(sig.category, Category::Removed)
             {
-                subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
+                subcommands.push(format!("  {c}{}{RESET} - {}", sig.name, sig.usage));
             }
         }
     }
 
     if !sig.search_terms.is_empty() {
         let text = format!(
-            "{G}Search terms{RESET}: {C}{}{}\n\n",
+            "{g}Search terms{RESET}: {c}{}{}\n\n",
             sig.search_terms.join(", "),
             RESET
         );
         let _ = write!(long_desc, "{text}");
     }
 
-    let text = format!("{}Usage{}:\n  > {}\n", G, RESET, sig.call_signature());
+    let text = format!("{}Usage{}:\n  > {}\n", g, RESET, sig.call_signature());
     let _ = write!(long_desc, "{text}");
 
     if !subcommands.is_empty() {
-        let _ = write!(long_desc, "\n{G}Subcommands{RESET}:\n");
+        let _ = write!(long_desc, "\n{g}Subcommands{RESET}:\n");
         subcommands.sort();
         long_desc.push_str(&subcommands.join("\n"));
         long_desc.push('\n');
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(sig, |v| {
+        long_desc.push_str(&get_flags_section(Some(&engine_state), sig, |v| {
             nu_highlight_string(
                 &v.into_string_parsable(", ", &engine_state.config),
                 engine_state,
@@ -135,12 +143,12 @@ fn get_documentation(
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
     {
-        let _ = write!(long_desc, "\n{G}Parameters{RESET}:\n");
+        let _ = write!(long_desc, "\n{g}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        "  {c}\"{}\" + {RESET}<{bb}{}{RESET}>: {}",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -148,7 +156,7 @@ fn get_documentation(
                 }
                 _ => {
                     format!(
-                        "  {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        "  {c}{}{RESET} <{bb}{}{RESET}>: {}",
                         positional.name,
                         document_shape(positional.shape.clone()),
                         positional.desc
@@ -161,7 +169,7 @@ fn get_documentation(
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {} (optional)",
+                        "  {c}\"{}\" + {RESET}<{bb}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -182,7 +190,7 @@ fn get_documentation(
                     };
 
                     format!(
-                        "  {C}{}{RESET} <{BB}{}{RESET}>: {}{}",
+                        "  {c}{}{RESET} <{bb}{}{RESET}>: {}{}",
                         positional.name,
                         document_shape(positional.shape.clone()),
                         positional.desc,
@@ -195,7 +203,7 @@ fn get_documentation(
 
         if let Some(rest_positional) = &sig.rest_positional {
             let text = format!(
-                "  ...{C}{}{RESET} <{BB}{}{RESET}>: {}",
+                "  ...{c}{}{RESET} <{bb}{}{RESET}>: {}",
                 rest_positional.name,
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc
@@ -234,7 +242,7 @@ fn get_documentation(
                 PipelineData::Value(Value::list(vals, span), None),
             ) {
                 if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    let _ = writeln!(long_desc, "\n{G}Input/output types{RESET}:");
+                    let _ = writeln!(long_desc, "\n{g}Input/output types{RESET}:");
                     for line in str.lines() {
                         let _ = writeln!(long_desc, "  {line}");
                     }
@@ -244,7 +252,7 @@ fn get_documentation(
     }
 
     if !examples.is_empty() {
-        let _ = write!(long_desc, "\n{G}Examples{RESET}:");
+        let _ = write!(long_desc, "\n{g}Examples{RESET}:");
     }
 
     for example in examples {
@@ -318,6 +326,88 @@ fn get_documentation(
     }
 }
 
+fn get_ansi_color_for_component_or_default(engine_state: &EngineState, theme_component: &str, default: &str) -> String {
+
+    if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
+        let mut caller_stack = Stack::new();
+        let span = Span::unknown();
+
+        let argument = get_argument_for_color_value(&engine_state, default, color, span);
+
+        // Call ansi command using argument
+        if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
+            if let Ok(result) = eval_call(
+                engine_state,
+                &mut caller_stack,
+                &Call {
+                    decl_id,
+                    head: span,
+                    arguments: vec![
+                        argument
+                    ],
+                    redirect_stdout: true,
+                    redirect_stderr: true,
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::Empty,
+            ) {
+                if let Ok((str, ..)) = result.collect_string_strict(span) {
+
+                    if let Some(index) = str.find('[') {
+                        let res = &str[index..];
+                        return "\x1b".to_owned() + res.trim();
+                    }
+
+                }
+            }
+        }
+    }
+
+    default.to_string().clone()
+}
+
+fn get_argument_for_color_value(engine_state: &&EngineState, default: &str, color: &&Value, span: Span) -> Argument {
+    match color {
+        Value::Record { val, .. } => {
+            let record_exp: Vec<(Expression, Expression)> = val.into_iter()
+                .map(|(k, v)| (Expression {
+                    expr: Expr::String(k.clone()),
+                    span,
+                    ty: Type::String,
+                    custom_completion: None,
+                }, Expression {
+                    expr: Expr::String(v.clone().into_string("", &engine_state.get_config())),
+                    span,
+                    ty: Type::String,
+                    custom_completion: None,
+                })).collect();
+
+            Argument::Positional(Expression {
+                span: Span::unknown(),
+                ty: Type::Record(vec![("fg".to_string(), Type::String), ("attr".to_string(), Type::String)]),
+                expr: Expr::Record(record_exp),
+                custom_completion: None,
+            })
+        },
+        Value::String { val, .. } => {
+            Argument::Positional(Expression {
+                span: Span::unknown(),
+                ty: Type::String,
+                expr: Expr::String(val.clone()),
+                custom_completion: None,
+            })
+        }
+        _ => {
+            Argument::Positional(Expression {
+                span: Span::unknown(),
+                ty: Type::String,
+                expr: Expr::String(default.to_string()),
+                custom_completion: None,
+            })
+        }
+    }
+}
+
 // document shape helps showing more useful information
 pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     match shape {
@@ -327,6 +417,7 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
 }
 
 pub fn get_flags_section<F>(
+    engine_state_opt: Option<&EngineState>,
     signature: &Signature,
     mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
 ) -> String
@@ -334,18 +425,37 @@ where
     F: FnMut(&nu_protocol::Value) -> String,
 {
     //todo make these configurable -- pull from enginestate.config
-    const G: &str = "\x1b[32m"; // green
-    const C: &str = "\x1b[36m"; // cyan
-                                // was const BB: &str = "\x1b[1;34m"; // bold blue
-    const BB: &str = "\x1b[94m"; // light blue (nobold, should be bolding the *names*)
+    let g: String;
+    let c: String;
+    let bb: String;
+
+    // Sometimes we want to get the flags without engine_state
+    // For example, in nu-plugin. In that case, we fall back on default values
+    if let Some(engine_state) = engine_state_opt {
+        g = get_ansi_color_for_component_or_default(
+            &engine_state, "header", "\x1b[32m"
+        ); // default: green
+        c = get_ansi_color_for_component_or_default(
+            &engine_state, "row_index", "\x1b[36m"
+        ); // default: cyan
+        // was const bb: &str = "\x1b[1;34m"; // bold blue
+        bb = get_ansi_color_for_component_or_default(
+            &engine_state, "foreground", "\x1b[94m"
+        ); // default: light blue (nobold, should be bolding the *names*)
+    } else {
+        g = "\x1b[32m".to_string();
+        c = "\x1b[36m".to_string();
+        bb = "\x1b[94m".to_string();
+    }
+
     const RESET: &str = "\x1b[0m"; // reset
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
-    let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
+    let _ = write!(long_desc, "\n{g}Flags{RESET}:\n");
     for flag in &signature.named {
         let default_str = if let Some(value) = &flag.default_value {
-            format!(" (default: {BB}{}{RESET})", &value_formatter(value))
+            format!(" (default: {bb}{}{RESET})", &value_formatter(value))
         } else {
             "".to_string()
         };
@@ -354,10 +464,10 @@ where
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  {C}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
+                        "  {c}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
+                            format!("{D},{RESET} {c}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -367,10 +477,10 @@ where
                     )
                 } else {
                     format!(
-                        "  {C}-{}{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
+                        "  {c}-{}{}{RESET} <{bb}{:?}{RESET}> - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
+                            format!("{D},{RESET} {c}--{}", flag.long)
                         } else {
                             "".into()
                         },
@@ -381,22 +491,22 @@ where
                 }
             } else if flag.required {
                 format!(
-                    "  {C}--{}{RESET} (required parameter) <{BB}{:?}{RESET}> - {}{}\n",
+                    "  {c}--{}{RESET} (required parameter) <{bb}{:?}{RESET}> - {}{}\n",
                     flag.long, arg, flag.desc, default_str,
                 )
             } else {
                 format!(
-                    "  {C}--{}{RESET} <{BB}{:?}{RESET}> - {}{}\n",
+                    "  {c}--{}{RESET} <{bb}{:?}{RESET}> - {}{}\n",
                     flag.long, arg, flag.desc, default_str,
                 )
             }
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  {C}-{}{}{RESET} (required parameter) - {}{}\n",
+                    "  {c}-{}{}{RESET} (required parameter) - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
+                        format!("{D},{RESET} {c}--{}", flag.long)
                     } else {
                         "".into()
                     },
@@ -405,10 +515,10 @@ where
                 )
             } else {
                 format!(
-                    "  {C}-{}{}{RESET} - {}{}\n",
+                    "  {c}-{}{}{RESET} - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
+                        format!("{D},{RESET} {c}--{}", flag.long)
                     } else {
                         "".into()
                     },
@@ -418,11 +528,11 @@ where
             }
         } else if flag.required {
             format!(
-                "  {C}--{}{RESET} (required parameter) - {}{}\n",
+                "  {c}--{}{RESET} (required parameter) - {}{}\n",
                 flag.long, flag.desc, default_str,
             )
         } else {
-            format!("  {C}--{}{RESET} - {}\n", flag.long, flag.desc)
+            format!("  {c}--{}{RESET} - {}\n", flag.long, flag.desc)
         };
         long_desc.push_str(&msg);
     }
