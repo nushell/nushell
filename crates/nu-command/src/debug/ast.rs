@@ -149,7 +149,7 @@ impl Command for Ast {
             },
             Example {
                 description: "Print the ast of a pipeline with an error, as json, minified",
-                example: "ast 'for x in 1..10 { echo $x ' -j -m",
+                example: "ast 'for x in 1..10 { echo $x ' --json --minify",
                 result: None,
             },
         ]

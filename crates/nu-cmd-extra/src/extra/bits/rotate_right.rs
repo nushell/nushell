@@ -41,7 +41,7 @@ impl Command for BitsRor {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise rotate right for integers."
+        "Bitwise rotate right for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -90,7 +90,7 @@ impl Command for BitsRor {
             },
             Example {
                 description: "Rotate right a list of numbers of one byte",
-                example: "[15 33 92] | bits ror 2 -n '1'",
+                example: "[15 33 92] | bits ror 2 --number-bytes '1'",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(195),
@@ -149,7 +149,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

@@ -393,7 +393,14 @@ impl PipelineData {
                 Value::list(stream.collect(), head).follow_cell_path(cell_path, insensitive)
             }
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path, insensitive),
-            _ => Err(ShellError::IOError("can't follow stream paths".into())),
+            PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
+                type_name: "empty pipeline".to_string(),
+                span: head,
+            }),
+            PipelineData::ExternalStream { span, .. } => Err(ShellError::IncompatiblePathAccess {
+                type_name: "external stream".to_string(),
+                span,
+            }),
         }
     }
 

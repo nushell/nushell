@@ -91,15 +91,8 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory_impl(progress: b
             dirs.test().display()
         );
 
-        // Changing to GNU error like error
-        // Slight bug since it should say formats, but its saying "." due to the `strip_prefix`
-        // that i do I think
-        // assert!(actual.err.contains("formats"));
-        // assert!(actual.err.contains("resolves to a directory (not copied)"));
-        assert!(actual.err.contains("omitting directory"));
-
-        // directories must be copied using --recursive
-        // gnu says "omitting directory", vbecause -r was not given
+        assert!(actual.err.contains("formats"));
+        assert!(actual.err.contains("resolves to a directory (not copied)"));
     });
 }
 

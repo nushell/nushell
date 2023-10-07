@@ -3,8 +3,8 @@ use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:
-# Each 'use' for that module in the test script will execute the def-env block.
-# PWD at the time of the `use` will be what the export def-env block will see.
+# Each 'use' for that module in the test script will execute the def --env block.
+# PWD at the time of the `use` will be what the export def --env block will see.
 
 #[before-each]
 def before-each [] {
@@ -43,11 +43,11 @@ def dirs_command [] {
     # must capture value of $in before executing `use`s
     let $c = $in
 
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
-    # the def-env gets messed up
+    # the def --env gets messed up
     use std dirs
 
     # Stack: [BASE]
@@ -92,7 +92,7 @@ def dirs_command [] {
 def dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
@@ -114,7 +114,7 @@ def dirs_next [] {
 def dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
     use std dirs

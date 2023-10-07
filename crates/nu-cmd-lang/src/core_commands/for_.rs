@@ -199,7 +199,7 @@ impl Command for For {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Echo the square of each integer",
+                description: "Print the square of each integer",
                 example: "for x in [1 2 3] { print ($x * $x) }",
                 result: None,
             },
@@ -209,7 +209,7 @@ impl Command for For {
                 result: None,
             },
             Example {
-                description: "Number each item and echo a message",
+                description: "Number each item and print a message",
                 example:
                     "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
                 result: None,

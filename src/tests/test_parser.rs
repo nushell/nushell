@@ -639,6 +639,14 @@ fn let_variable_type_mismatch() -> TestResult {
 }
 
 #[test]
+fn let_variable_disallows_completer() -> TestResult {
+    fail_test(
+        r#"let x: int@completer = 42"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
 fn def_with_input_output_1() -> TestResult {
     run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
 }
@@ -683,6 +691,22 @@ fn def_with_input_output_broken_1() -> TestResult {
 #[test]
 fn def_with_input_output_broken_2() -> TestResult {
     fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
+}
+
+#[test]
+fn def_with_input_output_broken_3() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> int@completer {}"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
+fn def_with_input_output_broken_4() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> list<int@completer> {}"#,
+        "Unexpected custom completer",
+    )
 }
 
 #[test]

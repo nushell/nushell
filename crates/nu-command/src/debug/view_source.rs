@@ -163,7 +163,7 @@ impl Command for ViewSource {
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
-                example: r#"def-env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
                 result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {

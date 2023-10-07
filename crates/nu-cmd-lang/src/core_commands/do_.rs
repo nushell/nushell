@@ -1,6 +1,6 @@
 use std::thread;
 
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
@@ -48,6 +48,11 @@ impl Command for Do {
                 "catch errors as the closure runs, and return them",
                 Some('c'),
             )
+            .switch(
+                "env",
+                "keep the environment defined inside the command",
+                None,
+            )
             .rest("rest", SyntaxShape::Any, "the parameter(s) for the closure")
             .category(Category::Core)
     }
@@ -55,18 +60,19 @@ impl Command for Do {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        caller_stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let block: Closure = call.req(engine_state, stack, 0)?;
-        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
+        let block: Closure = call.req(engine_state, caller_stack, 0)?;
+        let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag("ignore-errors");
         let ignore_shell_errors = ignore_all_errors || call.has_flag("ignore-shell-errors");
         let ignore_program_errors = ignore_all_errors || call.has_flag("ignore-program-errors");
         let capture_errors = call.has_flag("capture-errors");
+        let has_env = call.has_flag("env");
 
-        let mut stack = stack.captures_to_stack(&block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack(&block.captures);
         let block = engine_state.get_block(block.block_id);
 
         let params: Vec<_> = block
@@ -78,7 +84,7 @@ impl Command for Do {
 
         for param in params.iter().zip(&rest) {
             if let Some(var_id) = param.0.var_id {
-                stack.add_var(var_id, param.1.clone())
+                callee_stack.add_var(var_id, param.1.clone())
             }
         }
 
@@ -96,7 +102,7 @@ impl Command for Do {
                     call.head
                 };
 
-                stack.add_var(
+                callee_stack.add_var(
                     param
                         .var_id
                         .expect("Internal error: rest positional parameter lacks var_id"),
@@ -106,12 +112,17 @@ impl Command for Do {
         }
         let result = eval_block_with_early_return(
             engine_state,
-            &mut stack,
+            &mut callee_stack,
             block,
             input,
             call.redirect_stdout,
             call.redirect_stdout,
         );
+
+        if has_env {
+            // Merge the block's environment to the current stack
+            redirect_env(engine_state, caller_stack, &callee_stack);
+        }
 
         match result {
             Ok(PipelineData::ExternalStream {
@@ -264,22 +275,22 @@ impl Command for Do {
             },
             Example {
                 description: "Run the closure and ignore both shell and external program errors",
-                example: r#"do -i { thisisnotarealcommand }"#,
+                example: r#"do --ignore-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore shell errors",
-                example: r#"do -s { thisisnotarealcommand }"#,
+                example: r#"do --ignore-shell-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
                 description: "Run the closure and ignore external program errors",
-                example: r#"do -p { nu -c 'exit 1' }; echo "I'll still run""#,
+                example: r#"do --ignore-program-errors { nu --commands 'exit 1' }; echo "I'll still run""#,
                 result: None,
             },
             Example {
                 description: "Abort the pipeline if a program returns a non-zero exit code",
-                example: r#"do -c { nu -c 'exit 1' } | myscarycommand"#,
+                example: r#"do --capture-errors { nu --commands 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {
@@ -291,6 +302,11 @@ impl Command for Do {
                 description: "Run the closure, with input",
                 example: r#"77 | do {|x| 100 + $in }"#,
                 result: None, // TODO: returns 177
+            },
+            Example {
+                description: "Run the closure and keep changes to the environment",
+                example: r#"do --env { $env.foo = 'bar' }; $env.foo"#,
+                result: Some(Value::test_string("bar")),
             },
         ]
     }

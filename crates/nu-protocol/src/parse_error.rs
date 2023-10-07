@@ -358,6 +358,10 @@ pub enum ParseError {
     #[diagnostic(code(nu::parser::type_mismatch))]
     TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
 
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
+    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
+
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
     MissingRequiredFlag(String, #[label("missing required flag {0}")] Span),
@@ -532,6 +536,7 @@ impl ParseError {
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
             ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
             ParseError::OutputMismatch(_, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
