@@ -353,7 +353,7 @@ pub fn find_in_dirs_env(
 /// This combines config stored in permanent state and any runtime updates to the environment. This
 /// is the canonical way to fetch config at runtime when you have Stack available.
 pub fn get_config(engine_state: &EngineState, stack: &Stack) -> Config {
-    if let Some(mut config_record) = stack.get_env_var(engine_state, "config") {
+    if let Some(config_record) = stack.get_env_var(engine_state, "config") {
         config_record.into_config(engine_state.get_config()).0
     } else {
         engine_state.get_config().clone()
