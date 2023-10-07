@@ -255,7 +255,7 @@ impl Value {
         match self {
             Value::Int { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "int".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span(),
                 help: None,

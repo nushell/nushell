@@ -121,7 +121,7 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
         Value::Error { .. } => input.clone(),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string, integer or bool".into(),
+                exp_input_type: "string, int or bool".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

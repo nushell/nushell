@@ -45,7 +45,7 @@ impl Command for ToCSV {
             },
             Example {
                 description: "Saves dataframe to CSV file using other delimiter",
-                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv -d '|'",
+                example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr to-csv test.csv --delimiter '|'",
                 result: None,
             },
         ]

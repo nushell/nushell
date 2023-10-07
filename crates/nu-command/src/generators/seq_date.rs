@@ -283,8 +283,8 @@ pub fn run_seq_dates(
             Some(date) => date,
             None => {
                 return Err(ShellError::GenericError(
-                    "integer value too large".to_string(),
-                    "integer value too large".to_string(),
+                    "int value too large".to_string(),
+                    "int value too large".to_string(),
                     Some(call_span),
                     None,
                     Vec::new(),

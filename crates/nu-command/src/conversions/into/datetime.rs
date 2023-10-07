@@ -175,7 +175,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Convert non-standard timestamp string to datetime using a custom format",
-                example: "'20210227_135540+0000' | into datetime -f '%Y%m%d_%H%M%S%z'",
+                example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
@@ -256,7 +256,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         other => {
             return Value::error(
                 ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "string and integer".into(),
+                    exp_input_type: "string and int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),

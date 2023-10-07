@@ -14,9 +14,17 @@ pub fn from_ics_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
 
     let input_string = input_string
         .lines()
-        .map(|x| x.trim().to_string())
-        .collect::<Vec<_>>()
-        .join("\n");
+        .enumerate()
+        .map(|(i, x)| {
+            if i == 0 {
+                x.trim().to_string()
+            } else if x.len() > 1 && (x.starts_with(' ') || x.starts_with('\t')) {
+                x[1..].trim_end().to_string()
+            } else {
+                format!("\n{}", x.trim())
+            }
+        })
+        .collect::<String>();
 
     let input_bytes = input_string.as_bytes();
     let buf_reader = BufReader::new(input_bytes);

@@ -13,7 +13,7 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::{eval_constant, value_as_string},
-    span, Alias, BlockId, Exportable, Module, ModuleId, ParseError, PositionalArg,
+    span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
@@ -134,97 +134,118 @@ pub fn parse_keyword(
 }
 
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
-    let name = working_set.get_span_contents(spans[0]);
+    let mut pos = 0;
 
-    // handle "export def" same as "def"
-    let (decl_name, spans) = if name == b"export" && spans.len() >= 2 {
-        (working_set.get_span_contents(spans[1]), &spans[1..])
+    let def_type_name = if spans.len() >= 3 {
+        // definition can't have only two spans, minimum is 3, e.g., 'extern spam []'
+        let first_word = working_set.get_span_contents(spans[0]);
+
+        if first_word == b"export" {
+            pos += 2;
+        } else {
+            pos += 1;
+        }
+
+        working_set.get_span_contents(spans[pos - 1]).to_vec()
     } else {
-        (name, spans)
+        return;
     };
 
-    if (decl_name == b"def" || decl_name == b"def-env") && spans.len() >= 4 {
-        let starting_error_count = working_set.parse_errors.len();
-        let name = if let Some(err) = detect_params_in_name(
-            working_set,
-            spans[1],
-            String::from_utf8_lossy(decl_name).as_ref(),
-        ) {
-            working_set.error(err);
-            return;
-        } else {
-            working_set.get_span_contents(spans[1])
-        };
-        let name = trim_quotes(name);
-        let name = String::from_utf8_lossy(name).to_string();
+    if def_type_name != b"def"
+        && def_type_name != b"def-env"
+        && def_type_name != b"extern"
+        && def_type_name != b"extern-wrapped"
+    {
+        return;
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        working_set.parse_errors.truncate(starting_error_count);
+    // Now, pos should point at the next span after the def-like call.
+    // Skip all potential flags, like --env, --wrapped or --help:
+    while pos < spans.len()
+        && working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'-'])
+    {
+        pos += 1;
+    }
 
-        let signature = sig.as_signature();
-        working_set.exit_scope();
-        if name.contains('#')
-            || name.contains('^')
-            || name.parse::<bytesize::ByteSize>().is_ok()
-            || name.parse::<f64>().is_ok()
+    if pos >= spans.len() {
+        // This can happen if the call ends with a flag, e.g., 'def --help'
+        return;
+    }
+
+    // Now, pos should point at the command name.
+    let name_pos = pos;
+
+    let Some(name) = parse_string(working_set, spans[name_pos]).as_string() else {
+        return;
+    };
+
+    if name.contains('#')
+        || name.contains('^')
+        || name.parse::<bytesize::ByteSize>().is_ok()
+        || name.parse::<f64>().is_ok()
+    {
+        working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
+        return;
+    }
+
+    // Find signature
+    let mut signature_pos = None;
+
+    while pos < spans.len() {
+        if working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'['])
+            || working_set
+                .get_span_contents(spans[pos])
+                .starts_with(&[b'('])
         {
-            working_set.error(ParseError::CommandDefNotValid(spans[1]));
-            return;
+            signature_pos = Some(pos);
         }
 
-        if let Some(mut signature) = signature {
-            signature.name = name;
-            let decl = signature.predeclare();
+        pos += 1;
+    }
 
-            if working_set.add_predecl(decl).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-            }
+    let Some(signature_pos) = signature_pos else {
+        return;
+    };
+
+    let mut allow_unknown_args = false;
+
+    for span in spans {
+        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
+            allow_unknown_args = true;
         }
-    } else if (decl_name == b"extern" || decl_name == b"extern-wrapped") && spans.len() >= 3 {
-        let name_expr = parse_string(working_set, spans[1]);
-        let name = name_expr.as_string();
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        let signature = sig.as_signature();
-        working_set.exit_scope();
+    let starting_error_count = working_set.parse_errors.len();
 
-        if let (Some(name), Some(mut signature)) = (name, signature) {
-            if name.contains('#')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                working_set.error(ParseError::CommandDefNotValid(spans[1]));
-                return;
-            }
+    working_set.enter_scope();
+    // FIXME: because parse_signature will update the scope with the variables it sees
+    // we end up parsing the signature twice per def. The first time is during the predecl
+    // so that we can see the types that are part of the signature, which we need for parsing.
+    // The second time is when we actually parse the body itworking_set.
+    // We can't reuse the first time because the variables that are created during parse_signature
+    // are lost when we exit the scope below.
+    let sig = parse_signature(working_set, spans[signature_pos]);
+    working_set.parse_errors.truncate(starting_error_count);
+    working_set.exit_scope();
 
-            signature.name = name.clone();
+    let Some(mut signature) = sig.as_signature() else {
+        return;
+    };
 
-            let decl = KnownExternal {
-                name,
-                usage: "run external command".into(),
-                extra_usage: "".into(),
-                signature,
-            };
+    signature.name = name;
 
-            if working_set.add_predecl(Box::new(decl)).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-                return;
-            }
-        }
+    if allow_unknown_args {
+        signature.allows_unknown_args = true;
+    }
+
+    let decl = signature.predeclare();
+
+    if working_set.add_predecl(decl).is_some() {
+        working_set.error(ParseError::DuplicateCommandDef(spans[name_pos]));
     }
 }
 
@@ -334,11 +355,12 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     }
 }
 
+// Returns also the parsed command name and ID
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Pipeline {
+) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
     let spans = &lite_command.parts[..];
 
     let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
@@ -360,7 +382,7 @@ pub fn parse_def(
             "internal error: Wrong call name for def function".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     }
 
     // Parsing the spans and checking that they match the register signature
@@ -372,20 +394,31 @@ pub fn parse_def(
                 "internal error: def declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return (garbage_pipeline(spans), None);
         }
         Some(decl_id) => {
             working_set.enter_scope();
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            if let Some(name_span) = rest_spans.get(0) {
+            // Find the first span that is not a flag
+            let mut decl_name_span = None;
+
+            for span in rest_spans {
+                if !working_set.get_span_contents(*span).starts_with(&[b'-']) {
+                    decl_name_span = Some(*span);
+                    break;
+                }
+            }
+
+            if let Some(name_span) = decl_name_span {
+                // Check whether name contains [] or () -- possible missing space error
                 if let Some(err) = detect_params_in_name(
                     working_set,
-                    *name_span,
+                    name_span,
                     String::from_utf8_lossy(&def_call).as_ref(),
                 ) {
                     working_set.error(err);
-                    return garbage_pipeline(spans);
+                    return (garbage_pipeline(spans), None);
                 }
             }
 
@@ -429,17 +462,23 @@ pub fn parse_def(
             check_call(working_set, call_span, &sig, &call);
             working_set.parse_errors.append(&mut new_errors);
             if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
-                return Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                }]);
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
             }
 
             (call, call_span)
         }
     };
+
+    let has_env = call.has_flag("env");
+    let has_wrapped = call.has_flag("wrapped");
 
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
@@ -457,12 +496,15 @@ pub fn parse_def(
                     "main".to_string(),
                     name_expr_span,
                 ));
-                return Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: Type::Any,
-                    custom_completion: None,
-                }]);
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
             }
         }
 
@@ -472,10 +514,51 @@ pub fn parse_def(
             "Could not get string from string expression".into(),
             name_expr.span,
         ));
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     };
 
+    let mut result = None;
+
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
+        if has_wrapped {
+            if let Some(rest) = &signature.rest_positional {
+                if let Some(var_id) = rest.var_id {
+                    let rest_var = &working_set.get_variable(var_id);
+
+                    if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String))
+                    {
+                        working_set.error(ParseError::TypeMismatchHelp(
+                            Type::List(Box::new(Type::String)),
+                            rest_var.ty.clone(),
+                            rest_var.declaration_span,
+                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            result,
+                        );
+                    }
+                }
+            } else {
+                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    result,
+                );
+            }
+        }
+
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
@@ -483,6 +566,7 @@ pub fn parse_def(
             *signature = signature.add_help();
             signature.usage = usage;
             signature.extra_usage = extra_usage;
+            signature.allows_unknown_args = has_wrapped;
 
             *declaration = signature.clone().into_block_command(block_id);
 
@@ -490,7 +574,7 @@ pub fn parse_def(
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
-            block.redirect_env = def_call == b"def-env";
+            block.redirect_env = def_call == b"def-env" || has_env;
 
             if block.signature.input_output_types.is_empty() {
                 block
@@ -506,6 +590,8 @@ pub fn parse_def(
             working_set
                 .parse_errors
                 .extend_from_slice(&typecheck_errors);
+
+            result = Some((name.as_bytes().to_vec(), decl_id));
         } else {
             working_set.error(ParseError::InternalError(
                 "Predeclaration failed to add declaration".into(),
@@ -517,12 +603,15 @@ pub fn parse_def(
     // It's OK if it returns None: The decl was already merged in previous parse pass.
     working_set.merge_predecl(name.as_bytes());
 
-    Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: call_span,
-        ty: Type::Any,
-        custom_completion: None,
-    }])
+    (
+        Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: call_span,
+            ty: Type::Any,
+            custom_completion: None,
+        }]),
+        result,
+    )
 }
 
 pub fn parse_extern(
@@ -1002,7 +1091,7 @@ pub fn parse_export_in_block(
 
     match full_name.as_slice() {
         b"export alias" => parse_alias(working_set, lite_command, None),
-        b"export def" | b"export def-env" => parse_def(working_set, lite_command, None),
+        b"export def" | b"export def-env" => parse_def(working_set, lite_command, None).0,
         b"export const" => parse_const(working_set, &lite_command.parts[1..]),
         b"export use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
@@ -1075,7 +1164,17 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let pipeline = parse_def(working_set, &lite_command, Some(module_name));
+                let (pipeline, cmd_result) =
+                    parse_def(working_set, &lite_command, Some(module_name));
+
+                let mut result = vec![];
+
+                if let Some((decl_name, decl_id)) = cmd_result {
+                    result.push(Exportable::Decl {
+                        name: decl_name.to_vec(),
+                        id: decl_id,
+                    });
+                }
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def") {
                     id
@@ -1107,25 +1206,6 @@ pub fn parse_export_in_module(
                     ));
                 };
 
-                let mut result = vec![];
-
-                if let Some(decl_name_span) = spans.get(2) {
-                    let decl_name = working_set.get_span_contents(*decl_name_span);
-                    let decl_name = trim_quotes(decl_name);
-
-                    if let Some(decl_id) = working_set.find_decl(decl_name) {
-                        result.push(Exportable::Decl {
-                            name: decl_name.to_vec(),
-                            id: decl_id,
-                        });
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "failed to find added declaration".into(),
-                            span(&spans[1..]),
-                        ));
-                    }
-                }
-
                 result
             }
             b"def-env" => {
@@ -1133,7 +1213,7 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let pipeline = parse_def(working_set, &lite_command, Some(module_name));
+                let (pipeline, _) = parse_def(working_set, &lite_command, Some(module_name));
 
                 let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
                 {
@@ -1648,11 +1728,14 @@ pub fn parse_module_block(
 
                     match name {
                         b"def" | b"def-env" => {
-                            block.pipelines.push(parse_def(
-                                working_set,
-                                command,
-                                None, // using commands named as the module locally is OK
-                            ))
+                            block.pipelines.push(
+                                parse_def(
+                                    working_set,
+                                    command,
+                                    None, // using commands named as the module locally is OK
+                                )
+                                .0,
+                            )
                         }
                         b"const" => block
                             .pipelines

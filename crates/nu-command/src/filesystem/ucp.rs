@@ -150,19 +150,54 @@ impl Command for UCp {
             ));
         };
         // paths now contains the sources
+        // todo review all the error paths before cutting -->
+        let sources: Vec<Vec<PathBuf>> = paths
+            .iter()
+            .map(|p| {
+                // Need to expand too make it work with globbing
+                let expanded_src = expand_to_real_path(&p.item);
+                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
+                    Ok(files) => {
+                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
+                        if f.is_empty() {
+                            return Err(ShellError::FileNotFound(p.span));
+                        }
+                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
+                        if any_source_is_dir && !recursive {
+                            return Err(ShellError::GenericError(
+                                "could_not_copy_directory".into(),
+                                "resolves to a directory (not copied)".into(),
+                                Some(p.span),
+                                Some("Directories must be copied using \"--recursive\"".into()),
+                                Vec::new(),
+                            ));
+                        }
 
-        let cwd = current_dir(engine_state, stack)?;
+                        Ok(f)
+                    }
+                    Err(e) => Err(ShellError::GenericError(
+                        e.to_string(),
+                        "invalid pattern".to_string(),
+                        Some(p.span),
+                        None,
+                        Vec::new(),
+                    )),
+                }
+            })
+            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
+        // todo review error paths before cutting >---
+        /*         let cwd = current_dir(engine_state, stack)?;
 
-        let mut sources: Vec<PathBuf> = Vec::new();
+               let mut sources: Vec<PathBuf> = Vec::new();
 
-        for p in paths {
-            let mut exp_files = arg_glob(&p, true, &cwd)?;
-            if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound(p.span));
-            }
-            sources.append(&mut exp_files);
-        }
-
+               for p in paths {
+                   let mut exp_files = arg_glob(&p, true, &cwd)?;
+                   if exp_files.is_empty() {
+                       return Err(ShellError::FileNotFound(p.span));
+                   }
+                   sources.append(&mut exp_files);
+               }
+        */// todo: review this
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,

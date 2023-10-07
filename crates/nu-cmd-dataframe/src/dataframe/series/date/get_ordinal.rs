@@ -31,7 +31,7 @@ impl Command for GetOrdinal {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Returns ordinal from a date",
-            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime -z 'UTC');
+            example: r#"let dt = ('2020-08-04T16:39:18+00:00' | into datetime --timezone 'UTC');
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-ordinal"#,
             result: Some(

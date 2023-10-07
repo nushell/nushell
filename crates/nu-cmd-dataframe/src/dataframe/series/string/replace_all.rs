@@ -44,7 +44,7 @@ impl Command for ReplaceAll {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Replaces string",
-            example: "[abac abac abac] | dfr into-df | dfr replace-all -p a -r A",
+            example: "[abac abac abac] | dfr into-df | dfr replace-all --pattern a --replace A",
             result: Some(
                 NuDataFrame::try_from_columns(vec![Column::new(
                     "0".to_string(),

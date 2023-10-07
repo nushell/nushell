@@ -34,7 +34,7 @@ use log.nu
 # ```nushell
 # >_ std path add {linux: "foo", windows: "bar", darwin: "baz"}
 # ```
-export def-env "path add" [
+export def --env "path add" [
     --ret (-r)  # return $env.PATH, useful in pipelines to avoid scoping.
     --append (-a)  # append to $env.PATH instead of prepending to.
     ...paths  # the paths to add to $env.PATH.

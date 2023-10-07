@@ -97,7 +97,7 @@ impl Command for ToNuon {
                 result: Some(Value::test_string("[1, 2, 3]"))
             },
             Example {
-                description: "Outputs a NUON array of integers, with pretty indentation",
+                description: "Outputs a NUON array of ints, with pretty indentation",
                 example: "[1 2 3] | to nuon --indent 2",
                 result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
             },

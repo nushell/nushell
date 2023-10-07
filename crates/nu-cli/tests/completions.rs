@@ -1,11 +1,16 @@
 pub mod support;
 
+use std::path::PathBuf;
+
 use nu_cli::NuCompleter;
 use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
-use support::{completions_helpers::new_quote_engine, file, folder, match_suggestions, new_engine};
+use support::{
+    completions_helpers::{new_partial_engine, new_quote_engine},
+    file, folder, match_suggestions, new_engine,
+};
 
 #[fixture]
 fn completer() -> NuCompleter {
@@ -196,6 +201,87 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+}
+
+#[test]
+fn partial_completions() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test completions for a folder's name
+    let target_dir = format!("cd {}", file(dir.join("pa")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("partial_a")),
+        folder(dir.join("partial_b")),
+        folder(dir.join("partial_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completions for the files whose name begin with "h"
+    // and are present under directories whose names begin with "pa"
+    let dir_str = file(dir.join("pa").join("h"));
+    let target_dir = format!("cp {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for all files under directories whose names begin with "pa"
+    let dir_str = folder(dir.join("pa"));
+    let target_dir = format!("ls {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("anotherfile")),
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for a single file
+    let dir_str = file(dir.join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion where there is a sneaky `..` in the path
+    let dir_str = file(dir.join("par").join("..").join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -445,6 +531,18 @@ fn file_completion_quoted() {
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
+        format!("`{}`", folder("test dir".into())),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
+
+    let dir: PathBuf = "test dir".into();
+    let target_dir = format!("open '{}'", folder(dir.clone()));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> = vec![
+        format!("`{}`", file(dir.join("double quote"))),
+        format!("`{}`", file(dir.join("single quote"))),
     ];
 
     match_suggestions(expected_paths, suggestions)

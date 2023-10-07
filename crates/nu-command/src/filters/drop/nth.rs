@@ -122,7 +122,7 @@ impl Command for DropNth {
                 if from.is_negative() || to.is_negative() {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
                     return Err(ShellError::TypeMismatch {
-                        err_message: "drop nth accepts only positive integers".to_string(),
+                        err_message: "drop nth accepts only positive ints".to_string(),
                         span: span.span,
                     });
                 }
