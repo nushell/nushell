@@ -42,7 +42,9 @@ We're also active on [Discord](https://discord.gg/NtAbbGn) and [Twitter](https:/
 To quickly install Nu:
 
 ```bash
-# Linux and macOS
+# Linux
+curl https://raw.githubusercontent.com/nushell/nushell/main/install.sh | bash
+# macOS
 brew install nushell
 # Windows
 winget install nushell
