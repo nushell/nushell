@@ -102,6 +102,23 @@ fn parse_file_relative_to_parsed_file_simple() {
     })
 }
 
+#[test]
+fn predecl_signature_parse() {
+    Playground::setup("predecl_signature_parse", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContentToBeTrimmed(
+            "spam.nu",
+            "
+                def main [] { foo }
+
+                def foo []: nothing -> nothing { print 'foo' }
+            ",
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu spam.nu"));
+
+        assert_eq!(actual.out, "foo");
+    })
+}
 #[ignore]
 #[test]
 fn parse_file_relative_to_parsed_file() {
