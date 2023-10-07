@@ -150,7 +150,7 @@ impl Command for UCp {
             ));
         };
         // paths now contains the sources
-        // todo review all the error paths before cutting -->
+        /* // todo review all the error paths before cutting -->
         let sources: Vec<Vec<PathBuf>> = paths
             .iter()
             .map(|p| {
@@ -162,6 +162,9 @@ impl Command for UCp {
                         if f.is_empty() {
                             return Err(ShellError::FileNotFound(p.span));
                         }
+
+                        ///// make sure replacement has a way to return this error
+
                         let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
                         if any_source_is_dir && !recursive {
                             return Err(ShellError::GenericError(
@@ -184,20 +187,19 @@ impl Command for UCp {
                     )),
                 }
             })
-            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
-        // todo review error paths before cutting >---
-        /*         let cwd = current_dir(engine_state, stack)?;
+            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?; */
+        let cwd = current_dir(engine_state, stack)?;
 
-               let mut sources: Vec<PathBuf> = Vec::new();
+        let mut sources: Vec<PathBuf> = Vec::new();
 
-               for p in paths {
-                   let mut exp_files = arg_glob(&p, true, &cwd)?;
-                   if exp_files.is_empty() {
-                       return Err(ShellError::FileNotFound(p.span));
-                   }
-                   sources.append(&mut exp_files);
-               }
-        */// todo: review this
+        for p in paths {
+            let mut exp_files = arg_glob(&p, true, &cwd)?;
+            if exp_files.is_empty() {
+                return Err(ShellError::FileNotFound(p.span));
+            }
+            sources.append(&mut exp_files);
+        }
+
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
