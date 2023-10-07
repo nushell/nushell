@@ -68,15 +68,14 @@ _read_installdir() {
     nu_installdir=${nu_installdir:-$default_bin}
 }
 
-if [ -z "$NU_BINDIR" ]; then
+if [ -z "$NU_BINDIR" ] && [ -t 1 ]; then
     _read_installdir
-
     while ! test -d "$nu_installdir"; do
         echo "Directory $nu_installdir does not exist"
         _read_installdir
     done
 else
-    nu_installdir=${NU_BINDIR}
+    nu_installdir=${NU_BINDIR:=$default_bin}
 fi
 
 tar xzf nu.tar.gz
