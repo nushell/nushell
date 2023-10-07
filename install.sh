@@ -17,9 +17,9 @@ fi
 
 fetch()
 {
-    if which curl > /dev/null; then
+    if command -v curl > /dev/null; then
         if [ "$#" -eq 2 ]; then curl -sSL -o "$1" "$2"; else curl -sSL "$1"; fi
-    elif which wget > /dev/null; then
+    elif command -v wget > /dev/null; then
         if [ "$#" -eq 2 ]; then wget -O "$1" "$2"; else wget -nv -O - "$1"; fi
     else
         echo "Can't find curl or wget, can't download package"
