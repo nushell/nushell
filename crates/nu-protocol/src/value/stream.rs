@@ -85,6 +85,20 @@ impl RawStream {
         }
         Ok(())
     }
+
+    pub fn into_reader<B: Into<u8>>(
+        mut self,
+        separator: Option<B>,
+    ) -> std::io::Result<StreamReader> {
+        let separator = separator.map(Into::into);
+        let cursor = val_to_cursor(self.next(), separator)?;
+
+        Ok(StreamReader {
+            stream: Box::new(self),
+            cursor,
+            separator,
+        })
+    }
 }
 impl Debug for RawStream {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -211,6 +225,20 @@ impl ListStream {
             ctrlc,
         }
     }
+
+    pub fn into_reader<B: Into<u8>>(
+        mut self,
+        separator: Option<B>,
+    ) -> std::io::Result<StreamReader> {
+        let separator = separator.map(Into::into);
+        let cursor = val_to_cursor(self.next().map(Ok), separator)?;
+
+        Ok(StreamReader {
+            stream: Box::new(self.map(Ok)),
+            cursor,
+            separator,
+        })
+    }
 }
 
 impl Debug for ListStream {
@@ -228,5 +256,193 @@ impl Iterator for ListStream {
         } else {
             self.stream.next()
         }
+    }
+}
+
+pub struct StreamReader {
+    stream: Box<dyn Iterator<Item = Result<Value, ShellError>> + Send + 'static>,
+    cursor: Option<std::io::Cursor<Vec<u8>>>,
+    separator: Option<u8>,
+}
+
+impl std::io::Read for StreamReader {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        while let Some(ref mut cursor) = self.cursor {
+            let read = cursor.read(buf)?;
+
+            if read > 0 {
+                return Ok(read);
+            }
+
+            self.cursor = val_to_cursor(self.stream.next(), self.separator)?;
+        }
+
+        Ok(0)
+    }
+}
+
+fn val_to_cursor(
+    val: Option<Result<Value, ShellError>>,
+    separator: Option<u8>,
+) -> std::io::Result<Option<std::io::Cursor<Vec<u8>>>> {
+    Ok(match val {
+        None => None,
+        Some(val) => match val {
+            Ok(Value::String { val, .. }) => {
+                let mut bytes = val.into_bytes();
+
+                if let Some(sep) = separator {
+                    bytes.push(sep);
+                }
+
+                Some(std::io::Cursor::new(bytes))
+            }
+            Ok(Value::Binary { mut val, .. }) => {
+                if let Some(sep) = separator {
+                    val.push(sep);
+                }
+
+                Some(std::io::Cursor::new(val))
+            }
+            Err(err) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    err.to_string(),
+                ))
+            }
+            Ok(val) => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("input should be string or binary, got: {}", val.get_type()),
+                ));
+            }
+        },
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stream_reader_empty() {
+        let data: [Value; 0] = [];
+        let (mut test_data, _, _) = data
+            .into_pipeline_data(None)
+            .into_reader::<u8>(Span::unknown(), None)
+            .unwrap();
+
+        let out = std::io::read_to_string(&mut test_data).unwrap();
+
+        assert_eq!("".to_owned(), out);
+    }
+
+    #[test]
+    fn stream_reader_basic() {
+        let (mut test_data, _, _) = [
+            Value::string("str1".to_owned(), Span::unknown()),
+            Value::string("str2".to_owned(), Span::unknown()),
+            Value::binary(b"bin1".to_owned(), Span::unknown()),
+            Value::binary(b"bin2".to_owned(), Span::unknown()),
+        ]
+        .into_pipeline_data(None)
+        .into_reader(Span::unknown(), Some(b'\n'))
+        .unwrap();
+
+        let out = std::io::read_to_string(&mut test_data).unwrap();
+
+        assert_eq!("str1\nstr2\nbin1\nbin2\n".to_owned(), out);
+    }
+
+    #[test]
+    fn stream_reader_binary() {
+        let bytes = vec![0, 1, 2, 3];
+
+        let (mut test_data, _, _) = [
+            Value::string("foo".to_owned(), Span::unknown()),
+            Value::binary(bytes.clone(), Span::unknown()),
+        ]
+        .into_pipeline_data(None)
+        .into_reader(Span::unknown(), Some(0))
+        .unwrap();
+
+        let mut expected = Vec::with_capacity(9);
+        expected.extend_from_slice(b"foo\0");
+        expected.extend_from_slice(&bytes);
+        expected.extend_from_slice(b"\0");
+
+        let mut out_buf = Vec::with_capacity(9);
+        let out = std::io::copy(&mut test_data, &mut out_buf).unwrap();
+
+        assert_eq!(9, out);
+        assert_eq!(expected, out_buf);
+    }
+
+    /// Verify that if a pipeline's value that it's reading into a buffer does
+    /// not have space store the whole content that the reader will copy all the
+    /// data across successive runs and track state correctly.
+    #[test]
+    fn stream_reader_binary_small_buffer() {
+        let bytes = vec![0, 1, 2, 3];
+
+        let (mut test_data, _, _) = [
+            Value::string("fooz".to_owned(), Span::unknown()),
+            Value::binary(bytes.clone(), Span::unknown()),
+        ]
+        .into_pipeline_data(None)
+        .into_reader::<u8>(Span::unknown(), None)
+        .unwrap();
+
+        let mut expected = Vec::from_iter(b"foo".iter().copied());
+
+        let mut out_buf = [0; 3];
+        let mut written = test_data.read(&mut out_buf).unwrap();
+
+        assert_eq!(3, written);
+        assert_eq!(expected, out_buf);
+
+        expected = vec![b'z'];
+        written = test_data.read(&mut out_buf).unwrap();
+
+        assert_eq!(1, written);
+        assert_eq!(expected, &out_buf[..1]);
+
+        expected = vec![0, 1, 2];
+        written = test_data.read(&mut out_buf).unwrap();
+
+        assert_eq!(3, written);
+        assert_eq!(expected, out_buf);
+
+        expected = vec![3];
+        written = test_data.read(&mut out_buf).unwrap();
+
+        assert_eq!(1, written);
+        assert_eq!(expected, &out_buf[..1]);
+
+        // last read is empty -- nothing left
+        written = test_data.read(&mut out_buf).unwrap();
+        assert_eq!(0, written);
+    }
+
+    #[test]
+    fn stream_reader_invalid_type() {
+        let (mut test_data, _, _) = [
+            Value::string("str1".to_owned(), Span::unknown()),
+            Value::binary(b"bin1".to_owned(), Span::unknown()),
+            Value::record(
+                record!(
+                    "foo".to_owned() => Value::string("bar".to_owned(), Span::unknown()),
+                    "baz".to_owned() => Value::int(1, Span::unknown()),
+                ),
+                Span::unknown(),
+            ),
+        ]
+        .into_pipeline_data(None)
+        .into_reader(Span::unknown(), Some(b'\n'))
+        .unwrap();
+
+        let out = std::io::read_to_string(&mut test_data).unwrap_err();
+
+        assert_eq!(std::io::ErrorKind::InvalidInput, out.kind());
     }
 }

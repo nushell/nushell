@@ -128,12 +128,13 @@ fn from_csv(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let name = call.head;
+    let span = call.head;
+
     if let PipelineData::Value(Value::List { .. }, _) = input {
         return Err(ShellError::TypeMismatch {
             err_message: "received list stream, did you forget to open file with --raw flag?"
                 .into(),
-            span: name,
+            span,
         });
     }
 
@@ -173,6 +174,7 @@ fn from_csv(
 
     let config = DelimitedReaderConfig {
         separator,
+        record_separator: '\n',
         comment,
         quote,
         escape,
@@ -182,7 +184,7 @@ fn from_csv(
         trim,
     };
 
-    from_delimited_data(config, input, name)
+    from_delimited_data(config, input, span, engine_state.ctrlc.clone())
 }
 
 #[cfg(test)]
