@@ -202,6 +202,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 .starts_with(&[b'('])
         {
             signature_pos = Some(pos);
+            break;
         }
 
         pos += 1;

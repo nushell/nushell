@@ -103,10 +103,10 @@ fn parse_file_relative_to_parsed_file_simple() {
 }
 
 #[test]
-fn predecl_signature_parse() {
-    Playground::setup("predecl_signature_parse", |dirs, sandbox| {
+fn predecl_signature_single_inp_out_type() {
+    Playground::setup("predecl_signature_single_inp_out_type", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "spam.nu",
+            "spam1.nu",
             "
                 def main [] { foo }
 
@@ -114,11 +114,33 @@ fn predecl_signature_parse() {
             ",
         )]);
 
-        let actual = nu!(cwd: dirs.test(), pipeline("nu spam.nu"));
+        let actual = nu!(cwd: dirs.test(), pipeline("nu spam1.nu"));
 
         assert_eq!(actual.out, "foo");
     })
 }
+
+#[test]
+fn predecl_signature_multiple_inp_out_types() {
+    Playground::setup(
+        "predecl_signature_multiple_inp_out_types",
+        |dirs, sandbox| {
+            sandbox.with_files(vec![FileWithContentToBeTrimmed(
+                "spam2.nu",
+                "
+                def main [] { foo }
+
+                def foo []: [nothing -> string, string -> string] { 'foo' }
+            ",
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), pipeline("nu spam2.nu"));
+
+            assert_eq!(actual.out, "foo");
+        },
+    )
+}
+
 #[ignore]
 #[test]
 fn parse_file_relative_to_parsed_file() {
