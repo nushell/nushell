@@ -2,6 +2,10 @@
 #
 # version = "0.85.1"
 
+def new-ls [pattern] {
+    glob $pattern | ls | sort-by name | sort-by type
+}
+
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
 # And here is the theme collection
