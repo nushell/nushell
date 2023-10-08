@@ -107,7 +107,7 @@ fn errors_if_columns_param_is_empty() {
                 | lines
                 | wrap name
                 | default "arepa!" hit
-                | rename -c {}
+                | rename --column {}
                 "#
         ));
 

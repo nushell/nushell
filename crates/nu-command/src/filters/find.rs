@@ -124,7 +124,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find value in records using regex",
-                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu""#,
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["version".to_string(), "name".to_string()],
@@ -138,7 +138,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find inverted values in records using regex",
-                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find -r "nu" --invert"#,
+                example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {
@@ -161,7 +161,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find value in list using regex",
-                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr""#,
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr""#,
                 result: Some(Value::list(
                     vec![Value::list(
                         vec![Value::test_string("Larry"), Value::test_string("Moe")],
@@ -172,7 +172,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find inverted values in records using regex",
-                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find -r "rr" --invert"#,
+                example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr" --invert"#,
                 result: Some(Value::list(
                     vec![Value::list(
                         vec![Value::test_string("Victor"), Value::test_string("Marina")],
@@ -189,7 +189,7 @@ impl Command for Find {
             Example {
                 description: "Find and highlight text in specific columns",
                 example:
-                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe -c [col1]",
+                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],

@@ -139,7 +139,7 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description: "Getting Path in a case sensitive way, won't work for 'PATH'",
-                example: "$env | get -s Path",
+                example: "$env | get --sensitive Path",
                 result: None,
             },
         ]

@@ -103,7 +103,7 @@ impl Command for Uniq {
             },
             Example {
                 description: "Return the input values that occur once only",
-                example: "[1 2 2] | uniq -u",
+                example: "[1 2 2] | uniq --unique",
                 result: Some(Value::list(
                     vec![Value::test_int(1)],
                     Span::test_data(),
@@ -111,7 +111,7 @@ impl Command for Uniq {
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
-                example: "['hello' 'goodbye' 'Hello'] | uniq -i",
+                example: "['hello' 'goodbye' 'Hello'] | uniq --ignore-case",
                 result: Some(Value::list(
                     vec![Value::test_string("hello"), Value::test_string("goodbye")],
                     Span::test_data(),
@@ -119,7 +119,7 @@ impl Command for Uniq {
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
-                example: "[1 2 2] | uniq -c",
+                example: "[1 2 2] | uniq --count",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {
