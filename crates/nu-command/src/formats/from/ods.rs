@@ -62,7 +62,7 @@ impl Command for FromOds {
             },
             Example {
                 description: "Convert binary .ods data to a table, specifying the tables",
-                example: "open --raw test.ods | from ods -s [Spreadsheet1]",
+                example: "open --raw test.ods | from ods --sheets [Spreadsheet1]",
                 result: None,
             },
         ]
