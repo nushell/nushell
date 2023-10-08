@@ -60,7 +60,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml -p 3"#,
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --pretty 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
