@@ -223,102 +223,93 @@ impl UrlComponents {
             };
         }
 
-        // a part from port and params all other keys are strings.
-        match value.as_string() {
-            Ok(s) => {
+        // apart from port and params all other keys are strings.
+        let s = value.as_string()?; // If value fails String conversion, just output this ShellError
+        match key.as_str() {
+            "host" => {
                 if s.trim().is_empty() {
-                    self.check_required(key, value_span, "empty string".into())
+                    Err(ShellError::UnsupportedConfigValue(
+                        "non-empty string".into(),
+                        "empty string".into(),
+                        value_span,
+                    ))
                 } else {
-                    match key.as_str() {
-                        "host" => Ok(Self {
-                            host: Some(s),
-                            ..self
-                        }),
-                        "scheme" => Ok(Self {
-                            scheme: Some(s),
-                            ..self
-                        }),
-                        "username" => Ok(Self {
-                            username: Some(s),
-                            ..self
-                        }),
-                        "password" => Ok(Self {
-                            password: Some(s),
-                            ..self
-                        }),
-                        "path" => Ok(Self {
-                            path: Some(if s.starts_with('/') {
-                                s
-                            } else {
-                                format!("/{s}")
-                            }),
-                            ..self
-                        }),
-                        "query" => {
-                            if let Some(q) = self.query {
-                                if q != s {
-                                    // if query is present it means that also params_span is set.
-                                    return Err(ShellError::IncompatibleParameters {
-                                        left_message: format!("Mismatch, query param is: {s}"),
-                                        left_span: value.span(),
-                                        right_message: format!("instead qs from params is: {q}"),
-                                        right_span: self.params_span.unwrap_or(Span::unknown()),
-                                    });
-                                }
-                            }
-
-                            Ok(Self {
-                                query: Some(format!("?{s}")),
-                                query_span: Some(value.span()),
-                                ..self
-                            })
-                        }
-                        "fragment" => Ok(Self {
-                            fragment: Some(if s.starts_with('#') {
-                                s
-                            } else {
-                                format!("#{s}")
-                            }),
-                            ..self
-                        }),
-                        _ => {
-                            nu_protocol::report_error_new(
-                                engine_state,
-                                &ShellError::GenericError(
-                                    format!("'{key}' is not a valid URL field"),
-                                    format!("remove '{key}' col from input record"),
-                                    Some(span),
-                                    None,
-                                    vec![],
-                                ),
-                            );
-                            Ok(self)
-                        }
-                    }
+                    Ok(Self {
+                        host: Some(s),
+                        ..self
+                    })
                 }
             }
-            _ => self.check_required(key, value_span, "null or empty value".into()),
-        }
-    }
+            "scheme" => {
+                if s.trim().is_empty() {
+                    Err(ShellError::UnsupportedConfigValue(
+                        "non-empty string".into(),
+                        "empty string".into(),
+                        value_span,
+                    ))
+                } else {
+                    Ok(Self {
+                        scheme: Some(s),
+                        ..self
+                    })
+                }
+            }
+            "username" => Ok(Self {
+                username: Some(s),
+                ..self
+            }),
+            "password" => Ok(Self {
+                password: Some(s),
+                ..self
+            }),
+            "path" => Ok(Self {
+                path: Some(if s.starts_with('/') {
+                    s
+                } else {
+                    format!("/{s}")
+                }),
+                ..self
+            }),
+            "query" => {
+                if let Some(q) = self.query {
+                    if q != s {
+                        // if query is present it means that also params_span is set.
+                        return Err(ShellError::IncompatibleParameters {
+                            left_message: format!("Mismatch, query param is: {s}"),
+                            left_span: value.span(),
+                            right_message: format!("instead qs from params is: {q}"),
+                            right_span: self.params_span.unwrap_or(Span::unknown()),
+                        });
+                    }
+                }
 
-    fn check_required(
-        self,
-        key: String,
-        value_span: Span,
-        invalid_type: String,
-    ) -> Result<Self, ShellError> {
-        match key.as_str() {
-            "host" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                invalid_type,
-                value_span,
-            )),
-            "scheme" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                invalid_type,
-                value_span,
-            )),
-            _ => Ok(self),
+                Ok(Self {
+                    query: Some(format!("?{s}")),
+                    query_span: Some(value.span()),
+                    ..self
+                })
+            }
+            "fragment" => Ok(Self {
+                fragment: Some(if s.starts_with('#') {
+                    s
+                } else {
+                    format!("#{s}")
+                }),
+                ..self
+            }),
+            _ => {
+                nu_protocol::report_error_new(
+                    engine_state,
+                    &ShellError::GenericError(
+                        format!("'{key}' is not a valid URL field"),
+                        format!("remove '{key}' col from input record"),
+                        Some(span),
+                        None,
+                        vec![],
+                    ),
+                );
+                Ok(self)
+            }
         }
     }
 
