@@ -10,7 +10,9 @@ use nu_protocol::{
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     // Structural subtyping
     let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        if expected.is_empty() {
+        if expected.is_empty() || found.is_empty() {
+            // We treat an incoming empty table/record type as compatible for typechecking purposes
+            // It is the responsibility of the runtime to reject if necessary
             true
         } else if expected.len() > found.len() {
             false
