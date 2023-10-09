@@ -82,7 +82,7 @@ pub fn glob_from(
     };
 
     let pattern = pattern.to_string_lossy().to_string();
-    let glob_options = options.unwrap_or_else(MatchOptions::new);
+    let glob_options = options.unwrap_or_default();
 
     let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|err| {
         nu_protocol::ShellError::GenericError(

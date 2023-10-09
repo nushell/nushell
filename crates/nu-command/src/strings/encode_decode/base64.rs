@@ -107,8 +107,7 @@ fn action(
         Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
-                let mut enc_vec = Vec::new();
-                enc_vec.resize(val.len() * 4 / 3 + 4, 0);
+                let mut enc_vec = vec![0; val.len() * 4 / 3 + 4];
                 let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
                     Ok(bytes_written) => bytes_written,
                     Err(err) => {

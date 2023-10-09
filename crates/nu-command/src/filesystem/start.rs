@@ -144,6 +144,7 @@ fn open_path(
     try_commands(open::commands(path), engine_state, stack, span)
 }
 
+#[allow(clippy::manual_try_fold)]
 fn try_commands(
     commands: Vec<std::process::Command>,
     engine_state: &EngineState,
