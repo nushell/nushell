@@ -94,7 +94,6 @@ pub fn complete_item(
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
     let mut original_cwd = OriginalCwd::None;
     let mut components = Path::new(&partial).components().peekable();
-    let n_components = Path::new(&partial).components().count();
     let mut cwd = match components.peek().cloned() {
         Some(c @ Component::Prefix(..)) => {
             // windows only by definition
@@ -113,8 +112,7 @@ pub fn complete_item(
             original_cwd = OriginalCwd::Home(home_dir().unwrap_or(cwd_pathbuf.clone()));
             home_dir().unwrap_or(cwd_pathbuf)
         }
-        // Either we have a bare `.` or a `.` followed by the name of a local file
-        Some(Component::CurDir) if n_components < 3 => {
+        Some(Component::CurDir) => {
             components.next();
             original_cwd = match components.peek().cloned() {
                 Some(Component::Normal(_)) | None => OriginalCwd::Local(cwd_pathbuf.clone()),
