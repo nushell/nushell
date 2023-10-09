@@ -103,6 +103,19 @@ pub struct Paths {
     scope: Option<PathBuf>,
 }
 
+impl Paths {
+    /// An iterator representing a single path.
+    pub fn single(path: &Path, relative_to: &Path) -> Self {
+        Paths {
+            dir_patterns: vec![Pattern::new("*").expect("hard coded pattern")],
+            require_dir: false,
+            options: MatchOptions::new(),
+            todo: vec![Ok((path.to_path_buf(), 0))],
+            scope: Some(relative_to.into()),
+        }
+    }
+}
+
 /// Return an iterator that produces all the `Path`s that match the given
 /// pattern using default match options, which may be absolute or relative to
 /// the current working directory.
@@ -273,6 +286,32 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
     })
 }
 
+/// Return an iterator that produces all the `Path`s that match the given
+/// pattern relative to a specified parent directory and using specified match options.
+/// Paths may be absolute or relative to the current working directory.
+///
+/// This is provided primarily for testability, so multithreaded test runners can
+/// test pattern matches in different test directories at the same time without
+/// having to append the parent to the pattern under test.
+
+pub fn glob_with_parent(
+    pattern: &str,
+    options: MatchOptions,
+    parent: &Path,
+) -> Result<Paths, PatternError> {
+    match glob_with(pattern, options) {
+        Ok(mut p) => {
+            p.scope = match p.scope {
+                None => Some(parent.to_path_buf()),
+                Some(s) if &s.to_string_lossy() == "." => Some(parent.to_path_buf()),
+                Some(s) => Some(s),
+            };
+            Ok(p)
+        }
+        Err(e) => Err(e),
+    }
+}
+
 /// A glob iteration error.
 ///
 /// This is typically returned when a particular path cannot be read
@@ -347,7 +386,10 @@ impl Iterator for Paths {
                 // Shouldn't happen, but we're using -1 as a special index.
                 assert!(self.dir_patterns.len() < !0);
 
-                fill_todo(&mut self.todo, &self.dir_patterns, 0, &scope, self.options);
+                // if there's one prefilled result, take it, otherwise fill the todo buffer
+                if self.todo.len() != 1 {
+                    fill_todo(&mut self.todo, &self.dir_patterns, 0, &scope, self.options);
+                }
             }
         }
 
@@ -1058,6 +1100,7 @@ impl MatchOptions {
     ///     require_literal_separator: false,
     ///     require_literal_leading_dot: false
     ///     recursive_match_hidden_dir: true,
+    ///     parent: &Path::new("."),
     /// }
     /// ```
     ///
