@@ -1137,9 +1137,9 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     #[error("Invalid glob pattern")]
     #[diagnostic(
         code(nu::shell::invalid_glob_pattern),
-        help("Refer to https://docs.rs/crate/wax/latest for help on glob patterns.")
+        help("Refer to xxx for help on nushell glob patterns.")
     )]
-    InvalidGlobPattern(String, #[label = "Error {0} in glob pattern."] Span),
+    InvalidGlobPattern(String, #[label = "{0}"] Span),
 
     /// Error expanding glob pattern
     ///

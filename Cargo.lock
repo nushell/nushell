@@ -2780,10 +2780,12 @@ dependencies = [
  "indexmap 2.0.0",
  "miette 5.10.0",
  "nu-engine",
+ "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-protocol",
  "nu-test-support",
+ "nu-utils",
  "rstest",
  "wax",
 ]

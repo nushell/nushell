@@ -1,5 +1,6 @@
 use nu_cmd_base::arg_glob::arg_glob;
 use nu_engine::{current_dir, CallExt};
+use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -193,11 +194,23 @@ impl Command for UCp {
         let mut sources: Vec<PathBuf> = Vec::new();
 
         for p in paths {
-            let mut exp_files = arg_glob(&p, true, &cwd)?;
+            let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
                 return Err(ShellError::FileNotFound(p.span));
+            };
+            let mut app_vals: Vec<PathBuf> = Vec::new();
+            for v in exp_files {
+                match v {
+                    Ok(p) => app_vals.push(p),
+                    Err(e) => {
+                        return Err(ShellError::ErrorExpandingGlob(
+                            format!("error {} in path {}", e.error(), e.path().display()),
+                            p.span,
+                        ));
+                    }
+                }
             }
-            sources.append(&mut exp_files);
+            sources.append(&mut app_vals);
         }
 
         let options = uu_cp::Options {
