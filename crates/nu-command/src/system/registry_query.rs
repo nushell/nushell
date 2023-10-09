@@ -151,7 +151,7 @@ fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
             Vec::new(),
         ));
     }
-    let hive = flags.get(0).copied().unwrap_or("hkcu");
+    let hive = flags.first().copied().unwrap_or("hkcu");
     let hkey = match hive {
         "hkcr" => HKEY_CLASSES_ROOT,
         "hkcu" => HKEY_CURRENT_USER,
