@@ -144,7 +144,6 @@ fn open_path(
     try_commands(open::commands(path), engine_state, stack, span)
 }
 
-#[allow(clippy::manual_try_fold)]
 fn try_commands(
     commands: Vec<std::process::Command>,
     engine_state: &EngineState,
@@ -152,40 +151,39 @@ fn try_commands(
     span: Span,
 ) -> Result<(), ShellError> {
     let env_vars_str = env_to_strings(engine_state, stack)?;
-    commands
-        .into_iter()
-        .map(|mut cmd| {
-            let status = cmd
-                .envs(&env_vars_str)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-            match status {
-                Ok(status) if status.success() => Ok(()),
-                Ok(status) => Err(format!(
-                    "\nCommand `{}` failed with {}",
-                    format_command(&cmd),
-                    status
-                )),
-                Err(err) => Err(format!(
-                    "\nCommand `{}` failed with {}",
-                    format_command(&cmd),
-                    err
-                )),
-            }
-        })
-        .take_while_inclusive(|result| result.is_err())
-        .fold(Err("".to_string()), |combined_result, next_result| {
-            combined_result.or_else(|combined_message| {
-                next_result.map_err(|next_message| combined_message + &next_message)
-            })
-        })
-        .map_err(|message| ShellError::ExternalCommand {
-            label: "No command found to start with this path".to_string(),
-            help: "Try different path or install appropriate command\n".to_string() + &message,
-            span,
-        })
+    let mut cmd_run_result = commands.into_iter().map(|mut cmd| {
+        let status = cmd
+            .envs(&env_vars_str)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        match status {
+            Ok(status) if status.success() => Ok(()),
+            Ok(status) => Err(format!(
+                "\nCommand `{}` failed with {}",
+                format_command(&cmd),
+                status
+            )),
+            Err(err) => Err(format!(
+                "\nCommand `{}` failed with {}",
+                format_command(&cmd),
+                err
+            )),
+        }
+    });
+    let cmd_run_result = cmd_run_result.take_while_inclusive(|result| result.is_err());
+
+    for one_result in cmd_run_result {
+        if let Err(err_msg) = one_result {
+            return Err(ShellError::ExternalCommand {
+                label: "No command found to start with this path".to_string(),
+                help: "Try different path or install appropriate command\n".to_string() + &err_msg,
+                span,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn format_command(command: &std::process::Command) -> String {
