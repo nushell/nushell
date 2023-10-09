@@ -151,7 +151,7 @@ fn try_commands(
     span: Span,
 ) -> Result<(), ShellError> {
     let env_vars_str = env_to_strings(engine_state, stack)?;
-    let mut cmd_run_result = commands.into_iter().map(|mut cmd| {
+    let cmd_run_result = commands.into_iter().map(|mut cmd| {
         let status = cmd
             .envs(&env_vars_str)
             .stdin(Stdio::null())
@@ -172,7 +172,6 @@ fn try_commands(
             )),
         }
     });
-    let cmd_run_result = cmd_run_result.take_while_inclusive(|result| result.is_err());
 
     for one_result in cmd_run_result {
         if let Err(err_msg) = one_result {
