@@ -39,6 +39,8 @@ enum OriginalCwd {
     None,
     Home(PathBuf),
     Some(PathBuf),
+    // referencing a single local file
+    Local(PathBuf),
 }
 
 impl OriginalCwd {
@@ -53,6 +55,10 @@ impl OriginalCwd {
                 Ok(suffix) => format!("~{}{}", SEP, suffix.to_string_lossy()),
                 _ => p.to_string_lossy().into_owned(),
             },
+            Self::Local(base) => Path::new(".")
+                .join(pathdiff::diff_paths(p, base).unwrap_or(p.to_path_buf()))
+                .to_string_lossy()
+                .into_owned(),
         };
 
         if p.is_dir() {
@@ -68,9 +74,7 @@ fn surround_remove(partial: &str) -> String {
             let ret = partial.strip_prefix(c).unwrap_or(partial);
             return match ret.split(c).collect::<Vec<_>>()[..] {
                 [inside] => inside.to_string(),
-                [inside, outside] if inside.ends_with(is_separator) => {
-                    format!("{inside}{outside}")
-                }
+                [inside, outside] if inside.ends_with(is_separator) => format!("{inside}{outside}"),
                 _ => ret.to_string(),
             };
         }
@@ -108,6 +112,14 @@ pub fn complete_item(
             original_cwd = OriginalCwd::Home(home_dir().unwrap_or(cwd_pathbuf.clone()));
             home_dir().unwrap_or(cwd_pathbuf)
         }
+        Some(Component::CurDir) => {
+            components.next();
+            original_cwd = match components.peek().cloned() {
+                Some(Component::Normal(_)) | None => OriginalCwd::Local(cwd_pathbuf.clone()),
+                _ => OriginalCwd::Some(cwd_pathbuf.clone()),
+            };
+            cwd_pathbuf
+        }
         _ => {
             original_cwd = OriginalCwd::Some(cwd_pathbuf.clone());
             cwd_pathbuf
@@ -126,9 +138,7 @@ pub fn complete_item(
                     cwd.pop();
                 }
             }
-            Component::Normal(c) => {
-                partial.push(c.to_string_lossy().into_owned());
-            }
+            Component::Normal(c) => partial.push(c.to_string_lossy().into_owned()),
         }
     }
 
