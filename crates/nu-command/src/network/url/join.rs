@@ -225,35 +225,18 @@ impl UrlComponents {
 
         // apart from port and params all other keys are strings.
         let s = value.as_string()?; // If value fails String conversion, just output this ShellError
+        if !Self::check_empty_string_ok(&key, &s, value_span)? {
+            return Ok(self);
+        }
         match key.as_str() {
-            "host" => {
-                if s.trim().is_empty() {
-                    Err(ShellError::UnsupportedConfigValue(
-                        "non-empty string".into(),
-                        "empty string".into(),
-                        value_span,
-                    ))
-                } else {
-                    Ok(Self {
-                        host: Some(s),
-                        ..self
-                    })
-                }
-            }
-            "scheme" => {
-                if s.trim().is_empty() {
-                    Err(ShellError::UnsupportedConfigValue(
-                        "non-empty string".into(),
-                        "empty string".into(),
-                        value_span,
-                    ))
-                } else {
-                    Ok(Self {
-                        scheme: Some(s),
-                        ..self
-                    })
-                }
-            }
+            "host" => Ok(Self {
+                host: Some(s),
+                ..self
+            }),
+            "scheme" => Ok(Self {
+                scheme: Some(s),
+                ..self
+            }),
             "username" => Ok(Self {
                 username: Some(s),
                 ..self
@@ -310,6 +293,26 @@ impl UrlComponents {
                 );
                 Ok(self)
             }
+        }
+    }
+
+    // Check if value is empty. If so, check if that is fine, i.e., not a required input
+    fn check_empty_string_ok(key: &str, s: &str, value_span: Span) -> Result<bool, ShellError> {
+        if !s.trim().is_empty() {
+            return Ok(true);
+        }
+        match key {
+            "host" => Err(ShellError::UnsupportedConfigValue(
+                "non-empty string".into(),
+                "empty string".into(),
+                value_span,
+            )),
+            "scheme" => Err(ShellError::UnsupportedConfigValue(
+                "non-empty string".into(),
+                "empty string".into(),
+                value_span,
+            )),
+            _ => Ok(false),
         }
     }
 
