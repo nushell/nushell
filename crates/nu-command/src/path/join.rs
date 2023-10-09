@@ -90,8 +90,17 @@ the output of 'path parse' and 'path split' subcommands."#
                 example: r"'C:\Users\viking' | path join spams this_spam.txt",
                 result: Some(Value::test_string(r"C:\Users\viking\spams\this_spam.txt")),
             },
-            // TODO: an example with '..'
-            // TODO: an example with '/'
+            Example {
+                description: "Use relative paths, e.g. '..' will go up one directory",
+                example: r"'C:\Users\viking' | path join .. folder",
+                result: Some(Value::test_string(r"C:\Users\viking\..\folder")),
+            },
+            Example {
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
+                example: r"'C:\Users\viking' | path join / folder",
+                result: Some(Value::test_string(r"C:/folder")),
+            },
             Example {
                 description: "Join a list of parts into a path",
                 example: r"[ 'C:' '\' 'Users' 'viking' 'spam.txt' ] | path join",
@@ -128,14 +137,14 @@ the output of 'path parse' and 'path split' subcommands."#
             },
             Example {
                 description: "Use relative paths, e.g. '..' will go up one directory",
-                example: r"'/home/foo' | path join .. bar",
-                result: Some(Value::test_string(r"/home/foo/../bar")),
+                example: r"'/home/viking' | path join .. folder",
+                result: Some(Value::test_string(r"/home/viking/../folder")),
             },
             Example {
                 description:
                     "Use absolute paths, e.g. '/' will bring you to the top level directory",
-                example: r"'/home/foo' | path join / bar",
-                result: Some(Value::test_string(r"/bar")),
+                example: r"'/home/viking' | path join / folder",
+                result: Some(Value::test_string(r"/folder")),
             },
             Example {
                 description: "Join a list of parts into a path",
