@@ -133,7 +133,7 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 #[rstest]
 #[case(".", r#"'*z'"#, &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
 #[case(".", r#"'qqq'"#, &["ablez", "baker", "charliez"], &[], "glob matches none")]
-#[case("foo/bar", r#"'*[\]}]*'"#, &[r#"foo/bar/ab}le"#, "foo/bar/baker", r#"foo/bar/cha]rlie"#], &[r#"foo/bar/ab}le"#, r#"foo/bar/cha]rlie"#], "glob has quoted metachars")]
+#[case("foo/bar", r"'*[\]}]*'", &[r#"foo/bar/ab}le"#, "foo/bar/baker", r#"foo/bar/cha]rlie"#], &[r#"foo/bar/ab}le"#, r#"foo/bar/cha]rlie"#], "glob has quoted metachars")]
 #[case("foo/bar", r#"'../*'"#, &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar", "foo/charlie"], "glob matches files in parent")]
 #[case("foo", r#"'./{a,b}*'"#, &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar"], "glob with leading ./ matches peer files")]
 fn glob_files_in_parent(

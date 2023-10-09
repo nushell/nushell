@@ -212,6 +212,7 @@ macro_rules! nu_with_plugins {
 }
 
 use crate::{Outcome, NATIVE_PATH_ENV_VAR};
+use std::fmt::Write;
 use std::{
     path::Path,
     process::{Command, Stdio},
@@ -299,14 +300,14 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
 
     let registrations: String = plugins
         .iter()
-        .map(|plugin_name| {
+        .fold(String::new(), |mut output, plugin_name| {
             let plugin = with_exe(plugin_name);
             let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
                 .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
             let plugin_path = plugin_path.to_string_lossy();
-            format!("register {plugin_path};")
-        })
-        .collect();
+            let _ = write!(output, "register {plugin_path};");
+            output
+        });
     let commands = format!("{registrations}{command}");
 
     let target_cwd = crate::fs::in_directory(&cwd);
