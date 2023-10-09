@@ -342,25 +342,27 @@ fn get_ansi_color_for_component_or_default(
         let mut caller_stack = Stack::new();
         let span = Span::unknown();
 
-        let argument = get_argument_for_color_value(engine_state, default, color, span);
+        let argument_opt = get_argument_for_color_value(engine_state, color, span);
 
         // Call ansi command using argument
-        if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
-            if let Ok(result) = eval_call(
-                engine_state,
-                &mut caller_stack,
-                &Call {
-                    decl_id,
-                    head: span,
-                    arguments: vec![argument],
-                    redirect_stdout: true,
-                    redirect_stderr: true,
-                    parser_info: HashMap::new(),
-                },
-                PipelineData::Empty,
-            ) {
-                if let Ok((str, ..)) = result.collect_string_strict(span) {
-                    return str;
+        if let Some(argument) = argument_opt {
+            if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
+                if let Ok(result) = eval_call(
+                    engine_state,
+                    &mut caller_stack,
+                    &Call {
+                        decl_id,
+                        head: span,
+                        arguments: vec![argument],
+                        redirect_stdout: true,
+                        redirect_stderr: true,
+                        parser_info: HashMap::new(),
+                    },
+                    PipelineData::Empty,
+                ) {
+                    if let Ok((str, ..)) = result.collect_string_strict(span) {
+                        return str;
+                    }
                 }
             }
         }
@@ -371,10 +373,9 @@ fn get_ansi_color_for_component_or_default(
 
 fn get_argument_for_color_value(
     engine_state: &EngineState,
-    default: &str,
     color: &&Value,
     span: Span,
-) -> Argument {
+) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
             let record_exp: Vec<(Expression, Expression)> = val
@@ -399,7 +400,7 @@ fn get_argument_for_color_value(
                 })
                 .collect();
 
-            Argument::Positional(Expression {
+            Some(Argument::Positional(Expression {
                 span: Span::unknown(),
                 ty: Type::Record(vec![
                     ("fg".to_string(), Type::String),
@@ -407,20 +408,15 @@ fn get_argument_for_color_value(
                 ]),
                 expr: Expr::Record(record_exp),
                 custom_completion: None,
-            })
+            }))
         }
-        Value::String { val, .. } => Argument::Positional(Expression {
+        Value::String { val, .. } => Some(Argument::Positional(Expression {
             span: Span::unknown(),
             ty: Type::String,
             expr: Expr::String(val.clone()),
             custom_completion: None,
-        }),
-        _ => Argument::Positional(Expression {
-            span: Span::unknown(),
-            ty: Type::String,
-            expr: Expr::String(default.to_string()),
-            custom_completion: None,
-        }),
+        })),
+        _ => None,
     }
 }
 
