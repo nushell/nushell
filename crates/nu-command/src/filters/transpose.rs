@@ -122,7 +122,7 @@ impl Command for Transpose {
             Example {
                 description:
                     "Transposes the table without column names and specify a new column name",
-                example: "[[c1 c2]; [1 2]] | transpose -i val",
+                example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {
@@ -139,7 +139,7 @@ impl Command for Transpose {
             },
             Example {
                 description: "Transfer back to record with -d flag",
-                example: "{c1: 1, c2: 2} | transpose | transpose -i -r -d",
+                example: "{c1: 1, c2: 2} | transpose | transpose --ignore-titles -r -d",
                 result: Some(Value::test_record(Record {
                     cols: vec!["c1".to_string(), "c2".to_string()],
                     vals: vec![Value::test_int(1), Value::test_int(2)],

@@ -62,7 +62,7 @@ impl Command for FromXlsx {
             },
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables",
-                example: "open --raw test.xlsx | from xlsx -s [Spreadsheet1]",
+                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1]",
                 result: None,
             },
         ]

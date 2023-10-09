@@ -31,7 +31,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
         check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
         parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, Token, TokenContents,
@@ -202,6 +202,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
                 .starts_with(&[b'('])
         {
             signature_pos = Some(pos);
+            break;
         }
 
         pos += 1;
@@ -228,7 +229,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     // The second time is when we actually parse the body itworking_set.
     // We can't reuse the first time because the variables that are created during parse_signature
     // are lost when we exit the scope below.
-    let sig = parse_signature(working_set, spans[signature_pos]);
+    let sig = parse_full_signature(working_set, &spans[signature_pos..]);
     working_set.parse_errors.truncate(starting_error_count);
     working_set.exit_scope();
 

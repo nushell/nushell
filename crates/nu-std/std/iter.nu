@@ -89,7 +89,7 @@ export def find-index [ # -> int
 export def intersperse [ # -> list<any>
     separator: any              # the separator to be used
 ] {
-    reduce -f [] {|it, acc|
+    reduce --fold [] {|it, acc|
          $acc ++ [$it, $separator]
     } 
     | match $in {
@@ -122,7 +122,7 @@ export def scan [ # -> list<any>
     fn: closure          # the closure to perform the scan
     --noinit(-n)         # remove the initial value from the result
 ] {                      
-    reduce -f [$init] {|it, acc|
+    reduce --fold [$init] {|it, acc|
         $acc ++ [(do $fn ($acc | last) $it)]
     }
     | if $noinit {

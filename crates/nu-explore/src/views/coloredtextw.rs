@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use ansi_str::{get_blocks, AnsiStr};
+use nu_table::{string_truncate, string_width};
 use ratatui::{
     layout::Rect,
     style::{Color, Modifier, Style},
@@ -18,14 +19,15 @@ impl<'a> ColoredTextW<'a> {
     }
 
     pub fn what(&self, area: Rect) -> String {
-        let text = cut_string(self.text, area, self.col);
-        text.ansi_strip().into_owned()
+        cut_string(self.text, self.col, area.width as usize)
+            .ansi_strip()
+            .into_owned()
     }
 }
 
 impl Widget for ColoredTextW<'_> {
     fn render(self, area: Rect, buf: &mut ratatui::buffer::Buffer) {
-        let text = cut_string(self.text, area, self.col);
+        let text = cut_string(self.text, self.col, area.width as usize);
 
         let mut offset = 0;
         for block in get_blocks(&text) {
@@ -40,30 +42,39 @@ impl Widget for ColoredTextW<'_> {
     }
 }
 
-fn cut_string(text: &str, area: Rect, skip: usize) -> Cow<'_, str> {
-    let mut text = Cow::Borrowed(text);
+fn cut_string(source: &str, skip: usize, width: usize) -> Cow<'_, str> {
+    if source.is_empty() {
+        return Cow::Borrowed(source);
+    }
+
+    let mut text = Cow::Borrowed(source);
 
     if skip > 0 {
-        let n = text
+        let skip_chars = source
             .ansi_strip()
             .chars()
-            .map(|c| c.len_utf8())
-            .take(skip)
+            .scan((0usize, 0usize), |acc, c| {
+                acc.0 += unicode_width::UnicodeWidthChar::width(c).unwrap_or(0);
+                if acc.0 > skip {
+                    return None;
+                }
+
+                acc.1 = c.len_utf8();
+
+                Some(*acc)
+            })
+            .map(|(_, b)| b)
             .sum::<usize>();
 
-        let s = text.ansi_get(n..).expect("must be OK").into_owned();
-        text = Cow::Owned(s);
+        let cut_text = source
+            .ansi_get(skip_chars..)
+            .expect("must be OK")
+            .into_owned();
+        text = Cow::Owned(cut_text);
     }
-    if !text.is_empty() && text.len() > area.width as usize {
-        let n = text
-            .ansi_strip()
-            .chars()
-            .map(|c| c.len_utf8())
-            .take(area.width as usize)
-            .sum::<usize>();
 
-        let s = text.ansi_get(..n).expect("must be ok").into_owned();
-        text = Cow::Owned(s);
+    if string_width(&text) > width {
+        text = Cow::Owned(string_truncate(&text, width));
     }
 
     text

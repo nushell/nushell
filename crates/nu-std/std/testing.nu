@@ -82,7 +82,7 @@ def create-test-record [] nothing -> record<before-each: string, after-each: str
                 get 0
             }
         }
-        | transpose -i -r -d
+        | transpose --ignore-titles -r -d
     )
 
     $template_record

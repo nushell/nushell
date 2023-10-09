@@ -94,7 +94,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq -c | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq --count | sort-by count --reverse | first 10",
                 result: None,
             },
         ]

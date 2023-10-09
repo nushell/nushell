@@ -10,20 +10,6 @@ use winreg::{enums::*, RegKey};
 #[derive(Clone)]
 pub struct RegistryQuery;
 
-struct RegistryQueryArgs {
-    hkcr: bool,
-    hkcu: bool,
-    hklm: bool,
-    hku: bool,
-    hkpd: bool,
-    hkpt: bool,
-    hkpnls: bool,
-    hkcc: bool,
-    hkdd: bool,
-    hkculs: bool,
-    key: String,
-}
-
 impl Command for RegistryQuery {
     fn name(&self) -> &str {
         "registry query"
@@ -100,21 +86,8 @@ fn registry_query(
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let reg_params = RegistryQueryArgs {
-        hkcr: call.has_flag("hkcr"),
-        hkcu: call.has_flag("hkcu"),
-        hklm: call.has_flag("hklm"),
-        hku: call.has_flag("hku"),
-        hkpd: call.has_flag("hkpd"),
-        hkpt: call.has_flag("hkpt"),
-        hkpnls: call.has_flag("hkpnls"),
-        hkcc: call.has_flag("hkcc"),
-        hkdd: call.has_flag("hkdd"),
-        hkculs: call.has_flag("hkculs"),
-        key: registry_key.item,
-    };
-
-    let reg_key = get_reg_key(reg_params, call_span)?;
+    let reg_hive = get_reg_hive(call)?;
+    let reg_key = reg_hive.open_subkey(registry_key.item)?;
 
     if registry_value.is_none() {
         let mut reg_values = vec![];
@@ -161,52 +134,44 @@ fn registry_query(
     }
 }
 
-fn get_reg_key(reg_params: RegistryQueryArgs, call_span: Span) -> Result<RegKey, ShellError> {
-    let mut key_count = 0;
-    let registry_key = if reg_params.hkcr {
-        key_count += 1;
-        RegKey::predef(HKEY_CLASSES_ROOT).open_subkey(reg_params.key)?
-    } else if reg_params.hkcu {
-        key_count += 1;
-        RegKey::predef(HKEY_CURRENT_USER).open_subkey(reg_params.key)?
-    } else if reg_params.hklm {
-        key_count += 1;
-        RegKey::predef(HKEY_LOCAL_MACHINE).open_subkey(reg_params.key)?
-    } else if reg_params.hku {
-        key_count += 1;
-        RegKey::predef(HKEY_USERS).open_subkey(reg_params.key)?
-    } else if reg_params.hkpd {
-        key_count += 1;
-        RegKey::predef(HKEY_PERFORMANCE_DATA).open_subkey(reg_params.key)?
-    } else if reg_params.hkpt {
-        key_count += 1;
-        RegKey::predef(HKEY_PERFORMANCE_TEXT).open_subkey(reg_params.key)?
-    } else if reg_params.hkpnls {
-        key_count += 1;
-        RegKey::predef(HKEY_PERFORMANCE_NLSTEXT).open_subkey(reg_params.key)?
-    } else if reg_params.hkcc {
-        key_count += 1;
-        RegKey::predef(HKEY_CURRENT_CONFIG).open_subkey(reg_params.key)?
-    } else if reg_params.hkdd {
-        key_count += 1;
-        RegKey::predef(HKEY_DYN_DATA).open_subkey(reg_params.key)?
-    } else if reg_params.hkculs {
-        key_count += 1;
-        RegKey::predef(HKEY_CURRENT_USER_LOCAL_SETTINGS).open_subkey(reg_params.key)?
-    } else {
-        RegKey::predef(HKEY_CURRENT_USER).open_subkey(reg_params.key)?
-    };
-
-    if key_count > 1 {
+fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
+    let flags: Vec<_> = [
+        "hkcr", "hkcu", "hklm", "hku", "hkpd", "hkpt", "hkpnls", "hkcc", "hkdd", "hkculs",
+    ]
+    .iter()
+    .copied()
+    .filter(|flag| call.has_flag(flag))
+    .collect();
+    if flags.len() > 1 {
         return Err(ShellError::GenericError(
             "Only one registry key can be specified".into(),
             "Only one registry key can be specified".into(),
-            Some(call_span),
+            Some(call.head),
             None,
             Vec::new(),
         ));
     }
-    Ok(registry_key)
+    let hive = flags.get(0).copied().unwrap_or("hkcu");
+    let hkey = match hive {
+        "hkcr" => HKEY_CLASSES_ROOT,
+        "hkcu" => HKEY_CURRENT_USER,
+        "hklm" => HKEY_LOCAL_MACHINE,
+        "hku" => HKEY_USERS,
+        "hkpd" => HKEY_PERFORMANCE_DATA,
+        "hkpt" => HKEY_PERFORMANCE_TEXT,
+        "hkpnls" => HKEY_PERFORMANCE_NLSTEXT,
+        "hkcc" => HKEY_CURRENT_CONFIG,
+        "hkdd" => HKEY_DYN_DATA,
+        "hkculs" => HKEY_CURRENT_USER_LOCAL_SETTINGS,
+        _ => {
+            return Err(ShellError::NushellFailedSpanned {
+                msg: "Entered unreachable code".into(),
+                label: "Unknown registry hive".into(),
+                span: call.head,
+            })
+        }
+    };
+    Ok(RegKey::predef(hkey))
 }
 
 fn clean_string(string: &str) -> String {
