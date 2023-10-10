@@ -42,7 +42,6 @@ fn arg_glob_opt(
     cwd: &Path,
     options: MatchOptions,
 ) -> Result<Paths, ShellError> {
-
     // remove ansi coloring (?)
     let pattern = {
         Spanned {
