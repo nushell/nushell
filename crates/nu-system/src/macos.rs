@@ -9,7 +9,6 @@ use libproc::libproc::thread_info::ThreadInfo;
 use libproc::processes::{pids_by_type, ProcFilter};
 use mach2::mach_time;
 use std::cmp;
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -186,7 +185,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
                 let name = exe
                     .file_name()
-                    .unwrap_or_else(|| OsStr::new(""))
+                    .unwrap_or_default()
                     .to_str()
                     .unwrap_or("")
                     .to_owned();
@@ -406,7 +405,7 @@ impl ProcessInfo {
         self.curr_path
             .as_ref()
             .map(|cur_path| cur_path.cwd.display().to_string())
-            .unwrap_or_else(|| "".to_string())
+            .unwrap_or_default()
     }
 }
 

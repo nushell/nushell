@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    report_error_new, Category, Example, IntoPipelineData, PipelineData, Record, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -25,8 +25,14 @@ impl Command for ToXml {
             .named(
                 "pretty",
                 SyntaxShape::Int,
-                "Formats the XML text with the provided indentation setting",
+                "DEPRECATED option, will be removed in 0.87. Please use `--indent {int}` instead.",
                 Some('p'),
+            )
+            .named(
+                "indent",
+                SyntaxShape::Int,
+                "Formats the XML text with the provided indentation setting",
+                Some('i'),
             )
             .category(Category::Formats)
     }
@@ -60,7 +66,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --pretty 3"#,
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -80,9 +86,35 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
+        if call.has_flag("pretty") {
+            report_error_new(
+                engine_state,
+                &ShellError::GenericError(
+                    "Deprecated option".into(),
+                    "`to xml --pretty {int}` is deprecated and will be removed in 0.87.".into(),
+                    Some(call.head),
+                    Some("Please use `--indent {int}` instead.".into()),
+                    vec![],
+                ),
+            );
+        }
         let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
+        let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
+        let indent = match (pretty, indent) {
+            (Some(pretty), Some(indent)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "Cannot pass --pretty".into(),
+                    left_span: pretty.span,
+                    right_message: "and --indent".into(),
+                    right_span: indent.span,
+                })
+            }
+            (Some(pretty), None) => Some(pretty),
+            (None, Some(indent)) => Some(indent),
+            (None, None) => None,
+        };
         let input = input.try_expand_range()?;
-        to_xml(input, head, pretty)
+        to_xml(input, head, indent)
     }
 }
 
@@ -373,9 +405,9 @@ fn to_xml_text<W: Write>(
 fn to_xml(
     input: PipelineData,
     head: Span,
-    pretty: Option<Spanned<i64>>,
+    indent: Option<Spanned<i64>>,
 ) -> Result<PipelineData, ShellError> {
-    let mut w = pretty.as_ref().map_or_else(
+    let mut w = indent.as_ref().map_or_else(
         || quick_xml::Writer::new(Cursor::new(Vec::new())),
         |p| quick_xml::Writer::new_with_indent(Cursor::new(Vec::new()), b' ', p.item as usize),
     );

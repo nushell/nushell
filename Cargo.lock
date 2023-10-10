@@ -2792,7 +2792,7 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "rstest",
- "wax",
+ "wax 0.5.0",
 ]
 
 [[package]]
@@ -2958,7 +2958,7 @@ dependencies = [
  "url",
  "uu_cp",
  "uuid",
- "wax",
+ "wax 0.6.0",
  "which",
  "windows 0.48.0",
  "winreg",
@@ -5916,6 +5916,21 @@ dependencies = [
  "smallvec",
  "thiserror",
  "vec1",
+ "walkdir",
+]
+
+[[package]]
+name = "wax"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d12a78aa0bab22d2f26ed1a96df7ab58e8a93506a3e20adb47c51a93b4e1357"
+dependencies = [
+ "const_format",
+ "itertools 0.11.0",
+ "nom",
+ "pori",
+ "regex",
+ "thiserror",
  "walkdir",
 ]
 
