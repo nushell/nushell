@@ -385,7 +385,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(&signature.sig, |v| format!("{:#?}", v));
+                let flags = get_flags_section(None, &signature.sig, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
