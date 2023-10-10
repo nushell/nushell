@@ -3,7 +3,6 @@
 use nu_glob::{glob_with_parent, MatchOptions, Paths};
 use nu_protocol::{ShellError, Spanned};
 use std::fs;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 // standard glob options to use for filesystem command arguments
@@ -51,17 +50,14 @@ fn arg_glob_opt(
     };
 
     // if there's a file with same path as the pattern, just return that.
-    match fs::metadata(cwd.join(&pattern.item)) {
+    let pp = cwd.join(&pattern.item);
+    let md = fs::metadata(pp);
+    match md {
         Ok(_metadata) => {
             return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
         }
-        Err(e) if e.kind() == ErrorKind::NotFound => {
-            // no exact path matching pattern -- fall through and glob
-        }
-        Err(_) => {
-            // no access, invalid chars in file, anything else: there was something at that path, return it to caller
-            return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
-        }
+        // file not found, but also "invalid chars in file" (e.g * on Windows).  Fall through and glob
+        Err(_) => {}
     }
 
     // user wasn't referring to a specific thing in filesystem, try to glob it.
@@ -167,6 +163,7 @@ mod test {
                 .expect("no error")
                 .collect::<Vec<GlobResult>>();
 
+            eprintln!("res: {:?}", res);
             if exp_matches_input {
                 assert_eq!(
                     exp_count,
