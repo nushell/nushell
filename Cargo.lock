@@ -1021,7 +1021,7 @@ version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82e95fbd621905b854affdc67943b043a0fbb6ed7385fd5a25650d19a8a6cfdf"
 dependencies = [
- "nix 0.27.1",
+ "nix",
  "windows-sys 0.48.0",
 ]
 
@@ -2548,17 +2548,6 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nix"
-version = "0.26.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "598beaf3cc6fdd9a5dfb1630c2800c7acd31df7aaf0f565796fba2b53ca1af1b"
-dependencies = [
- "bitflags 1.3.2",
- "cfg-if",
- "libc",
-]
-
-[[package]]
-name = "nix"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
@@ -2639,7 +2628,7 @@ dependencies = [
  "log",
  "miette",
  "mimalloc",
- "nix 0.27.1",
+ "nix",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
@@ -2837,7 +2826,7 @@ dependencies = [
  "mime_guess",
  "mockito",
  "native-tls",
- "nix 0.27.1",
+ "nix",
  "notify-debouncer-full",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -3034,7 +3023,7 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix 0.27.1",
+ "nix",
  "ntapi",
  "once_cell",
  "procfs",
@@ -5618,8 +5607,7 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 [[package]]
 name = "uu_cp"
 version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ce78537083be579c77dadfcced04e163a905ff51f3f83d11dcdaf252ea771c5"
+source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
 dependencies = [
  "clap",
  "filetime",
@@ -5634,14 +5622,13 @@ dependencies = [
 [[package]]
 name = "uucore"
 version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4bea3522caab8af3fe1de1f27d9691e4ea159efe4d86d4e176306792163936a6"
+source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
 dependencies = [
  "clap",
  "dunce",
  "glob",
  "libc",
- "nix 0.26.4",
+ "nix",
  "once_cell",
  "os_display",
  "uucore_procs",
@@ -5654,8 +5641,7 @@ dependencies = [
 [[package]]
 name = "uucore_procs"
 version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0847828ba11d397cc7b5c3b2b6397f367db71ffb94e0f42cb7e7b1fb3691d556"
+source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5665,8 +5651,7 @@ dependencies = [
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37db35583cf0ad896592892034f281ef0906c893b3b6d901acf3918357f28199"
+source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
 
 [[package]]
 name = "uuid"

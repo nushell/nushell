@@ -31,11 +31,11 @@ pub struct Cp;
 
 impl Command for Cp {
     fn name(&self) -> &str {
-        "cp"
+        "cp-old"
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Old nushell version of Copy files."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -43,7 +43,7 @@ impl Command for Cp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
