@@ -252,6 +252,10 @@ fn rm(
         }
 
         let path = currentdir_path.join(&target.item);
+        if path.exists() {
+            all_targets.entry(path).or_insert_with(|| target.span);
+            continue;
+        }
         match nu_glob::glob_with(
             &path.to_string_lossy(),
             nu_glob::MatchOptions {
