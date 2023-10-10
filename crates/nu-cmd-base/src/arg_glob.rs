@@ -22,7 +22,26 @@ pub fn arg_glob(
     pattern: &Spanned<String>, // alleged path or glob
     cwd: &Path,                // current working directory
 ) -> Result<Paths, ShellError> {
-    let options = GLOB_PARAMS;
+    arg_glob_opt(pattern, cwd, GLOB_PARAMS)
+}
+
+// variant of [arg_glob] that requires literal dot prefix in pattern to match dot-prefixed path.
+pub fn arg_glob_leading_dot(pattern: &Spanned<String>, cwd: &Path) -> Result<Paths, ShellError> {
+    arg_glob_opt(
+        pattern,
+        cwd,
+        MatchOptions {
+            require_literal_leading_dot: true,
+            ..GLOB_PARAMS
+        },
+    )
+}
+
+fn arg_glob_opt(
+    pattern: &Spanned<String>,
+    cwd: &Path,
+    options: MatchOptions,
+) -> Result<Paths, ShellError> {
 
     // remove ansi coloring (?)
     let pattern = {
