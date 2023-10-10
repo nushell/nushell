@@ -147,7 +147,7 @@ impl SQLContext {
                 .enumerate()
                 .map(|(agg_pj, (proj_p, expr))| (expr.clone(), (proj_p, agg_pj + group_by.len())))
                 .unzip();
-            let agg_df = df.groupby(group_by).agg(agg_projection);
+            let agg_df = df.group_by(group_by).agg(agg_projection);
             let mut final_proj_pos = groupby_pos
                 .into_iter()
                 .chain(agg_proj_pos)
