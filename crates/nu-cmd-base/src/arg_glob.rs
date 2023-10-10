@@ -52,6 +52,7 @@ fn arg_glob_opt(
     // if there's a file with same path as the pattern, just return that.
     let pp = cwd.join(&pattern.item);
     let md = fs::metadata(pp);
+    #[allow(clippy::single_match)]
     match md {
         Ok(_metadata) => {
             return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
