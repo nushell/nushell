@@ -150,47 +150,10 @@ impl Command for UCp {
                 Vec::new(),
             ));
         };
+
         // paths now contains the sources
-        /* // todo review all the error paths before cutting -->
-        let sources: Vec<Vec<PathBuf>> = paths
-            .iter()
-            .map(|p| {
-                // Need to expand too make it work with globbing
-                let expanded_src = expand_to_real_path(&p.item);
-                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => {
-                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(p.span));
-                        }
 
-                        ///// make sure replacement has a way to return this error
-
-                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
-                        if any_source_is_dir && !recursive {
-                            return Err(ShellError::GenericError(
-                                "could_not_copy_directory".into(),
-                                "resolves to a directory (not copied)".into(),
-                                Some(p.span),
-                                Some("Directories must be copied using \"--recursive\"".into()),
-                                Vec::new(),
-                            ));
-                        }
-
-                        Ok(f)
-                    }
-                    Err(e) => Err(ShellError::GenericError(
-                        e.to_string(),
-                        "invalid pattern".to_string(),
-                        Some(p.span),
-                        None,
-                        Vec::new(),
-                    )),
-                }
-            })
-            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?; */
         let cwd = current_dir(engine_state, stack)?;
-
         let mut sources: Vec<PathBuf> = Vec::new();
 
         for p in paths {
