@@ -1,4 +1,4 @@
-use nu_cmd_base::arg_glob::arg_glob;
+use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
 use nu_glob::GlobResult;
 use nu_protocol::{
