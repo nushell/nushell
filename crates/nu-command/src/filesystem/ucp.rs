@@ -63,22 +63,22 @@ impl Command for UCp {
         vec![
             Example {
                 description: "Copy myfile to dir_b",
-                example: "ucp myfile dir_b",
+                example: "cp myfile dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "ucp -r dir_a dir_b",
+                example: "cp -r dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "ucp -r -v dir_a dir_b",
+                example: "cp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "ucp *.txt dir_a",
+                example: "cp *.txt dir_a",
                 result: None,
             },
         ]
