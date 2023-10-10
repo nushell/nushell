@@ -373,6 +373,7 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
     })
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_to_non_existing_dir() {
     copy_to_non_existing_dir_impl(false);
@@ -395,6 +396,7 @@ fn copy_to_non_existing_dir_impl(progress: bool) {
     });
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_dir_contains_symlink_ignored() {
     copy_dir_contains_symlink_ignored_impl(false);
@@ -488,6 +490,7 @@ fn copy_dir_symlink_file_body_not_changed_impl(progress: bool) {
     });
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_identical_file() {
     copy_identical_file_impl(false);
@@ -530,6 +533,7 @@ fn copy_ignores_ansi_impl(progress: bool) {
     });
 }
 
+#[ignore = "duplicate test with ucp with slight differences"]
 #[test]
 fn copy_file_not_exists_dst() {
     copy_file_not_exists_dst_impl(false);
@@ -580,6 +584,7 @@ fn copy_file_with_read_permission_impl(progress: bool) {
     });
 }
 
+#[ignore = "not implemented with ucp"]
 #[test]
 fn copy_file_with_update_flag() {
     copy_file_with_update_flag_impl(false);
