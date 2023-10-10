@@ -109,7 +109,7 @@ impl Paths {
         Paths {
             dir_patterns: vec![Pattern::new("*").expect("hard coded pattern")],
             require_dir: false,
-            options: MatchOptions::new(),
+            options: MatchOptions::default(),
             todo: vec![Ok((path.to_path_buf(), 0))],
             scope: Some(relative_to.into()),
         }
@@ -123,7 +123,7 @@ impl Paths {
 /// This may return an error if the pattern is invalid.
 ///
 /// This method uses the default match options and is equivalent to calling
-/// `glob_with(pattern, MatchOptions::new())`. Use `glob_with` directly if you
+/// `glob_with(pattern, MatchOptions::default())`. Use `glob_with` directly if you
 /// want to use non-default match options.
 ///
 /// When iterating, each result is a `GlobResult` which expresses the
@@ -746,7 +746,7 @@ impl Pattern {
     }
 
     /// Return if the given `str` matches this `Pattern` using the default
-    /// match options (i.e. `MatchOptions::new()`).
+    /// match options (i.e. `MatchOptions::default()`).
     ///
     /// # Examples
     ///
@@ -762,7 +762,7 @@ impl Pattern {
     }
 
     /// Return if the given `Path`, when converted to a `str`, matches this
-    /// `Pattern` using the default match options (i.e. `MatchOptions::new()`).
+    /// `Pattern` using the default match options (i.e. `MatchOptions::default()`).
     pub fn matches_path(&self, path: &Path) -> bool {
         // FIXME (#9639): This needs to handle non-utf8 paths
         path.to_str().map_or(false, |s| self.matches(s))
