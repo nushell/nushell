@@ -577,10 +577,8 @@ fn copy_file_with_read_permission_impl(progress: bool) {
             "cp {} valid.txt invalid_prem.txt",
             progress_flag,
         );
-        assert!(
-            actual.err.contains("invalid_prem.txt")
-                && actual.err.contains("copying to destination")
-        );
+
+        assert!(actual.err.contains("invalid_prem.txt") && actual.err.contains("denied"));
     });
 }
 
