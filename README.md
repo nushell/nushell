@@ -220,6 +220,7 @@ Please submit an issue or PR to be added to this list.
 -   [atuin](https://github.com/ellie/atuin)
 -   [clap](https://github.com/clap-rs/clap/tree/master/clap_complete_nushell)
 -   [Dorothy](http://github.com/bevry/dorothy)
+-   [Direnv](https://github.com/direnv/direnv/blob/master/docs/hook.md#nushell)
 
 ## Contributing
 
