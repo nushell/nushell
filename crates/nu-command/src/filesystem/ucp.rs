@@ -27,7 +27,7 @@ pub struct UCp;
 
 impl Command for UCp {
     fn name(&self) -> &str {
-        "ucp"
+        "cp"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for UCp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ucp")
+        Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("recursive", "copy directories recursively", Some('r'))
             .switch("verbose", "explicitly state what is being done", Some('v'))
