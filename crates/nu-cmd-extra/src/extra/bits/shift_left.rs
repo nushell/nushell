@@ -41,7 +41,7 @@ impl Command for BitsShl {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise shift left for integers."
+        "Bitwise shift left for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -60,7 +60,7 @@ impl Command for BitsShl {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
@@ -90,12 +90,12 @@ impl Command for BitsShl {
             },
             Example {
                 description: "Shift left a number with 1 byte by 7 bits",
-                example: "2 | bits shl 7 -n '1'",
+                example: "2 | bits shl 7 --number-bytes '1'",
                 result: Some(Value::test_int(0)),
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
-                example: "0x7F | bits shl 1 -s",
+                example: "0x7F | bits shl 1 --signed",
                 result: Some(Value::test_int(254)),
             },
             Example {
@@ -169,7 +169,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

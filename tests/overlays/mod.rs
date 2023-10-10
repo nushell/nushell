@@ -1215,7 +1215,7 @@ fn overlay_use_main_prefix() {
 #[test]
 fn overlay_use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { $env.SPAM = "spam" } }"#,
+        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
         "overlay use spam",
         "spam",
         "$env.SPAM",

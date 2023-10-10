@@ -255,7 +255,7 @@ impl Value {
         match self {
             Value::Int { val, .. } => Ok(*val),
             x => Err(ShellError::CantConvert {
-                to_type: "integer".into(),
+                to_type: "int".into(),
                 from_type: x.get_type().to_string(),
                 span: self.span(),
                 help: None,
@@ -2648,34 +2648,6 @@ impl Value {
             }
             (Value::CustomValue { val: lhs, .. }, rhs) => {
                 lhs.operation(self.span(), Operator::Math(Math::Multiply), op, rhs)
-            }
-            (Value::Int { val: lhs, .. }, Value::String { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*lhs {
-                    res.push_str(rhs)
-                }
-                Ok(Value::string(res, span))
-            }
-            (Value::String { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = String::new();
-                for _ in 0..*rhs {
-                    res.push_str(lhs)
-                }
-                Ok(Value::string(res, span))
-            }
-            (Value::Int { val: lhs, .. }, Value::List { vals: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*lhs {
-                    res.append(&mut rhs.clone())
-                }
-                Ok(Value::list(res, span))
-            }
-            (Value::List { vals: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                let mut res = vec![];
-                for _ in 0..*rhs {
-                    res.append(&mut lhs.clone())
-                }
-                Ok(Value::list(res, span))
             }
             _ => Err(ShellError::OperatorMismatch {
                 op_span: op,

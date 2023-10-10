@@ -58,28 +58,28 @@ impl Command for Reduce {
             },
             Example {
                 example:
-                    "[ 8 7 6 ] | enumerate | reduce -f 0 {|it, acc| $acc + $it.item + $it.index }",
+                    "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
                 description: "Sum values of a list, plus their indexes",
                 result: Some(Value::test_int(24)),
             },
             Example {
-                example: "[ 1 2 3 4 ] | reduce -f 10 {|it, acc| $acc + $it }",
+                example: "[ 1 2 3 4 ] | reduce --fold 10 {|it, acc| $acc + $it }",
                 description: "Sum values with a starting value (fold)",
                 result: Some(Value::test_int(20)),
             },
             Example {
-                example: r#"[ i o t ] | reduce -f "Arthur, King of the Britons" {|it, acc| $acc | str replace -a $it "X" }"#,
+                example: r#"[ i o t ] | reduce --fold "Arthur, King of the Britons" {|it, acc| $acc | str replace --all $it "X" }"#,
                 description: "Replace selected characters in a string with 'X'",
                 result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {
-                example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | enumerate | reduce -f '' {|str all| $"($all)(if $str.index != 0 {'; '})($str.index + 1)-($str.item)" }"#,
+                example: r#"['foo.gz', 'bar.gz', 'baz.gz'] | enumerate | reduce --fold '' {|str all| $"($all)(if $str.index != 0 {'; '})($str.index + 1)-($str.item)" }"#,
                 description:
                     "Add ascending numbers to each of the filenames, and join with semicolons.",
                 result: Some(Value::test_string("1-foo.gz; 2-bar.gz; 3-baz.gz")),
             },
             Example {
-                example: r#"let s = "Str"; 0..2 | reduce -f '' {|it, acc| $acc + $s}"#,
+                example: r#"let s = "Str"; 0..2 | reduce --fold '' {|it, acc| $acc + $s}"#,
                 description:
                     "Concatenate a string with itself, using a range to determine the number of times.",
                 result: Some(Value::test_string("StrStrStr")),

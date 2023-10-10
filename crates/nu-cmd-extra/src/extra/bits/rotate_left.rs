@@ -41,7 +41,7 @@ impl Command for BitsRol {
     }
 
     fn usage(&self) -> &str {
-        "Bitwise rotate left for integers."
+        "Bitwise rotate left for ints."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -60,7 +60,7 @@ impl Command for BitsRol {
         let signed = call.has_flag("signed");
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let bytes_len = get_number_bytes(&number_bytes);
+        let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
                 return Err(ShellError::UnsupportedInput(
@@ -145,7 +145,7 @@ fn operate(value: Value, bits: usize, head: Span, signed: bool, number_size: Num
         Value::Error { .. } => value,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "integer".into(),
+                exp_input_type: "int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: head,
                 src_span: other.span(),

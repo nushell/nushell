@@ -94,7 +94,7 @@ impl Command for BytesReplace {
             },
             Example {
                 description: "Find and replace all occurrences of find binary",
-                example: "0x[10 AA 10 BB 10] | bytes replace -a 0x[10] 0x[A0]",
+                example: "0x[10 AA 10 BB 10] | bytes replace --all 0x[10] 0x[A0]",
                 result: Some(Value::binary (
                     vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
                     Span::test_data(),
@@ -102,7 +102,7 @@ impl Command for BytesReplace {
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
-                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace -a 0x[11] 0x[13] ColA ColC",
+                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace --all 0x[11] 0x[13] ColA ColC",
                 result: Some(Value::list (
                     vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],

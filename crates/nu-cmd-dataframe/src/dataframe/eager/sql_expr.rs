@@ -125,7 +125,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
     })
 }
 
-fn apply_window_spec(expr: Expr, window_type: &Option<WindowType>) -> Result<Expr> {
+fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Expr> {
     Ok(match &window_type {
         Some(wtype) => match wtype {
             WindowType::WindowSpec(window_spec) => {
@@ -168,13 +168,13 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
             sql_function.distinct,
         ) {
             ("sum", [FunctionArgExpr::Expr(expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.sum()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.sum()
             }
             ("count", [FunctionArgExpr::Expr(expr)], false) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.count()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.count()
             }
             ("count", [FunctionArgExpr::Expr(expr)], true) => {
-                apply_window_spec(parse_sql_expr(expr)?, &sql_function.over)?.n_unique()
+                apply_window_spec(parse_sql_expr(expr)?, sql_function.over.as_ref())?.n_unique()
             }
             // Special case for wildcard args to count function.
             ("count", [FunctionArgExpr::Wildcard], false) => lit(1i32).count(),

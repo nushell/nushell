@@ -233,7 +233,7 @@ pub fn root() -> PathBuf {
 }
 
 pub fn binaries() -> PathBuf {
-    let build_target = std::env::var("CARGO_BUILD_TARGET").unwrap_or(String::new());
+    let build_target = std::env::var("CARGO_BUILD_TARGET").unwrap_or_default();
 
     let profile = if let Ok(env_profile) = std::env::var("NUSHELL_CARGO_PROFILE") {
         env_profile

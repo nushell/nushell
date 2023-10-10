@@ -24,7 +24,11 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Generate a random integer [min..max]."
+        "deprecated: Generate a random integer [min..max]."
+    }
+
+    fn extra_usage(&self) -> &str {
+        "Use `random int` instead"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -38,6 +42,16 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`random integer` is deprecated and will be removed in 0.87.".into(),
+                Some(call.head),
+                Some("Use `random int` instead".into()),
+                vec![],
+            ),
+        );
         integer(engine_state, stack, call)
     }
 

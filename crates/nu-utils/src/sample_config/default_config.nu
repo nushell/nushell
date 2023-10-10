@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.84.1"
+# version = "0.85.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -150,10 +150,6 @@ $env.config = {
         always_trash: false # always act as if -t was given. Can be overridden with -p
     }
 
-    cd: {
-        abbreviations: false # allows `cd s/o/f` to expand to `cd some/other/folder`
-    }
-
     table: {
         mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
         index_mode: always # "always" show indexes, "never" show indexes, "auto" = show indexes when a table has "index" column
@@ -165,6 +161,7 @@ $env.config = {
             truncating_suffix: "..." # A suffix used by the 'truncating' methodology
         }
         header_on_separator: false # show header text on separator/border line
+        # abbreviated_row_count: 10 # limit data rows from top and bottom after reaching a set point
     }
 
     error_style: "fancy" # "fancy" or "plain" for screen reader-friendly error messages
@@ -188,14 +185,9 @@ $env.config = {
         },
         table: {
             split_line: {fg: "#404040"},
-            selected_cell: {},
+            selected_cell: {bg: light_blue},
             selected_row: {},
             selected_column: {},
-            show_cursor: true,
-            line_head_top: true,
-            line_head_bottom: true,
-            line_shift: true,
-            line_index: true,
         },
     }
 
@@ -239,6 +231,7 @@ $env.config = {
     edit_mode: emacs # emacs, vi
     shell_integration: false # enables terminal shell integration. Off by default, as some terminals have issues with this.
     render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
+    use_kitty_protocol: false # enables keyboard enhancement protocol implemented by kitty console, only if your terminal support this
 
     hooks: {
         pre_prompt: [{ null }] # run before the prompt is shown

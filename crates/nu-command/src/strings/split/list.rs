@@ -128,7 +128,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters",
-                example: r"[a, b, c, d, a, e, f, g] | split list -r '(b|e)'",
+                example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
                         Value::list(vec![Value::test_string("a")], Span::test_data()),

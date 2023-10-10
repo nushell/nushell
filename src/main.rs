@@ -129,7 +129,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "config.nu",
         "config-path",
-        &parsed_nu_cli_args.config_file,
+        parsed_nu_cli_args.config_file.as_ref(),
     );
 
     set_config_path(
@@ -137,7 +137,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "env.nu",
         "env-path",
-        &parsed_nu_cli_args.env_file,
+        parsed_nu_cli_args.env_file.as_ref(),
     );
     perf(
         "set_config_path",

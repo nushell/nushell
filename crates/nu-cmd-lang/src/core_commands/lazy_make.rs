@@ -88,7 +88,7 @@ impl Command for LazyMake {
             },
             Example {
                 description: "Test the laziness of lazy records",
-                example: r#"lazy make -c ["hello"] -g { |key| print $"getting ($key)!"; $key | str upcase }"#,
+                example: r#"lazy make --columns ["hello"] --get-value { |key| print $"getting ($key)!"; $key | str upcase }"#,
                 result: None,
             },
         ]

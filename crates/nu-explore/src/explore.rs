@@ -203,23 +203,11 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
 
     const TABLE_SPLIT_LINE: Style = color(Some(Color::Rgb(64, 64, 64)), None);
 
-    const TABLE_LINE_HEADER_TOP: bool = true;
-
-    const TABLE_LINE_HEADER_BOTTOM: bool = true;
-
-    const TABLE_LINE_INDEX: bool = true;
-
-    const TABLE_LINE_SHIFT: bool = true;
-
-    const TABLE_SELECT_CURSOR: bool = true;
-
     const TABLE_SELECT_CELL: Style = color(None, None);
 
     const TABLE_SELECT_ROW: Style = color(None, None);
 
     const TABLE_SELECT_COLUMN: Style = color(None, None);
-
-    const CONFIG_CURSOR_COLOR: Style = color(Some(Color::Black), Some(Color::LightYellow));
 
     insert_style(config, "status_bar_background", STATUS_BAR);
     insert_style(config, "command_bar_text", INPUT_BAR);
@@ -251,24 +239,8 @@ fn prepare_default_config(config: &mut HashMap<String, Value>) {
         insert_style(&mut hm, "selected_cell", TABLE_SELECT_CELL);
         insert_style(&mut hm, "selected_row", TABLE_SELECT_ROW);
         insert_style(&mut hm, "selected_column", TABLE_SELECT_COLUMN);
-        insert_bool(&mut hm, "cursor", TABLE_SELECT_CURSOR);
-        insert_bool(&mut hm, "line_head_top", TABLE_LINE_HEADER_TOP);
-        insert_bool(&mut hm, "line_head_bottom", TABLE_LINE_HEADER_BOTTOM);
-        insert_bool(&mut hm, "line_shift", TABLE_LINE_SHIFT);
-        insert_bool(&mut hm, "line_index", TABLE_LINE_INDEX);
 
         config.insert(String::from("table"), map_into_value(hm));
-    }
-
-    {
-        let mut hm = config
-            .get("config")
-            .and_then(parse_hash_map)
-            .unwrap_or_default();
-
-        insert_style(&mut hm, "cursor_color", CONFIG_CURSOR_COLOR);
-
-        config.insert(String::from("config"), map_into_value(hm));
     }
 }
 
@@ -322,25 +294,12 @@ fn insert_bool(map: &mut HashMap<String, Value>, key: &str, value: bool) {
 fn include_nu_config(config: &mut HashMap<String, Value>, style_computer: &StyleComputer) {
     let line_color = lookup_color(style_computer, "separator");
     if line_color != nu_ansi_term::Style::default() {
-        {
-            let mut map = config
-                .get("table")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
-            insert_style(&mut map, "split_line", line_color);
-            config.insert(String::from("table"), map_into_value(map));
-        }
-
-        {
-            let mut map = config
-                .get("config")
-                .and_then(parse_hash_map)
-                .unwrap_or_default();
-
-            insert_style(&mut map, "border_color", line_color);
-
-            config.insert(String::from("config"), map_into_value(map));
-        }
+        let mut map = config
+            .get("table")
+            .and_then(parse_hash_map)
+            .unwrap_or_default();
+        insert_style(&mut map, "split_line", line_color);
+        config.insert(String::from("table"), map_into_value(map));
     }
 }
 

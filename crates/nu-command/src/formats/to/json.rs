@@ -91,7 +91,7 @@ impl Command for ToJson {
             Example {
                 description:
                     "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
-                example: "[Joe Bob Sam] | to json -i 4",
+                example: "[Joe Bob Sam] | to json --indent 4",
                 result: Some(Value::test_string("[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]")),
             },
             Example {

@@ -52,12 +52,12 @@ impl Command for SortBy {
             },
             Example {
                 description: "Sort files by name (case-insensitive)",
-                example: "ls | sort-by name -i",
+                example: "ls | sort-by name --ignore-case",
                 result: None,
             },
             Example {
                 description: "Sort a table by a column (reversed order)",
-                example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit -r",
+                example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit --reverse",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {

@@ -123,7 +123,7 @@ impl Command for Glob {
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax"#
+        r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
     }
 
     fn run(
@@ -135,7 +135,6 @@ impl Command for Glob {
     ) -> Result<PipelineData, ShellError> {
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
-        let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
         let no_dirs = call.has_flag("no-dir");
@@ -173,11 +172,30 @@ impl Command for Glob {
             usize::MAX
         };
 
-        let glob = match WaxGlob::new(&glob_pattern.item) {
-            Ok(p) => p,
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+            Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(
                     "error with glob pattern".to_string(),
+                    format!("{e}"),
+                    Some(glob_pattern.span),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
+
+        let path = current_dir(engine_state, stack)?;
+        let path = match nu_path::canonicalize_with(prefix, path) {
+            Ok(path) => path,
+            Err(e) if e.to_string().contains("os error 2") =>
+            // path we're trying to glob doesn't exist,
+            {
+                std::path::PathBuf::new() // user should get empty list not an error
+            }
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    "error in canonicalize".to_string(),
                     format!("{e}"),
                     Some(glob_pattern.span),
                     None,

@@ -75,26 +75,6 @@ impl<'a> RecordView<'a> {
         self.theme.cursor.selected_column = Some(style)
     }
 
-    pub fn show_cursor(&mut self, b: bool) {
-        self.theme.cursor.show_cursor = b;
-    }
-
-    pub fn set_line_head_top(&mut self, b: bool) {
-        self.theme.table.header_top = b;
-    }
-
-    pub fn set_line_head_bottom(&mut self, b: bool) {
-        self.theme.table.header_bottom = b;
-    }
-
-    pub fn set_line_trailing(&mut self, b: bool) {
-        self.theme.table.shift_line = b;
-    }
-
-    pub fn set_line_index(&mut self, b: bool) {
-        self.theme.table.index_line = b;
-    }
-
     pub fn set_padding_column(&mut self, (left, right): (usize, usize)) {
         self.theme.table.padding_column_left = left;
         self.theme.table.padding_column_right = right;
@@ -201,8 +181,8 @@ impl<'a> RecordView<'a> {
         let layer = self.get_layer_last();
 
         let (row, column) = match layer.orientation {
-            Orientation::Top | Orientation::Bottom => (row, column),
-            Orientation::Left | Orientation::Right => (column, row),
+            Orientation::Top => (row, column),
+            Orientation::Left => (column, row),
         };
 
         layer.records[row][column].clone()
@@ -231,11 +211,11 @@ impl<'a> RecordView<'a> {
 
     fn update_cursors(&mut self, rows: usize, columns: usize) {
         match self.get_layer_last().orientation {
-            Orientation::Top | Orientation::Bottom => {
+            Orientation::Top => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
 
-            Orientation::Left | Orientation::Right => {
+            Orientation::Left => {
                 self.get_layer_last_mut().cursor.set_window(rows, columns);
             }
         }
@@ -354,9 +334,7 @@ impl View for RecordView<'_> {
             if let Some(orientation) = hm.get("orientation").and_then(|v| v.as_string().ok()) {
                 let orientation = match orientation.as_str() {
                     "left" => Some(Orientation::Left),
-                    "right" => Some(Orientation::Right),
                     "top" => Some(Orientation::Top),
-                    "bottom" => Some(Orientation::Bottom),
                     _ => None,
                 };
 
@@ -379,9 +357,8 @@ fn get_element_info(
 ) -> Option<&ElementInfo> {
     let with_head = with_head as usize;
     let index = match orientation {
-        Orientation::Top | Orientation::Bottom => column * (count_rows + with_head) + row + 1,
+        Orientation::Top => column * (count_rows + with_head) + row + 1,
         Orientation::Left => (column + with_head) * count_rows + row,
-        Orientation::Right => column * count_rows + row,
     };
 
     layout.data.get(index)
@@ -428,15 +405,15 @@ impl<'a> RecordLayer<'a> {
 
     fn count_rows(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.records.len(),
-            Orientation::Left | Orientation::Right => self.columns.len(),
+            Orientation::Top => self.records.len(),
+            Orientation::Left => self.columns.len(),
         }
     }
 
     fn count_columns(&self) -> usize {
         match self.orientation {
-            Orientation::Top | Orientation::Bottom => self.columns.len(),
-            Orientation::Left | Orientation::Right => self.records.len(),
+            Orientation::Top => self.columns.len(),
+            Orientation::Left => self.records.len(),
         }
     }
 
@@ -682,27 +659,33 @@ fn convert_records_to_string(
 }
 
 fn highlight_cell(f: &mut Frame, area: Rect, info: ElementInfo, theme: &CursorStyle) {
+    // highlight selected column
     if let Some(style) = theme.selected_column {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(info.area.x, area.y, info.area.width, area.height);
         f.render_widget(highlight_block.clone(), area);
     }
 
+    // highlight selected row
     if let Some(style) = theme.selected_row {
         let highlight_block = Block::default().style(nu_style_to_tui(style));
         let area = Rect::new(area.x, info.area.y, area.width, 1);
         f.render_widget(highlight_block.clone(), area);
     }
 
-    if let Some(style) = theme.selected_cell {
-        let highlight_block = Block::default().style(nu_style_to_tui(style));
-        let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
-        f.render_widget(highlight_block.clone(), area);
-    }
-
-    if theme.show_cursor {
-        f.set_cursor(info.area.x, info.area.y);
-    }
+    // highlight selected cell
+    let cell_style = match theme.selected_cell {
+        Some(s) => s,
+        None => {
+            let mut style = nu_ansi_term::Style::new();
+            // light blue chosen somewhat arbitrarily, looks OK but I'm not set on it
+            style.background = Some(nu_ansi_term::Color::LightBlue);
+            style
+        }
+    };
+    let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
+    let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
+    f.render_widget(highlight_block.clone(), area)
 }
 
 fn build_last_value(v: &RecordView) -> Value {
@@ -852,12 +835,6 @@ fn theme_from_config(config: &ConfigMap) -> TableTheme {
     theme.cursor.selected_cell = colors.get("selected_cell").cloned();
     theme.cursor.selected_row = colors.get("selected_row").cloned();
     theme.cursor.selected_column = colors.get("selected_column").cloned();
-    theme.cursor.show_cursor = config_get_bool(config, "show_cursor", true);
-
-    theme.table.header_top = config_get_bool(config, "line_head_top", true);
-    theme.table.header_bottom = config_get_bool(config, "line_head_bottom", true);
-    theme.table.shift_line = config_get_bool(config, "line_shift", true);
-    theme.table.index_line = config_get_bool(config, "line_index", true);
 
     theme.table.show_header = config_get_bool(config, "show_head", true);
     theme.table.show_index = config_get_bool(config, "show_index", false);
@@ -896,5 +873,4 @@ struct CursorStyle {
     selected_cell: Option<NuStyle>,
     selected_column: Option<NuStyle>,
     selected_row: Option<NuStyle>,
-    show_cursor: bool,
 }

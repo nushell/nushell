@@ -51,7 +51,8 @@ impl Command for Explain {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Explain a command within a closure",
-            example: "explain {|| ls | sort-by name type -i | get name } | table -e",
+            example:
+                "explain {|| ls | sort-by name type --ignore-case | get name } | table --expand",
             result: None,
         }]
     }
@@ -89,7 +90,6 @@ pub fn get_pipeline_elements(
             let value_span = value.span();
             let value_span_start = value_span.start as i64;
             let value_span_end = value_span.end as i64;
-            let command_name = command_name;
 
             let record = record! {
                     "cmd_index" => Value::string(index, span),

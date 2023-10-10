@@ -84,39 +84,27 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "convert integer to string and append three decimal places",
-                example: "5 | into string -d 3",
+                description: "convert int to string and append three decimal places",
+                example: "5 | into string --decimals 3",
                 result: Some(Value::test_string("5.000")),
             },
             Example {
-                description: "convert decimal to string and round to nearest integer",
-                example: "1.7 | into string -d 0",
+                description: "convert float to string and round to nearest integer",
+                example: "1.7 | into string --decimals 0",
                 result: Some(Value::test_string("2")),
             },
             Example {
-                description: "convert decimal to string",
-                example: "1.7 | into string -d 1",
+                description: "convert float to string",
+                example: "1.7 | into string --decimals 1",
                 result: Some(Value::test_string("1.7")),
             },
             Example {
-                description: "convert decimal to string and limit to 2 decimals",
-                example: "1.734 | into string -d 2",
+                description: "convert float to string and limit to 2 decimals",
+                example: "1.734 | into string --decimals 2",
                 result: Some(Value::test_string("1.73")),
             },
             Example {
-                description: "try to convert decimal to string and provide negative decimal points",
-                example: "1.734 | into string -d -2",
-                result: None,
-                // FIXME
-                // result: Some(Value::Error {
-                //     error: ShellError::UnsupportedInput(
-                //         String::from("Cannot accept negative integers for decimals arguments"),
-                //         Span::test_data(),
-                //     ),
-                // }),
-            },
-            Example {
-                description: "convert decimal to string",
+                description: "convert float to string",
                 example: "4.3 | into string",
                 result: Some(Value::test_string("4.3")),
             },

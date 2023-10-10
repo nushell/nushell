@@ -561,7 +561,7 @@ fn index_out_of_bounds() {
 }
 
 #[test]
-fn negative_decimal_start() {
+fn negative_float_start() {
     let actual = nu!("
             -1.3 + 4
         ");
@@ -1117,4 +1117,13 @@ fn pipe_input_to_print() {
     let actual = nu!(r#""foo" | print"#);
     assert_eq!(actual.out, "foo");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn command_not_found_error_shows_not_found_2() {
+    let actual = nu!(r#"
+            export def --wrapped my-foo [...rest] { foo };
+            my-foo
+        "#);
+    assert!(actual.err.contains("did you mean"));
 }

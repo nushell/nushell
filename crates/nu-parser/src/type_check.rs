@@ -10,7 +10,9 @@ use nu_protocol::{
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     // Structural subtyping
     let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        if expected.is_empty() {
+        if expected.is_empty() || found.is_empty() {
+            // We treat an incoming empty table/record type as compatible for typechecking purposes
+            // It is the responsibility of the runtime to reject if necessary
             true
         } else if expected.len() > found.len() {
             false
@@ -239,10 +241,6 @@ pub fn math_result_type(
                 (Type::Int, Type::Duration) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
                 (Type::Float, Type::Duration) => (Type::Duration, None),
-                (Type::Int, Type::String) => (Type::String, None),
-                (Type::String, Type::Int) => (Type::String, None),
-                (Type::Int, Type::List(a)) => (Type::List(a.clone()), None),
-                (Type::List(a), Type::Int) => (Type::List(a.clone()), None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),

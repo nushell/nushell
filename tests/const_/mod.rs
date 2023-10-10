@@ -101,7 +101,7 @@ fn const_string() {
 
 #[test]
 fn const_nothing() {
-    let inp = &["const x = $nothing", "$x | describe"];
+    let inp = &["const x = null", "$x | describe"];
 
     let actual = nu!(&inp.join("; "));
 
@@ -142,7 +142,6 @@ fn const_binary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&["const x = 10 ** 10000000", "$x"], "pow operation overflowed")]
 #[case(&["const x = 2 ** 62 * 2", "$x"], "multiply operation overflowed")]
 #[case(&["const x = 1 ++ 0", "$x"], "doesn't support this value")]
-#[case(&["const x = 20 * a", "$x"], "Value is not a parse-time constant")]
 fn const_operator_error(#[case] inp: &[&str], #[case] expect: &str) {
     let actual = nu!(&inp.join("; "));
     assert!(actual.err.contains(expect));
@@ -333,7 +332,7 @@ fn describe_const() {
 
 #[test]
 fn ignore_const() {
-    let actual = nu!("const x = (echo spam | ignore); $x == null");
+    let actual = nu!(r#"const x = ("spam" | ignore); $x == null"#);
     assert_eq!(actual.out, "true");
 }
 
@@ -341,4 +340,17 @@ fn ignore_const() {
 fn version_const() {
     let actual = nu!("const x = (version); $x");
     assert!(actual.err.is_empty());
+}
+
+#[test]
+fn if_const() {
+    let actual = nu!("const x = (if 2 < 3 { 'yes!' }); $x");
+    assert_eq!(actual.out, "yes!");
+
+    let actual = nu!("const x = (if 5 < 3 { 'yes!' } else { 'no!' }); $x");
+    assert_eq!(actual.out, "no!");
+
+    let actual =
+        nu!("const x = (if 5 < 3 { 'yes!' } else if 4 < 5 { 'no!' } else { 'okay!' }); $x");
+    assert_eq!(actual.out, "no!");
 }

@@ -5,7 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub struct Select;
@@ -197,7 +197,7 @@ fn select(
     columns: Vec<CellPath>,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let mut unique_rows: HashSet<usize> = HashSet::new();
+    let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
     let mut new_columns = vec![];
 
@@ -214,33 +214,25 @@ fn select(
                         Vec::new(),
                     ));
                 }
-                if unique_rows.contains(val) {
-                    return Err(ShellError::GenericError(
-                        "Select can't get the same row twice".into(),
-                        "duplicated row index".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
-                }
                 unique_rows.insert(*val);
             }
-            _ => new_columns.push(column),
+            _ => {
+                if !new_columns.contains(&column) {
+                    new_columns.push(column)
+                }
+            }
         };
     }
     let columns = new_columns;
-    let mut unique_rows: Vec<usize> = unique_rows.into_iter().collect();
 
     let input = if !unique_rows.is_empty() {
-        unique_rows.sort_unstable();
         // let skip = call.has_flag("skip");
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {
             input: pipeline_iter,
-            rows: unique_rows,
-            skip: false,
+            rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
         .into_pipeline_data(engine_state.ctrlc.clone())
@@ -341,8 +333,7 @@ fn select(
 
 struct NthIterator {
     input: PipelineIterator,
-    rows: Vec<usize>,
-    skip: bool,
+    rows: std::iter::Peekable<std::collections::btree_set::IntoIter<usize>>,
     current: usize,
 }
 
@@ -351,32 +342,18 @@ impl Iterator for NthIterator {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if !self.skip {
-                if let Some(row) = self.rows.first() {
-                    if self.current == *row {
-                        self.rows.remove(0);
-                        self.current += 1;
-                        return self.input.next();
-                    } else {
-                        self.current += 1;
-                        let _ = self.input.next();
-                        continue;
-                    }
-                } else {
-                    return None;
-                }
-            } else if let Some(row) = self.rows.first() {
+            if let Some(row) = self.rows.peek() {
                 if self.current == *row {
-                    self.rows.remove(0);
+                    self.rows.next();
+                    self.current += 1;
+                    return self.input.next();
+                } else {
                     self.current += 1;
                     let _ = self.input.next();
                     continue;
-                } else {
-                    self.current += 1;
-                    return self.input.next();
                 }
             } else {
-                return self.input.next();
+                return None;
             }
         }
     }

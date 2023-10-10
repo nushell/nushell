@@ -34,10 +34,17 @@ pub fn http_client(allow_insecure: bool) -> ureq::Agent {
         .build()
         .expect("Failed to build network tls");
 
-    ureq::builder()
+    let mut agent_builder = ureq::builder()
         .user_agent("nushell")
-        .tls_connector(std::sync::Arc::new(tls))
-        .build()
+        .tls_connector(std::sync::Arc::new(tls));
+
+    if let Some(http_proxy) = retrieve_http_proxy_from_env() {
+        if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
+            agent_builder = agent_builder.proxy(proxy);
+        }
+    };
+
+    agent_builder.build()
 }
 
 pub fn http_parse_url(
@@ -223,6 +230,10 @@ pub fn send_request(
             };
             send_cancellable_request(&request_url, Box::new(request_fn), ctrl_c)
         }
+        Value::List { .. } if body_type == BodyType::Json => {
+            let data = value_to_json_value(&body)?;
+            send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
+        }
         _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
             "unsupported body input".into(),
         ))),
@@ -277,7 +288,7 @@ pub fn request_set_timeout(
         let val = timeout.as_i64()?;
         if val.is_negative() || val < 1 {
             return Err(ShellError::TypeMismatch {
-                err_message: "Timeout value must be an integer and larger than 0".to_string(),
+                err_message: "Timeout value must be an int and larger than 0".to_string(),
                 span: timeout.span(),
             });
         }
@@ -634,4 +645,12 @@ pub fn request_handle_response_headers(
             }
         },
     }
+}
+
+fn retrieve_http_proxy_from_env() -> Option<String> {
+    std::env::vars()
+        .find(|(key, _)| key == "http_proxy")
+        .or(std::env::vars().find(|(key, _)| key == "HTTP_PROXY"))
+        .or(std::env::vars().find(|(key, _)| key == "ALL_PROXY"))
+        .map(|(_, value)| value)
 }

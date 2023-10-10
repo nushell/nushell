@@ -573,7 +573,7 @@ impl<'e, 's> ScopeData<'e, 's> {
 
 fn extract_custom_completion_from_arg(engine_state: &EngineState, shape: &SyntaxShape) -> String {
     return match shape {
-        SyntaxShape::Custom(_, custom_completion_decl_id) => {
+        SyntaxShape::CompleterWrapper(_, custom_completion_decl_id) => {
             let custom_completion_command = engine_state.get_decl(*custom_completion_decl_id);
             let custom_completion_command_name: &str = custom_completion_command.name();
             custom_completion_command_name.to_string()

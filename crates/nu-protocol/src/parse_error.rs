@@ -212,9 +212,12 @@ pub enum ParseError {
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help("When importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
     )]
-    ModuleMissingModNuFile(#[label = "module directory is missing a mod.nu file"] Span),
+    ModuleMissingModNuFile(
+        String,
+        #[label = "module directory is missing a mod.nu file"] Span,
+    ),
 
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
@@ -354,6 +357,10 @@ pub enum ParseError {
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
+
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
+    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
@@ -504,7 +511,7 @@ impl ParseError {
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
-            ParseError::ModuleMissingModNuFile(s) => *s,
+            ParseError::ModuleMissingModNuFile(_, s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
             ParseError::InvalidModuleFileName(_, _, s) => *s,
@@ -529,6 +536,7 @@ impl ParseError {
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
             ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::TypeMismatchHelp(_, _, s, _) => *s,
             ParseError::InputMismatch(_, s) => *s,
             ParseError::OutputMismatch(_, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,

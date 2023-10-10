@@ -105,7 +105,7 @@ impl Command for SubCommand {
                 result: Some(Value::filesize(2, Span::test_data())),
             },
             Example {
-                description: "Convert decimal to filesize",
+                description: "Convert float to filesize",
                 example: "8.3 | into filesize",
                 result: Some(Value::filesize(8, Span::test_data())),
             },
@@ -136,7 +136,7 @@ pub fn action(input: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
         Value::Nothing { .. } => Value::filesize(0, value_span),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string and integer".into(),
+                exp_input_type: "string and int".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
                 src_span: value_span,

@@ -161,7 +161,7 @@ pub struct Paths {
 /// ```
 /// Paths are yielded in alphabetical order.
 pub fn glob(pattern: &str) -> Result<Paths, PatternError> {
-    glob_with(pattern, MatchOptions::new())
+    glob_with(pattern, MatchOptions::default())
 }
 
 /// Return an iterator that produces all the `Path`s that match the given
@@ -716,7 +716,7 @@ impl Pattern {
     /// assert!(Pattern::new("d*g").unwrap().matches("doog"));
     /// ```
     pub fn matches(&self, str: &str) -> bool {
-        self.matches_with(str, MatchOptions::new())
+        self.matches_with(str, MatchOptions::default())
     }
 
     /// Return if the given `Path`, when converted to a `str`, matches this
@@ -1020,7 +1020,7 @@ fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
 
 /// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
 #[allow(missing_copy_implementations)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MatchOptions {
     /// Whether or not patterns should be matched in a case-sensitive manner.
     /// This currently only considers upper/lower case relationships between
@@ -1045,27 +1045,9 @@ pub struct MatchOptions {
     pub recursive_match_hidden_dir: bool,
 }
 
-impl MatchOptions {
-    /// Constructs a new `MatchOptions` with default field values. This is used
-    /// when calling functions that do not take an explicit `MatchOptions`
-    /// parameter.
-    ///
-    /// This function always returns this value:
-    ///
-    /// ```rust,ignore
-    /// MatchOptions {
-    ///     case_sensitive: true,
-    ///     require_literal_separator: false,
-    ///     require_literal_leading_dot: false
-    ///     recursive_match_hidden_dir: true,
-    /// }
-    /// ```
-    ///
-    /// # Note
-    /// The behavior of this method doesn't match `default()`'s. This returns
-    /// `case_sensitive` as `true` while `default()` does it as `false`.
-    // FIXME: Consider unity the behavior with `default()` in a next major release.
-    pub fn new() -> Self {
+// Overwrite default behavior, because we want to make `recursive_match_hidden_dir` to true.
+impl Default for MatchOptions {
+    fn default() -> Self {
         Self {
             case_sensitive: true,
             require_literal_separator: false,
@@ -1161,10 +1143,10 @@ mod test {
             // check windows absolute paths with host/device components
             let root_with_device = current_dir()
                 .ok()
-                .and_then(|p| match p.components().next().unwrap() {
+                .map(|p| match p.components().next().unwrap() {
                     Component::Prefix(prefix_component) => {
                         let path = Path::new(prefix_component.as_os_str()).join("*");
-                        Some(path)
+                        path
                     }
                     _ => panic!("no prefix in this path"),
                 })
@@ -1274,7 +1256,7 @@ mod test {
             for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ".chars() {
                 let options = MatchOptions {
                     case_sensitive: false,
-                    ..MatchOptions::new()
+                    ..MatchOptions::default()
                 };
                 assert!(pat.matches_with(&c.to_string(), options));
             }
