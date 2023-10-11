@@ -11,6 +11,8 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+pub const DEFAULT_TABLE_NAME: &str = "main";
+
 #[derive(Clone)]
 pub struct IntoSqliteDb;
 
@@ -97,7 +99,7 @@ impl Table {
         let table_name = if let Some(table_name) = table_name {
             table_name.item
         } else {
-            "main".to_string()
+            DEFAULT_TABLE_NAME.to_string()
         };
 
         // create the sqlite database table
@@ -128,20 +130,22 @@ impl Table {
         );
 
         // execute the statement
-        self.conn
-            .execute(&create_statement, [])
-            .map_err(|e| ShellError::GenericError {
+        self.conn.execute(&create_statement, []).map_err(|err| {
+            eprintln!("{:?}", err);
+
+            ShellError::GenericError {
                 error: "Failed to create table".into(),
-                msg: e.to_string(),
+                msg: err.to_string(),
                 span: None,
                 help: None,
                 inner: Vec::new(),
-            })?;
+            }
+        })?;
 
         self.conn
             .transaction()
             .map_err(|err| ShellError::GenericError {
-                error: "Failed to create table".into(),
+                error: "Failed to open transaction".into(),
                 msg: err.to_string(),
                 span: None,
                 help: None,
@@ -172,6 +176,13 @@ fn action(input: PipelineData, table: Table, span: Span) -> Result<Value, ShellE
         PipelineData::ListStream(list_stream, _) => {
             insert_in_transaction(list_stream.stream, list_stream.ctrlc, span, table)
         }
+        PipelineData::Value(
+            Value::List {
+                vals,
+                internal_span,
+            },
+            _,
+        ) => insert_in_transaction(vals.into_iter(), None, internal_span, table),
         PipelineData::Value(val, _) => {
             insert_in_transaction(std::iter::once(val), None, span, table)
         }
@@ -284,7 +295,7 @@ fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
         Value::Float { val, .. } => Box::new(val),
         Value::Filesize { val, .. } => Box::new(val),
         Value::Duration { val, .. } => Box::new(val),
-        Value::Date { val, .. } => Box::new(val.date_naive()),
+        Value::Date { val, .. } => Box::new(val),
         Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
             // escape single quotes
