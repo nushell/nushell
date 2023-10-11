@@ -148,7 +148,7 @@ fn command(
             TimeUnit::Nanoseconds,
             false,
             None,
-            None,
+            &Default::default(),
         )
     } else {
         casted.as_datetime(
@@ -157,7 +157,7 @@ fn command(
             false,
             false,
             None,
-            None,
+            &Default::default(),
         )
     };
 
