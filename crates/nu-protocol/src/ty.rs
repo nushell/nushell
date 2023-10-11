@@ -89,7 +89,7 @@ impl Type {
 
         match self {
             Type::Int => SyntaxShape::Int,
-            Type::Float => SyntaxShape::Number,
+            Type::Float => SyntaxShape::Float,
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
