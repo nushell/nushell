@@ -290,6 +290,18 @@ Startup Time: ($nu.startup-time)
 "
 }
 
+# the cute and friendly mascot of Nushell :)
+export def ellie [] {
+    let ellie = [
+        "     __  ,",
+        " .--()°'.'",
+        "'|, . ,'",
+        " !_-(_\\",
+    ]
+
+    $ellie | str join "\n" | $"(ansi green)($in)(ansi reset)"
+}
+
 # Return the current working directory
 export def pwd [] {
     $env.PWD
