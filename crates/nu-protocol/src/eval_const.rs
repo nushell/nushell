@@ -379,7 +379,7 @@ pub fn eval_constant(
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                 _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
+                    err_message: format!("expected bool, found {}", lhs.get_type()),
                     span: expr.span,
                 }),
             }

@@ -129,7 +129,7 @@ pub(crate) fn parse_commandline_args(
                         }))
                     } else {
                         Err(ShellError::TypeMismatch {
-                            err_message: "string".into(),
+                            err_message: "expected string, found empty expression".into(),
                             span: expr.span,
                         })
                     }

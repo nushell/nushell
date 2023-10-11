@@ -192,7 +192,7 @@ fn extract_int_or_range(
     int_opt
         .or(range_opt)
         .ok_or_else(|| ShellError::TypeMismatch {
-            err_message: "int or range".into(),
+            err_message: format!("expected int or range, found {}", value.get_type()),
             span: value.span(),
         })
 }

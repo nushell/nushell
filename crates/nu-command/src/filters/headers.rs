@@ -121,7 +121,7 @@ fn replace_headers(
             Ok(Value::list(vals, span))
         }
         _ => Err(ShellError::TypeMismatch {
-            err_message: "record".to_string(),
+            err_message: format!("expected record, found {}", value.get_type()),
             span: value.span(),
         }),
     }
@@ -186,7 +186,7 @@ fn extract_headers(
                 )
             })?,
         _ => Err(ShellError::TypeMismatch {
-            err_message: "record".to_string(),
+            err_message: format!("expected record, found {}", value.get_type()),
             span: value.span(),
         }),
     }

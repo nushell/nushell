@@ -86,7 +86,7 @@ impl Command for Skip {
                     }
                     _ => {
                         return Err(ShellError::TypeMismatch {
-                            err_message: "expected int".into(),
+                            err_message: format!("expected int, found {}", v.get_type()),
                             span,
                         })
                     }

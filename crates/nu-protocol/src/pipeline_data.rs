@@ -359,11 +359,11 @@ impl PipelineData {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
             PipelineData::Value(val, _) => Err(ShellError::TypeMismatch {
-                err_message: "string".into(),
+                err_message: format!("expected string, found {}", val.get_type()),
                 span: val.span(),
             }),
             PipelineData::ListStream(_, _) => Err(ShellError::TypeMismatch {
-                err_message: "string".into(),
+                err_message: "expected string, found a ListStream".into(),
                 span,
             }),
             PipelineData::ExternalStream {

@@ -35,7 +35,7 @@ fn vertical_rotate_value(
             Ok(Value::list(values.to_owned(), span))
         }
         _ => Err(ShellError::TypeMismatch {
-            err_message: "list".to_string(),
+            err_message: format!("expected list, found {}", value.get_type()),
             span: value.span(),
         }),
     }
@@ -82,7 +82,7 @@ fn horizontal_rotate_value(
             Ok(Value::list(values, span))
         }
         _ => Err(ShellError::TypeMismatch {
-            err_message: "record".to_string(),
+            err_message: format!("expected record, found {}", value.get_type()),
             span: value.span(),
         }),
     }
