@@ -1,11 +1,11 @@
-use crate::database::values::sqlite::open_sqlite_db;
+// use crate::database::values::sqlite::open_sqlite_db;
 use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    sqlite_db::sqlite_database::open_sqlite_db, Category, Example, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::Path;
 

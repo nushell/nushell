@@ -3,8 +3,8 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 
-use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
-use rusqlite::{types::ValueRef, Connection, Row};
+use crate::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
+use rusqlite::{types::ValueRef, Connection, Error as SqliteError, OpenFlags, Row, Statement};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -14,13 +14,16 @@ use std::{
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
+// const MEMORY_DB: &str = "file::memory:?cache=shared";
+const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
+    pub conn_str: String,
     #[serde(skip)]
     // this understandably can't be serialized. think that's OK, I'm not aware of a
     // reason why a CustomValue would be serialized outside of a plugin
@@ -29,8 +32,10 @@ pub struct SQLiteDatabase {
 
 impl SQLiteDatabase {
     pub fn new(path: &Path, ctrlc: Option<Arc<AtomicBool>>) -> Self {
+        eprintln!("creating db with {:?}", &path);
         Self {
             path: PathBuf::from(path),
+            conn_str: path.to_string_lossy().to_string(),
             ctrlc,
         }
     }
@@ -61,6 +66,7 @@ impl SQLiteDatabase {
             Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
+                    conn_str: db.conn_str.clone(),
                     ctrlc: db.ctrlc.clone(),
                 }),
                 None => Err(ShellError::CantConvert {
@@ -80,18 +86,23 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
+        eprintln!("try from pipeline: {:?}", &input);
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
 
     pub fn into_value(self, span: Span) -> Value {
-        Value::custom_value(Box::new(self), span)
+        let db = Box::new(self);
+        eprintln!("into value: {:?}", &db);
+        Value::custom_value(db, span)
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, call_span)?;
+        eprintln!("before open_sqlite_db: {:?}", &self.path);
+        let conn = open_sqlite_db(&self.path, call_span)?;
+        eprintln!("opened connection in query: {:?}", &conn.path());
 
-        let stream = run_sql_query(db, sql, self.ctrlc.clone()).map_err(|e| {
+        let stream = run_sql_query(conn, sql, self.ctrlc.clone()).map_err(|e| {
             ShellError::GenericError(
                 "Failed to query SQLite database".into(),
                 e.to_string(),
@@ -104,11 +115,25 @@ impl SQLiteDatabase {
         Ok(stream)
     }
 
-    pub fn open_connection(&self) -> Result<Connection, rusqlite::Error> {
-        Connection::open(&self.path)
+    pub fn open_connection(&self) -> Result<Connection, ShellError> {
+        if &self.conn_str == MEMORY_DB {
+            eprintln!("opening in memory {:?}", &self.conn_str);
+            open_connection_in_memory()
+        } else {
+            eprintln!("opening {:?}", &self.path);
+            Connection::open(&self.path).map_err(|e| {
+                ShellError::GenericError(
+                    "Failed to open SQLite database from open_connection".into(),
+                    e.to_string(),
+                    None,
+                    None,
+                    Vec::new(),
+                )
+            })
+        }
     }
 
-    pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, rusqlite::Error> {
+    pub fn get_tables(&self, conn: &Connection) -> Result<Vec<DbTable>, SqliteError> {
         let mut table_names =
             conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table'")?;
         let rows = table_names.query_map([], |row| row.get(0))?;
@@ -128,7 +153,7 @@ impl SQLiteDatabase {
         Ok(tables.into_iter().collect())
     }
 
-    fn get_column_info(&self, row: &Row) -> Result<DbColumn, rusqlite::Error> {
+    fn get_column_info(&self, row: &Row) -> Result<DbColumn, SqliteError> {
         let dbc = DbColumn {
             cid: row.get("cid")?,
             name: row.get("name")?,
@@ -144,7 +169,7 @@ impl SQLiteDatabase {
         &self,
         conn: &Connection,
         table: &DbTable,
-    ) -> Result<Vec<DbColumn>, rusqlite::Error> {
+    ) -> Result<Vec<DbColumn>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
             "SELECT * FROM pragma_table_info('{}');",
             table.name
@@ -160,7 +185,7 @@ impl SQLiteDatabase {
         Ok(columns)
     }
 
-    fn get_constraint_info(&self, row: &Row) -> Result<DbConstraint, rusqlite::Error> {
+    fn get_constraint_info(&self, row: &Row) -> Result<DbConstraint, SqliteError> {
         let dbc = DbConstraint {
             name: row.get("index_name")?,
             column_name: row.get("column_name")?,
@@ -173,7 +198,7 @@ impl SQLiteDatabase {
         &self,
         conn: &Connection,
         table: &DbTable,
-    ) -> Result<Vec<DbConstraint>, rusqlite::Error> {
+    ) -> Result<Vec<DbConstraint>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
             "
             SELECT
@@ -202,7 +227,7 @@ impl SQLiteDatabase {
         Ok(constraints)
     }
 
-    fn get_foreign_keys_info(&self, row: &Row) -> Result<DbForeignKey, rusqlite::Error> {
+    fn get_foreign_keys_info(&self, row: &Row) -> Result<DbForeignKey, SqliteError> {
         let dbc = DbForeignKey {
             column_name: row.get("from")?,
             ref_table: row.get("table")?,
@@ -215,7 +240,7 @@ impl SQLiteDatabase {
         &self,
         conn: &Connection,
         table: &DbTable,
-    ) -> Result<Vec<DbForeignKey>, rusqlite::Error> {
+    ) -> Result<Vec<DbForeignKey>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
             "SELECT p.`from`, p.`to`, p.`table` FROM pragma_foreign_key_list('{}') p",
             &table.name
@@ -231,7 +256,7 @@ impl SQLiteDatabase {
         Ok(foreign_keys)
     }
 
-    fn get_index_info(&self, row: &Row) -> Result<DbIndex, rusqlite::Error> {
+    fn get_index_info(&self, row: &Row) -> Result<DbIndex, SqliteError> {
         let dbc = DbIndex {
             name: row.get("index_name")?,
             column_name: row.get("name")?,
@@ -244,7 +269,7 @@ impl SQLiteDatabase {
         &self,
         conn: &Connection,
         table: &DbTable,
-    ) -> Result<Vec<DbIndex>, rusqlite::Error> {
+    ) -> Result<Vec<DbIndex>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
             "
             SELECT
@@ -275,6 +300,7 @@ impl CustomValue for SQLiteDatabase {
     fn clone_value(&self, span: Span) -> Value {
         let cloned = SQLiteDatabase {
             path: self.path.clone(),
+            conn_str: self.conn_str.clone(),
             ctrlc: self.ctrlc.clone(),
         };
 
@@ -330,25 +356,42 @@ impl CustomValue for SQLiteDatabase {
     }
 }
 
-pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, nu_protocol::ShellError> {
-    let path = path.to_string_lossy().to_string();
+pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellError> {
+    eprintln!("open_sqlite_db: {:?}", &path);
 
-    Connection::open(path).map_err(|e| {
-        ShellError::GenericError(
-            "Failed to open SQLite database".into(),
-            e.to_string(),
-            Some(call_span),
-            None,
-            Vec::new(),
-        )
-    })
+    if path.to_string_lossy() == MEMORY_DB {
+        eprintln!("opening in memory {:?}", &path);
+        open_connection_in_memory()
+    } else {
+        let path = path.to_string_lossy().to_string();
+        eprintln!("opening {:?}", &path);
+        Connection::open(path).map_err(|e| {
+            ShellError::GenericError(
+                "Failed to open SQLite database".into(),
+                e.to_string(),
+                Some(call_span),
+                None,
+                Vec::new(),
+            )
+        })
+    }
+
+    // Connection::open(path).map_err(|e| {
+    //     ShellError::GenericError(
+    //         "Failed to open SQLite database".into(),
+    //         e.to_string(),
+    //         Some(call_span),
+    //         None,
+    //         Vec::new(),
+    //     )
+    // })
 }
 
 fn run_sql_query(
     conn: Connection,
     sql: &Spanned<String>,
     ctrlc: Option<Arc<AtomicBool>>,
-) -> Result<Value, rusqlite::Error> {
+) -> Result<Value, SqliteError> {
     let stmt = conn.prepare(&sql.item)?;
     prepared_statement_to_nu_list(stmt, sql.span, ctrlc)
 }
@@ -358,16 +401,16 @@ fn read_single_table(
     table_name: String,
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-) -> Result<Value, rusqlite::Error> {
+) -> Result<Value, SqliteError> {
     let stmt = conn.prepare(&format!("SELECT * FROM [{table_name}]"))?;
     prepared_statement_to_nu_list(stmt, call_span, ctrlc)
 }
 
 fn prepared_statement_to_nu_list(
-    mut stmt: rusqlite::Statement,
+    mut stmt: Statement,
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-) -> Result<Value, rusqlite::Error> {
+) -> Result<Value, SqliteError> {
     let column_names = stmt
         .column_names()
         .iter()
@@ -403,7 +446,7 @@ fn read_entire_sqlite_db(
     conn: Connection,
     call_span: Span,
     ctrlc: Option<Arc<AtomicBool>>,
-) -> Result<Value, rusqlite::Error> {
+) -> Result<Value, SqliteError> {
     let mut tables = Record::new();
 
     let mut get_table_names =
@@ -537,7 +580,9 @@ mod test {
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    Connection::open_in_memory().map_err(|err| {
+    eprintln!("open connection in memory {:?}", &MEMORY_DB);
+    let flags = OpenFlags::default();
+    Connection::open_with_flags(MEMORY_DB, flags).map_err(|err| {
         ShellError::GenericError(
             "Failed to open SQLite connection in memory".into(),
             err.to_string(),

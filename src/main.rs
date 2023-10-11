@@ -31,12 +31,14 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
+use rusqlite::Connection;
 use signals::{ctrlc_protection, sigquit_protection};
 use std::{
     io::BufReader,
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
+const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
@@ -78,6 +80,9 @@ fn main() -> Result<()> {
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
+
+    // start a connection to the memory database in main so it will exist for the lifetime of the program
+    let db = Connection::open(MEMORY_DB).unwrap();
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)

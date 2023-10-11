@@ -17,6 +17,7 @@ mod plugin_signature;
 mod shell_error;
 mod signature;
 pub mod span;
+pub mod sqlite_db;
 mod syntax_shape;
 mod ty;
 pub mod util;
@@ -27,7 +28,9 @@ pub use alias::*;
 pub use cli_error::*;
 pub use config::*;
 pub use did_you_mean::did_you_mean;
-pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NOTHING_VARIABLE_ID, NU_VARIABLE_ID};
+pub use engine::{
+    DB_VARIABLE_ID, ENV_VARIABLE_ID, IN_VARIABLE_ID, NOTHING_VARIABLE_ID, NU_VARIABLE_ID,
+};
 pub use example::*;
 pub use exportable::*;
 pub use id::*;
@@ -40,6 +43,10 @@ pub use plugin_signature::*;
 pub use shell_error::*;
 pub use signature::*;
 pub use span::*;
+pub use sqlite_db::{
+    convert_sqlite_row_to_nu_value, convert_sqlite_value_to_nu_value, open_connection_in_memory,
+    SQLiteDatabase,
+};
 pub use syntax_shape::*;
 pub use ty::*;
 pub use util::BufferedReader;

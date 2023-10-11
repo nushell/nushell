@@ -1837,6 +1837,13 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
             ty: Type::Any,
             custom_completion: None,
         };
+    } else if contents == b"$db" {
+        return Expression {
+            expr: Expr::Var(nu_protocol::DB_VARIABLE_ID),
+            span,
+            ty: Type::Any,
+            custom_completion: None,
+        };
     }
 
     let name = if contents.starts_with(b"$") {

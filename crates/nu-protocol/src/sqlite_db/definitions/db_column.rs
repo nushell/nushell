@@ -1,4 +1,4 @@
-use crate::database::values::definitions::db_row::DbRow;
+use super::db_row::DbRow;
 
 #[derive(Debug)]
 pub struct DbColumn {

@@ -113,7 +113,7 @@ impl Completer for VariableCompletion {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
-                    &self.stack,
+                    &mut self.stack,
                     nu_protocol::NU_VARIABLE_ID,
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {

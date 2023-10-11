@@ -2,11 +2,11 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Type,
+    Category, Example, IntoPipelineData, PipelineData, SQLiteDatabase, ShellError, Signature,
+    Spanned, SyntaxShape, Type,
 };
 
-use super::super::SQLiteDatabase;
+// use super::super::SQLiteDatabase;
 
 #[derive(Clone)]
 pub struct QueryDb;
@@ -53,6 +53,7 @@ impl Command for QueryDb {
         let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
+        eprintln!("query db: {:?}", db);
         db.query(&sql, call.head)
             .map(IntoPipelineData::into_pipeline_data)
     }

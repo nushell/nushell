@@ -9,7 +9,8 @@ use nu_protocol::{
 use std::io::BufReader;
 
 #[cfg(feature = "sqlite")]
-use crate::database::SQLiteDatabase;
+use nu_protocol::SQLiteDatabase;
+// use crate::database::SQLiteDatabase;
 
 #[cfg(feature = "sqlite")]
 use nu_protocol::IntoPipelineData;
