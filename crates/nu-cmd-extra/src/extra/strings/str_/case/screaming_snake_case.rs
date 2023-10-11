@@ -50,7 +50,13 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &ToShoutySnakeCase::to_shouty_snake_case)
+        operate(
+            engine_state,
+            stack,
+            call,
+            input,
+            &ToShoutySnakeCase::to_shouty_snake_case,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
