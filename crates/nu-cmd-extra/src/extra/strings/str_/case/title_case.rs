@@ -1,4 +1,4 @@
-use inflector::cases::titlecase::to_title_case;
+use heck::ToTitleCase;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -50,7 +50,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_title_case)
+        operate(engine_state, stack, call, input, &ToTitleCase::to_title_case)
     }
 
     fn examples(&self) -> Vec<Example> {

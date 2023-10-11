@@ -1,4 +1,4 @@
-use inflector::cases::kebabcase::to_kebab_case;
+use heck::ToKebabCase;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -50,7 +50,7 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_kebab_case)
+        operate(engine_state, stack, call, input, &ToKebabCase::to_kebab_case)
     }
 
     fn examples(&self) -> Vec<Example> {
