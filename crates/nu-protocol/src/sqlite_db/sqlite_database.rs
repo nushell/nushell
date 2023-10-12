@@ -107,7 +107,7 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
-        if &self.path == &PathBuf::from(MEMORY_DB) {
+        if self.path == PathBuf::from(MEMORY_DB) {
             open_connection_in_memory()
         } else {
             Connection::open(&self.path).map_err(|e| {
