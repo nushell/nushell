@@ -975,8 +975,6 @@ fn test_cp_with_vars() {
 #[case(r#"'a[c'"#)]
 #[case(r#"'a[bc]d'"#)]
 #[case(r#"'a][c'"#)]
-#[case(r#"'a]?c'"#)]
-// windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -1004,4 +1002,12 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
         //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
         //assert_eq!(src_hash, after_cp_hash);
     });
+}
+
+#[cfg(not(windows))]
+#[case(r#"'a]?c'"#)]
+#[case(r#"'a*.?c'"#)]
+// windows doesn't allow filename with `*`.
+fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    copies_files_with_glob_metachars(src_name);
 }
