@@ -1005,6 +1005,7 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 }
 
 #[cfg(not(windows))]
+#[rstest]
 #[case(r#"'a]?c'"#)]
 #[case(r#"'a*.?c'"#)]
 // windows doesn't allow filename with `*`.
