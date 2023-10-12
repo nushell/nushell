@@ -6,8 +6,6 @@ use nu_protocol::{
     Spanned, SyntaxShape, Type,
 };
 
-// use super::super::SQLiteDatabase;
-
 #[derive(Clone)]
 pub struct QueryDb;
 
@@ -53,7 +51,6 @@ impl Command for QueryDb {
         let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
 
         let db = SQLiteDatabase::try_from_pipeline(input, call.head)?;
-        eprintln!("query db: {:?}", db);
         db.query(&sql, call.head)
             .map(IntoPipelineData::into_pipeline_data)
     }

@@ -14,7 +14,6 @@ use std::{
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
-// const MEMORY_DB: &str = "file::memory:?cache=shared";
 const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +22,6 @@ pub struct SQLiteDatabase {
     // 1) YAGNI, 2) it's not obvious how cloning a connection could work, 3) state
     // management gets tricky quick. Revisit this approach if we find a compelling use case.
     pub path: PathBuf,
-    pub conn_str: String,
     #[serde(skip)]
     // this understandably can't be serialized. think that's OK, I'm not aware of a
     // reason why a CustomValue would be serialized outside of a plugin
@@ -32,10 +30,8 @@ pub struct SQLiteDatabase {
 
 impl SQLiteDatabase {
     pub fn new(path: &Path, ctrlc: Option<Arc<AtomicBool>>) -> Self {
-        eprintln!("creating db with {:?}", &path);
         Self {
             path: PathBuf::from(path),
-            conn_str: path.to_string_lossy().to_string(),
             ctrlc,
         }
     }
@@ -66,7 +62,6 @@ impl SQLiteDatabase {
             Value::CustomValue { val, .. } => match val.as_any().downcast_ref::<Self>() {
                 Some(db) => Ok(Self {
                     path: db.path.clone(),
-                    conn_str: db.conn_str.clone(),
                     ctrlc: db.ctrlc.clone(),
                 }),
                 None => Err(ShellError::CantConvert {
@@ -86,21 +81,17 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        eprintln!("try from pipeline: {:?}", &input);
         let value = input.into_value(span);
         Self::try_from_value(value)
     }
 
     pub fn into_value(self, span: Span) -> Value {
         let db = Box::new(self);
-        eprintln!("into value: {:?}", &db);
         Value::custom_value(db, span)
     }
 
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
-        eprintln!("before open_sqlite_db: {:?}", &self.path);
         let conn = open_sqlite_db(&self.path, call_span)?;
-        eprintln!("opened connection in query: {:?}", &conn.path());
 
         let stream = run_sql_query(conn, sql, self.ctrlc.clone()).map_err(|e| {
             ShellError::GenericError(
@@ -116,11 +107,9 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
-        if &self.conn_str == MEMORY_DB {
-            eprintln!("opening in memory {:?}", &self.conn_str);
+        if &self.path == &PathBuf::from(MEMORY_DB) {
             open_connection_in_memory()
         } else {
-            eprintln!("opening {:?}", &self.path);
             Connection::open(&self.path).map_err(|e| {
                 ShellError::GenericError(
                     "Failed to open SQLite database from open_connection".into(),
@@ -300,7 +289,6 @@ impl CustomValue for SQLiteDatabase {
     fn clone_value(&self, span: Span) -> Value {
         let cloned = SQLiteDatabase {
             path: self.path.clone(),
-            conn_str: self.conn_str.clone(),
             ctrlc: self.ctrlc.clone(),
         };
 
@@ -357,14 +345,10 @@ impl CustomValue for SQLiteDatabase {
 }
 
 pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellError> {
-    eprintln!("open_sqlite_db: {:?}", &path);
-
     if path.to_string_lossy() == MEMORY_DB {
-        eprintln!("opening in memory {:?}", &path);
         open_connection_in_memory()
     } else {
         let path = path.to_string_lossy().to_string();
-        eprintln!("opening {:?}", &path);
         Connection::open(path).map_err(|e| {
             ShellError::GenericError(
                 "Failed to open SQLite database".into(),
@@ -375,16 +359,6 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
             )
         })
     }
-
-    // Connection::open(path).map_err(|e| {
-    //     ShellError::GenericError(
-    //         "Failed to open SQLite database".into(),
-    //         e.to_string(),
-    //         Some(call_span),
-    //         None,
-    //         Vec::new(),
-    //     )
-    // })
 }
 
 fn run_sql_query(
@@ -580,7 +554,6 @@ mod test {
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    eprintln!("open connection in memory {:?}", &MEMORY_DB);
     let flags = OpenFlags::default();
     Connection::open_with_flags(MEMORY_DB, flags).map_err(|err| {
         ShellError::GenericError(

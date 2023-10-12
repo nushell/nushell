@@ -10,7 +10,6 @@ use nu_protocol::{
     SQLiteDatabase, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
-// const MEMORY_DB: &str = "file::memory:?cache=shared";
 const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 
 pub fn eval_call(
@@ -1169,70 +1168,54 @@ pub fn eval_variable(
         }
         // $db
         DB_VARIABLE_ID => {
-            //TODO: Add real $db stuff here
             let db = match stack.get_var(DB_VARIABLE_ID, span) {
                 Ok(Value::CustomValue { val, .. }) => {
-                    eprintln!("found DB_VAR_ID val: {:?}", &val);
-                    let adb = match val.as_any().downcast_ref::<SQLiteDatabase>() {
-                        Some(adb) => adb,
-                        None => {
-                            eprintln!("no DB_VAR_ID found");
-                            return Err(ShellError::VariableNotFoundAtRuntime { span });
-                        }
-                    };
-                    // let query = Spanned {
-                    //     item: "SELECT * from nudb".to_string(),
-                    //     span,
+                    // eprintln!("Using existing nudb connection string: {:?}", &val);
+                    // let adb = match val.as_any().downcast_ref::<SQLiteDatabase>() {
+                    //     Some(adb) => adb,
+                    //     None => {
+                    //         // eprintln!("no DB_VAR_ID found");
+                    //         return Err(ShellError::VariableNotFoundAtRuntime { span });
+                    //     }
                     // };
-                    eprintln!("adb path: {:?}", adb.path);
-                    // let v = adb.query(&query, span).unwrap();
-                    // eprintln!("v: {:?}", v);
-                    if let Ok(conn) = adb.open_connection() {
-                        let mut stmt = conn.prepare("SELECT * from nudb").unwrap();
-                        // let rows = stmt.execute([]).unwrap();
-                        let mut rows = stmt.query([]).unwrap();
-                        while let Some(row) = rows.next().unwrap() {
-                            eprintln!("row: {:?}", row);
-                        }
-                    }
+                    // if let Ok(conn) = adb.open_connection() {
+                    //     let mut stmt = conn.prepare("SELECT * from nudb").unwrap();
+                    //     // let rows = stmt.execute([]).unwrap();
+                    //     let mut rows = stmt.query([]).unwrap();
+                    //     while let Some(row) = rows.next().unwrap() {
+                    //         eprintln!("row: {:?}", row);
+                    //     }
+                    // }
                     val
                 }
                 _ => {
-                    eprintln!("no DB_VAR_ID found");
+                    eprintln!("Initializing nudb");
+                    eprintln!("Here's some things to try:");
+                    eprintln!("* $db | schema | table -e");
+                    eprintln!("* $db | query db 'insert into nudb (bool1,int1,float1,str1,datetime1) values (2,200,2.0,'str2','1969-04-17T06:00:00-05:00')'");
+                    eprintln!("* $db | query db 'select * from nudb'");
+                    eprintln!("Now imagine all those examples happening as commands, without sql, in our normal nushell pipelines\n");
+
                     let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
                     if let Ok(conn) = db.open_connection() {
-                        eprintln!("conn path {:?}", conn.path());
+                        // sqlite datatypes https://www.sqlite.org/datatype3.html
                         conn.execute(
                             "CREATE TABLE nudb (
-                            id              INTEGER PRIMARY KEY,
-                            target          VARCHAR(255) NOT NULL,
-                            time            DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')),
-                            success         INTEGER,
-                            latency_ms      REAL
+                            id            INTEGER NOT NULL PRIMARY KEY,
+                            bool1         BOOLEAN,
+                            int1          INTEGER,
+                            float1        REAL,
+                            str1          VARCHAR(255),
+                            datetime1     DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
                             )",
                             [],
                         )
                         .unwrap();
-                        let mut stmt = conn.prepare("INSERT INTO nudb (target,success,latency_ms) VALUES ('home',1,2500)").unwrap();
-                        let rows_inserted = stmt.execute([]).unwrap();
-                        eprintln!("inserted [{:?}] rows", rows_inserted);
-                        let tables = db.get_tables(&conn).map_err(|e| {
-                            ShellError::GenericError(
-                                "Error reading tables".into(),
-                                e.to_string(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            )
-                        })?;
-                        eprintln!("tables {:?}", tables);
 
-                        let mut stmt = conn.prepare("SELECT * from nudb").unwrap();
-                        // let rows = stmt.execute([]).unwrap();
-                        let mut rows = stmt.query([]).unwrap();
-                        while let Some(row) = rows.next().unwrap() {
-                            eprintln!("row: {:?}", row);
-                        }
+                        let mut stmt = conn
+                            .prepare("INSERT INTO nudb (bool1,int1,float1,str1,datetime1) VALUES (1,100,1.0,'str1','2019-05-10T09:59:12-07:00')")
+                            .unwrap();
+                        let _rows_inserted = stmt.execute([]).unwrap();
                     }
                     stack.add_var(DB_VARIABLE_ID, Value::custom_value(db.clone(), span));
 
