@@ -8,6 +8,7 @@ def path_add [] {
 
     with-env [$path_name []] {
         def get_path [] { $env | get $path_name }
+        def expand_paths []: list<string> -> list<path> { each { path expand } }
 
         assert equal (get_path) []
 
@@ -21,10 +22,10 @@ def path_add [] {
 
         std path add "foo"
         std path add "bar" "baz" --append
-        assert equal (get_path) ["foo", "bar", "baz"]
+        assert equal (get_path) (["foo", "bar", "baz"] | expand_paths)
 
-        assert equal (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
-        assert equal (get_path) ["fooooo", "foo", "bar", "baz"]
+        assert equal (std path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | expand_paths)
+        assert equal (get_path) (["fooooo", "foo", "bar", "baz"] | expand_paths)
 
         load-env {$path_name: []}
 
@@ -36,11 +37,11 @@ def path_add [] {
         }
 
         std path add $target_paths
-        assert equal (get_path) [($target_paths | get $nu.os-info.name)]
+        assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | expand_paths)
 
-        load-env {$path_name: ["/usr/bin:/bin"]}
+        load-env {$path_name: ["/foo:/bar"]}
         std path add "~/foo"
-        assert equal (get_path) [($nu.home-path | path join "foo"), "/usr/bin", "/bin"]
+        assert equal (get_path) (["~/foo", "/foo", "/bar"] | expand_paths)
     }
 }
 
