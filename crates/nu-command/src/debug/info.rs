@@ -60,7 +60,6 @@ impl Command for DebugInfo {
                     "process" => {
                         Value::record(
                             record! {
-                                "cpu" => Value::int(p.cpu_usage() as i64, span),
                                 "memory" => Value::filesize(p.memory() as i64, span),
                                 "virtual_memory" => Value::filesize(p.virtual_memory() as i64, span),
                                 "status" => Value::string(p.status().to_string(), span),
