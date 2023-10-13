@@ -13,10 +13,10 @@ def path_add [] {
         assert equal (get_path) []
 
         std path add "/foo/"
-        assert equal (get_path) ["/foo/"]
+        assert equal (get_path) (["/foo/"] | expand_paths)
 
         std path add "/bar/" "/baz/"
-        assert equal (get_path) ["/bar/", "/baz/", "/foo/"]
+        assert equal (get_path) (["/bar/", "/baz/", "/foo/"] | expand_paths)
 
         load-env {$path_name: []}
 
