@@ -1,4 +1,4 @@
-use inflector::cases::pascalcase::to_pascal_case;
+use heck::ToUpperCamelCase;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -50,7 +50,13 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        operate(engine_state, stack, call, input, &to_pascal_case)
+        operate(
+            engine_state,
+            stack,
+            call,
+            input,
+            &ToUpperCamelCase::to_upper_camel_case,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
