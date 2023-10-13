@@ -53,46 +53,60 @@ impl Command for DebugInfo {
         let pinfo = system.process(pid);
 
         if let Some(p) = pinfo {
-            let rec = Value::record(
+            Ok(Value::record(
                 record! {
                     "pid" => Value::int(p.pid().as_u32() as i64, span),
                     "ppid" => Value::int(p.parent().unwrap_or(0.into()).as_u32() as i64, span),
-                    "process memory" => Value::filesize(p.memory() as i64, span),
-                    "process virtual memory" => Value::filesize(p.virtual_memory() as i64, span),
-                    "process status" => Value::string(p.status().to_string(), span),
-                    "process root" => Value::string(p.root().to_string_lossy().to_string(), span),
-                    "process cwd" => Value::string(p.cwd().to_string_lossy().to_string(), span),
-                    "process exe path" => Value::string(p.exe().to_string_lossy().to_string(), span),
-                    "process command" => Value::string(p.cmd().join(" "), span),
-                    "process name" => Value::string(p.name().to_string(), span),
-                    "process environment" => {
-                        let mut env_rec = Record::new();
-                        for val in p.environ() {
-                            let (key, value) = val.split_once('=').unwrap_or(("", ""));
-                            env_rec.push(key.to_string(), Value::string(value.to_string(), span));
-                        }
-                        Value::record(env_rec, span)
+                    "process" => {
+                        Value::record(
+                            record! {
+                                "cpu" => Value::int(p.cpu_usage() as i64, span),
+                                "memory" => Value::filesize(p.memory() as i64, span),
+                                "virtual_memory" => Value::filesize(p.virtual_memory() as i64, span),
+                                "status" => Value::string(p.status().to_string(), span),
+                                "root" => Value::string(p.root().to_string_lossy().to_string(), span),
+                                "cwd" => Value::string(p.cwd().to_string_lossy().to_string(), span),
+                                "exe_path" => Value::string(p.exe().to_string_lossy().to_string(), span),
+                                "command" => Value::string(p.cmd().join(" "), span),
+                                "name" => Value::string(p.name().to_string(), span),
+                                "environment" => {
+                                    let mut env_rec = Record::new();
+                                    for val in p.environ() {
+                                        let (key, value) = val.split_once('=').unwrap_or(("", ""));
+                                        env_rec.push(key.to_string(), Value::string(value.to_string(), span));
+                                    }
+                                    Value::record(env_rec, span)
+                                },
+                            },
+                            span,
+                        )
                     },
-                    "system total memory" => Value::filesize(system.total_memory() as i64, span),
-                    "system free memory" => Value::filesize(system.free_memory() as i64, span),
-                    "system used memory" => Value::filesize(system.used_memory() as i64, span),
-                    "system available memory" => Value::filesize(system.available_memory() as i64, span),
+                    "system" => {
+                        Value::record(
+                            record! {
+                                "total_memory" => Value::filesize(system.total_memory() as i64, span),
+                                "free_memory" => Value::filesize(system.free_memory() as i64, span),
+                                "used_memory" => Value::filesize(system.used_memory() as i64, span),
+                                "available_memory" => Value::filesize(system.available_memory() as i64, span),
+                            },
+                            span,
+                        )
+                    }
                 },
-                Span::unknown(),
-            );
-            Ok(rec.into_pipeline_data())
+                span,
+            ).into_pipeline_data())
         } else {
             // If we can't get the process information, just return the system information
-            let rec = Value::record(
+            Ok(Value::record(
                 record! {
-                    "system total memory" => Value::filesize(system.total_memory() as i64, span),
-                    "system free memory" => Value::filesize(system.free_memory() as i64, span),
-                    "system used memory" => Value::filesize(system.used_memory() as i64, span),
-                    "system available memory" => Value::filesize(system.available_memory() as i64, span),
+                    "total_memory" => Value::filesize(system.total_memory() as i64, span),
+                    "free_memory" => Value::filesize(system.free_memory() as i64, span),
+                    "used_memory" => Value::filesize(system.used_memory() as i64, span),
+                    "available_memory" => Value::filesize(system.available_memory() as i64, span),
                 },
-                Span::unknown(),
-            );
-            Ok(rec.into_pipeline_data())
+                span,
+            )
+            .into_pipeline_data())
         }
     }
 
