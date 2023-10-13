@@ -53,10 +53,12 @@ export def --env "path add" [
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
     let paths = $paths | each {|p|
-        match ($p | describe | str replace --regex '<.*' '') {
+        let p = match ($p | describe | str replace --regex '<.*' '') {
             "string" => $p,
             "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
+
+        $p | path expand
     }
 
     if null in $paths or ($paths | is-empty) {
@@ -70,6 +72,7 @@ export def --env "path add" [
     load-env {$path_name: (
         $env
             | get $path_name
+            | split row (char esep)
             | if $append { append $paths } else { prepend $paths }
     )}
 
