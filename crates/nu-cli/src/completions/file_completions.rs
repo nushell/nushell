@@ -1,15 +1,13 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::complete_item, Completer, CompletionOptions, SortBy, SEP,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::path::{is_separator, Path};
+use std::path::Path;
 use std::sync::Arc;
-
-use super::SortBy;
-
-const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct FileCompletion {
@@ -104,20 +102,6 @@ impl Completer for FileCompletion {
 
         non_hidden
     }
-}
-
-pub fn partial_from(input: &str) -> (String, String) {
-    let partial = input.replace('`', "");
-
-    // If partial is only a word we want to search in the current dir
-    let (base, rest) = partial.rsplit_once(is_separator).unwrap_or((".", &partial));
-    // On windows, this standardizes paths to use \
-    let mut base = base.replace(is_separator, &SEP.to_string());
-
-    // rsplit_once removes the separator
-    base.push(SEP);
-
-    (base.to_string(), rest.to_string())
 }
 
 pub fn file_path_completion(

@@ -1,4 +1,6 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions};
+use crate::completions::{
+    completion_common::complete_item, Completer, CompletionOptions, SortBy, SEP,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -6,10 +8,6 @@ use nu_protocol::{
 use reedline::Suggestion;
 use std::path::Path;
 use std::sync::Arc;
-
-use super::SortBy;
-
-const SEP: char = std::path::MAIN_SEPARATOR;
 
 #[derive(Clone)]
 pub struct DirectoryCompletion {

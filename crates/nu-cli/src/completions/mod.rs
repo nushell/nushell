@@ -17,6 +17,7 @@ pub use completion_options::{CompletionOptions, MatchAlgorithm, SortBy};
 pub use custom_completions::CustomCompletion;
 pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
-pub use file_completions::{file_path_completion, matches, partial_from, FileCompletion};
+pub use file_completions::{file_path_completion, matches, FileCompletion};
 pub use flag_completions::FlagCompletion;
+pub use std::path::MAIN_SEPARATOR as SEP;
 pub use variable_completions::VariableCompletion;
