@@ -40,7 +40,7 @@ export def --env "path add" [
     ...paths  # the paths to add to $env.PATH.
 ] {
     let span = (metadata $paths).span
-    let paths = ($paths | flatten)
+    let paths = $paths | flatten
 
     if ($paths | is-empty) or ($paths | length) == 0 {
         error make {msg: "Empty input", label: {
@@ -52,13 +52,12 @@ export def --env "path add" [
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
-    let paths = ($paths | each {|p|
-        if ($p | describe) == "string" {
-            $p
-        } else if ($p | describe | str starts-with "record") {
-            $p | get -i $nu.os-info.name
+    let paths = $paths | each {|p|
+        match ($p | describe | str replace --regex '<.*' '') {
+            "string" => $p,
+            "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
-    })
+    }
 
     if null in $paths or ($paths | is-empty) {
         error make {msg: "Empty input", label: {
@@ -70,9 +69,8 @@ export def --env "path add" [
 
     load-env {$path_name: (
         $env
-        | get $path_name
-        | if $append { append $paths }
-        else { prepend $paths }
+            | get $path_name
+            | if $append { append $paths } else { prepend $paths }
     )}
 
     if $ret {
