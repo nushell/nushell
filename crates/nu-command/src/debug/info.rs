@@ -28,6 +28,14 @@ impl Command for DebugInfo {
             .category(Category::Debug)
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: "View process information",
+            example: "debug info",
+            result: None,
+        }]
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -72,7 +80,15 @@ impl Command for DebugInfo {
                                     let mut env_rec = Record::new();
                                     for val in p.environ() {
                                         let (key, value) = val.split_once('=').unwrap_or(("", ""));
-                                        env_rec.push(key.to_string(), Value::string(value.to_string(), span));
+                                        if key == "PATH" || key == "LS_COLORS" || key == "DYLD_FALLBACK_LIBRARY_PATH" {
+                                            let items = value.split(':').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
+                                            env_rec.push(key.to_string(), Value::list(items, span));
+                                        } else if key == "Path" {
+                                            let items = value.split(';').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
+                                            env_rec.push(key.to_string(), Value::list(items, span));
+                                        } else {
+                                            env_rec.push(key.to_string(), Value::string(value.to_string(), span));
+                                        }
                                     }
                                     Value::record(env_rec, span)
                                 },
@@ -107,13 +123,5 @@ impl Command for DebugInfo {
             )
             .into_pipeline_data())
         }
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "View process information",
-            example: "debug info",
-            result: None,
-        }]
     }
 }
