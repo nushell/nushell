@@ -37,6 +37,10 @@ def path_add [] {
 
         std path add $target_paths
         assert equal (get_path) [($target_paths | get $nu.os-info.name)]
+
+        load-env {$path_name: ["/usr/bin:/bin"]}
+        std path add "~/foo"
+        assert equal (get_path) [($nu.home-path | path join "foo"), "/usr/bin", "/bin"]
     }
 }
 
