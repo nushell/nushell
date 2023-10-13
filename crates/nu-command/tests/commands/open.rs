@@ -35,6 +35,69 @@ fn parses_file_with_uppercase_extension() {
 }
 
 #[test]
+fn parses_file_with_multiple_extensions() {
+    Playground::setup("open_test_multiple_extensions", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContent("file.tar.gz", "this is a tar.gz file"),
+            FileWithContent("file.tar.xz", "this is a tar.xz file"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from tar.gz" ;
+                hide "from gz" ;
+
+                def "from tar.gz" [] { 'opened tar.gz' } ;
+                def "from gz" [] { 'opened gz' } ;
+                open file.tar.gz
+            "#
+        ));
+
+        assert_eq!(actual.out, "opened tar.gz");
+
+        let actual2 = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from tar.xz" ;
+                hide "from xz" ;
+                hide "from tar" ;
+
+                def "from tar" [] { 'opened tar' } ;
+                def "from xz" [] { 'opened xz' } ;
+                open file.tar.xz
+            "#
+        ));
+
+        assert_eq!(actual2.out, "opened xz");
+    })
+}
+
+#[test]
+fn parses_dotfile() {
+    Playground::setup("open_test_dotfile", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            ".gitignore",
+            r#"
+              /target/
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from gitignore" ;
+
+                def "from gitignore" [] { 'opened gitignore' } ;
+                open .gitignore
+            "#
+        ));
+
+        assert_eq!(actual.out, "opened gitignore");
+    })
+}
+
+#[test]
 fn parses_csv() {
     Playground::setup("open_test_1", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
