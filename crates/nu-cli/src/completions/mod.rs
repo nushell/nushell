@@ -19,5 +19,4 @@ pub use directory_completions::DirectoryCompletion;
 pub use dotnu_completions::DotNuCompletion;
 pub use file_completions::{file_path_completion, matches, FileCompletion};
 pub use flag_completions::FlagCompletion;
-pub use std::path::MAIN_SEPARATOR as SEP;
 pub use variable_completions::VariableCompletion;

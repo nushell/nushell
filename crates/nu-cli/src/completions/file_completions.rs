@@ -1,12 +1,10 @@
-use crate::completions::{
-    completion_common::complete_item, Completer, CompletionOptions, SortBy, SEP,
-};
+use crate::completions::{completion_common::complete_item, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::path::Path;
+use std::path::{Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
 
 #[derive(Clone)]

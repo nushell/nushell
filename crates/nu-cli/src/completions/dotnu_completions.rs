@@ -1,11 +1,11 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy, SEP};
+use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
 use std::{
-    path::{is_separator, MAIN_SEPARATOR_STR},
+    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
     sync::Arc,
 };
 
