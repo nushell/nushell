@@ -148,28 +148,11 @@ pub fn complete_item(
         .collect()
 }
 
-fn path_maybe_number(path: &str) -> bool {
-    let mut has_decimal = false;
-    for c in path.chars() {
-        if !c.is_numeric() {
-            return false;
-        }
-        if c == '.' {
-            if has_decimal {
-                return false;
-            }
-            has_decimal = true;
-        }
-    }
-    true
-}
-
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
-    let filename_contaminated =
-        !dir && (path.contains(['\'', '"', ' ', '#', '(', ')']) || path_maybe_number(&path));
+    let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
-    if filename_contaminated || dirname_contaminated {
+    if filename_contaminated || dirname_contaminated || path.parse::<f64>().is_ok() {
         format!("`{path}`")
     } else {
         path
