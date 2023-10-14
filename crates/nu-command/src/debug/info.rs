@@ -95,7 +95,7 @@ impl Command for DebugInfo {
                                     let mut env_rec = Record::new();
                                     for val in p.environ() {
                                         let (key, value) = val.split_once('=').unwrap_or(("", ""));
-                                        // Let's make some known of the known list-variables into lists
+                                        // Let's make some of the known list-variables into lists
                                         if key == "PATH" ||
                                            key == "Path" ||
                                            key == "DYLD_FALLBACK_LIBRARY_PATH" ||
