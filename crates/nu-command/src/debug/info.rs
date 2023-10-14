@@ -5,6 +5,12 @@ use nu_protocol::{
     Type, Value,
 };
 use sysinfo::{Pid, PidExt, ProcessExt, ProcessRefreshKind, RefreshKind, System, SystemExt};
+// Character used to separate directories in a Path Environment variable on windows is ";"
+#[cfg(target_family = "windows")]
+const ENV_PATH_SEPARATOR_CHAR: char = ';';
+// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+#[cfg(not(target_family = "windows"))]
+const ENV_PATH_SEPARATOR_CHAR: char = ':';
 
 #[derive(Clone)]
 pub struct DebugInfo;
@@ -89,11 +95,17 @@ impl Command for DebugInfo {
                                     let mut env_rec = Record::new();
                                     for val in p.environ() {
                                         let (key, value) = val.split_once('=').unwrap_or(("", ""));
-                                        if key == "PATH" || key == "LS_COLORS" || key == "DYLD_FALLBACK_LIBRARY_PATH" {
-                                            let items = value.split(':').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
+                                        // Let's make some known of the known list-variables into lists
+                                        if key == "PATH" ||
+                                           key == "Path" ||
+                                           key == "DYLD_FALLBACK_LIBRARY_PATH" ||
+                                           key == "PATHEXT" ||
+                                           key == "PSMODULEPATH" ||
+                                           key == "PSModulePath" {
+                                            let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
                                             env_rec.push(key.to_string(), Value::list(items, span));
-                                        } else if key == "Path" {
-                                            let items = value.split(';').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
+                                        } else if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
+                                            let items = value.split(':').map(|r| Value::string(r.to_string(), span)).collect::<Vec<_>>();
                                             env_rec.push(key.to_string(), Value::list(items, span));
                                         } else {
                                             env_rec.push(key.to_string(), Value::string(value.to_string(), span));
