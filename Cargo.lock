@@ -3,16 +3,6 @@
 version = 3
 
 [[package]]
-name = "Inflector"
-version = "0.11.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
-dependencies = [
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2751,9 +2741,9 @@ dependencies = [
 name = "nu-cmd-extra"
 version = "0.85.1"
 dependencies = [
- "Inflector",
  "ahash",
  "fancy-regex",
+ "heck",
  "htmlescape",
  "nu-ansi-term",
  "nu-cmd-base",
