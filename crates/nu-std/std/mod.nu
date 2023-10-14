@@ -73,6 +73,7 @@ export def --env "path add" [
         $env
             | get $path_name
             | split row (char esep)
+            | path expand
             | if $append { append $paths } else { prepend $paths }
     )}
 
