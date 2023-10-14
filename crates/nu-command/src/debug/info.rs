@@ -71,7 +71,16 @@ impl Command for DebugInfo {
                                 "memory" => Value::filesize(p.memory() as i64, span),
                                 "virtual_memory" => Value::filesize(p.virtual_memory() as i64, span),
                                 "status" => Value::string(p.status().to_string(), span),
-                                "root" => Value::string(p.root().to_string_lossy().to_string(), span),
+                                // This is a hack to get the "root" since p.root() doesn't work on macos
+                                // Would probably puke if nu was on the root of a drive, maybe other ways too.
+                                "root" => {
+                                    if let Some(filename) = p.exe().parent() {
+                                        Value::string(filename.to_string_lossy().to_string(), span)
+                                    } else {
+                                        Value::nothing(span)
+                                    }
+                                },
+                                // "root" => Value::string(p.root().to_string_lossy().to_string(), span),
                                 "cwd" => Value::string(p.cwd().to_string_lossy().to_string(), span),
                                 "exe_path" => Value::string(p.exe().to_string_lossy().to_string(), span),
                                 "command" => Value::string(p.cmd().join(" "), span),
