@@ -16,15 +16,6 @@ const ENV_PATH_SEPARATOR_CHAR: char = {
     }
 };
 
-macro_rules! equal_to_any {
-    ($var:expr, [$($val:expr),+]) => {
-        $(
-           $var == $val ||
-        )*
-        false
-    };
-}
-
 #[derive(Clone)]
 pub struct DebugInfo;
 
@@ -143,7 +134,13 @@ impl LazySystemInfoRecord {
                             "memory" => Value::filesize(p.memory() as i64, self.span),
                             "virtual_memory" => Value::filesize(p.virtual_memory() as i64, self.span),
                             "status" => Value::string(p.status().to_string(), self.span),
-                            "root" => Value::string(p.root().to_string_lossy().to_string(), self.span),
+                            "root" => {
+                                if let Some(filename) = p.exe().parent() {
+                                    Value::string(filename.to_string_lossy().to_string(), self.span)
+                                } else {
+                                    Value::nothing(self.span)
+                                }
+                            },
                             "cwd" => Value::string(p.cwd().to_string_lossy().to_string(), self.span),
                             "exe_path" => Value::string(p.exe().to_string_lossy().to_string(), self.span),
                             "command" => Value::string(p.cmd().join(" "), self.span),
@@ -151,31 +148,28 @@ impl LazySystemInfoRecord {
                                "environment" => {
                                     let mut env_rec = Record::new();
                                     for val in p.environ() {
-                                        let (key, value) = val.split_once('=').unwrap_or(("", ""));
-                                        let is_env_var_a_list = {
-                                            {
-                                                #[cfg(target_family = "windows")]
+                                        if let Some((key, value)) = val.split_once('=') {
+                                            let is_env_var_a_list = {
                                                 {
-                                                    equal_to_any!(key, ["Path","PATHEXT", "PSMODULEPATH", "PSModulePath"])
+                                                    #[cfg(target_family = "windows")]
+                                                    {
+                                                        key == "Path" || key == "PATHEXT" || key == "PSMODULEPATH" || key == "PSModulePath"
+                                                    }
+                                                    #[cfg(not(target_family = "windows"))]
+                                                    {
+                                                        key == "PATH" || key == "DYLD_FALLBACK_LIBRARY_PATH"
+                                                    }
                                                 }
-                                                #[cfg(not(target_family = "windows"))]
-                                                {
-                                                    equal_to_any!(key, ["PATH", "DYLD_FALLBACK_LIBRARY_PATH"])
-                                                }
+                                            };
+                                            if is_env_var_a_list {
+                                                let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
+                                                env_rec.push(key.to_string(), Value::list(items, self.span));
+                                            } else if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
+                                                let items = value.split(':').map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
+                                                env_rec.push(key.to_string(), Value::list(items, self.span));
+                                            } else {
+                                                env_rec.push(key.to_string(), Value::string(value.to_string(), self.span));
                                             }
-                                        };
-                                        if is_env_var_a_list {
-                                            let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
-                                            env_rec.push(key.to_string(), Value::list(items, self.span));
-                                            continue;
-                                        }
-
-                                        #[cfg(not(target_family = "windows"))]
-                                         if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
-                                            let items = value.split(':').map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
-                                            env_rec.push(key.to_string(), Value::list(items, self.span));
-                                        } else {
-                                            env_rec.push(key.to_string(), Value::string(value.to_string(), self.span));
                                         }
                                     }
                                     Value::record(env_rec, self.span)
@@ -211,7 +205,7 @@ impl LazySystemInfoRecord {
 
 impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
     fn column_names(&'a self) -> Vec<&'a str> {
-        vec!["threadid", "pid", "ppid", "process", "system"]
+        vec!["thread_id", "pid", "ppid", "process", "system"]
     }
 
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError> {
