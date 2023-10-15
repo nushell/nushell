@@ -83,7 +83,7 @@ impl LazySystemInfoRecord {
     ) -> Result<Value, ShellError> {
         let pid = Pid::from(std::process::id() as usize);
         match column {
-            "threadid" => Ok(Value::int(get_thread_id(), self.span)),
+            "thread_id" => Ok(Value::int(get_thread_id(), self.span)),
             "pid" => Ok(Value::int(pid.as_u32() as i64, self.span)),
             "ppid" => {
                 // only get information requested
