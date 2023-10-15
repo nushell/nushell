@@ -251,7 +251,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
 
 enum SystemOpt<'a> {
     Ptr(&'a System),
-    Owned(System),
+    Owned(Box<System>),
 }
 
 impl<'a> SystemOpt<'a> {
@@ -267,7 +267,7 @@ impl<'a, F: Fn() -> RefreshKind> From<(Option<&'a System>, F)> for SystemOpt<'a>
     fn from((system_opt, refresh_kind_create): (Option<&'a System>, F)) -> Self {
         match system_opt {
             Some(system) => SystemOpt::<'a>::Ptr(system),
-            None => SystemOpt::Owned(System::new_with_specifics(refresh_kind_create())),
+            None => SystemOpt::Owned(Box::new(System::new_with_specifics(refresh_kind_create()))),
         }
     }
 }
