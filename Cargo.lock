@@ -5603,8 +5603,9 @@ checksum = "711b9620af191e0cdc7468a8d14e709c3dcdb115b36f838e601583af800a370a"
 
 [[package]]
 name = "uu_cp"
-version = "0.0.21"
-source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ffde008c74fab21c82e4711086dfffbfd3bd98e47cb662c77adb29ea8912d0e"
 dependencies = [
  "clap",
  "filetime",
@@ -5618,8 +5619,9 @@ dependencies = [
 
 [[package]]
 name = "uucore"
-version = "0.0.21"
-source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "342b2c36d24d20656e70f08af99b7f6944983dc287f291d65db982e99d618d11"
 dependencies = [
  "clap",
  "dunce",
@@ -5637,8 +5639,9 @@ dependencies = [
 
 [[package]]
 name = "uucore_procs"
-version = "0.0.21"
-source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c1ef7f8253186cf48f4aeaff93acb3ef0d8e3da36b96265b76201af2f8beab4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5647,8 +5650,9 @@ dependencies = [
 
 [[package]]
 name = "uuhelp_parser"
-version = "0.0.21"
-source = "git+https://github.com/uutils/coreutils.git?branch=main#f3f82c14af6789ec7238a40ea120462e574f4973"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6de61731e36d52d3babb63e2dce8fe648e2644e9ddfe2621e0eea699022051a6"
 
 [[package]]
 name = "uuid"
