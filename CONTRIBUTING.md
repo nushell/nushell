@@ -46,7 +46,7 @@ cargo build
 
 ### Tests
 
-It is a good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
+It is good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
 
 Tests can be found in different places:
 * `/tests`
@@ -58,7 +58,7 @@ Most of the tests are built upon the `nu-test-support` crate. For testing specif
 
 ### Useful Commands
 
-As Nushell is build using a cargo workspace consisting of multiple crates keep in mind that you may need to pass additional flags compared to how you may be used to it from a single crate project.
+As Nushell is built using a cargo workspace consisting of multiple crates keep in mind that you may need to pass additional flags compared to how you may be used to it from a single crate project.
 Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/reference/workspaces.html
 
 - Build and run Nushell:
