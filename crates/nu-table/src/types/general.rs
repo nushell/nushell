@@ -6,7 +6,7 @@ use crate::{
     clean_charset, colorize_space,
     common::{
         create_nu_table_config, get_empty_style, get_header_style, get_index_style,
-        get_value_style, NuText, INDEX_COLUMN_NAME,
+        get_value_style, nu_value_to_string_colored, NuText, INDEX_COLUMN_NAME,
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
@@ -47,19 +47,14 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
             return Ok(None);
         }
 
-        let is_string_value = matches!(value, Value::String { .. });
-        let mut value = value.into_abbreviated_string(opts.config);
-        if is_string_value {
-            value = clean_charset(&value);
-        }
+        let value = nu_value_to_string_colored(value, opts.config, opts.style_computer);
 
         let key = NuTableCell::new(column.to_string());
         let value = NuTableCell::new(value);
+
         row.push(key);
         row.push(value);
     }
-
-    colorize_space(&mut data, opts.style_computer);
 
     let mut table = NuTable::from(data);
     table.set_index_style(TextStyle::default_field());
