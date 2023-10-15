@@ -15,6 +15,7 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Commandline,
             History,
+            HistoryMigrate,
             HistorySession,
             Keybindings,
             KeybindingsDefault,
