@@ -66,8 +66,7 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
             _ => Err(ShellError::UnsupportedInput(
-                "Attempted to compute the sum of squares of a non-integer, non-float value"
-                    .to_string(),
+                "Attempted to compute the sum of squares of a non-int, non-float value".to_string(),
                 "value originates from here".into(),
                 span,
                 value.span(),

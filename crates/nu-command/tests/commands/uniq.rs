@@ -225,7 +225,7 @@ fn table_with_ignore_case() {
                         ['Geremias', {plate: 'Bitoque', carbs: 100}]
                     ]
                 )],
-            ] | uniq -i
+            ] | uniq --ignore-case
         "#
     ));
 

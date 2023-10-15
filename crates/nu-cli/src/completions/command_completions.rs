@@ -234,7 +234,7 @@ pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usiz
         let cur_pos = find_non_whitespace_index(contents, last_pipe_pos);
 
         let result = match contents.get(cur_pos..) {
-            Some(contents) => contents.starts_with(b"sudo "),
+            Some(contents) => contents.starts_with(b"sudo ") || contents.starts_with(b"doas "),
             None => false,
         };
         if result {

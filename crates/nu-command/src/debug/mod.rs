@@ -1,6 +1,7 @@
 mod ast;
 mod debug_;
 mod explain;
+mod info;
 mod inspect;
 mod inspect_table;
 mod metadata;
@@ -14,6 +15,7 @@ mod view_span;
 pub use ast::Ast;
 pub use debug_::Debug;
 pub use explain::Explain;
+pub use info::DebugInfo;
 pub use inspect::Inspect;
 pub use inspect_table::build_table;
 pub use metadata::Metadata;

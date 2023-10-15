@@ -31,7 +31,9 @@ export-env {
         "DEBUG": "D"
     }
 
-    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|(ansi u)%MSG%%ANSI_STOP%"
+    $env.NU_LOG_FORMAT = $"%ANSI_START%%DATE%|%LEVEL%|%MSG%%ANSI_STOP%"
+
+    $env.NU_LOG_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%.3f"
 }
 
 def log-types [] {
@@ -139,7 +141,7 @@ def current-log-level [] {
 }
 
 def now [] {
-    date now | format date "%Y-%m-%dT%H:%M:%S%.3f"
+    date now | format date $env.NU_LOG_DATE_FORMAT
 }
 
 def handle-log [

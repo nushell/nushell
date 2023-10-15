@@ -6,8 +6,8 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    report_error_new, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 
@@ -331,8 +331,8 @@ pub fn eval_expression(
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
                 Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
+                other => Err(ShellError::TypeMismatch {
+                    err_message: format!("expected bool, found {}", other.get_type()),
                     span: expr.span,
                 }),
             }
@@ -718,7 +718,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     input.is_external_failed()
 }
 
-pub fn eval_element_with_input(
+fn eval_element_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
     element: &PipelineElement,
@@ -1015,33 +1015,36 @@ pub fn eval_block(
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        let mut i = 0;
-
-        while i < pipeline.elements.len() {
+        let mut elements_iter = pipeline.elements.iter().peekable();
+        while let Some(element) = elements_iter.next() {
             let redirect_stderr = redirect_stderr
-                || ((i < pipeline.elements.len() - 1)
-                    && (matches!(
-                        pipeline.elements[i + 1],
+                || (elements_iter.peek().map_or(false, |next_element| {
+                    matches!(
+                        next_element,
                         PipelineElement::Redirection(_, Redirection::Stderr, _)
                             | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
                             | PipelineElement::SeparateRedirection { .. }
-                    )));
+                    )
+                }));
+
+            let redirect_stdout = redirect_stdout
+                || (elements_iter.peek().map_or(false, |next_element| {
+                    matches!(
+                        next_element,
+                        PipelineElement::Redirection(_, Redirection::Stdout, _)
+                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                            | PipelineElement::Expression(..)
+                            | PipelineElement::SeparateRedirection { .. }
+                    )
+                }));
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
-                &pipeline.elements[i],
+                element,
                 input,
-                redirect_stdout
-                    || (i != pipeline.elements.len() - 1)
-                        && (matches!(
-                            pipeline.elements[i + 1],
-                            PipelineElement::Redirection(_, Redirection::Stdout, _)
-                                | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                                | PipelineElement::Expression(..)
-                                | PipelineElement::SeparateRedirection { .. }
-                        )),
+                redirect_stdout,
                 redirect_stderr,
             );
 
@@ -1073,8 +1076,6 @@ pub fn eval_block(
                     }
                 }
             }
-
-            i += 1;
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
@@ -1127,6 +1128,20 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
+        // $nothing
+        nu_protocol::NOTHING_VARIABLE_ID => {
+            report_error_new(
+                engine_state,
+                &ShellError::GenericError(
+                    "Deprecated variable".into(),
+                    "`$nothing` is deprecated and will be removed in 0.87.".into(),
+                    Some(span),
+                    Some("Use `null` instead".into()),
+                    vec![],
+                ),
+            );
+            Ok(Value::nothing(span))
+        }
         // $nu
         nu_protocol::NU_VARIABLE_ID => {
             if let Some(val) = engine_state.get_constant(var_id) {

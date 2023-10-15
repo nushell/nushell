@@ -21,7 +21,7 @@ fn from_ods_file_to_table_select_sheet() {
         cwd: "tests/fixtures/formats", pipeline(
         r#"
             open sample_data.ods --raw
-            | from ods -s ["SalesOrders"]
+            | from ods --sheets ["SalesOrders"]
             | columns
             | get 0
         "#

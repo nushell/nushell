@@ -116,21 +116,21 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lp"), long_name: "bg_light_purple", code: Style::new().on(Color::LightPurple).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Purple.prefix().to_string()},
-    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Purple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Purple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Purple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Purple.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Purple).prefix().to_string()},
+    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Magenta.prefix().to_string()},
+    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Magenta.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Magenta.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Magenta.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Magenta.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Magenta.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Magenta).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightPurple.prefix().to_string()},
-    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightPurple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightPurple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightPurple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightPurple).prefix().to_string()},
+    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightMagenta.prefix().to_string()},
+    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightMagenta.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightMagenta.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightMagenta.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightMagenta.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightMagenta.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightMagenta).prefix().to_string()},
 
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
     AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
@@ -549,6 +549,7 @@ Escape sequences usual values:
 │  3 │ foreground │     33 │     93 │ yellow  │
 │  4 │ foreground │     34 │     94 │ blue    │
 │  5 │ foreground │     35 │     95 │ magenta │
+│  5 │ foreground │     35 │     95 │ purple  │
 │  6 │ foreground │     36 │     96 │ cyan    │
 │  7 │ foreground │     37 │     97 │ white   │
 │  8 │ foreground │     39 │        │ default │
@@ -558,6 +559,7 @@ Escape sequences usual values:
 │ 12 │ background │     43 │    103 │ yellow  │
 │ 13 │ background │     44 │    104 │ blue    │
 │ 14 │ background │     45 │    105 │ magenta │
+│ 14 │ background │     45 │    105 │ purple  │
 │ 15 │ background │     46 │    106 │ cyan    │
 │ 16 │ background │     47 │    107 │ white   │
 │ 17 │ background │     49 │        │ default │

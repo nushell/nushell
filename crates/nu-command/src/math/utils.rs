@@ -108,7 +108,7 @@ pub fn calculate(
         PipelineData::Value(val, ..) => mf(&[val], span, name),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: name }),
         val => Err(ShellError::UnsupportedInput(
-            "Only integers, floats, lists, records or ranges are supported".into(),
+            "Only ints, floats, lists, records, or ranges are supported".into(),
             "value originates from here".into(),
             name,
             // This requires both the ListStream and Empty match arms to be above it.

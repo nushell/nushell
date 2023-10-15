@@ -373,6 +373,7 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
     })
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_to_non_existing_dir() {
     copy_to_non_existing_dir_impl(false);
@@ -391,10 +392,11 @@ fn copy_to_non_existing_dir_impl(progress: bool) {
             progress_flag
         );
         assert!(actual.err.contains("directory not found"));
-        assert!(actual.err.contains("destination directory does not exist"));
+        assert!(actual.err.contains("does not exist"));
     });
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_dir_contains_symlink_ignored() {
     copy_dir_contains_symlink_ignored_impl(false);
@@ -488,6 +490,7 @@ fn copy_dir_symlink_file_body_not_changed_impl(progress: bool) {
     });
 }
 
+#[ignore = "duplicate test with slight differences in ucp"]
 #[test]
 fn copy_identical_file() {
     copy_identical_file_impl(false);
@@ -530,6 +533,7 @@ fn copy_ignores_ansi_impl(progress: bool) {
     });
 }
 
+#[ignore = "duplicate test with ucp with slight differences"]
 #[test]
 fn copy_file_not_exists_dst() {
     copy_file_not_exists_dst_impl(false);
@@ -573,13 +577,12 @@ fn copy_file_with_read_permission_impl(progress: bool) {
             "cp {} valid.txt invalid_prem.txt",
             progress_flag,
         );
-        assert!(
-            actual.err.contains("invalid_prem.txt")
-                && actual.err.contains("copying to destination")
-        );
+
+        assert!(actual.err.contains("invalid_prem.txt") && actual.err.contains("denied"));
     });
 }
 
+#[ignore = "not implemented with ucp"]
 #[test]
 fn copy_file_with_update_flag() {
     copy_file_with_update_flag_impl(false);

@@ -158,8 +158,10 @@ impl Command for Ls {
         let glob_options = if all {
             None
         } else {
-            let mut glob_options = MatchOptions::new();
-            glob_options.recursive_match_hidden_dir = false;
+            let glob_options = MatchOptions {
+                recursive_match_hidden_dir: false,
+                ..Default::default()
+            };
             Some(glob_options)
         };
         let (prefix, paths) = nu_engine::glob_from(&glob_path, &cwd, call_span, glob_options)?;

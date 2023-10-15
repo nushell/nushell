@@ -1,7 +1,7 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 use crate::{
-    help::{HelpAliases, HelpCommands, HelpExterns, HelpModules, HelpOperators},
+    help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
     *,
 };
 pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
@@ -127,12 +127,14 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HelpCommands,
             HelpModules,
             HelpOperators,
+            HelpEscapes,
         };
 
         // Debug
         bind_command! {
             Ast,
             Debug,
+            DebugInfo,
             Explain,
             Inspect,
             Metadata,
@@ -287,7 +289,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IntoBool,
             IntoBinary,
             IntoDatetime,
-            IntoDecimal,
             IntoDuration,
             IntoFloat,
             IntoFilesize,
@@ -357,6 +358,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             HttpOptions,
             Url,
             UrlBuildQuery,
+            UrlDecode,
             UrlEncode,
             UrlJoin,
             UrlParse,
@@ -368,9 +370,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Random,
             RandomBool,
             RandomChars,
-            RandomDecimal,
             RandomDice,
             RandomFloat,
+            RandomInt,
             RandomInteger,
             RandomUuid,
         };
@@ -381,6 +383,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Seq,
             SeqDate,
             SeqChar,
+            Unfold,
         };
 
         // Hash

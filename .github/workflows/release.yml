@@ -64,10 +64,10 @@ jobs:
           target_rustflags: ''
         - target: armv7-unknown-linux-gnueabihf
           os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
+          target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-20.04
-          target_rustflags: '--exclude=nu-cmd-dataframe'
+          target_rustflags: ''
 
     runs-on: ${{matrix.os}}
 
@@ -104,6 +104,7 @@ jobs:
       uses: softprops/action-gh-release@v0.1.15
       if: ${{ startsWith(github.ref, 'refs/tags/') }}
       with:
+        draft: true
         files: ${{ steps.nu.outputs.archive }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

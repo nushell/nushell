@@ -98,7 +98,7 @@ fn timezone_offset_internal(
     };
     match s.len() {
         len if len >= 2 => &s[2..],
-        len if len == 0 => s,
+        0 => s,
         _ => return Err(ParseErrorKind::TooShort),
     };
 

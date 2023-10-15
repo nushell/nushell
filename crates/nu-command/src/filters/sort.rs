@@ -55,7 +55,7 @@ impl Command for Sort {
                 )),
             },
             Example {
-                example: "[2 0 1] | sort -r",
+                example: "[2 0 1] | sort --reverse",
                 description: "sort the list by decreasing value",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(1), Value::test_int(0)],
@@ -75,7 +75,7 @@ impl Command for Sort {
                 )),
             },
             Example {
-                example: "[betty amy sarah] | sort -r",
+                example: "[betty amy sarah] | sort --reverse",
                 description: "sort a list of strings in reverse",
                 result: Some(Value::list(
                     vec![

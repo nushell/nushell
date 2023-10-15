@@ -171,37 +171,35 @@ impl Command for Open {
                         metadata: None,
                         trim_end_newline: false,
                     };
-
-                    let ext = if raw {
+                    let exts_opt: Option<Vec<String>> = if raw {
                         None
                     } else {
-                        path.extension()
-                            .map(|name| name.to_string_lossy().to_string())
+                        let path_str = path
+                            .file_name()
+                            .unwrap_or(std::ffi::OsStr::new(path))
+                            .to_string_lossy()
+                            .to_lowercase();
+                        Some(extract_extensions(path_str.as_str()))
                     };
 
-                    if let Some(ext) = ext {
-                        match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-                            Some(converter_id) => {
-                                let decl = engine_state.get_decl(converter_id);
-                                let command_output = if let Some(block_id) = decl.get_block_id() {
-                                    let block = engine_state.get_block(block_id);
-                                    eval_block(
-                                        engine_state,
-                                        stack,
-                                        block,
-                                        file_contents,
-                                        false,
-                                        false,
-                                    )
-                                } else {
-                                    decl.run(
-                                        engine_state,
-                                        stack,
-                                        &Call::new(call_span),
-                                        file_contents,
-                                    )
-                                };
-                                output.push(command_output.map_err(|inner| {
+                    let converter = exts_opt.and_then(|exts| {
+                        exts.iter().find_map(|ext| {
+                            engine_state
+                                .find_decl(format!("from {}", ext).as_bytes(), &[])
+                                .map(|id| (id, ext.to_string()))
+                        })
+                    });
+
+                    match converter {
+                        Some((converter_id, ext)) => {
+                            let decl = engine_state.get_decl(converter_id);
+                            let command_output = if let Some(block_id) = decl.get_block_id() {
+                                let block = engine_state.get_block(block_id);
+                                eval_block(engine_state, stack, block, file_contents, false, false)
+                            } else {
+                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                            };
+                            output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError(
                                         format!("Error while parsing as {ext}"),
                                         format!("Could not parse '{}' with `from {}`", path.display(), ext),
@@ -210,11 +208,8 @@ impl Command for Open {
                                         vec![inner],
                                     )
                                 })?);
-                            }
-                            None => output.push(file_contents),
                         }
-                    } else {
-                        output.push(file_contents)
+                        None => output.push(file_contents),
                     }
                 }
             }
@@ -265,4 +260,24 @@ fn permission_denied(dir: impl AsRef<Path>) -> bool {
         Err(e) => matches!(e.kind(), std::io::ErrorKind::PermissionDenied),
         Ok(_) => false,
     }
+}
+
+fn extract_extensions(filename: &str) -> Vec<String> {
+    let parts: Vec<&str> = filename.split('.').collect();
+    let mut extensions: Vec<String> = Vec::new();
+    let mut current_extension = String::new();
+
+    for part in parts.iter().rev() {
+        if current_extension.is_empty() {
+            current_extension.push_str(part);
+        } else {
+            current_extension = format!("{}.{}", part, current_extension);
+        }
+        extensions.push(current_extension.clone());
+    }
+
+    extensions.pop();
+    extensions.reverse();
+
+    extensions
 }

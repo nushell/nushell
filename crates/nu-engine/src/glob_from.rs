@@ -69,17 +69,20 @@ pub fn glob_from(
         if is_symlink {
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
-            let path = if let Ok(p) = canonicalize_with(path, cwd) {
+            let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
                 p
             } else {
-                return Err(ShellError::DirectoryNotFound(pattern.span, None));
+                return Err(ShellError::DirectoryNotFound(
+                    pattern.span,
+                    path.to_string_lossy().to_string(),
+                ));
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }
     };
 
     let pattern = pattern.to_string_lossy().to_string();
-    let glob_options = options.unwrap_or_else(MatchOptions::new);
+    let glob_options = options.unwrap_or_default();
 
     let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|err| {
         nu_protocol::ShellError::GenericError(

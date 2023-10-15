@@ -1,13 +1,13 @@
-use crate::completions::{
-    file_path_completion, partial_from, Completer, CompletionOptions, SortBy,
-};
+use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::sync::Arc;
-const SEP: char = std::path::MAIN_SEPARATOR;
+use std::{
+    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
+    sync::Arc,
+};
 
 #[derive(Clone)]
 pub struct DotNuCompletion {
@@ -30,9 +30,16 @@ impl Completer for DotNuCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let prefix_str = String::from_utf8_lossy(&prefix).to_string();
+        let prefix_str = String::from_utf8_lossy(&prefix).replace('`', "");
         let mut search_dirs: Vec<String> = vec![];
-        let (base_dir, mut partial) = partial_from(&prefix_str);
+
+        // If prefix_str is only a word we want to search in the current dir
+        let (base, partial) = prefix_str
+            .rsplit_once(is_separator)
+            .unwrap_or((".", &prefix_str));
+        let base_dir = base.replace(is_separator, MAIN_SEPARATOR_STR);
+        let mut partial = partial.to_string();
+        // On windows, this standardizes paths to use \
         let mut is_current_folder = false;
 
         // Fetch the lib dirs
@@ -58,7 +65,8 @@ impl Completer for DotNuCompletion {
             };
 
         // Check if the base_dir is a folder
-        if base_dir != format!(".{SEP}") {
+        // rsplit_once removes the separator
+        if base_dir != "." {
             // Add the base dir into the directories to be searched
             search_dirs.push(base_dir.clone());
 

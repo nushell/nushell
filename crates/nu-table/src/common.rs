@@ -30,6 +30,20 @@ pub fn create_nu_table_config(
     }
 }
 
+pub fn nu_value_to_string_colored(val: &Value, cfg: &Config, style: &StyleComputer) -> String {
+    let (mut text, value_style) = nu_value_to_string(val, cfg, style);
+    if let Some(color) = value_style.color_style {
+        text = color.paint(text).to_string();
+    }
+
+    if matches!(val, Value::String { .. }) {
+        text = clean_charset(&text);
+        colorize_space_str(&mut text, style);
+    }
+
+    text
+}
+
 pub fn nu_value_to_string(val: &Value, cfg: &Config, style: &StyleComputer) -> NuText {
     let float_precision = cfg.float_precision as usize;
     let text = val.into_abbreviated_string(cfg);

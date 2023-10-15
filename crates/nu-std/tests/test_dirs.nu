@@ -3,8 +3,8 @@ use std assert
 use std log
 
 # A couple of nuances to understand when testing module that exports environment:
-# Each 'use' for that module in the test script will execute the def-env block.
-# PWD at the time of the `use` will be what the export def-env block will see.
+# Each 'use' for that module in the test script will execute the def --env block.
+# PWD at the time of the `use` will be what the export def --env block will see.
 
 #[before-each]
 def before-each [] {
@@ -43,11 +43,11 @@ def dirs_command [] {
     # must capture value of $in before executing `use`s
     let $c = $in
 
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
     # must execute these uses for the UOT commands *after* the test and *not* just put them at top of test module.
-    # the def-env gets messed up
+    # the def --env gets messed up
     use std dirs
 
     # Stack: [BASE]
@@ -92,7 +92,7 @@ def dirs_command [] {
 def dirs_next [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
     assert equal $env.PWD $c.base_path "test setup"
 
@@ -114,7 +114,7 @@ def dirs_next [] {
 def dirs_cd [] {
     # must capture value of $in before executing `use`s
     let $c = $in
-    # must set PWD *before* doing `use` that will run the def-env block in dirs module.
+    # must set PWD *before* doing `use` that will run the def --env block in dirs module.
     cd $c.base_path
 
     use std dirs
@@ -133,4 +133,45 @@ def dirs_cd [] {
     dirs next
     cur_ring_check $c.path_b 0 "cd updates current position in non-empty ring"
     assert equal [$c.path_b $c.path_b] $env.DIRS_LIST "cd updated both positions in ring"
+}
+
+#[test]
+def dirs_goto_bug10696 [] {
+    let $c = $in
+    cd $c.base_path
+    use std dirs
+
+    dirs add $c.path_a
+    cd $c.path_b
+    dirs goto 0
+    dirs goto 1
+
+    assert equal $env.PWD $c.path_b "goto other, then goto to come back returns to same directory"
+}
+
+#[test]
+def dirs_goto [] {
+    let $c = $in
+    cd $c.base_path
+    use std dirs
+
+    # check that goto can move *from* any position in the ring *to* any other position (correctly)
+
+    assert equal $env.PWD $c.base_path
+    dirs add $c.path_a
+    dirs add $c.path_b
+    assert equal ($env.DIRS_LIST | length) 3 "start with 3 elements in ring"
+    
+    let exp_dir = [$c.base_path $c.path_a $c.path_b]
+    
+    for $cur_pos in 0..<($env.DIRS_LIST | length) {
+        for $other_pos in 0..<($env.DIRS_LIST | length) {
+            dirs goto $cur_pos
+            assert equal $env.PWD ($exp_dir | get $cur_pos) "initial position as expected"
+
+            dirs goto $other_pos
+            assert equal $env.DIRS_POSITION $other_pos "goto moved index to correct slot"
+            assert equal $env.PWD ($exp_dir | get $other_pos) "goto changed working directory correctly"
+        }
+    }
 }

@@ -207,7 +207,7 @@ fn run_script_that_looks_like_module() {
             "export use spam eggs",
             "export def foo [] { eggs }",
             "export alias bar = foo",
-            "export def-env baz [] { bar }",
+            "export def --env baz [] { bar }",
             "baz",
         ];
 
@@ -234,7 +234,7 @@ fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -l -c 'echo $nu.is-login'",
+            "{:?} --no-config-file --login --commands 'echo $nu.is-login'",
             nu_test_support::fs::executable_path()
         ))
         .output()

@@ -34,27 +34,19 @@ export def fmt [
 export def clippy [
     --verbose # print extra information about the command's progress
     --features: list<string> # the list of features to run *Clippy* on
-    --workspace # run the *Clippy* command on the whole workspace (overrides `--features`)
 ] {
     if $verbose {
         print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
-    try {
-        if $workspace {(
-            cargo clippy
-                --workspace
-            --
-                -D warnings
-                -D clippy::unwrap_used
-        )} else {(
-            cargo clippy
-                --features ($features | str join ",")
-            --
-                -D warnings
-                -D clippy::unwrap_used
-        )}
-    } catch {
+    try {(
+        cargo clippy
+            --workspace
+            --tests
+            --features ($features | str join ",")
+        --
+            -D warnings
+    )} catch {
         error make --unspanned {
             msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }
@@ -114,15 +106,15 @@ def report [
     | wrap stage
     | merge (
         if $no_fail               { [true     true     true     true] }
-        else if $fail_fmt         { [false    $nothing $nothing $nothing] }
-        else if $fail_clippy      { [true     false    $nothing $nothing] }
-        else if $fail_test        { [true     true     false    $nothing] }
+        else if $fail_fmt         { [false    null null null] }
+        else if $fail_clippy      { [true     false    null null] }
+        else if $fail_test        { [true     true     false    null] }
         else if $fail_test_stdlib { [true     true     true     false] }
-        else                      { [$nothing $nothing $nothing $nothing] }
+        else                      { [null null null null] }
         | wrap success
     )
     | upsert emoji {|it|
-        if ($it.success == $nothing) {
+        if ($it.success == null) {
             ":black_circle:"
         } else if $it.success {
             ":green_circle:"

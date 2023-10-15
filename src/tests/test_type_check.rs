@@ -88,9 +88,36 @@ fn record_subtyping_3() -> TestResult {
 }
 
 #[test]
+fn record_subtyping_allows_general_record() -> TestResult {
+    run_test(
+        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
+        def underspecified []: nothing -> record {{name:'Douglas', age:42}};
+        underspecified | test",
+        "success",
+    )
+}
+
+#[test]
+fn record_subtyping_allows_record_after_general_command() -> TestResult {
+    run_test(
+        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
+        {name:'Douglas', surname:'Adams', age:42} | select name age | test",
+        "success",
+    )
+}
+
+#[test]
+fn record_subtyping_allows_general_inner() -> TestResult {
+    run_test(
+        "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
+       "",
+    )
+}
+
+#[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(
-        "[[col1, col2]; [a, 10], [b, 20]] | transpose -i -r -d | load-env; $env.a",
+        "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
         "10",
     )
 }

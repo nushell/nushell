@@ -9,8 +9,9 @@ use tabled::grid::config::Position;
 use crate::{
     common::{
         create_nu_table_config, error_sign, get_header_style, get_index_style,
-        load_theme_from_config, nu_value_to_string, nu_value_to_string_clean, wrap_text, NuText,
-        StringResult, TableResult, INDEX_COLUMN_NAME,
+        load_theme_from_config, nu_value_to_string, nu_value_to_string_clean,
+        nu_value_to_string_colored, wrap_text, NuText, StringResult, TableResult,
+        INDEX_COLUMN_NAME,
     },
     string_width, NuTable, NuTableCell, TableOpts, TableOutput,
 };
@@ -448,10 +449,10 @@ fn expand_table_value(
                 ))),
             }
         }
-        _ => Ok(Some((
-            value_to_wrapped_string_clean(value, cfg, value_width),
-            false,
-        ))),
+        _ => {
+            let text = value_to_wrapped_string_clean(value, cfg, value_width);
+            Ok(Some((text, false)))
+        }
     }
 }
 
@@ -607,9 +608,6 @@ fn value_to_wrapped_string(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> 
 }
 
 fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
-    wrap_text(
-        &value_to_string_clean(value, cfg),
-        value_width,
-        cfg.opts.config,
-    )
+    let text = nu_value_to_string_colored(value, cfg.opts.config, cfg.opts.style_computer);
+    wrap_text(&text, value_width, cfg.opts.config)
 }

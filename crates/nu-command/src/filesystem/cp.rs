@@ -31,11 +31,11 @@ pub struct Cp;
 
 impl Command for Cp {
     fn name(&self) -> &str {
-        "cp"
+        "cp-old"
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Old nushell version of Copy files."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -43,7 +43,7 @@ impl Command for Cp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -103,7 +103,7 @@ impl Command for Cp {
         if is_directory && !destination.exists() {
             return Err(ShellError::DirectoryNotFound(
                 dst.span,
-                Some("destination directory does not exist".to_string()),
+                destination.to_string_lossy().to_string(),
             ));
         }
         let ctrlc = engine_state.ctrlc.clone();

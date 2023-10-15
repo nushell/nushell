@@ -24,7 +24,7 @@ indexmap = { version = "2.0" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.36.1", optional = true }
-polars-io = { version = "0.32", features = ["avro"], optional = true }
+polars-io = { version = "0.33", features = ["avro"], optional = true }
 
 [dependencies.polars]
 features = [
@@ -38,7 +38,7 @@ features = [
 	"dtype-categorical",
 	"dtype-datetime",
 	"dtype-struct",
-	"dynamic_groupby",
+	"dynamic_group_by",
 	"ipc",
 	"is_in",
 	"json",
@@ -54,7 +54,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.32"
+version = "0.33"
 
 [features]
 dataframe = ["num", "polars", "polars-io", "sqlparser"]

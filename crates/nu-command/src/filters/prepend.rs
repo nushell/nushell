@@ -62,7 +62,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[1 2 3 4] | prepend 0",
-                description: "Prepend one integer item",
+                description: "Prepend one int item",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -73,7 +73,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[2 3 4] | prepend [0 1]",
-                description: "Prepend two integer items",
+                description: "Prepend two int items",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -84,7 +84,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
             },
             Example {
                 example: "[2 nu 4 shell] | prepend [0 1 rocks]",
-                description: "Prepend integers and strings",
+                description: "Prepend ints and strings",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),

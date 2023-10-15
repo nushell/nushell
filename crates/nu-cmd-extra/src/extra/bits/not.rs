@@ -96,7 +96,7 @@ impl Command for BitsNot {
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as 2 bytes number",
-                example: "[4 3 2] | bits not -n '2'",
+                example: "[4 3 2] | bits not --number-bytes '2'",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(65531),
@@ -109,7 +109,7 @@ impl Command for BitsNot {
             Example {
                 description:
                     "Apply logical negation to a list of numbers, treat input as signed number",
-                example: "[4 3 2] | bits not -s",
+                example: "[4 3 2] | bits not --signed",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(-5),
@@ -158,7 +158,7 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             Value::Error { .. } => other,
             _ => Value::error(
                 ShellError::OnlySupportsThisInputType {
-                    exp_input_type: "integer".into(),
+                    exp_input_type: "int".into(),
                     wrong_type: other.get_type().to_string(),
                     dst_span: head,
                     src_span: other.span(),

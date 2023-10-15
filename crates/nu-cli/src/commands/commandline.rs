@@ -91,7 +91,7 @@ impl Command for Commandline {
                             from_type: "string".to_string(),
                             span: cmd.span(),
                             help: Some(format!(
-                                r#"string "{cmd_str}" does not represent a valid integer"#
+                                r#"string "{cmd_str}" does not represent a valid int"#
                             )),
                         })
                     }

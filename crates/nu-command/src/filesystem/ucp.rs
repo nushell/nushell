@@ -27,7 +27,7 @@ pub struct UCp;
 
 impl Command for UCp {
     fn name(&self) -> &str {
-        "ucp"
+        "cp"
     }
 
     fn usage(&self) -> &str {
@@ -39,7 +39,7 @@ impl Command for UCp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ucp")
+        Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("recursive", "copy directories recursively", Some('r'))
             .switch("verbose", "explicitly state what is being done", Some('v'))
@@ -63,22 +63,22 @@ impl Command for UCp {
         vec![
             Example {
                 description: "Copy myfile to dir_b",
-                example: "ucp myfile dir_b",
+                example: "cp myfile dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "ucp -r dir_a dir_b",
+                example: "cp -r dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "ucp -r -v dir_a dir_b",
+                example: "cp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "ucp *.txt dir_a",
+                example: "cp *.txt dir_a",
                 result: None,
             },
         ]
@@ -166,6 +166,17 @@ impl Command for UCp {
                         if f.is_empty() {
                             return Err(ShellError::FileNotFound(p.span));
                         }
+                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
+                        if any_source_is_dir && !recursive {
+                            return Err(ShellError::GenericError(
+                                "could_not_copy_directory".into(),
+                                "resolves to a directory (not copied)".into(),
+                                Some(p.span),
+                                Some("Directories must be copied using \"--recursive\"".into()),
+                                Vec::new(),
+                            ));
+                        }
+
                         Ok(f)
                     }
                     Err(e) => Err(ShellError::GenericError(

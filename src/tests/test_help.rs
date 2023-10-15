@@ -20,7 +20,7 @@ fn can_get_help(#[case] exp_result: &str) -> TestResult {
             --f2:string, # f2 named no default
             --f3:int=33 # f3 named default 3
             ] {{ true }};
-            help t | ansi strip | find `{exp_result}` | get 0 | str replace -ar '^(.*({exp_result}).*)$' '$2'"#,
+            help t | ansi strip | find `{exp_result}` | get 0 | str replace --all --regex '^(.*({exp_result}).*)$' '$2'"#,
         ),
         exp_result,
     )

@@ -3,6 +3,7 @@ use crate::{
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
+    parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
 };
@@ -17,7 +18,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, IN_VARIABLE_ID, NOTHING_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -1810,7 +1811,7 @@ pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Exp
 
     if contents == b"$nothing" {
         return Expression {
-            expr: Expr::Nothing,
+            expr: Expr::Var(nu_protocol::NOTHING_VARIABLE_ID),
             span,
             ty: Type::Nothing,
             custom_completion: None,
@@ -2696,271 +2697,6 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
     }
 }
 
-//TODO: Handle error case for unknown shapes
-pub fn parse_shape_name(
-    working_set: &mut StateWorkingSet,
-    bytes: &[u8],
-    span: Span,
-) -> SyntaxShape {
-    let result = match bytes {
-        b"any" => SyntaxShape::Any,
-        b"binary" => SyntaxShape::Binary,
-        b"block" => {
-            working_set.error(ParseError::LabeledErrorWithHelp {
-                error: "Blocks are not support as first-class values".into(),
-                label: "blocks are not supported as values".into(),
-                help: "Use 'closure' instead of 'block'".into(),
-                span,
-            });
-            SyntaxShape::Any
-        }
-        b"bool" => SyntaxShape::Boolean,
-        b"cell-path" => SyntaxShape::CellPath,
-        b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
-        b"cond" => SyntaxShape::RowCondition,
-        // b"custom" => SyntaxShape::Custom(Box::new(SyntaxShape::Any), SyntaxShape::Int),
-        b"datetime" => SyntaxShape::DateTime,
-        b"directory" => SyntaxShape::Directory,
-        b"duration" => SyntaxShape::Duration,
-        b"error" => SyntaxShape::Error,
-        b"expr" => SyntaxShape::Expression,
-        b"float" => SyntaxShape::Float,
-        b"filesize" => SyntaxShape::Filesize,
-        b"full-cell-path" => SyntaxShape::FullCellPath,
-        b"glob" => SyntaxShape::GlobPattern,
-        b"int" => SyntaxShape::Int,
-        b"import-pattern" => SyntaxShape::ImportPattern,
-        b"keyword" => SyntaxShape::Keyword(vec![], Box::new(SyntaxShape::Any)),
-        _ if bytes.starts_with(b"list") => parse_list_shape(working_set, bytes, span),
-        b"math" => SyntaxShape::MathExpression,
-        b"nothing" => SyntaxShape::Nothing,
-        b"number" => SyntaxShape::Number,
-        b"one-of" => SyntaxShape::OneOf(vec![]),
-        b"operator" => SyntaxShape::Operator,
-        b"path" => SyntaxShape::Filepath,
-        b"range" => SyntaxShape::Range,
-        _ if bytes.starts_with(b"record") => parse_collection_shape(working_set, bytes, span),
-        b"signature" => SyntaxShape::Signature,
-        b"string" => SyntaxShape::String,
-        _ if bytes.starts_with(b"table") => parse_collection_shape(working_set, bytes, span),
-        b"variable" => SyntaxShape::Variable,
-        b"var-with-opt-type" => SyntaxShape::VarWithOptType,
-        _ => {
-            if bytes.contains(&b'@') {
-                let split: Vec<_> = bytes.split(|b| b == &b'@').collect();
-
-                let shape_span = Span::new(span.start, span.start + split[0].len());
-                let cmd_span = Span::new(span.start + split[0].len() + 1, span.end);
-                let shape = parse_shape_name(working_set, split[0], shape_span);
-
-                let command_name = trim_quotes(split[1]);
-
-                if command_name.is_empty() {
-                    working_set.error(ParseError::Expected("a command name", cmd_span));
-                    return SyntaxShape::Any;
-                }
-
-                let decl_id = working_set.find_decl(command_name);
-
-                if let Some(decl_id) = decl_id {
-                    return SyntaxShape::Custom(Box::new(shape), decl_id);
-                } else {
-                    working_set.error(ParseError::UnknownCommand(cmd_span));
-                    return shape;
-                }
-            } else {
-                working_set.error(ParseError::UnknownType(span));
-                return SyntaxShape::Any;
-            }
-        }
-    };
-
-    result
-}
-
-fn parse_collection_shape(
-    working_set: &mut StateWorkingSet,
-    bytes: &[u8],
-    span: Span,
-) -> SyntaxShape {
-    assert!(bytes.starts_with(b"record") || bytes.starts_with(b"table"));
-    let is_table = bytes.starts_with(b"table");
-
-    let name = if is_table { "table" } else { "record" };
-    let prefix = (if is_table { "table<" } else { "record<" }).as_bytes();
-    let prefix_len = prefix.len();
-    let mk_shape = |ty| -> SyntaxShape {
-        if is_table {
-            SyntaxShape::Table(ty)
-        } else {
-            SyntaxShape::Record(ty)
-        }
-    };
-
-    if bytes == name.as_bytes() {
-        mk_shape(vec![])
-    } else if bytes.starts_with(prefix) {
-        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, prefix_len) else {
-            return SyntaxShape::Any;
-        };
-
-        // record<> or table<>
-        if inner_span.end - inner_span.start == 0 {
-            return mk_shape(vec![]);
-        }
-        let source = working_set.get_span_contents(inner_span);
-        let (tokens, err) = lex_signature(
-            source,
-            inner_span.start,
-            &[b'\n', b'\r'],
-            &[b':', b','],
-            true,
-        );
-
-        if let Some(err) = err {
-            working_set.error(err);
-            // lexer errors cause issues with span overflows
-            return mk_shape(vec![]);
-        }
-
-        let mut sig = vec![];
-        let mut idx = 0;
-
-        let key_error = |span| {
-            ParseError::LabeledError(
-                format!("`{name}` type annotations key not string"),
-                "must be a string".into(),
-                span,
-            )
-        };
-
-        while idx < tokens.len() {
-            let TokenContents::Item = tokens[idx].contents else {
-                working_set.error(key_error(tokens[idx].span));
-                return mk_shape(vec![]);
-            };
-
-            let key_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-            if key_bytes.first().copied() == Some(b',') {
-                idx += 1;
-                continue;
-            }
-
-            let Some(key) =
-                parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
-            else {
-                working_set.error(key_error(tokens[idx].span));
-                return mk_shape(vec![]);
-            };
-
-            // we want to allow such an annotation
-            // `record<name>` where the user leaves out the type
-            if idx + 1 == tokens.len() {
-                sig.push((key, SyntaxShape::Any));
-                break;
-            } else {
-                idx += 1;
-            }
-
-            let maybe_colon = working_set.get_span_contents(tokens[idx].span).to_vec();
-            match maybe_colon.as_slice() {
-                b":" => {
-                    if idx + 1 == tokens.len() {
-                        working_set
-                            .error(ParseError::Expected("type after colon", tokens[idx].span));
-                        break;
-                    } else {
-                        idx += 1;
-                    }
-                }
-                // a key provided without a type
-                b"," => {
-                    idx += 1;
-                    sig.push((key, SyntaxShape::Any));
-                    continue;
-                }
-                // a key provided without a type
-                _ => {
-                    sig.push((key, SyntaxShape::Any));
-                    continue;
-                }
-            }
-
-            let shape_bytes = working_set.get_span_contents(tokens[idx].span).to_vec();
-            let shape = parse_shape_name(working_set, &shape_bytes, tokens[idx].span);
-            sig.push((key, shape));
-            idx += 1;
-        }
-
-        mk_shape(sig)
-    } else {
-        working_set.error(ParseError::UnknownType(span));
-
-        SyntaxShape::Any
-    }
-}
-
-fn parse_list_shape(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> SyntaxShape {
-    assert!(bytes.starts_with(b"list"));
-
-    if bytes == b"list" {
-        SyntaxShape::List(Box::new(SyntaxShape::Any))
-    } else if bytes.starts_with(b"list<") {
-        let Some(inner_span) = prepare_inner_span(working_set, bytes, span, 5) else {
-            return SyntaxShape::Any;
-        };
-
-        let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
-        // remove any extra whitespace, for example `list< string >` becomes `list<string>`
-        let inner_bytes = inner_text.trim().as_bytes().to_vec();
-
-        // list<>
-        if inner_bytes.is_empty() {
-            SyntaxShape::List(Box::new(SyntaxShape::Any))
-        } else {
-            let inner_sig = parse_shape_name(working_set, &inner_bytes, inner_span);
-
-            SyntaxShape::List(Box::new(inner_sig))
-        }
-    } else {
-        working_set.error(ParseError::UnknownType(span));
-
-        SyntaxShape::List(Box::new(SyntaxShape::Any))
-    }
-}
-
-fn prepare_inner_span(
-    working_set: &mut StateWorkingSet,
-    bytes: &[u8],
-    span: Span,
-    prefix_len: usize,
-) -> Option<Span> {
-    let start = span.start + prefix_len;
-
-    if bytes.ends_with(b">") {
-        let end = span.end - 1;
-        Some(Span::new(start, end))
-    } else if bytes.contains(&b'>') {
-        let angle_start = bytes.split(|it| it == &b'>').collect::<Vec<_>>()[0].len() + 1;
-        let span = Span::new(span.start + angle_start, span.end);
-
-        working_set.error(ParseError::LabeledError(
-            "Extra characters in the parameter name".into(),
-            "extra characters".into(),
-            span,
-        ));
-
-        None
-    } else {
-        working_set.error(ParseError::Unclosed(">".into(), span));
-        None
-    }
-}
-
-pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
-    parse_shape_name(working_set, bytes, span).to_type()
-}
-
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     let Some(head_span) = spans.get(0) else {
         working_set.error(ParseError::WrongImportPattern(
@@ -3718,7 +3454,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                         }
                         ParseMode::TypeMode => {
                             if let Some(last) = args.last_mut() {
-                                let syntax_shape = parse_shape_name(working_set, &contents, span);
+                                let syntax_shape = parse_shape_name(
+                                    working_set,
+                                    &contents,
+                                    span,
+                                    ShapeDescriptorUse::Argument,
+                                );
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
                                     Arg::Positional(PositionalArg { shape, var_id, .. }, ..) => {
@@ -4669,7 +4410,7 @@ pub fn parse_value(
     }
 
     match shape {
-        SyntaxShape::Custom(shape, custom_completion) => {
+        SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
             expression.custom_completion = Some(*custom_completion);
             expression
@@ -5340,7 +5081,7 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, None),
+        b"def" | b"def-env" => parse_def(working_set, lite_command, None).0,
         b"extern" | b"extern-wrapped" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"const" => parse_const(working_set, &lite_command.parts),
@@ -6118,7 +5859,9 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
+            if (*var_id > NOTHING_VARIABLE_ID || *var_id == IN_VARIABLE_ID)
+                && !seen.contains(var_id)
+            {
                 output.push((*var_id, expr.span));
             }
         }
