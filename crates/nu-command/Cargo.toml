@@ -93,6 +93,7 @@ wax = { version = "0.6" }
 which = { version = "4.4", optional = true }
 bracoxide = "0.1.2"
 chardetng = "0.1.17"
+ahash = "0.8.3"
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.51"

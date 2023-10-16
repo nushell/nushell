@@ -24,6 +24,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Record(vec![])),
             ])
+            .switch("hashmap", "convert table to hash map", Some('H'))
             .category(Category::Conversions)
     }
 
@@ -32,7 +33,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert"]
+        vec!["convert", "record", "hash", "map", "lookup", "table"]
     }
 
     fn run(
@@ -144,7 +145,8 @@ fn into_record(
     let input = input.into_value(call.head);
     let input_type = input.get_type();
     let span = input.span();
-    let res = match input {
+
+    let res: Value = match input {
         Value::Date { val, .. } => parse_date_into_record(val, span),
         Value::Duration { val, .. } => parse_duration_into_record(val, span),
         Value::List { mut vals, .. } => match input_type {
@@ -164,7 +166,7 @@ fn into_record(
                 .collect(),
             span,
         ),
-        Value::Record { val, .. } => Value::record(val, span),
+        Value::Record { .. } => input,
         Value::Error { .. } => input,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
@@ -176,6 +178,7 @@ fn into_record(
             call.head,
         ),
     };
+
     Ok(res.into_pipeline_data())
 }
 

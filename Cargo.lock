@@ -2793,6 +2793,7 @@ dependencies = [
 name = "nu-command"
 version = "0.85.1"
 dependencies = [
+ "ahash",
  "alphanumeric-sort",
  "base64",
  "bracoxide",

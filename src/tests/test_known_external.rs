@@ -115,6 +115,9 @@ fn known_external_subcommand_from_module() -> TestResult {
             use cargo;
             cargo check -h
         "#,
+        #[cfg(windows)]
+        "cargo.exe check",
+        #[cfg(not(windows))]
         "cargo check",
     )
 }
@@ -131,6 +134,9 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
             alias cc = cargo check;
             cc -h
         "#,
+        #[cfg(windows)]
+        "cargo.exe check",
+        #[cfg(not(windows))]
         "cargo check",
     )
 }

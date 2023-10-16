@@ -1012,7 +1012,7 @@ impl Value {
                         }
                         // Records (and tables) are the only built-in which support column names,
                         // so only use this message for them.
-                        Value::Record { .. } => {
+                        Value::Record { .. } | Value::LazyRecord { .. } => {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
@@ -1061,14 +1061,13 @@ impl Value {
                             }
                         }
                         Value::LazyRecord { val, .. } => {
-                            let columns = val.column_names();
-
-                            if columns.contains(&column_name.as_str()) {
-                                current = val.get_column_value(column_name)?;
+                            if let Some(v) = val.get_column_value_opt(column_name.as_ref()) {
+                                current = v?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
                                 if from_user_input {
+                                    let columns = val.column_names();
                                     if let Some(suggestion) = did_you_mean(&columns, column_name) {
                                         return Err(ShellError::DidYouMean(
                                             suggestion,
