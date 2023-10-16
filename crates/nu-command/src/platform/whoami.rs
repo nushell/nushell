@@ -13,7 +13,7 @@ impl Command for Whoami {
     }
 
     fn usage(&self) -> &str {
-        "Get the current username."
+        "Get the current username using uutils/coreutils whoami."
     }
 
     fn signature(&self) -> Signature {
@@ -24,7 +24,7 @@ impl Command for Whoami {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["username"]
+        vec!["username", "coreutils"]
     }
 
     fn run(
@@ -34,7 +34,19 @@ impl Command for Whoami {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let output = uu_whoami::whoami()?.to_string_lossy().to_string();
+        let output = match uu_whoami::whoami() {
+            Ok(username) => username.to_string_lossy().to_string(),
+            Err(err) => {
+                return Err(ShellError::GenericError(
+                    "Failed to get username".into(),
+                    err.to_string(),
+                    Some(call.head),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
+
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
 
