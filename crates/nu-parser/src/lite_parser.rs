@@ -235,74 +235,27 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             TokenContents::OutGreaterThan
             | TokenContents::ErrGreaterThan
             | TokenContents::OutErrGreaterThan => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
-                    curr_command = LiteCommand::new();
-                }
+                push_command_to(
+                    &mut curr_pipeline,
+                    curr_command,
+                    last_connector,
+                    last_connector_span,
+                );
+
+                curr_command = LiteCommand::new();
                 last_token = token.contents;
                 last_connector = token.contents;
                 last_connector_span = Some(token.span);
             }
             TokenContents::Pipe => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                token.span,
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
-                    curr_command = LiteCommand::new();
-                }
+                push_command_to(
+                    &mut curr_pipeline,
+                    curr_command,
+                    last_connector,
+                    last_connector_span,
+                );
+
+                curr_command = LiteCommand::new();
                 last_token = TokenContents::Pipe;
                 last_connector = TokenContents::Pipe;
                 last_connector_span = Some(token.span);
@@ -316,44 +269,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 if actual_token != Some(TokenContents::Pipe)
                     && actual_token != Some(TokenContents::OutGreaterThan)
                 {
-                    if !curr_command.is_empty() {
-                        match last_connector {
-                            TokenContents::OutGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::Stdout,
-                                    curr_command,
-                                ));
-                            }
-                            TokenContents::ErrGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::Stderr,
-                                    curr_command,
-                                ));
-                            }
-                            TokenContents::OutErrGreaterThan => {
-                                curr_pipeline.push(LiteElement::Redirection(
-                                    last_connector_span.expect(
-                                        "internal error: redirection missing span information",
-                                    ),
-                                    Redirection::StdoutAndStderr,
-                                    curr_command,
-                                ));
-                            }
-                            _ => {
-                                curr_pipeline
-                                    .push(LiteElement::Command(last_connector_span, curr_command));
-                            }
-                        }
+                    push_command_to(
+                        &mut curr_pipeline,
+                        curr_command,
+                        last_connector,
+                        last_connector_span,
+                    );
 
-                        curr_command = LiteCommand::new();
-                    }
-
+                    curr_command = LiteCommand::new();
                     if !curr_pipeline.is_empty() {
                         block.push(curr_pipeline);
 
@@ -371,41 +294,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_token = TokenContents::Eol;
             }
             TokenContents::Semicolon => {
-                if !curr_command.is_empty() {
-                    match last_connector {
-                        TokenContents::OutGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stdout,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::ErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::Stderr,
-                                curr_command,
-                            ));
-                        }
-                        TokenContents::OutErrGreaterThan => {
-                            curr_pipeline.push(LiteElement::Redirection(
-                                last_connector_span
-                                    .expect("internal error: redirection missing span information"),
-                                Redirection::StdoutAndStderr,
-                                curr_command,
-                            ));
-                        }
-                        _ => {
-                            curr_pipeline
-                                .push(LiteElement::Command(last_connector_span, curr_command));
-                        }
-                    }
+                push_command_to(
+                    &mut curr_pipeline,
+                    curr_command,
+                    last_connector,
+                    last_connector_span,
+                );
 
-                    curr_command = LiteCommand::new();
-                }
-
+                curr_command = LiteCommand::new();
                 if !curr_pipeline.is_empty() {
                     block.push(curr_pipeline);
 
@@ -435,38 +331,12 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         }
     }
 
-    if !curr_command.is_empty() {
-        match last_connector {
-            TokenContents::OutGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::Stdout,
-                    curr_command,
-                ));
-            }
-            TokenContents::ErrGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::Stderr,
-                    curr_command,
-                ));
-            }
-            TokenContents::OutErrGreaterThan => {
-                curr_pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::StdoutAndStderr,
-                    curr_command,
-                ));
-            }
-            _ => {
-                curr_pipeline.push(LiteElement::Command(last_connector_span, curr_command));
-            }
-        }
-    }
-
+    push_command_to(
+        &mut curr_pipeline,
+        curr_command,
+        last_connector,
+        last_connector_span,
+    );
     if !curr_pipeline.is_empty() {
         block.push(curr_pipeline);
     }
@@ -481,5 +351,44 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         )
     } else {
         (block, error)
+    }
+}
+
+fn push_command_to(
+    pipeline: &mut LitePipeline,
+    command: LiteCommand,
+    last_connector: TokenContents,
+    last_connector_span: Option<Span>,
+) {
+    if !command.is_empty() {
+        match last_connector {
+            TokenContents::OutGreaterThan => {
+                pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::Stdout,
+                    command,
+                ));
+            }
+            TokenContents::ErrGreaterThan => {
+                pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::Stderr,
+                    command,
+                ));
+            }
+            TokenContents::OutErrGreaterThan => {
+                pipeline.push(LiteElement::Redirection(
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
+                    Redirection::StdoutAndStderr,
+                    command,
+                ));
+            }
+            _ => {
+                pipeline.push(LiteElement::Command(last_connector_span, command));
+            }
+        }
     }
 }
