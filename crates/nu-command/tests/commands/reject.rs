@@ -185,3 +185,9 @@ fn reject_multiple_rows_descending() {
     let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
     assert_eq!(actual.out, "[[a, b]; [1, 2]]");
 }
+
+#[test]
+fn test_ignore_errors_flag() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -i | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
+}
