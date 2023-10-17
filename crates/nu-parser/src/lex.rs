@@ -8,8 +8,11 @@ pub enum TokenContents {
     PipePipe,
     Semicolon,
     OutGreaterThan,
+    OutGreaterGreaterThan,
     ErrGreaterThan,
+    ErrGreaterGreaterThan,
     OutErrGreaterThan,
+    OutErrGreaterGreaterThan,
     Eol,
 }
 
@@ -260,12 +263,24 @@ pub fn lex_item(
             contents: TokenContents::OutGreaterThan,
             span,
         },
+        b"out>>" | b"o>>" => Token {
+            contents: TokenContents::OutGreaterGreaterThan,
+            span,
+        },
         b"err>" | b"e>" => Token {
             contents: TokenContents::ErrGreaterThan,
             span,
         },
+        b"err>>" | b"e>>" => Token {
+            contents: TokenContents::ErrGreaterGreaterThan,
+            span,
+        },
         b"out+err>" | b"err+out>" | b"o+e>" | b"e+o>" => Token {
             contents: TokenContents::OutErrGreaterThan,
+            span,
+        },
+        b"out+err>>" | b"err+out>>" | b"o+e>>" | b"e+o>>" => Token {
+            contents: TokenContents::OutErrGreaterGreaterThan,
             span,
         },
         b"&&" => {

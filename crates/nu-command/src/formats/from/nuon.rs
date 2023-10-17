@@ -131,7 +131,7 @@ impl Command for FromNuon {
             } else {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)
-                    | PipelineElement::Redirection(_, _, expression)
+                    | PipelineElement::Redirection(_, _, expression, _)
                     | PipelineElement::And(_, expression)
                     | PipelineElement::Or(_, expression)
                     | PipelineElement::SameTargetRedirection {
@@ -139,7 +139,7 @@ impl Command for FromNuon {
                         ..
                     }
                     | PipelineElement::SeparateRedirection {
-                        out: (_, expression),
+                        out: (_, expression, _),
                         ..
                     } => expression,
                 }

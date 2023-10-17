@@ -1201,8 +1201,11 @@ fn parse_binary_with_base(
                     TokenContents::Pipe
                     | TokenContents::PipePipe
                     | TokenContents::OutGreaterThan
+                    | TokenContents::OutGreaterGreaterThan
                     | TokenContents::ErrGreaterThan
-                    | TokenContents::OutErrGreaterThan => {
+                    | TokenContents::ErrGreaterGreaterThan
+                    | TokenContents::OutErrGreaterThan
+                    | TokenContents::OutErrGreaterGreaterThan => {
                         working_set.error(ParseError::Expected("binary", span));
                         return garbage(span);
                     }
@@ -5277,14 +5280,14 @@ pub fn parse_pipeline(
 
                     PipelineElement::Expression(*span, expr)
                 }
-                LiteElement::Redirection(span, redirection, command) => {
+                LiteElement::Redirection(span, redirection, command, is_append_mode) => {
                     let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
-                    PipelineElement::Redirection(*span, redirection.clone(), expr)
+                    PipelineElement::Redirection(*span, redirection.clone(), expr, *is_append_mode)
                 }
                 LiteElement::SeparateRedirection {
-                    out: (out_span, out_command),
-                    err: (err_span, err_command),
+                    out: (out_span, out_command, out_append_mode),
+                    err: (err_span, err_command, err_append_mode),
                 } => {
                     trace!("parsing: pipeline element: separate redirection");
                     let out_expr =
@@ -5294,13 +5297,13 @@ pub fn parse_pipeline(
                         parse_value(working_set, err_command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::SeparateRedirection {
-                        out: (*out_span, out_expr),
-                        err: (*err_span, err_expr),
+                        out: (*out_span, out_expr, *out_append_mode),
+                        err: (*err_span, err_expr, *err_append_mode),
                     }
                 }
                 LiteElement::SameTargetRedirection {
                     cmd: (cmd_span, command),
-                    redirection: (redirect_span, redirect_command),
+                    redirection: (redirect_span, redirect_command, is_append_mode),
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
@@ -5308,7 +5311,7 @@ pub fn parse_pipeline(
                         parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
-                        redirection: (*redirect_span, redirect_expr),
+                        redirection: (*redirect_span, redirect_expr, *is_append_mode),
                     }
                 }
             })
@@ -5332,9 +5335,10 @@ pub fn parse_pipeline(
     } else {
         match &pipeline.commands[0] {
             LiteElement::Command(_, command)
-            | LiteElement::Redirection(_, _, command)
+            | LiteElement::Redirection(_, _, command, _)
             | LiteElement::SeparateRedirection {
-                out: (_, command), ..
+                out: (_, command, _),
+                ..
             } => {
                 let mut pipeline = parse_builtin_commands(working_set, command, is_subexpression);
 
@@ -5392,7 +5396,7 @@ pub fn parse_pipeline(
             }
             LiteElement::SameTargetRedirection {
                 cmd: (span, command),
-                redirection: (redirect_span, redirect_cmd),
+                redirection: (redirect_span, redirect_cmd, is_append_mode),
             } => {
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
@@ -5403,7 +5407,7 @@ pub fn parse_pipeline(
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
                         cmd: (*span, expr),
-                        redirection: (*redirect_span, redirect_expr),
+                        redirection: (*redirect_span, redirect_expr, *is_append_mode),
                     }],
                 }
             }
@@ -5435,9 +5439,10 @@ pub fn parse_block(
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
                 LiteElement::Command(_, command)
-                | LiteElement::Redirection(_, _, command)
+                | LiteElement::Redirection(_, _, command, _)
                 | LiteElement::SeparateRedirection {
-                    out: (_, command), ..
+                    out: (_, command, _),
+                    ..
                 }
                 | LiteElement::SameTargetRedirection {
                     cmd: (_, command), ..
@@ -5527,14 +5532,14 @@ pub fn discover_captures_in_pipeline_element(
 ) -> Result<(), ParseError> {
     match element {
         PipelineElement::Expression(_, expression)
-        | PipelineElement::Redirection(_, _, expression)
+        | PipelineElement::Redirection(_, _, expression, _)
         | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
             discover_captures_in_expr(working_set, expression, seen, seen_blocks, output)
         }
         PipelineElement::SeparateRedirection {
-            out: (_, out_expr),
-            err: (_, err_expr),
+            out: (_, out_expr, _),
+            err: (_, err_expr, _),
         } => {
             discover_captures_in_expr(working_set, out_expr, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, err_expr, seen, seen_blocks, output)?;
@@ -5542,7 +5547,7 @@ pub fn discover_captures_in_pipeline_element(
         }
         PipelineElement::SameTargetRedirection {
             cmd: (_, cmd_expr),
-            redirection: (_, redirect_expr),
+            redirection: (_, redirect_expr, _),
         } => {
             discover_captures_in_expr(working_set, cmd_expr, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, redirect_expr, seen, seen_blocks, output)?;
@@ -5846,28 +5851,38 @@ fn wrap_element_with_collect(
         PipelineElement::Expression(span, expression) => {
             PipelineElement::Expression(*span, wrap_expr_with_collect(working_set, expression))
         }
-        PipelineElement::Redirection(span, redirection, expression) => {
+        PipelineElement::Redirection(span, redirection, expression, is_append_mode) => {
             PipelineElement::Redirection(
                 *span,
                 redirection.clone(),
                 wrap_expr_with_collect(working_set, expression),
+                *is_append_mode,
             )
         }
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_exp),
-            err: (err_span, err_exp),
+            out: (out_span, out_exp, out_append_mode),
+            err: (err_span, err_exp, err_append_mode),
         } => PipelineElement::SeparateRedirection {
-            out: (*out_span, wrap_expr_with_collect(working_set, out_exp)),
-            err: (*err_span, wrap_expr_with_collect(working_set, err_exp)),
+            out: (
+                *out_span,
+                wrap_expr_with_collect(working_set, out_exp),
+                *out_append_mode,
+            ),
+            err: (
+                *err_span,
+                wrap_expr_with_collect(working_set, err_exp),
+                *err_append_mode,
+            ),
         },
         PipelineElement::SameTargetRedirection {
             cmd: (cmd_span, cmd_exp),
-            redirection: (redirect_span, redirect_exp),
+            redirection: (redirect_span, redirect_exp, is_append_mode),
         } => PipelineElement::SameTargetRedirection {
             cmd: (*cmd_span, wrap_expr_with_collect(working_set, cmd_exp)),
             redirection: (
                 *redirect_span,
                 wrap_expr_with_collect(working_set, redirect_exp),
+                *is_append_mode,
             ),
         },
         PipelineElement::And(span, expression) => {

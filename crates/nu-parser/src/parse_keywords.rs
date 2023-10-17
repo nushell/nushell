@@ -1893,11 +1893,12 @@ pub fn parse_module_block(
                         }
                     }
                 }
-                LiteElement::Redirection(_, _, command) => {
+                LiteElement::Redirection(_, _, command, _) => {
                     block.pipelines.push(garbage_pipeline(&command.parts))
                 }
                 LiteElement::SeparateRedirection {
-                    out: (_, command), ..
+                    out: (_, command, _),
+                    ..
                 } => block.pipelines.push(garbage_pipeline(&command.parts)),
                 LiteElement::SameTargetRedirection {
                     cmd: (_, command), ..

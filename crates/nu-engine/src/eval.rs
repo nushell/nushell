@@ -735,7 +735,7 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
+        PipelineElement::Redirection(span, redirection, expr, is_append_mode) => match &expr.expr {
             Expr::String(_)
             | Expr::FullCellPath(_)
             | Expr::StringInterpolation(_)
@@ -767,31 +767,42 @@ fn eval_element_with_input(
                 };
 
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                    let mut args = vec![
+                        Argument::Positional(expr.clone()),
+                        Argument::Named((
+                            Spanned {
+                                item: "raw".into(),
+                                span: *span,
+                            },
+                            None,
+                            None,
+                        )),
+                        Argument::Named((
+                            Spanned {
+                                item: "force".into(),
+                                span: *span,
+                            },
+                            None,
+                            None,
+                        )),
+                    ];
+                    if *is_append_mode {
+                        args.push(Argument::Named((
+                            Spanned {
+                                item: "append".into(),
+                                span: *span,
+                            },
+                            None,
+                            None,
+                        )))
+                    }
                     eval_call(
                         engine_state,
                         stack,
                         &Call {
                             decl_id: save_command,
                             head: *span,
-                            arguments: vec![
-                                Argument::Positional(expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
+                            arguments: args,
                             redirect_stdout: false,
                             redirect_stderr: false,
                             parser_info: HashMap::new(),
@@ -821,8 +832,8 @@ fn eval_element_with_input(
             _ => Err(ShellError::CommandNotFound(*span)),
         },
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_expr),
-            err: (err_span, err_expr),
+            out: (out_span, out_expr, out_append_mode),
+            err: (err_span, err_expr, _),
         } => match (&out_expr.expr, &err_expr.expr) {
             (
                 Expr::String(_)
@@ -834,44 +845,57 @@ fn eval_element_with_input(
                 | Expr::StringInterpolation(_)
                 | Expr::Filepath(_),
             ) => {
+                // FIXME: currently save command only supports one `--append` argument
+                // it's required to support something like `--stderr-append` flag
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
+                    let mut args = vec![
+                        Argument::Positional(out_expr.clone()),
+                        Argument::Named((
+                            Spanned {
+                                item: "stderr".into(),
+                                span: *err_span,
+                            },
+                            None,
+                            Some(err_expr.clone()),
+                        )),
+                        Argument::Named((
+                            Spanned {
+                                item: "raw".into(),
+                                span: *out_span,
+                            },
+                            None,
+                            None,
+                        )),
+                        Argument::Named((
+                            Spanned {
+                                item: "force".into(),
+                                span: *out_span,
+                            },
+                            None,
+                            None,
+                        )),
+                    ];
+                    if *out_append_mode {
+                        args.push(Argument::Named((
+                            Spanned {
+                                item: "append".into(),
+                                span: *out_span,
+                            },
+                            None,
+                            None,
+                        )))
+                    }
                     eval_call(
                         engine_state,
                         stack,
                         &Call {
                             decl_id: save_command,
                             head: *out_span,
-                            arguments: vec![
-                                Argument::Positional(out_expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "stderr".into(),
-                                        span: *err_span,
-                                    },
-                                    None,
-                                    Some(err_expr.clone()),
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
+                            arguments: args,
                             redirect_stdout: false,
                             redirect_stderr: false,
                             parser_info: HashMap::new(),
@@ -908,7 +932,7 @@ fn eval_element_with_input(
         },
         PipelineElement::SameTargetRedirection {
             cmd: (cmd_span, cmd_exp),
-            redirection: (redirect_span, redirect_exp),
+            redirection: (redirect_span, redirect_exp, is_append_mode),
         } => {
             // general idea: eval cmd and call save command to redirect stdout to result.
             input = match &cmd_exp.expr {
@@ -942,6 +966,7 @@ fn eval_element_with_input(
                     *redirect_span,
                     Redirection::Stdout,
                     redirect_exp.clone(),
+                    *is_append_mode,
                 ),
                 input,
                 redirect_stdout,
@@ -1021,8 +1046,8 @@ pub fn eval_block(
                 || (elements_iter.peek().map_or(false, |next_element| {
                     matches!(
                         next_element,
-                        PipelineElement::Redirection(_, Redirection::Stderr, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                        PipelineElement::Redirection(_, Redirection::Stderr, _, _)
+                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                             | PipelineElement::SeparateRedirection { .. }
                     )
                 }));
@@ -1031,8 +1056,8 @@ pub fn eval_block(
                 || (elements_iter.peek().map_or(false, |next_element| {
                     matches!(
                         next_element,
-                        PipelineElement::Redirection(_, Redirection::Stdout, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                        PipelineElement::Redirection(_, Redirection::Stdout, _, _)
+                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                             | PipelineElement::Expression(..)
                             | PipelineElement::SeparateRedirection { .. }
                     )

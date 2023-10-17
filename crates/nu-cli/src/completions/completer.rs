@@ -125,11 +125,13 @@ impl NuCompleter {
             for pipeline_element in pipeline.elements {
                 match pipeline_element {
                     PipelineElement::Expression(_, expr)
-                    | PipelineElement::Redirection(_, _, expr)
+                    | PipelineElement::Redirection(_, _, expr, _)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)
                     | PipelineElement::SameTargetRedirection { cmd: (_, expr), .. }
-                    | PipelineElement::SeparateRedirection { out: (_, expr), .. } => {
+                    | PipelineElement::SeparateRedirection {
+                        out: (_, expr, _), ..
+                    } => {
                         let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                         let mut spans: Vec<String> = vec![];
 
