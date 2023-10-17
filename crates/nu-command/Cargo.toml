@@ -89,6 +89,8 @@ ureq = { version = "2.8", default-features = false, features = ["charset", "gzip
 url = "2.2"
 uu_cp = "0.0.22"
 uuid = { version = "1.5", features = ["v4"] }
+# uu_mv = "0.0.22"
+uu_mv = {git="https://github.com/uutils/coreutils.git", rev= "a3fed79"}
 wax = { version = "0.6" }
 which = { version = "5.0", optional = true }
 bracoxide = "0.1.2"

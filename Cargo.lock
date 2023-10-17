@@ -2884,6 +2884,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_mv",
  "uuid",
  "wax",
  "which 5.0.0",
@@ -5616,9 +5617,20 @@ dependencies = [
  "indicatif",
  "libc",
  "quick-error 2.0.1",
- "uucore",
+ "uucore 0.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "xattr",
+]
+
+[[package]]
+name = "uu_mv"
+version = "0.0.22"
+source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+dependencies = [
+ "clap",
+ "fs_extra",
+ "indicatif",
+ "uucore 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
 ]
 
 [[package]]
@@ -5634,8 +5646,26 @@ dependencies = [
  "nix",
  "once_cell",
  "os_display",
- "uucore_procs",
+ "uucore_procs 0.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
+ "wild",
+ "winapi-util",
+ "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.22"
+source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+dependencies = [
+ "clap",
+ "dunce",
+ "glob",
+ "libc",
+ "nix",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
@@ -5649,7 +5679,17 @@ checksum = "1c1ef7f8253186cf48f4aeaff93acb3ef0d8e3da36b96265b76201af2f8beab4"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser",
+ "uuhelp_parser 0.0.22 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "uucore_procs"
+version = "0.0.22"
+source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
 ]
 
 [[package]]
@@ -5657,6 +5697,11 @@ name = "uuhelp_parser"
 version = "0.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6de61731e36d52d3babb63e2dce8fe648e2644e9ddfe2621e0eea699022051a6"
+
+[[package]]
+name = "uuhelp_parser"
+version = "0.0.22"
+source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
 
 [[package]]
 name = "uuid"
