@@ -30,7 +30,7 @@ impl Command for UCp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["copy", "file", "files"]
+        vec!["copy", "file", "files", "coreutils"]
     }
 
     fn signature(&self) -> Signature {
