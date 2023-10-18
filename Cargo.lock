@@ -2713,9 +2713,13 @@ dependencies = [
  "indexmap 2.0.2",
  "miette",
  "nu-engine",
+ "nu-glob",
  "nu-parser",
  "nu-path",
  "nu-protocol",
+ "nu-test-support",
+ "nu-utils",
+ "rstest",
 ]
 
 [[package]]

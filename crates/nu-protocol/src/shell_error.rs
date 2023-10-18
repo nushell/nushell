@@ -1128,6 +1128,31 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         help("Help messages are currently not supported to be constants.")
     )]
     NotAConstHelp(#[label = "Cannot get help message at parse time."] Span),
+
+    /// Invalid glob pattern
+    ///
+    /// ## Resolution
+    ///
+    /// Correct glob pattern
+    #[error("Invalid glob pattern")]
+    #[diagnostic(
+        code(nu::shell::invalid_glob_pattern),
+        help("Refer to xxx for help on nushell glob patterns.")
+    )]
+    InvalidGlobPattern(String, #[label = "{0}"] Span),
+
+    /// Error expanding glob pattern
+    ///
+    /// ## Resolution
+    ///
+    /// Correct glob pattern or file access issue
+    #[error("Error expanding glob pattern")]
+    #[diagnostic(
+        code(nu::shell::error_expanding_glob),
+        help("Correct glob pattern or file access issue")
+    )]
+    //todo: add error detail
+    ErrorExpandingGlob(String, #[label = "{0}"] Span),
 }
 
 // TODO: Implement as From trait
