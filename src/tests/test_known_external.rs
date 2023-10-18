@@ -1,16 +1,21 @@
 use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
+use super::TestContains;
+
 // cargo version prints a string of the form:
 // cargo 1.60.0 (d1fd9fe2c 2022-03-01)
 
 #[test]
 fn known_external_runs() -> TestResult {
-    run_test_contains(r#"extern "cargo version" []; cargo version"#, "cargo")
+    run_test_contains(
+        r#"extern "cargo version" []; cargo version"#,
+        "cargo".into(),
+    )
 }
 
 #[test]
 fn known_external_unknown_flag() -> TestResult {
-    run_test_contains(r#"extern "cargo" []; cargo --version"#, "cargo")
+    run_test_contains(r#"extern "cargo" []; cargo --version"#, "cargo".into())
 }
 
 /// GitHub issues #5179, #4618
@@ -18,7 +23,7 @@ fn known_external_unknown_flag() -> TestResult {
 fn known_external_alias() -> TestResult {
     run_test_contains(
         r#"extern "cargo version" []; alias cv = cargo version; cv"#,
-        "cargo",
+        "cargo".into(),
     )
 }
 
@@ -27,7 +32,7 @@ fn known_external_alias() -> TestResult {
 fn known_external_subcommand_alias() -> TestResult {
     run_test_contains(
         r#"extern "cargo version" []; alias c = cargo; c version"#,
-        "cargo",
+        "cargo".into(),
     )
 }
 
@@ -35,7 +40,7 @@ fn known_external_subcommand_alias() -> TestResult {
 fn known_external_complex_unknown_args() -> TestResult {
     run_test_contains(
         "extern echo []; echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
-        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar".into(),
     )
 }
 
@@ -49,13 +54,13 @@ fn known_external_from_module() -> TestResult {
         use spam echo
         echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
         "#,
-        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+        "foo -b -as -9 --abc -- -Dxmy=AKOO - bar".into(),
     )
 }
 
 #[test]
 fn known_external_short_flag_batch_arg_allowed() -> TestResult {
-    run_test_contains("extern echo [-a, -b: int]; echo -ab 10", "-b 10")
+    run_test_contains("extern echo [-a, -b: int]; echo -ab 10", "-b 10".into())
 }
 
 #[test]
@@ -115,10 +120,8 @@ fn known_external_subcommand_from_module() -> TestResult {
             use cargo;
             cargo check -h
         "#,
-        #[cfg(windows)]
-        "cargo.exe check",
-        #[cfg(not(windows))]
-        "cargo check",
+        // on some windows machines, cargo.exe seems to be reported as the binary name instead of cargo
+        TestContains::AnyOf(vec!["cargo.exe check", "cargo check"]),
     )
 }
 
@@ -134,9 +137,7 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
             alias cc = cargo check;
             cc -h
         "#,
-        #[cfg(windows)]
-        "cargo.exe check",
-        #[cfg(not(windows))]
-        "cargo check",
+        // on some windows machines, cargo.exe seems to be reported as the binary name instead of cargo
+        TestContains::AnyOf(vec!["cargo.exe check", "cargo check"]),
     )
 }

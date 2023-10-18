@@ -97,8 +97,13 @@ fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
     Ok(())
 }
 
+pub enum TestContains {
+    String(&'static str),
+    AnyOf(Vec<&'static str>),
+}
+
 #[cfg(test)]
-pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
+pub fn run_test_contains(input: &str, contained: TestContains) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
@@ -116,12 +121,33 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
 
-    println!("Expected output to contain: {expected}");
-    assert!(output.status.success());
+    // println!("Expected output to contain: {expected}");
+    // assert!(output.status.success());
 
-    assert!(stdout.contains(expected));
+    // assert!(stdout.contains(expected));
+
+    match contained {
+        TestContains::String(expected) => {
+            println!("Expected output to contain: {expected}");
+            assert!(output.status.success());
+
+            assert!(stdout.contains(expected));
+        }
+        TestContains::AnyOf(expected) => {
+            println!("Expected output to contain one of: {:?}", expected);
+            assert!(output.status.success());
+
+            assert!(expected.iter().any(|e| stdout.contains(e)));
+        }
+    }
 
     Ok(())
+}
+
+impl From<&'static str> for TestContains {
+    fn from(s: &'static str) -> TestContains {
+        TestContains::String(s)
+    }
 }
 
 #[cfg(test)]
