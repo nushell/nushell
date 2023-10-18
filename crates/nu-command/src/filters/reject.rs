@@ -22,6 +22,11 @@ impl Command for Reject {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
+            .switch(
+                "ignore-errors",
+                "ignore missing data (make all cell path members optional)",
+                Some('i'),
+            )
             .rest(
                 "rest",
                 SyntaxShape::OneOf(vec![
@@ -126,6 +131,14 @@ impl Command for Reject {
             }
         }
         let span = call.head;
+
+        let ignore_errors = call.has_flag("ignore-errors");
+        if ignore_errors {
+            for cell_path in &mut new_columns {
+                cell_path.make_optional();
+            }
+        }
+
         reject(engine_state, span, input, new_columns)
     }
 
