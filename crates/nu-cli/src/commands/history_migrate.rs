@@ -42,7 +42,7 @@ impl Command for HistoryMigrate {
 
             let plaintext_history_reader = FileBackedHistory::with_file(
                 engine_state.config.max_history_size as usize,
-                plaintext_history_path.clone(),
+                plaintext_history_path,
             )
             .map(|inner| {
                 let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
@@ -50,25 +50,29 @@ impl Command for HistoryMigrate {
             })
             .ok();
             let mut sqlite_history =
-                SqliteBackedHistory::with_file(sqlite_history_path.clone(), None, None)
+                SqliteBackedHistory::with_file(sqlite_history_path, None, None)
                     .map(|inner| {
                         let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                         boxed
                     })
-                    .ok()
-                    .expect("SQLite history not found");
+                    .map_err(|_err| {
+                        ShellError::FileNotFoundCustom(
+                            "couldn't connect to database at {sqlite_history_path}".into(),
+                            head,
+                        )
+                    })?;
 
             plaintext_history_reader
                 .and_then(|h| {
                     h.search(SearchQuery::everything(SearchDirection::Forward, None))
                         .ok()
                 })
-                .unwrap()
-                .into_iter()
-                .for_each(|entry| {
-                    let mut history_item = HistoryItem::from_command_line(entry.command_line);
-                    history_item.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
-                    let _history_item = sqlite_history.save(history_item);
+                .map(move |entries| {
+                    entries.into_iter().for_each(|entry| {
+                        let mut history_item = HistoryItem::from_command_line(entry.command_line);
+                        history_item.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
+                        let _history_item = sqlite_history.save(history_item);
+                    })
                 });
 
             Ok(PipelineData::empty())
