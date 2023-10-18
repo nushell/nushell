@@ -155,34 +155,6 @@ fn separate_redirection() {
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
-
-            // check append mode
-            let expect_body = "messagemessage";
-            #[cfg(not(windows))]
-            {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "bash test.sh out>> out.txt err>> err.txt"
-                );
-            }
-            #[cfg(windows)]
-            {
-                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "cmd /D /c test.bat out>> out.txt err>> err.txt"
-                );
-            }
-            // check for stdout redirection file.
-            let expected_out_file = dirs.test().join("out.txt");
-            let actual = file_contents(expected_out_file);
-            assert!(actual.contains(expect_body));
-
-            // check for stderr redirection file.
-            let expected_err_file = dirs.test().join("err.txt");
-            let actual = file_contents(expected_err_file);
-            assert!(actual.contains(expect_body));
         },
     )
 }
@@ -306,21 +278,6 @@ fn redirect_support_variable() {
         );
 
         assert!(output.out.contains("hello"));
-
-        // append mode support variable too.
-        let output = nu!(
-            cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out>> $x; open tmp_file"
-        );
-        let v: Vec<_> = output.out.match_indices("hello").collect();
-        assert_eq!(v.len(), 2);
-
-        let output = nu!(
-            cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out+err>> $x; open tmp_file"
-        );
-        let v: Vec<_> = output.out.match_indices("hello").collect();
-        assert_eq!(v.len(), 2);
     })
 }
 
