@@ -1,9 +1,5 @@
-use chrono::DateTime;
-use log;
 use nu_protocol::engine::Command;
-use nu_protocol::{
-    record, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_protocol::{PipelineData, ShellError, Signature, Type};
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,
@@ -60,31 +56,19 @@ impl Command for HistoryMigrate {
                     .ok()
                     .expect("SQLite history not found");
 
-            Ok(plaintext_history_reader
+            plaintext_history_reader
                 .and_then(|h| {
                     h.search(SearchQuery::everything(SearchDirection::Forward, None))
                         .ok()
                 })
-                .map(move |entries| {
-                    entries.into_iter().enumerate().map(move |(idx, entry)| {
-                        let history_item =
-                            HistoryItem::from_command_line(entry.command_line.clone());
-                        let history_item = sqlite_history_reader.save(history_item.clone());
-                        Value::record(
-                            record! {
-                                // "idx" => Value::int(idx as i64, head),
-                                // "start_time" => Value::date(history_item.start_timestamp.unwrap_or(chrono::Utc::now()).fixed_offset(), head),
-                                // "command" => Value::string(history_item.command_line.clone(), head),
-                            },
-                            head,
-                        )
-                    })
-                })
-                .ok_or({
-                    println!("History path: {:?}", plaintext_history_path);
-                    ShellError::FileNotFound(head)
-                })?
-                .into_pipeline_data(ctrlc))
+                .unwrap()
+                .into_iter()
+                .for_each(|entry| {
+                    let _history_item = sqlite_history_reader
+                        .save(HistoryItem::from_command_line(entry.command_line));
+                });
+
+            Ok(PipelineData::empty())
         } else {
             Err(ShellError::FileNotFound(head))
         }
