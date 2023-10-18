@@ -1,3 +1,6 @@
+use std::time::{Duration, UNIX_EPOCH};
+
+use chrono::{DateTime, Utc};
 use nu_protocol::engine::Command;
 use nu_protocol::{PipelineData, ShellError, Signature, Type};
 use reedline::{
@@ -64,8 +67,9 @@ impl Command for HistoryMigrate {
                 .unwrap()
                 .into_iter()
                 .for_each(|entry| {
-                    let _history_item = sqlite_history_reader
-                        .save(HistoryItem::from_command_line(entry.command_line));
+                    let mut history_item = HistoryItem::from_command_line(entry.command_line);
+                    history_item.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
+                    let _history_item = sqlite_history_reader.save(history_item);
                 });
 
             Ok(PipelineData::empty())
