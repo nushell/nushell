@@ -272,6 +272,7 @@ fn redirect_support_variable() {
 
         assert!(output.out.contains("hello"));
 
+        // FIXME: this doesn't work, currently nushell returns an error.
         let output = nu!(
             cwd: dirs.test(),
             "let x = 'tmp_file'; echo 'hello' out+err> $x; open tmp_file"
