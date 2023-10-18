@@ -6,6 +6,7 @@ use nu_test_support::fs::{
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
+use rstest::rstest;
 use std::path::Path;
 
 #[cfg(not(target_os = "windows"))]
@@ -967,4 +968,47 @@ fn test_cp_with_vars() {
         );
         assert!(dirs.test().join("target").exists());
     });
+}
+
+#[rstest]
+#[case(r#"'a]c'"#)]
+#[case(r#"'a[c'"#)]
+#[case(r#"'a[bc]d'"#)]
+#[case(r#"'a][c'"#)]
+fn copies_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("ucp_test_34", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        // -- open command doesn't like file name
+        //// Get the hash of the file content to check integrity after copy.
+        //let src_hash = get_file_hash(src.display());
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "cp {} {}",
+            src.display(),
+            TEST_HELLO_WORLD_DEST
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+
+        //// Get the hash of the copied file content to check against first_hash.
+        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        //assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case(r#"'a]?c'"#)]
+#[case(r#"'a*.?c'"#)]
+// windows doesn't allow filename with `*`.
+fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    copies_files_with_glob_metachars(src_name);
 }
