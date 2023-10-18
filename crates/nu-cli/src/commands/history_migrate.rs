@@ -1,5 +1,3 @@
-use std::time::{Duration, UNIX_EPOCH};
-
 use chrono::{DateTime, Utc};
 use nu_protocol::engine::Command;
 use nu_protocol::{PipelineData, ShellError, Signature, Type};
@@ -7,6 +5,7 @@ use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,
 };
+use std::time::UNIX_EPOCH;
 
 #[derive(Clone)]
 pub struct HistoryMigrate;
@@ -27,19 +26,19 @@ impl Command for HistoryMigrate {
     fn run(
         &self,
         engine_state: &nu_protocol::engine::EngineState,
-        stack: &mut nu_protocol::engine::Stack,
+        _stack: &mut nu_protocol::engine::Stack,
         call: &nu_protocol::ast::Call,
-        input: nu_protocol::PipelineData,
+        _input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
         let head = call.head;
 
         if let Some(config_path) = nu_path::config_dir() {
-            let ctrlc = engine_state.ctrlc.clone();
             let mut plaintext_history_path = config_path.clone();
             let mut sqlite_history_path = config_path;
             plaintext_history_path.push("nushell");
             plaintext_history_path.push("history.txt");
-            sqlite_history_path.push("nushell/history.sqlite3");
+            sqlite_history_path.push("nushell");
+            sqlite_history_path.push("history.sqlite3");
 
             let plaintext_history_reader = FileBackedHistory::with_file(
                 engine_state.config.max_history_size as usize,
@@ -50,7 +49,7 @@ impl Command for HistoryMigrate {
                 boxed
             })
             .ok();
-            let mut sqlite_history_reader =
+            let mut sqlite_history =
                 SqliteBackedHistory::with_file(sqlite_history_path.clone(), None, None)
                     .map(|inner| {
                         let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
@@ -69,7 +68,7 @@ impl Command for HistoryMigrate {
                 .for_each(|entry| {
                     let mut history_item = HistoryItem::from_command_line(entry.command_line);
                     history_item.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
-                    let _history_item = sqlite_history_reader.save(history_item);
+                    let _history_item = sqlite_history.save(history_item);
                 });
 
             Ok(PipelineData::empty())
