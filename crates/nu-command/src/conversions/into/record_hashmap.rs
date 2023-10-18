@@ -25,7 +25,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "record", "hash", "map", "lookup", "table"]
+        vec!["convert", "map", "lookup", "table"]
     }
 
     fn run(
