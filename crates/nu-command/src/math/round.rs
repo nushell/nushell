@@ -71,7 +71,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Apply the round function with precision specified",
-                example: "[1.555 2.333 -3.111] | math round -p 2",
+                example: "[1.555 2.333 -3.111] | math round --precision 2",
                 result: Some(Value::list(
                     vec![
                         Value::test_float(1.56),
@@ -83,7 +83,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Apply negative precision to a list of numbers",
-                example: "[123, 123.3, -123.4] | math round -p -1",
+                example: "[123, 123.3, -123.4] | math round --precision -1",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(120),

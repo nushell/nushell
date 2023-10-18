@@ -59,7 +59,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Apply the cosine to a list of angles in degrees",
-                example: "[0 90 180 270 360] | math cos -d",
+                example: "[0 90 180 270 360] | math cos --degrees",
                 result: Some(Value::list(
                     vec![
                         Value::test_float(1f64),
