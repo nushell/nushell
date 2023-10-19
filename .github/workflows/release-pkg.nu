@@ -9,34 +9,36 @@
 # Instructions for manually creating an MSI for Winget Releases when they fail
 # Added 2022-11-29 when Windows packaging wouldn't work
 # Updated again on 2023-02-23 because msis are still failing validation
+# Update on 2023-10-18 to use RELEASE_TYPE env var to determine if full or not
 # To run this manual for windows here are the steps I take
 # checkout the release you want to publish
-# 1. git checkout 0.76.0
+# 1. git checkout 0.86.0
 # unset CARGO_TARGET_DIR if set (I have to do this in the parent shell to get it to work)
 # 2. $env:CARGO_TARGET_DIR = ""
 # 2. hide-env CARGO_TARGET_DIR
 # 3. $env.TARGET = 'x86_64-pc-windows-msvc'
 # 4. $env.TARGET_RUSTFLAGS = ''
-# 5. $env.GITHUB_WORKSPACE = 'C:\Users\dschroeder\source\repos\forks\nushell'
-# 6. $env.GITHUB_OUTPUT = 'C:\Users\dschroeder\source\repos\forks\nushell\output\out.txt'
+# 5. $env.GITHUB_WORKSPACE = 'D:\nushell'
+# 6. $env.GITHUB_OUTPUT = 'D:\nushell\output\out.txt'
 # 7. $env.OS = 'windows-latest'
+# 8. $env.RELEASE_TYPE = '' # There is full and '' for normal releases
 # make sure 7z.exe is in your path https://www.7-zip.org/download.html
-# 8. $env.Path = ($env.Path | append 'c:\apps\7-zip')
+# 9. $env.Path = ($env.Path | append 'c:\apps\7-zip')
 # make sure aria2c.exe is in your path https://github.com/aria2/aria2
-# 9. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
+# 10. $env.Path = ($env.Path | append 'c:\path\to\aria2c')
 # make sure you have the wixtools installed https://wixtoolset.org/
-# 10. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
+# 11. $env.Path = ($env.Path | append 'C:\Users\dschroeder\AppData\Local\tauri\WixTools')
 # You need to run the release-pkg twice. The first pass, with _EXTRA_ as 'bin', makes the output
 # folder and builds everything. The second pass, that generates the msi file, with _EXTRA_ as 'msi'
-# 11. $env._EXTRA_ = 'bin'
-# 12. source .github\workflows\release-pkg.nu
-# 13. cd ..
-# 14. $env._EXTRA_ = 'msi'
-# 15. source .github\workflows\release-pkg.nu
+# 12. $env._EXTRA_ = 'bin'
+# 13. source .github\workflows\release-pkg.nu
+# 14. cd ..
+# 15. $env._EXTRA_ = 'msi'
+# 16. source .github\workflows\release-pkg.nu
 # After msi is generated, you have to update winget-pkgs repo, you'll need to patch the release
 # by deleting the existing msi and uploading this new msi. Then you'll need to update the hash
 # on the winget-pkgs PR. To generate the hash, run this command
-# 16. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
+# 17. open target\wix\nu-0.74.0-x86_64-pc-windows-msvc.msi | hash sha256
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
@@ -134,7 +136,7 @@ print (ls -f $executable); sleep 1sec
 print $'(char nl)Copying release files...'; hr-line
 "To use Nu plugins, use the register command to tell Nu where to find the plugin. For example:
 
-> register ./nu_plugin_query" | save $'($dist)/README.txt'
+> register ./nu_plugin_query" | save $'($dist)/README.txt' -f
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
 # Sleep a few seconds to make sure the cp process finished successfully
 sleep 3sec
@@ -225,7 +227,7 @@ def 'cargo-build-nu' [ options: string ] {
 
 # Print a horizontal line marker
 def 'hr-line' [
-    --blank-line(-b): bool
+    --blank-line(-b)
 ] {
     print $'(ansi g)---------------------------------------------------------------------------->(ansi reset)'
     if $blank_line { char nl }

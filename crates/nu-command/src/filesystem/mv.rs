@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use super::util::try_interaction;
+use nu_cmd_base::arg_glob;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -8,13 +9,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
-};
-
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
 };
 
 #[derive(Clone)]
@@ -70,12 +64,6 @@ impl Command for Mv {
     ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let spanned_source = {
-            Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(spanned_source.item),
-                span: spanned_source.span,
-            }
-        };
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
@@ -88,17 +76,11 @@ impl Command for Mv {
         let source = path.join(spanned_source.item.as_str());
         let destination = path.join(spanned_destination.item.as_str());
 
-        let mut sources = nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
-            .map_or_else(|_| Vec::new(), Iterator::collect);
+        let mut sources =
+            arg_glob(&spanned_source, &path).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "File(s) not found".into(),
-                "could not find any files matching this glob pattern".into(),
-                Some(spanned_source.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::FileNotFound(spanned_source.span));
         }
 
         // We have two possibilities.
