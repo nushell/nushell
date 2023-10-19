@@ -1,7 +1,7 @@
 use nu_test_support::{nu, pipeline};
 
 #[test]
-fn unfold_no_next_break() {
+fn generate_no_next_break() {
     let actual = nu!(
         "generate 1 {|x| if $x == 3 { {out: $x}} else { {out: $x, next: ($x + 1)} }} | to nuon"
     );
@@ -10,14 +10,14 @@ fn unfold_no_next_break() {
 }
 
 #[test]
-fn unfold_null_break() {
+fn generate_null_break() {
     let actual = nu!("generate 1 {|x| if $x <= 3 { {out: $x, next: ($x + 1)} }} | to nuon");
 
     assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
-fn unfold_allows_empty_output() {
+fn generate_allows_empty_output() {
     let actual = nu!(pipeline(
         r#"
         generate 0 {|x|
@@ -34,7 +34,7 @@ fn unfold_allows_empty_output() {
 }
 
 #[test]
-fn unfold_allows_no_output() {
+fn generate_allows_no_output() {
     let actual = nu!(pipeline(
         r#"
         generate 0 {|x|
@@ -49,7 +49,7 @@ fn unfold_allows_no_output() {
 }
 
 #[test]
-fn unfold_allows_null_state() {
+fn generate_allows_null_state() {
     let actual = nu!(pipeline(
         r#"
         generate 0 {|x|
@@ -68,7 +68,7 @@ fn unfold_allows_null_state() {
 }
 
 #[test]
-fn unfold_allows_null_output() {
+fn generate_allows_null_output() {
     let actual = nu!(pipeline(
         r#"
         generate 0 {|x|
@@ -85,19 +85,19 @@ fn unfold_allows_null_output() {
 }
 
 #[test]
-fn unfold_disallows_extra_keys() {
+fn generate_disallows_extra_keys() {
     let actual = nu!("generate 0 {|x| {foo: bar, out: $x}}");
     assert!(actual.err.contains("Invalid block return"));
 }
 
 #[test]
-fn unfold_disallows_list() {
+fn generate_disallows_list() {
     let actual = nu!("generate 0 {|x| [$x, ($x + 1)]}");
     assert!(actual.err.contains("Invalid block return"));
 }
 
 #[test]
-fn unfold_disallows_primitive() {
+fn generate_disallows_primitive() {
     let actual = nu!("generate 0 {|x| 1}");
     assert!(actual.err.contains("Invalid block return"));
 }
