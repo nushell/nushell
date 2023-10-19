@@ -21,7 +21,7 @@ fn replaces_basename_of_empty_input() {
         cwd: "tests", pipeline(
         r#"
             echo ""
-            | path basename -r newname.txt
+            | path basename --replace newname.txt
         "#
     ));
 
@@ -47,7 +47,7 @@ fn replaces_basename_of_path_ending_with_dot() {
         cwd: "tests", pipeline(
         r#"
             echo "some/file.txt/."
-            | path basename -r viking.txt
+            | path basename --replace viking.txt
         "#
     ));
 
@@ -74,7 +74,7 @@ fn replaces_basename_of_path_ending_with_double_dot() {
         cwd: "tests", pipeline(
         r#"
             echo "some/file.txt/.."
-            | path basename -r eggs
+            | path basename --replace eggs
         "#
     ));
 
