@@ -3445,6 +3445,13 @@ impl Value {
                     Err(ShellError::DivisionByZero { span: op })
                 }
             }
+            (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
+                if *rhs != 0 {
+                    Ok(Value::duration(lhs % rhs, span))
+                } else {
+                    Err(ShellError::DivisionByZero { span: op })
+                }
+            }
             (Value::CustomValue { val: lhs, .. }, rhs) => {
                 lhs.operation(span, Operator::Math(Math::Modulo), op, rhs)
             }
