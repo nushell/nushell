@@ -1,23 +1,22 @@
 use itertools::unfold;
-
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
-pub struct Unfold;
+pub struct Generate;
 
-impl Command for Unfold {
+impl Command for Generate {
     fn name(&self) -> &str {
-        "unfold"
+        "generate"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("unfold")
+        Signature::build("generate")
             .input_output_types(vec![
                 (Type::Nothing, Type::List(Box::new(Type::Any))),
                 (
@@ -54,7 +53,7 @@ used as the next argument to the closure, otherwise generation stops.
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "unfold 0 {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }}",
+                example: "generate 0 {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }}",
                 description: "Generate a sequence of numbers",
                 result: Some(Value::list(
                     vec![
@@ -69,7 +68,7 @@ used as the next argument to the closure, otherwise generation stops.
                 )),
             },
             Example {
-                example: "unfold [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
+                example: "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
                 description: "Generate a stream of fibonacci numbers",
                 result: Some(Value::list(
                     vec![
@@ -226,6 +225,6 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Unfold {})
+        test_examples(Generate {})
     }
 }
