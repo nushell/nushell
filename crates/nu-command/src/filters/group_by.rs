@@ -128,12 +128,9 @@ pub fn group_by(
     let values: Vec<Value> = input.into_iter().collect();
 
     if values.is_empty() {
-        return Err(ShellError::GenericError(
-            "expected table from pipeline".into(),
-            "requires a table input".into(),
-            Some(span),
+        return Ok(PipelineData::Value(
+            Value::record(Record::new(), Span::unknown()),
             None,
-            Vec::new(),
         ));
     }
 
