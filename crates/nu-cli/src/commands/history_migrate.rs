@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use nu_protocol::engine::Command;
-use nu_protocol::{PipelineData, ShellError, Signature, Type};
+use nu_protocol::{Category, PipelineData, ShellError, Signature, Type};
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
     SqliteBackedHistory,
@@ -20,7 +20,9 @@ impl Command for HistoryMigrate {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("history migrate").input_output_type(Type::Nothing, Type::Nothing)
+        Signature::build("history migrate")
+            .input_output_type(Type::Nothing, Type::Nothing)
+            .category(Category::Misc)
     }
 
     fn run(
