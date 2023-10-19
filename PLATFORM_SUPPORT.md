@@ -1,6 +1,6 @@
 # Nushell platform support policy
 
-Nushell envisions to be a cross-platform shell, despite taking some strong desing inspiration from UNIX and POSIX command names and style conventions we explicitly support Windows.
+Nushell envisions to be a cross-platform shell, despite taking some strong design inspiration from UNIX and POSIX command names and style conventions we explicitly support Windows.
 
 ## cross-platform design
 This commitment to a cross-platform Nushell forces us to make provisions so users on Windows can have the generally same pleasant experience: e.g. supporting paths with backslash as the directory separator, forces us to support string literals that accept those.
