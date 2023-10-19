@@ -27,7 +27,7 @@ pub use alias::*;
 pub use cli_error::*;
 pub use config::*;
 pub use did_you_mean::did_you_mean;
-pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NOTHING_VARIABLE_ID, NU_VARIABLE_ID};
+pub use engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
 pub use example::*;
 pub use exportable::*;
 pub use id::*;
