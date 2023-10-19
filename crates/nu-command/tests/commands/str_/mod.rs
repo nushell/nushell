@@ -29,7 +29,7 @@ fn trims() {
 fn error_trim_multiple_chars() {
     let actual = nu!(pipeline(
         r#"
-        echo "does it work now?!" | str trim -c "?!"
+        echo "does it work now?!" | str trim --char "?!"
         "#
     ));
 

@@ -49,7 +49,7 @@ fn detect_columns_with_flag_c() {
         for case in cases.into_iter() {
             let out = nu!(
                 cwd: dirs.test(),
-                "({} | detect columns -c {}) == {}",
+                "({} | detect columns --combine-columns {}) == {}",
                 case.0,
                 case.2,
                 case.1,
@@ -57,7 +57,7 @@ fn detect_columns_with_flag_c() {
 
             assert_eq!(
                 out.out, "true",
-                "({} | detect columns -c {}) == {}",
+                "({} | detect columns --combine-columns {}) == {}",
                 case.0, case.2, case.1
             );
         }

@@ -83,7 +83,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Check if input contains string case insensitive",
-                example: "'my_library.rb' | str contains -i '.RB'",
+                example: "'my_library.rb' | str contains --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
@@ -96,7 +96,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
+                example: " [[ColA ColB]; [test 100]] | str contains --ignore-case 'E' ColA",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["ColA".to_string(), "ColB".to_string()],
@@ -135,7 +135,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Check if list does not contain string",
-                example: "[one two three] | str contains -n o",
+                example: "[one two three] | str contains --not o",
                 result: Some(Value::list(
                     vec![
                         Value::test_bool(false),

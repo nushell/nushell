@@ -81,7 +81,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "Split the string's words, of at least 3 characters, into separate rows",
-                example: "'hello to the world' | split words -l 3",
+                example: "'hello to the world' | split words --min-word-length 3",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("hello"),
@@ -94,7 +94,7 @@ impl Command for SubCommand {
             Example {
                 description:
                     "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq --count | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
                 result: None,
             },
         ]

@@ -134,27 +134,27 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim -c '=' | str trim",
+                example: "'=== Nu shell ===' | str trim --char '=' | str trim",
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
-                example: "' Nu shell ' | str trim -l",
+                example: "' Nu shell ' | str trim --left",
                 result: Some(Value::test_string("Nu shell ")),
             },
             Example {
                 description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim -c '='",
+                example: "'=== Nu shell ===' | str trim --char '='",
                 result: Some(Value::test_string(" Nu shell ")),
             },
             Example {
                 description: "Trim whitespace from the end of string",
-                example: "' Nu shell ' | str trim -r",
+                example: "' Nu shell ' | str trim --right",
                 result: Some(Value::test_string(" Nu shell")),
             },
             Example {
                 description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim -r -c '='",
+                example: "'=== Nu shell ===' | str trim --right --char '='",
                 result: Some(Value::test_string("=== Nu shell ")),
             },
         ]
