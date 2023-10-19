@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    report_error_new, Category, Example, IntoPipelineData, PipelineData, Record, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -22,12 +22,6 @@ impl Command for ToXml {
     fn signature(&self) -> Signature {
         Signature::build("to xml")
             .input_output_types(vec![(Type::Record(vec![]), Type::String)])
-            .named(
-                "pretty",
-                SyntaxShape::Int,
-                "DEPRECATED option, will be removed in 0.87. Please use `--indent {int}` instead.",
-                Some('p'),
-            )
             .named(
                 "indent",
                 SyntaxShape::Int,
@@ -86,33 +80,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if call.has_flag("pretty") {
-            report_error_new(
-                engine_state,
-                &ShellError::GenericError(
-                    "Deprecated option".into(),
-                    "`to xml --pretty {int}` is deprecated and will be removed in 0.87.".into(),
-                    Some(call.head),
-                    Some("Please use `--indent {int}` instead.".into()),
-                    vec![],
-                ),
-            );
-        }
-        let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
         let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
-        let indent = match (pretty, indent) {
-            (Some(pretty), Some(indent)) => {
-                return Err(ShellError::IncompatibleParameters {
-                    left_message: "Cannot pass --pretty".into(),
-                    left_span: pretty.span,
-                    right_message: "and --indent".into(),
-                    right_span: indent.span,
-                })
-            }
-            (Some(pretty), None) => Some(pretty),
-            (None, Some(indent)) => Some(indent),
-            (None, None) => None,
-        };
         let input = input.try_expand_range()?;
         to_xml(input, head, indent)
     }
