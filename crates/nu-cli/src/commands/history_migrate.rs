@@ -73,7 +73,11 @@ impl Command for HistoryMigrate {
                         history_item.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
                         let _history_item = sqlite_history.save(history_item);
                     })
-                });
+                })
+                .ok_or(ShellError::FileNotFoundCustom(
+                    "plaintext history file ({plaintext_history_path}) not found".into(),
+                    head,
+                ))?;
 
             Ok(PipelineData::empty())
         } else {
