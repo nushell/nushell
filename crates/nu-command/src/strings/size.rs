@@ -40,6 +40,16 @@ impl Command for Size {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`size` is deprecated and will be removed in 0.88.".into(),
+                Some(call.head),
+                Some("Use `str size` instead".into()),
+                vec![],
+            ),
+        );
         size(engine_state, call, input)
     }
 
