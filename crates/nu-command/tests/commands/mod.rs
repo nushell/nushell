@@ -33,6 +33,7 @@ mod flatten;
 mod for_;
 #[cfg(feature = "extra")]
 mod format;
+mod generate;
 mod get;
 mod glob;
 mod group_by;
@@ -103,7 +104,6 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
-mod unfold;
 mod uniq;
 mod uniq_by;
 mod update;
