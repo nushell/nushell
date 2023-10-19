@@ -60,7 +60,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Roll 10 dice with 12 sides each",
-                example: "random dice -d 10 -s 12",
+                example: "random dice --dice 10 --sides 12",
                 result: None,
             },
         ]

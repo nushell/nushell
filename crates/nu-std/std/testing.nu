@@ -143,8 +143,8 @@ def show-pretty-test [indent: int = 4] {
 def run-test [
     test: record
 ] {
-    let test_file_name = (random chars -l 10)
-    let test_function_name = (random chars -l 10)
+    let test_file_name = (random chars --length 10)
+    let test_function_name = (random chars --length 10)
     let rendered_module_path = ({parent: ($test.file|path dirname), stem: $test_file_name, extension: nu}| path join)
 
     let test_function = $"

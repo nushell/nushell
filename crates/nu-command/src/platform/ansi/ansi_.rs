@@ -624,7 +624,7 @@ Operating system commands:
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
-                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
+                example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
@@ -634,7 +634,7 @@ Operating system commands:
         bg: '#ff0000'
         attr: b
     }
-    $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
+    $"(ansi --escape $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
