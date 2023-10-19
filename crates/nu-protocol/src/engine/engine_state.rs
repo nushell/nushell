@@ -113,7 +113,6 @@ const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 pub const NU_VARIABLE_ID: usize = 0;
 pub const IN_VARIABLE_ID: usize = 1;
 pub const ENV_VARIABLE_ID: usize = 2;
-pub const NOTHING_VARIABLE_ID: usize = 3;
 // NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 impl EngineState {
