@@ -47,7 +47,7 @@ used as the next argument to the closure, otherwise generation stops.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["generate", "stream"]
+        vec!["unfold", "stream", "yield", "expand"]
     }
 
     fn examples(&self) -> Vec<Example> {
