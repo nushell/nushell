@@ -59,7 +59,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Apply the tangent to a list of angles in degrees",
-                example: "[-45 0 45] | math tan -d",
+                example: "[-45 0 45] | math tan --degrees",
                 result: Some(Value::list(
                     vec![
                         Value::test_float(-1f64),

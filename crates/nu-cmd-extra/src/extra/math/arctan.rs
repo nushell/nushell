@@ -61,7 +61,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the arctangent of -1 in degrees",
-                example: "-1 | math arctan -d",
+                example: "-1 | math arctan --degrees",
                 result: Some(Value::test_float(-45.0)),
             },
         ]

@@ -60,7 +60,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the arccosine of -1 in degrees",
-                example: "-1 | math arccos -d",
+                example: "-1 | math arccos --degrees",
                 result: Some(Value::test_float(180.0)),
             },
         ]
