@@ -186,8 +186,9 @@ fn select_ignores_errors_successfully3() {
 
 #[test]
 fn select_ignores_errors_successfully4() {
-    let actual =
-        nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select foo? | to nuon"#);
+    let actual = nu!(
+        r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select foo? | to nuon"#
+    );
 
     assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
     assert!(actual.err.is_empty());
@@ -211,7 +212,8 @@ fn select_failed2() {
 
 #[test]
 fn select_failed3() {
-    let actual = nu!(r#""key val\na 1\nb 2\n" | lines | split column -c " " | select "100""#);
+    let actual =
+        nu!(r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select "100""#);
 
     assert!(actual.out.is_empty());
     assert!(actual.err.contains("cannot find column"));

@@ -59,7 +59,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split on grapheme clusters",
-                example: "'🇯🇵ほげ' | split chars -g",
+                example: "'🇯🇵ほげ' | split chars --grapheme-clusters",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("🇯🇵"),

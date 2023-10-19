@@ -39,7 +39,7 @@ fn to_column() {
                 open sample2.txt
                 | lines
                 | str trim
-                | split column -r '\s*,\s*'
+                | split column --regex '\s*,\s*'
                 | get column2
             "
         ));
