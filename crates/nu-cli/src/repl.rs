@@ -22,8 +22,8 @@ use nu_protocol::{
 };
 use nu_utils::utils::perf;
 use reedline::{
-    CursorConfig, DefaultHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId, Reedline,
-    SqliteBackedHistory, Vi,
+    CursorConfig, CwdAwareHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId,
+    Reedline, SqliteBackedHistory, Vi,
 };
 use std::{
     env::temp_dir,
@@ -302,7 +302,7 @@ pub fn evaluate_repl(
             line_editor.with_hinter(Box::new({
                 // As of Nov 2022, "hints" color_config closures only get `null` passed in.
                 let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-                DefaultHinter::default().with_style(style)
+                CwdAwareHinter::default().with_style(style)
             }))
         } else {
             line_editor.disable_hints()
