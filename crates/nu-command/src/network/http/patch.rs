@@ -111,17 +111,19 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Patch content to example.com, with username and password",
-                example: "http patch -u myuser -p mypass https://www.example.com 'body'",
+                example:
+                    "http patch --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
                 description: "Patch content to example.com, with custom header",
-                example: "http patch -H [my-header-key my-header-value] https://www.example.com",
+                example:
+                    "http patch --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Patch content to example.com, with JSON body",
-                example: "http patch -t application/json https://www.example.com { field: value }",
+                example: "http patch --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]

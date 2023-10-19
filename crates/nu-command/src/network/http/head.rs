@@ -94,12 +94,13 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get headers from example.com, with username and password",
-                example: "http head -u myuser -p mypass https://www.example.com",
+                example: "http head --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get headers from example.com, with custom header",
-                example: "http head -H [my-header-key my-header-value] https://www.example.com",
+                example:
+                    "http head --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
         ]
