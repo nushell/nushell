@@ -81,7 +81,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
-                example: "'abc' | split column -c ''",
+                example: "'abc' | split column --collapse-empty ''",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec![
@@ -117,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
-                example: r"['a -  b' 'c  -    d'] | split column -r '\s*-\s*'",
+                example: r"['a -  b' 'c  -    d'] | split column --regex '\s*-\s*'",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {

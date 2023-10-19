@@ -43,7 +43,7 @@ def get-annotated [
     | where annotation in (valid-annotations|columns)
     | reject index
     | update item {
-        split column -c ' '
+        split column --collapse-empty ' '
         | get column2.0
     }
     | rename function_name

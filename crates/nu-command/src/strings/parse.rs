@@ -59,12 +59,12 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using regex pattern",
-                example: "\"hi there\" | parse -r '(?P<foo>\\w+) (?P<bar>\\w+)'",
+                example: "\"hi there\" | parse --regex '(?P<foo>\\w+) (?P<bar>\\w+)'",
                 result: Some(result),
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
-                example: "\"foo bar.\" | parse -r '\\s*(?<name>\\w+)(?=\\.)'",
+                example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["name".to_string()],
@@ -75,7 +75,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
-                example: "\"foo! bar.\" | parse -r '(\\w+)(?=\\.)|(\\w+)(?=!)'",
+                example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(Record {
@@ -93,7 +93,7 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
                 example:
-                    "\" @another(foo bar)   \" | parse -r '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                    "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["capture0".to_string(), "capture1".to_string()],
@@ -107,7 +107,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
-                example: "\"abcd\" | parse -r '^a(bc(?=d)|b)cd$'",
+                example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec!["capture0".to_string()],
