@@ -21,7 +21,7 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "vol missingdrive err> a; (open a | size).bytes >= 16"
+            "vol missingdrive err> a; (open a | str size).bytes >= 16"
         );
 
         assert!(output.out.contains("true"));
@@ -50,7 +50,7 @@ fn redirect_outerr() {
             cwd: dirs.test(),
             "vol missingdrive out+err> a"
         );
-        let output = nu!(cwd: dirs.test(), "(open a | size).bytes >= 16");
+        let output = nu!(cwd: dirs.test(), "(open a | str size).bytes >= 16");
 
         assert!(output.out.contains("true"));
     })
