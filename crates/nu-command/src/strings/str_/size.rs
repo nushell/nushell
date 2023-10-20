@@ -52,9 +52,9 @@ impl Command for SubCommand {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
-                        "bytes".into(),
                         "chars".into(),
                         "graphemes".into(),
+                        "bytes".into(),
                     ],
                     vals: vec![
                         Value::test_int(1),
@@ -72,16 +72,16 @@ impl Command for SubCommand {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
-                        "bytes".into(),
                         "chars".into(),
                         "graphemes".into(),
+                        "bytes".into(),
                     ],
                     vals: vec![
                         Value::test_int(1),
                         Value::test_int(6),
+                        Value::test_int(6),
+                        Value::test_int(6),
                         Value::test_int(18),
-                        Value::test_int(6),
-                        Value::test_int(6),
                     ],
                 })),
             },
@@ -92,16 +92,16 @@ impl Command for SubCommand {
                     cols: vec![
                         "lines".into(),
                         "words".into(),
-                        "bytes".into(),
                         "chars".into(),
                         "graphemes".into(),
+                        "bytes".into(),
                     ],
                     vals: vec![
                         Value::test_int(1),
                         Value::test_int(2),
-                        Value::test_int(15),
                         Value::test_int(14),
                         Value::test_int(13),
+                        Value::test_int(15),
                     ],
                 })),
             },
@@ -153,9 +153,9 @@ fn counter(contents: &str, span: Span) -> Value {
     let record = record! {
         "lines" => get_count(&counts, Counter::Lines, span),
         "words" => get_count(&counts, Counter::Words, span),
-        "bytes" => get_count(&counts, Counter::Bytes, span),
         "chars" => get_count(&counts, Counter::CodePoints, span),
         "graphemes" => get_count(&counts, Counter::GraphemeClusters, span),
+        "bytes" => get_count(&counts, Counter::Bytes, span),
     };
 
     Value::record(record, span)
