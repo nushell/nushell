@@ -113,13 +113,13 @@ impl Command for Explore {
             },
             Example {
                 description: "Explore a list of Markdown files' contents, with row indexes",
-                example: r#"glob *.md | each {|| open } | explore -i"#,
+                example: r#"glob *.md | each {|| open } | explore --index"#,
                 result: None,
             },
             Example {
                 description:
                     "Explore a JSON file, then save the last visited sub-structure to a file",
-                example: r#"open file.json | explore -p | to json | save part.json"#,
+                example: r#"open file.json | explore --peek | to json | save part.json"#,
                 result: None,
             },
         ]
