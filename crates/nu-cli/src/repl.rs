@@ -452,7 +452,14 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        let input = { line_editor.read_line(&nu_prompt.read().unwrap().to_owned()) };
+        let input = {
+            line_editor.read_line(
+                &nu_prompt
+                    .read()
+                    .expect("Could not lock on prompt to pass to read_line")
+                    .to_owned(),
+            )
+        };
         let shell_integration = config.shell_integration;
 
         match input {
