@@ -46,7 +46,7 @@ impl Command for Size {
                 "Deprecated command".into(),
                 "`size` is deprecated and will be removed in 0.88.".into(),
                 Some(call.head),
-                Some("Use `str size` instead".into()),
+                Some("Use `str stats` instead".into()),
                 vec![],
             ),
         );
