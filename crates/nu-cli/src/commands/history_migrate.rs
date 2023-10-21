@@ -75,19 +75,20 @@ impl Command for HistoryMigrate {
                         .ok()
                 })
                 .map(move |entries| {
-                    let mut unique_entries: Vec<HistoryItem> = vec![];
                     let entries = if !call.has_flag("keep-duplicates") {
+                        let mut unique_entries = sqlite_history
+                            .search(SearchQuery::everything(SearchDirection::Forward, None))
+                            .unwrap_or(Vec::<HistoryItem>::new());
                         entries
                             .into_iter()
                             .filter(|entry| {
-                                match !unique_entries.iter().any(|unique_entry| {
+                                if !unique_entries.iter().any(|unique_entry| {
                                     unique_entry.command_line == entry.command_line
                                 }) {
-                                    true => {
-                                        unique_entries.push(entry.clone());
-                                        true
-                                    }
-                                    false => false,
+                                    unique_entries.push(entry.clone());
+                                    true
+                                } else {
+                                    false
                                 }
                             })
                             .collect::<Vec<HistoryItem>>()
