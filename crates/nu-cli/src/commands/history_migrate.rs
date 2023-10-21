@@ -27,6 +27,11 @@ impl Command for HistoryMigrate {
                 "Keep duplicate entries when migrating history",
                 Some('k'),
             )
+            .switch(
+                "overwrite",
+                "Overwrite SQLite history with migrated history",
+                Some('o'),
+            )
             .category(Category::Misc)
     }
 
@@ -40,12 +45,17 @@ impl Command for HistoryMigrate {
         let head = call.head;
 
         if let Some(config_path) = nu_path::config_dir() {
-            let mut plaintext_history_path = config_path.clone();
-            let mut sqlite_history_path = config_path;
-            plaintext_history_path.push("nushell");
-            plaintext_history_path.push("history.txt");
-            sqlite_history_path.push("nushell");
-            sqlite_history_path.push("history.sqlite3");
+            let history_base_path = config_path.join("nushell");
+            let plaintext_history_path = history_base_path.join("history.txt");
+            let sqlite_history_path = history_base_path.join("history.sqlite3");
+
+            // TODO: FIXME: After clearing history, run commands do not get saved. The saving of
+            // migrated commands works, however, probably because a new connection to the database is established
+            if call.has_flag("overwrite") {
+                let _ = std::fs::remove_file(history_base_path.join("history.sqlite3"));
+                let _ = std::fs::remove_file(history_base_path.join("history.sqlite3-shm"));
+                let _ = std::fs::remove_file(history_base_path.join("history.sqlite3-wal"));
+            }
 
             let plaintext_history_reader = FileBackedHistory::with_file(
                 engine_state.config.max_history_size as usize,
@@ -97,8 +107,7 @@ impl Command for HistoryMigrate {
                     };
                     entries.into_iter().for_each(|mut entry| {
                         entry.start_timestamp = Some(DateTime::<Utc>::from(UNIX_EPOCH));
-                        let _history_item = sqlite_history.save(entry); // TODO: FIXME
-                                                                        // Does this not need to be handled?
+                        let _history_item = sqlite_history.save(entry);
                     })
                 })
                 .ok_or(ShellError::FileNotFoundCustom(
