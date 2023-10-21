@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type,
-    Value,
+    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
+    ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -145,6 +145,8 @@ fn run(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let metadata = (&input).metadata().clone();
+
     let head = call.head;
 
     let no_collect: bool = call.has_flag("no-collect");
@@ -152,10 +154,9 @@ fn run(
 
     let description: Value = match input {
         PipelineData::ExternalStream {
-            stdout,
-            stderr,
-            exit_code,
-            metadata,
+            ref stdout,
+            ref stderr,
+            ref exit_code,
             ..
         } => {
             if detailed {
@@ -196,15 +197,7 @@ fn run(
                                 ),
                             None => Value::nothing(head),
                         },
-                        "metadata" => match metadata {
-                            Some(metadata) => Value::record(
-                                    record!(
-                                        "data_source" => Value::string(format!("{:?}", metadata.data_source), head),
-                                    ),
-                                    head,
-                                ),
-                            None => Value::nothing(head),
-                        },
+                        "metadata" => metadata_to_value(metadata, head),
                     ),
                     head,
                 )
@@ -225,6 +218,7 @@ fn run(
                             describe_value(input.into_value(head), head, engine_state, call)?
                            }
                         },
+                        "metadata" => metadata_to_value(metadata, head),
                     ),
                     head,
                 )
@@ -409,6 +403,18 @@ fn describe_value(
             Value::record(record!(), head)
         }
     })
+}
+
+fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {
+    match metadata {
+        Some(metadata) => Value::record(
+            record!(
+                "data_source" => Value::string(format!("{:?}", metadata.data_source), head),
+            ),
+            head,
+        ),
+        _ => Value::nothing(head),
+    }
 }
 
 #[cfg(test)]
