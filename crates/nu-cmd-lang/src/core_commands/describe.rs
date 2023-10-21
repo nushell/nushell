@@ -33,6 +33,7 @@ impl Command for Describe {
                 "show detailed information about the value",
                 Some('d'),
             )
+            .switch("collect-lazyrecords", "collect lazy records", Some('l'))
             .category(Category::Core)
     }
 
@@ -68,23 +69,58 @@ impl Command for Describe {
             },
             Example {
                 description: "Describe the type of a record in a detailed way",
-                example: "{uwu:true, awa:1, name: {last:true, yes:1}} | describe -d",
+                example:
+                    "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
-                    "fields" => Value::test_record(record!(
+                    "lazy" => Value::test_bool(false),
+                    "columns" => Value::test_record(record!(
+                        "shell" => Value::test_string("string"),
                         "uwu" => Value::test_string("bool"),
-                        "awa" => Value::test_string("int"),
-                        "name" => Value::test_record(record!(
+                        "features" => Value::test_record(record!(
                             "type" => Value::test_string("record"),
-                            "fields" => Value::test_record(record!(
-                                "last" => Value::test_string("bool"),
-                                "yes" => Value::test_string("int"),
+                            "lazy" => Value::test_bool(false),
+                            "columns" => Value::test_record(record!(
+                                "bugs" => Value::test_string("bool"),
+                                "multiplatform" => Value::test_string("bool"),
+                                "speed" => Value::test_string("int"),
                             )),
                         )),
+                        "fib" => Value::test_record(record!(
+                            "type" => Value::test_string("list"),
+                            "length" => Value::test_int(6),
+                            "values" => Value::test_list(vec![
+                                Value::test_string("int"),
+                                Value::test_string("int"),
+                                Value::test_string("int"),
+                                Value::test_string("int"),
+                                Value::test_string("int"),
+                                Value::test_string("int"),
+                           ]),
+                        )),
+                        "on_save" => Value::test_record(record!(
+                            "type" => Value::test_string("closure"),
+                            "signature" => Value::test_record(record!(
+                                "name" => Value::test_string(""),
+                                "category" => Value::test_string("default"),
+                            )),
+                        )),
+                        "first_commit" => Value::test_string("date"),
+                        "my_duration" => Value::test_string("duration"),
                     )),
                 ))),
             },
+            // TODO: Uncomment these tests when/if we allow external commands in examples.
             /*
+            Example {
+                description: "Describe the type of a stream with detailed information",
+                example: "[1 2 3] | each {|i| $i} | describe -d",
+                result: Some(Value::test_record(record!(
+                    "type" => Value::test_string("stream"),
+                    "origin" => Value::test_string("nushell"),
+                    "subtype" => Value::test_string("int"),
+                ))),
+            },
             Example {
                 description: "Describe a stream of data, collecting it first",
                 example: "[1 2 3] | each {|i| $i} | describe",
@@ -115,13 +151,60 @@ fn run(
     let detailed = call.has_flag("detailed");
 
     let description: Value = match input {
-        PipelineData::ExternalStream { .. } => {
+        PipelineData::ExternalStream {
+            stdout,
+            stderr,
+            exit_code,
+            metadata,
+            ..
+        } => {
             if detailed {
                 Value::record(
                     record!(
                         "type" => Value::string("stream", head),
                         "origin" => Value::string("external", head),
-                        "raw" => Value::bool(true, head)
+                        "stdout" => match stdout {
+                            Some(_) => Value::record(
+                                    record!(
+                                        "type" => Value::string("stream", head),
+                                        "origin" => Value::string("external", head),
+                                        "subtype" => Value::string("any", head),
+                                    ),
+                                    head,
+                                ),
+                            None => Value::nothing(head),
+                        },
+                        "stderr" => match stderr {
+                            Some(_) => Value::record(
+                                    record!(
+                                        "type" => Value::string("stream", head),
+                                        "origin" => Value::string("external", head),
+                                        "subtype" => Value::string("any", head),
+                                    ),
+                                    head,
+                                ),
+                            None => Value::nothing(head),
+                        },
+                        "exit_code" => match exit_code {
+                            Some(_) => Value::record(
+                                    record!(
+                                        "type" => Value::string("stream", head),
+                                        "origin" => Value::string("external", head),
+                                        "subtype" => Value::string("int", head),
+                                    ),
+                                    head,
+                                ),
+                            None => Value::nothing(head),
+                        },
+                        "metadata" => match metadata {
+                            Some(metadata) => Value::record(
+                                    record!(
+                                        "data_source" => Value::string(format!("{:?}", metadata.data_source), head),
+                                    ),
+                                    head,
+                                ),
+                            None => Value::nothing(head),
+                        },
                     ),
                     head,
                 )
@@ -130,33 +213,16 @@ fn run(
             }
         }
         PipelineData::ListStream(_, _) => {
-            // if no_collect {
-            //     Value::string("stream".into(), head)
-            // } else {
-            //     let value = input.into_value(head);
-            //     let base_description = match value {
-            //         Value::CustomValue { val, .. } => val.value_string(),
-            //         _ => value.get_type().to_string(),
-            //     };
-
-            //     Value::string(format!("{} (stream)", base_description), head)
-            // }
             if detailed {
                 Value::record(
                     record!(
                         "type" => Value::string("stream", head),
-                        "origin" => Value::string("internal", head),
+                        "origin" => Value::string("nushell", head),
                         "subtype" => {
                            if no_collect {
                             Value::string("any", head)
                            } else {
-                            let value = input.into_value(head);
-                            let base_description = match value {
-                                Value::CustomValue { val, .. } => val.value_string(),
-                                _ => value.get_type().to_string(),
-                            };
-
-                            Value::string(base_description, head)
+                            describe_value(input.into_value(head), head, engine_state, call)?
                            }
                         },
                     ),
@@ -182,138 +248,167 @@ fn run(
                     _ => Value::string(value.get_type().to_string(), head),
                 }
             } else {
-                match value {
-                    Value::CustomValue { val, internal_span } => Value::record(
-                        record!(
-                            "type" => Value::string("custom", head),
-                            "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data())?.into_value(head),
-                        ),
-                        head,
-                    ),
-                    Value::Bool { .. }
-                    | Value::Int { .. }
-                    | Value::Float { .. }
-                    | Value::Filesize { .. }
-                    | Value::Duration { .. }
-                    | Value::Date { .. }
-                    | Value::Range { .. }
-                    | Value::String { .. }
-                    | Value::MatchPattern { .. }
-                    | Value::Nothing { .. } => Value::record(
-                        record!(
-                            "type" => Value::string(value.get_type().to_string(), head),
-                        ),
-                        head,
-                    ),
-                    Value::Record { val, .. } => {
-                        let mut record = Record::new();
-                        for i in 0..val.len() {
-                            let k = val.cols[i].clone();
-                            let v = val.vals[i].clone();
-
-                            record.push(k, {
-                                if let Value::Record { val, .. } =
-                                    run(engine_state, call, v.into_pipeline_data())?
-                                        .into_value(head)
-                                {
-                                    if let [Value::String { val: k, .. }] = val.vals.as_slice() {
-                                        Value::string(k, head)
-                                    } else {
-                                        Value::record(val, head)
-                                    }
-                                } else {
-                                    unreachable!()
-                                }
-                            });
-                        }
-
-                        Value::record(
-                            record!(
-                                "type" => Value::string("record", head),
-                                "fields" => Value::record(record, head),
-                            ),
-                            head,
-                        )
-                    }
-                    Value::List { vals, .. } => {
-                        let mut fields = vec![];
-                        for v in &vals {
-                            fields.push(
-                                run(engine_state, call, v.clone().into_pipeline_data())?
-                                    .into_value(head),
-                            );
-                        }
-
-                        Value::record(
-                            record!(
-                                "type" => Value::string("list", head),
-                                "length" => Value::int(vals.len() as i64, head),
-                                "values" => Value::List { vals: fields, internal_span: head },
-                            ),
-                            head,
-                        )
-                    }
-                    Value::Block { val, .. } | Value::Closure { val, .. } => {
-                        let block = engine_state.map(|engine_state| engine_state.get_block(val));
-
-                        if let Some(block) = block {
-                            let mut record = Record::new();
-                            record.push("type", Value::string("closure", head));
-                            record.push(
-                                "signature",
-                                Value::record(
-                                    record!(
-                                        "name" => Value::string(block.signature.name.clone(), head),
-                                        "category" => Value::string(block.signature.category.to_string(), head),
-                                    ),
-                                    head,
-                                ),
-                            );
-                            Value::record(record, head)
-                        } else {
-                            Value::record(
-                                record!(
-                                    "type" => Value::string("closure", head),
-                                ),
-                                head,
-                            )
-                        }
-                    }
-
-                    Value::Error { error, .. } => Value::record(
-                        record!(
-                            "type" => Value::string("error", head),
-                            "subtype" => Value::string(error.to_string(), head),
-                        ),
-                        head,
-                    ),
-                    Value::Binary { val, .. } => Value::record(
-                        record!(
-                            "type" => Value::string("binary", head),
-                            "length" => Value::int(val.len() as i64, head),
-                        ),
-                        head,
-                    ),
-                    Value::CellPath { val, .. } => Value::record(
-                        record!(
-                            "type" => Value::string("cellpath", head),
-                            "length" => Value::int(val.members.len() as i64, head),
-                        ),
-                        head,
-                    ),
-                    Value::LazyRecord { val, .. } => Value::record(
-                        record!(
-                            "type" => Value::string("lazyrecord", head),
-                            "keys" => Value::int(val.column_names().len() as i64, head),
-                        ),
-                        head,
-                    ),
-                }
+                describe_value(value, head, engine_state, call)?
             }
         }
     };
 
     Ok(description.into_pipeline_data())
+}
+
+fn describe_value(
+    value: Value,
+    head: nu_protocol::Span,
+    engine_state: Option<&EngineState>,
+    call: &Call,
+) -> Result<Value, ShellError> {
+    Ok(match value {
+        Value::CustomValue { val, internal_span } => Value::record(
+            record!(
+                "type" => Value::string("custom", head),
+                "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data())?.into_value(head),
+            ),
+            head,
+        ),
+        Value::Bool { .. }
+        | Value::Int { .. }
+        | Value::Float { .. }
+        | Value::Filesize { .. }
+        | Value::Duration { .. }
+        | Value::Date { .. }
+        | Value::Range { .. }
+        | Value::String { .. }
+        | Value::MatchPattern { .. }
+        | Value::Nothing { .. } => Value::record(
+            record!(
+                "type" => Value::string(value.get_type().to_string(), head),
+            ),
+            head,
+        ),
+        Value::Record { val, .. } => {
+            let mut record = Record::new();
+            for i in 0..val.len() {
+                let k = val.cols[i].clone();
+                let v = val.vals[i].clone();
+
+                record.push(k, {
+                    if let Value::Record { val, .. } =
+                        describe_value(v.clone(), head, engine_state, call)?
+                    {
+                        if let [Value::String { val: k, .. }] = val.vals.as_slice() {
+                            Value::string(k, head)
+                        } else {
+                            Value::record(val, head)
+                        }
+                    } else {
+                        describe_value(v, head, engine_state, call)?
+                    }
+                });
+            }
+
+            Value::record(
+                record!(
+                    "type" => Value::string("record", head),
+                    "lazy" => Value::bool(false, head),
+                    "columns" => Value::record(record, head),
+                ),
+                head,
+            )
+        }
+        Value::List { vals, .. } => Value::record(
+            record!(
+                "type" => Value::string("list", head),
+                "length" => Value::int(vals.len() as i64, head),
+                "values" => Value::list(vals.iter().map(|v|
+                    match describe_value(v.clone(), head, engine_state, call) {
+                        Ok(Value::Record {val, ..}) => if val.cols.as_slice() == ["type"] {Ok(val.vals[0].clone())} else {Ok(Value::record(val, head))},
+                        x => x
+                    }
+                ).collect::<Result<Vec<_>, _>>()?, head),
+            ),
+            head,
+        ),
+        Value::Block { val, .. } | Value::Closure { val, .. } => {
+            let block = engine_state.map(|engine_state| engine_state.get_block(val));
+
+            if let Some(block) = block {
+                let mut record = Record::new();
+                record.push("type", Value::string(value.get_type().to_string(), head));
+                record.push(
+                    "signature",
+                    Value::record(
+                        record!(
+                            "name" => Value::string(block.signature.name.clone(), head),
+                            "category" => Value::string(block.signature.category.to_string(), head),
+                        ),
+                        head,
+                    ),
+                );
+                Value::record(record, head)
+            } else {
+                Value::record(
+                    record!(
+                        "type" => Value::string("closure", head),
+                    ),
+                    head,
+                )
+            }
+        }
+
+        Value::Error { error, .. } => Value::record(
+            record!(
+                "type" => Value::string("error", head),
+                "subtype" => Value::string(error.to_string(), head),
+            ),
+            head,
+        ),
+        Value::Binary { val, .. } => Value::record(
+            record!(
+                "type" => Value::string("binary", head),
+                "length" => Value::int(val.len() as i64, head),
+            ),
+            head,
+        ),
+        Value::CellPath { val, .. } => Value::record(
+            record!(
+                "type" => Value::string("cellpath", head),
+                "length" => Value::int(val.members.len() as i64, head),
+            ),
+            head,
+        ),
+        Value::LazyRecord { val, .. } => {
+            let collect_lazyrecords: bool = call.has_flag("collect-lazyrecords");
+            let mut record = Record::new();
+
+            record.push("type", Value::string("record", head));
+            record.push("lazy", Value::bool(true, head));
+
+            if collect_lazyrecords {
+                let collected = val.collect()?;
+                if let Value::Record { val, .. } =
+                    describe_value(collected, head, engine_state, call)?
+                {
+                    let mut record_cols = Record::new();
+                    record.push("length", Value::int(val.len() as i64, head));
+
+                    for i in 0..val.len() {
+                        record_cols.push(
+                            val.cols[i].clone(),
+                            describe_value(val.vals[i].clone(), head, engine_state, call)?,
+                        );
+                    }
+                } else {
+                    let cols = val.column_names();
+                    record.push("length", Value::int(cols.len() as i64, head));
+                }
+            } else {
+                let cols = val.column_names();
+                record.push("length", Value::int(cols.len() as i64, head));
+            }
+
+            Value::record(record!(), head)
+        }
+    })
 }
 
 #[cfg(test)]
