@@ -174,12 +174,6 @@ fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
     Ok(RegKey::predef(hkey))
 }
 
-fn clean_string(string: &str) -> String {
-    string
-        .trim_start_matches('"')
-        .trim_end_matches('"')
-        .replace("\\\\", "\\")
-}
 fn reg_value_to_nu_value(
     reg_value: winreg::RegValue,
     call_span: Span,
@@ -187,11 +181,11 @@ fn reg_value_to_nu_value(
     match reg_value.vtype {
         REG_NONE => (Value::nothing(call_span), reg_value.vtype),
         REG_SZ => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_EXPAND_SZ => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_BINARY => (Value::binary(reg_value.bytes, call_span), reg_value.vtype),
@@ -210,23 +204,23 @@ fn reg_value_to_nu_value(
             reg_value.vtype,
         ),
         REG_LINK => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_MULTI_SZ => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_RESOURCE_LIST => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_FULL_RESOURCE_DESCRIPTOR => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_RESOURCE_REQUIREMENTS_LIST => (
-            Value::string(clean_string(&reg_value.to_string()), call_span),
+            Value::string(reg_value.to_string(), call_span),
             reg_value.vtype,
         ),
         REG_QWORD => (
