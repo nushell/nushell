@@ -145,7 +145,7 @@ fn run(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = (&input).metadata().clone();
+    let metadata = input.metadata().clone();
 
     let head = call.head;
 
