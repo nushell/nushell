@@ -8,8 +8,8 @@ mod join;
 mod length;
 mod replace;
 mod reverse;
-mod size;
 mod starts_with;
+mod stats;
 mod substring;
 mod trim;
 
@@ -23,7 +23,7 @@ pub use join::*;
 pub use length::SubCommand as StrLength;
 pub use replace::SubCommand as StrReplace;
 pub use reverse::SubCommand as StrReverse;
-pub use size::SubCommand as StrSize;
 pub use starts_with::SubCommand as StrStartsWith;
+pub use stats::SubCommand as StrStats;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;

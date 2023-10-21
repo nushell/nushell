@@ -189,7 +189,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrIndexOf,
             StrLength,
             StrReverse,
-            StrSize,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
@@ -219,6 +219,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
+            AnsiLink,
             AnsiStrip,
             Clear,
             Du,

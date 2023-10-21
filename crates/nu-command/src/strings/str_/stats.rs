@@ -16,11 +16,11 @@ pub struct SubCommand;
 
 impl Command for SubCommand {
     fn name(&self) -> &str {
-        "str size"
+        "str stats"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str size")
+        Signature::build("str stats")
             .category(Category::Strings)
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
     }
@@ -40,14 +40,14 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        size(engine_state, call, input)
+        stats(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Count the number of words in a string",
-                example: r#""There are seven words in this sentence" | str size"#,
+                example: r#""There are seven words in this sentence" | str stats"#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -67,7 +67,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Counts unicode characters",
-                example: r#"'今天天气真好' | str size "#,
+                example: r#"'今天天气真好' | str stats "#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -87,7 +87,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Counts Unicode characters correctly in a string",
-                example: r#""Amélie Amelie" | str size"#,
+                example: r#""Amélie Amelie" | str stats"#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -109,7 +109,7 @@ impl Command for SubCommand {
     }
 }
 
-fn size(
+fn stats(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
