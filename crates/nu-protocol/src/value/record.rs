@@ -50,6 +50,12 @@ impl Record {
         self.cols.push(col.into());
         self.vals.push(val);
     }
+
+    pub fn columns(&self) -> Columns {
+        Columns {
+            iter: self.cols.iter(),
+        }
+    }
 }
 
 impl FromIterator<(String, Value)> for Record {
@@ -92,6 +98,34 @@ impl<'a> IntoIterator for &'a mut Record {
 
     fn into_iter(self) -> Self::IntoIter {
         self.cols.iter().zip(&mut self.vals)
+    }
+}
+
+pub struct Columns<'a> {
+    iter: std::slice::Iter<'a, String>,
+}
+
+impl<'a> Iterator for Columns<'a> {
+    type Item = &'a String;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> DoubleEndedIterator for Columns<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl<'a> ExactSizeIterator for Columns<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
     }
 }
 
