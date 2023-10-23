@@ -33,6 +33,11 @@ impl Command for RegistryQuery {
                 "query the hkey_current_user_local_settings hive",
                 None,
             )
+            .switch(
+                "no-expand",
+                "do not expand %ENV% placeholders in REG_EXPAND_SZ",
+                Some('u'),
+            )
             .required("key", SyntaxShape::String, "registry key to query")
             .optional(
                 "value",
@@ -83,6 +88,8 @@ fn registry_query(
 ) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
+    let skip_expand = call.has_flag("no-expand");
+
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
@@ -94,7 +101,7 @@ fn registry_query(
         let mut reg_values = vec![];
         for (name, val) in reg_key.enum_values().flatten() {
             let reg_type = format!("{:?}", val.vtype);
-            let nu_value = reg_value_to_nu_value(val, call_span);
+            let nu_value = reg_value_to_nu_value(val, call_span, skip_expand);
             reg_values.push(Value::record(
                 record! {
                     "name" => Value::string(name, call_span),
@@ -112,7 +119,7 @@ fn registry_query(
                 match reg_value {
                     Ok(val) => {
                         let reg_type = format!("{:?}", val.vtype);
-                        let nu_value = reg_value_to_nu_value(val, call_span);
+                        let nu_value = reg_value_to_nu_value(val, call_span, skip_expand);
                         Ok(Value::record(
                             record! {
                                 "name" => Value::string(value.item, call_span),
@@ -177,12 +184,16 @@ fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
     Ok(RegKey::predef(hkey))
 }
 
-fn reg_value_to_nu_value(mut reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
+fn reg_value_to_nu_value(
+    mut reg_value: winreg::RegValue,
+    call_span: Span,
+    skip_expand: bool,
+) -> nu_protocol::Value {
     match reg_value.vtype {
         REG_NONE => Value::nothing(call_span),
         REG_BINARY => Value::binary(reg_value.bytes, call_span),
         REG_MULTI_SZ => reg_value_to_nu_list_string(reg_value, call_span),
-        REG_SZ | REG_EXPAND_SZ => reg_value_to_nu_string(reg_value, call_span),
+        REG_SZ | REG_EXPAND_SZ => reg_value_to_nu_string(reg_value, call_span, skip_expand),
         REG_DWORD | REG_DWORD_BIG_ENDIAN | REG_QWORD => reg_value_to_nu_int(reg_value, call_span),
 
         // This should be impossible, as registry symlinks should be automatically transparent
@@ -190,7 +201,7 @@ fn reg_value_to_nu_value(mut reg_value: winreg::RegValue, call_span: Span) -> nu
         // If it happens, decode as if the link is a string; it should be a registry path string.
         REG_LINK => {
             reg_value.vtype = REG_SZ;
-            reg_value_to_nu_string(reg_value, call_span)
+            reg_value_to_nu_string(reg_value, call_span, skip_expand)
         }
 
         // Decode these as binary; that seems to be the least bad option available to us.
@@ -204,7 +215,11 @@ fn reg_value_to_nu_value(mut reg_value: winreg::RegValue, call_span: Span) -> nu
     }
 }
 
-fn reg_value_to_nu_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
+fn reg_value_to_nu_string(
+    reg_value: winreg::RegValue,
+    call_span: Span,
+    skip_expand: bool,
+) -> nu_protocol::Value {
     let value = String::from_reg_value(&reg_value)
         .expect("registry value type should be REG_SZ or REG_EXPAND_SZ");
 
@@ -218,7 +233,7 @@ fn reg_value_to_nu_string(reg_value: winreg::RegValue, call_span: Span) -> nu_pr
     // ref: <https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-value-types>
 
     // We can skip the dance if the string doesn't actually have any unexpanded placeholders.
-    if reg_value.vtype != REG_EXPAND_SZ || !value.contains('%') {
+    if skip_expand || reg_value.vtype != REG_EXPAND_SZ || !value.contains('%') {
         return Value::string(value, call_span);
     }
 
@@ -257,6 +272,29 @@ fn reg_value_to_nu_string(reg_value: winreg::RegValue, call_span: Span) -> nu_pr
             }
         }
     }
+}
+
+#[test]
+fn no_expand_does_not_expand() {
+    let unexpanded = "%AppData%";
+    let reg_val = || winreg::RegValue {
+        bytes: unexpanded
+            .encode_utf16()
+            .chain([0])
+            .flat_map(u16::to_ne_bytes)
+            .collect(),
+        vtype: REG_EXPAND_SZ,
+    };
+
+    // normally we do expand
+    let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
+    assert!(nu_val_expanded.as_string().is_ok());
+    assert_ne!(nu_val_expanded.as_string().unwrap(), unexpanded);
+
+    // unless we skip expansion
+    let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
+    assert!(nu_val_skip_expand.as_string().is_ok());
+    assert_eq!(nu_val_skip_expand.as_string().unwrap(), unexpanded);
 }
 
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
