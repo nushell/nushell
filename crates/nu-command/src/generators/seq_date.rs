@@ -67,17 +67,17 @@ impl Command for SeqDate {
             },
             Example {
                 description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
-                example: "seq date --days 10 -r",
+                example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
                 description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
-                example: "seq date --days 10 -o '%m/%d/%Y' -r",
+                example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
                 description: "print the first 10 days in January, 2020",
-                example: "seq date -b '2020-01-01' -e '2020-01-10'",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10'",
                 result: Some(Value::list(
                      vec![
                         Value::test_string("2020-01-01"),
@@ -96,7 +96,7 @@ impl Command for SeqDate {
             },
             Example {
                 description: "print every fifth day between January 1st 2020 and January 31st 2020",
-                example: "seq date -b '2020-01-01' -e '2020-01-31' -n 5",
+                example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
                     Value::test_string("2020-01-01"),

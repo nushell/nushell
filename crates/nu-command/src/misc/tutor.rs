@@ -60,7 +60,7 @@ impl Command for Tutor {
             },
             Example {
                 description: "Search a tutorial by phrase",
-                example: "tutor -f \"$in\"",
+                example: "tutor --find \"$in\"",
                 result: None,
             },
         ]

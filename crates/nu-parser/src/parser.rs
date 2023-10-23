@@ -18,7 +18,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, IN_VARIABLE_ID, NOTHING_VARIABLE_ID,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -474,53 +474,28 @@ fn parse_short_flags(
                 }
             }
 
-            if found_short_flags.is_empty() {
-                let arg_contents = working_set.get_span_contents(arg_span);
-
+            if found_short_flags.is_empty()
                 // check to see if we have a negative number
-                if let Some(positional) = sig.get_positional(positional_idx) {
-                    if positional.shape == SyntaxShape::Int
-                        || positional.shape == SyntaxShape::Number
-                    {
-                        if String::from_utf8_lossy(arg_contents).parse::<f64>().is_ok() {
-                            return None;
-                        } else if let Some(first) = unmatched_short_flags.first() {
-                            let contents = working_set.get_span_contents(*first);
-                            working_set.error(ParseError::UnknownFlag(
-                                sig.name.clone(),
-                                format!("-{}", String::from_utf8_lossy(contents)),
-                                *first,
-                                sig.clone().formatted_flags(),
-                            ));
-                        }
-                    } else if let Some(first) = unmatched_short_flags.first() {
-                        let contents = working_set.get_span_contents(*first);
-                        working_set.error(ParseError::UnknownFlag(
-                            sig.name.clone(),
-                            format!("-{}", String::from_utf8_lossy(contents)),
-                            *first,
-                            sig.clone().formatted_flags(),
-                        ));
-                    }
-                } else if let Some(first) = unmatched_short_flags.first() {
-                    let contents = working_set.get_span_contents(*first);
-                    working_set.error(ParseError::UnknownFlag(
-                        sig.name.clone(),
-                        format!("-{}", String::from_utf8_lossy(contents)),
-                        *first,
-                        sig.clone().formatted_flags(),
-                    ));
-                }
-            } else if !unmatched_short_flags.is_empty() {
-                if let Some(first) = unmatched_short_flags.first() {
-                    let contents = working_set.get_span_contents(*first);
-                    working_set.error(ParseError::UnknownFlag(
-                        sig.name.clone(),
-                        format!("-{}", String::from_utf8_lossy(contents)),
-                        *first,
-                        sig.clone().formatted_flags(),
-                    ));
-                }
+                && matches!(
+                    sig.get_positional(positional_idx),
+                    Some(PositionalArg {
+                        shape: SyntaxShape::Int | SyntaxShape::Number,
+                        ..
+                    })
+                )
+                && String::from_utf8_lossy(working_set.get_span_contents(arg_span))
+                    .parse::<f64>()
+                    .is_ok()
+            {
+                return None;
+            } else if let Some(first) = unmatched_short_flags.first() {
+                let contents = working_set.get_span_contents(*first);
+                working_set.error(ParseError::UnknownFlag(
+                    sig.name.clone(),
+                    format!("-{}", String::from_utf8_lossy(contents)),
+                    *first,
+                    sig.clone().formatted_flags(),
+                ));
             }
 
             Some(found_short_flags)
@@ -1809,14 +1784,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 pub fn parse_variable_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents == b"$nothing" {
-        return Expression {
-            expr: Expr::Var(nu_protocol::NOTHING_VARIABLE_ID),
-            span,
-            ty: Type::Nothing,
-            custom_completion: None,
-        };
-    } else if contents == b"$nu" {
+    if contents == b"$nu" {
         return Expression {
             expr: Expr::Var(nu_protocol::NU_VARIABLE_ID),
             span,
@@ -5866,9 +5834,7 @@ pub fn discover_captures_in_expr(
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
         Expr::Var(var_id) => {
-            if (*var_id > NOTHING_VARIABLE_ID || *var_id == IN_VARIABLE_ID)
-                && !seen.contains(var_id)
-            {
+            if (*var_id > ENV_VARIABLE_ID || *var_id == IN_VARIABLE_ID) && !seen.contains(var_id) {
                 output.push((*var_id, expr.span));
             }
         }

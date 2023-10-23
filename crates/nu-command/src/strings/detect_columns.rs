@@ -62,7 +62,7 @@ impl Command for DetectColumns {
         vec![
             Example {
                 description: "Splits string across multiple columns",
-                example: "'a b c' | detect columns -n",
+                example: "'a b c' | detect columns --no-headers",
                 result: Some(Value::list(
                     vec![Value::test_record(Record {
                         cols: vec![
@@ -81,17 +81,20 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 0..1",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c -2..-1",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns -c 2..",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2..",
                 result: None,
             },
             Example {

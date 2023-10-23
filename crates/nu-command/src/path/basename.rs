@@ -110,7 +110,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                example: "'C:\\Users\\joe\\test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
             },
         ]
@@ -134,7 +134,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
+                example: "'/home/joe/test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("/home/joe/spam.png")),
             },
         ]

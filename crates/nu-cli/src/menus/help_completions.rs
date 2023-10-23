@@ -57,7 +57,7 @@ impl NuHelpCompleter {
                 let _ = write!(long_desc, "Usage:\r\n  > {}\r\n", sig.call_signature());
 
                 if !sig.named.is_empty() {
-                    long_desc.push_str(&get_flags_section(sig, |v| {
+                    long_desc.push_str(&get_flags_section(Some(&*self.0.clone()), sig, |v| {
                         v.into_string_parsable(", ", &self.0.config)
                     }))
                 }

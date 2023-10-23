@@ -110,17 +110,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get content from example.com, with username and password",
-                example: "http get -u myuser -p mypass https://www.example.com",
+                example: "http get --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get content from example.com, with custom header",
-                example: "http get -H [my-header-key my-header-value] https://www.example.com",
+                example: "http get --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get content from example.com, with custom headers",
-                example: "http get -H [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
         ]

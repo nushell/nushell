@@ -134,7 +134,7 @@ impl Command for Table {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1.",
-                example: r#"ls | table -n 1"#,
+                example: r#"ls | table --start-number 1"#,
                 result: None,
             },
             Example {
@@ -444,11 +444,11 @@ fn handle_row_stream(
     input: CmdInput<'_>,
     cfg: TableConfig,
     stream: ListStream,
-    metadata: Option<Box<PipelineMetadata>>,
+    metadata: Option<PipelineMetadata>,
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = input.engine_state.ctrlc.clone();
 
-    let stream = match metadata.as_deref() {
+    let stream = match metadata.as_ref() {
         // First, `ls` sources:
         Some(PipelineMetadata {
             data_source: DataSource::Ls,

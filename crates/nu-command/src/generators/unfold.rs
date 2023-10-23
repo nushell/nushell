@@ -97,6 +97,17 @@ used as the next argument to the closure, otherwise generation stops.
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated option".into(),
+                "`unfold` is deprecated and will be removed in 0.88.".into(),
+                Some(call.head),
+                Some("Please use `generate` instead.".into()),
+                vec![],
+            ),
+        );
+
         let initial: Value = call.req(engine_state, stack, 0)?;
         let capture_block: Spanned<Closure> = call.req(engine_state, stack, 1)?;
         let block_span = capture_block.span;

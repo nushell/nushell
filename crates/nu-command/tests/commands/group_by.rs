@@ -97,9 +97,10 @@ fn errors_if_column_not_found() {
 }
 
 #[test]
-fn errors_if_input_empty() {
-    let actual = nu!("group-by date");
-    assert!(actual.err.contains("expected table from pipeline"));
+fn group_by_on_empty_list_returns_empty_record() {
+    let actual = nu!("[[a b]; [1 2]] | where false | group-by a");
+    assert!(actual.err.is_empty());
+    assert!(actual.out.contains("empty record"));
 }
 
 #[test]

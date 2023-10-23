@@ -150,12 +150,11 @@ pub fn complete_item(
 
 // Fix files or folders with quotes or hashes
 pub fn escape_path(path: String, dir: bool) -> String {
-    let filename_contaminated = !dir
-        && path.contains([
-            '\'', '"', ' ', '#', '(', ')', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-        ]);
+    let filename_contaminated = !dir && path.contains(['\'', '"', ' ', '#', '(', ')']);
     let dirname_contaminated = dir && path.contains(['\'', '"', ' ', '#']);
-    if filename_contaminated || dirname_contaminated {
+    let maybe_flag = path.starts_with('-');
+    let maybe_number = path.parse::<f64>().is_ok();
+    if filename_contaminated || dirname_contaminated || maybe_flag || maybe_number {
         format!("`{path}`")
     } else {
         path

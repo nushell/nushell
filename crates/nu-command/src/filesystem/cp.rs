@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use nu_cmd_base::arg_glob;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
@@ -19,23 +20,16 @@ use super::util::try_interaction;
 use crate::filesystem::util::FileStructure;
 use crate::progress_bar;
 
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
-
 #[derive(Clone)]
 pub struct Cp;
 
 impl Command for Cp {
     fn name(&self) -> &str {
-        "cp"
+        "cp-old"
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Old nushell version of Copy files."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -43,7 +37,7 @@ impl Command for Cp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -81,12 +75,6 @@ impl Command for Cp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let src = {
-            Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(src.item),
-                span: src.span,
-            }
-        };
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
@@ -95,7 +83,6 @@ impl Command for Cp {
         let update_mode = call.has_flag("update");
 
         let current_dir_path = current_dir(engine_state, stack)?;
-        let source = current_dir_path.join(src.item.as_str());
         let destination = current_dir_path.join(dst.item.as_str());
 
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
@@ -110,7 +97,7 @@ impl Command for Cp {
         let span = call.head;
 
         // Get an iterator with all the source files.
-        let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
+        let sources: Vec<_> = match arg_glob(&src, &current_dir_path) {
             Ok(files) => files.collect(),
             Err(e) => {
                 return Err(ShellError::GenericError(
@@ -124,13 +111,7 @@ impl Command for Cp {
         };
 
         if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "No matches found".into(),
-                "no matches found".into(),
-                Some(src.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::FileNotFound(src.span));
         }
 
         if sources.len() > 1 && !destination.is_dir() {
@@ -189,9 +170,7 @@ impl Command for Cp {
                         }
 
                         let res = if src == dst {
-                            let message = format!(
-                                "src {source:?} and dst {destination:?} are identical(not copied)"
-                            );
+                            let message = format!("src and dst identical: {:?} (not copied)", src);
 
                             return Err(ShellError::GenericError(
                                 "Copy aborted".into(),

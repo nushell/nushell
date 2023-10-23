@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.85.1"
+# version = "0.86.1"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -90,9 +90,9 @@ let light_theme = {
     binary: dark_gray
     cell-path: dark_gray
     row_index: green_bold
-    record: white
-    list: white
-    block: white
+    record: dark_gray
+    list: dark_gray
+    block: dark_gray
     hints: dark_gray
     search_result: {fg: white bg: red}
     shape_and: purple_bold

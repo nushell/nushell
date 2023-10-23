@@ -254,12 +254,12 @@ impl Command for InputList {
             },
             Example {
                 description: "Return multiple values from a list",
-                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list -m 'Add fruits to the basket'"#,
+                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --multi 'Add fruits to the basket'"#,
                 result: None,
             },
             Example {
                 description: "Return a single record from a table with fuzzy search",
-                example: r#"ls | input list -f 'Select the target'"#,
+                example: r#"ls | input list --fuzzy 'Select the target'"#,
                 result: None,
             },
         ]

@@ -234,7 +234,7 @@ fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -l -c 'echo $nu.is-login'",
+            "{:?} --no-config-file --login --commands 'echo $nu.is-login'",
             nu_test_support::fs::executable_path()
         ))
         .output()

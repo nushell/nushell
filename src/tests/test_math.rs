@@ -121,6 +121,14 @@ fn test_filesize_op() -> TestResult {
 }
 
 #[test]
+fn test_duration_op() -> TestResult {
+    run_test("4min + 20sec", "4min 20sec").unwrap();
+    run_test("42sec * 2", "1min 24sec").unwrap();
+    run_test("(3min + 14sec) / 2", "1min 37sec").unwrap();
+    run_test("(4min + 20sec) mod 69sec", "53sec")
+}
+
+#[test]
 fn lt() -> TestResult {
     run_test("1 < 3", "true").unwrap();
     run_test("3 < 3", "false").unwrap();

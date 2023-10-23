@@ -256,6 +256,13 @@ export def "check pr" [
     report --no-fail
 }
 
+# run Nushell from source with a right indicator
+export def run [] {
+    cargo run -- [
+        -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
+    ]
+}
+
 # set up git hooks to run:
 # - `toolkit fmt --check --verbose` on `git commit`
 # - `toolkit fmt --check --verbose` and `toolkit clippy --verbose` on `git push`

@@ -21,7 +21,7 @@ fn replaces_dirname_of_empty_input() {
         cwd: "tests", pipeline(
         r#"
             echo ""
-            | path dirname -r newdir
+            | path dirname --replace newdir
         "#
     ));
 
@@ -47,7 +47,7 @@ fn replaces_dirname_of_path_ending_with_dot() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/."
-            | path dirname -r eggs
+            | path dirname --replace eggs
         "#
     ));
 
@@ -74,7 +74,7 @@ fn replaces_dirname_of_path_with_double_dot() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/.."
-            | path dirname -r eggs
+            | path dirname --replace eggs
         "#
     ));
 
@@ -88,7 +88,7 @@ fn returns_dirname_of_zero_levels() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/with/spam.txt"
-            | path dirname -n 0
+            | path dirname --num-levels 0
         "#
     ));
 
@@ -101,7 +101,7 @@ fn replaces_dirname_of_zero_levels_with_empty_string() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/with/spam.txt"
-            | path dirname -n 0 -r ""
+            | path dirname --num-levels 0 --replace ""
         "#
     ));
 
@@ -114,7 +114,7 @@ fn replaces_dirname_of_more_levels() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/with/spam.txt"
-            | path dirname -r eggs -n 2
+            | path dirname --replace eggs -n 2
         "#
     ));
 
@@ -128,7 +128,7 @@ fn replaces_dirname_of_way_too_many_levels() {
         cwd: "tests", pipeline(
         r#"
             echo "some/dir/with/spam.txt"
-            | path dirname -r eggs -n 999
+            | path dirname --replace eggs -n 999
         "#
     ));
 

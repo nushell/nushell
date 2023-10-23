@@ -1,5 +1,6 @@
-use nu_engine::CallExt;
-use nu_path::expand_to_real_path;
+use nu_cmd_base::arg_glob;
+use nu_engine::{current_dir, CallExt};
+use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -10,12 +11,6 @@ use uu_cp::{BackupMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[cfg(not(target_os = "windows"))]
 const PATH_SEPARATOR: &str = "/";
@@ -27,7 +22,7 @@ pub struct UCp;
 
 impl Command for UCp {
     fn name(&self) -> &str {
-        "ucp"
+        "cp"
     }
 
     fn usage(&self) -> &str {
@@ -35,11 +30,11 @@ impl Command for UCp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["copy", "file", "files"]
+        vec!["copy", "file", "files", "coreutils"]
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("ucp")
+        Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("recursive", "copy directories recursively", Some('r'))
             .switch("verbose", "explicitly state what is being done", Some('v'))
@@ -63,22 +58,22 @@ impl Command for UCp {
         vec![
             Example {
                 description: "Copy myfile to dir_b",
-                example: "ucp myfile dir_b",
+                example: "cp myfile dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b",
-                example: "ucp -r dir_a dir_b",
+                example: "cp -r dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Recursively copy dir_a to dir_b, and print the feedbacks",
-                example: "ucp -r -v dir_a dir_b",
+                example: "cp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
                 description: "Move many files into a directory",
-                example: "ucp *.txt dir_a",
+                example: "cp *.txt dir_a",
                 result: None,
             },
         ]
@@ -154,20 +149,22 @@ impl Command for UCp {
                 Vec::new(),
             ));
         };
+
         // paths now contains the sources
-        let sources: Vec<Vec<PathBuf>> = paths
-            .iter()
-            .map(|p| {
-                // Need to expand too make it work with globbing
-                let expanded_src = expand_to_real_path(&p.item);
-                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => {
-                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(p.span));
-                        }
-                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
-                        if any_source_is_dir && !recursive {
+
+        let cwd = current_dir(engine_state, stack)?;
+        let mut sources: Vec<PathBuf> = Vec::new();
+
+        for p in paths {
+            let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
+            if exp_files.is_empty() {
+                return Err(ShellError::FileNotFound(p.span));
+            };
+            let mut app_vals: Vec<PathBuf> = Vec::new();
+            for v in exp_files {
+                match v {
+                    Ok(path) => {
+                        if !recursive && path.is_dir() {
                             return Err(ShellError::GenericError(
                                 "could_not_copy_directory".into(),
                                 "resolves to a directory (not copied)".into(),
@@ -175,22 +172,20 @@ impl Command for UCp {
                                 Some("Directories must be copied using \"--recursive\"".into()),
                                 Vec::new(),
                             ));
-                        }
-
-                        Ok(f)
+                        };
+                        app_vals.push(path)
                     }
-                    Err(e) => Err(ShellError::GenericError(
-                        e.to_string(),
-                        "invalid pattern".to_string(),
-                        Some(p.span),
-                        None,
-                        Vec::new(),
-                    )),
+                    Err(e) => {
+                        return Err(ShellError::ErrorExpandingGlob(
+                            format!("error {} in path {}", e.error(), e.path().display()),
+                            p.span,
+                        ));
+                    }
                 }
-            })
-            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
+            }
+            sources.append(&mut app_vals);
+        }
 
-        let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,

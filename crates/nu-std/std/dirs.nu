@@ -111,9 +111,8 @@ export def --env goto [shell?: int] {
             }
         }
     }
-    $env.DIRS_POSITION = $shell
 
-    cd ($env.DIRS_LIST | get $env.DIRS_POSITION)
+    _fetch ($shell - $env.DIRS_POSITION)
 }
 
 export alias g = goto

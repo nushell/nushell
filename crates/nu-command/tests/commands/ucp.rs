@@ -6,6 +6,7 @@ use nu_test_support::fs::{
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
+use rstest::rstest;
 use std::path::Path;
 
 #[cfg(not(target_os = "windows"))]
@@ -33,7 +34,7 @@ fn copies_a_file_impl(progress: bool) {
 
         nu!(
             cwd: dirs.root(),
-            "ucp {} `{}` ucp_test_1/sample.ini",
+            "cp {} `{}` ucp_test_1/sample.ini",
             progress_flag,
             test_file.display()
         );
@@ -61,7 +62,7 @@ fn copies_the_file_inside_directory_if_path_to_copy_is_directory_impl(progress: 
         let first_hash = get_file_hash(dirs.formats().join("../formats/sample.ini").display());
         nu!(
             cwd: dirs.formats(),
-            "ucp {} ../formats/sample.ini {}",
+            "cp {} ../formats/sample.ini {}",
             progress_flag,
             expected_file.dir()
         );
@@ -86,7 +87,7 @@ fn error_if_attempting_to_copy_a_directory_to_another_directory_impl(progress: b
         let progress_flag = if progress { "-p" } else { "" };
         let actual = nu!(
             cwd: dirs.formats(),
-            "ucp {} ../formats {}",
+            "cp {} ../formats {}",
             progress_flag,
             dirs.test().display()
         );
@@ -124,7 +125,7 @@ fn copies_the_directory_inside_directory_if_path_to_copy_is_directory_and_with_r
 
         nu!(
             cwd: dirs.test(),
-            "ucp {} originals expected -r",
+            "cp {} originals expected -r",
             progress_flag
         );
 
@@ -174,7 +175,7 @@ fn deep_copies_with_recursive_flag_impl(progress: bool) {
 
         nu!(
             cwd: dirs.test(),
-            "ucp {} originals expected --recursive",
+            "cp {} originals expected --recursive",
             progress_flag
         );
 
@@ -213,7 +214,7 @@ fn copies_using_path_with_wildcard_impl(progress: bool) {
 
         nu!(
             cwd: dirs.formats(),
-            "ucp {} -r ../formats/* {}",
+            "cp {} -r ../formats/* {}",
             progress_flag,
             dirs.test().display()
         );
@@ -258,7 +259,7 @@ fn copies_using_a_glob_impl(progress: bool) {
 
         nu!(
             cwd: dirs.formats(),
-            "ucp {} -r * {}",
+            "cp {} -r * {}",
             progress_flag,
             dirs.test().display()
         );
@@ -298,14 +299,14 @@ fn copies_same_file_twice_impl(progress: bool) {
 
         nu!(
             cwd: dirs.root(),
-            "ucp {} `{}` ucp_test_8/sample.ini",
+            "cp {} `{}` ucp_test_8/sample.ini",
             progress_flag,
             dirs.formats().join("sample.ini").display()
         );
 
         nu!(
             cwd: dirs.root(),
-            "ucp {} `{}` ucp_test_8/sample.ini",
+            "cp {} `{}` ucp_test_8/sample.ini",
             progress_flag,
             dirs.formats().join("sample.ini").display()
         );
@@ -370,7 +371,7 @@ fn copy_file_and_dir_from_two_parents_up_using_multiple_dots_to_current_dir_recu
 
         nu!(
             cwd: dirs.test().join("foo/bar"),
-            "ucp {} -r .../hello* .",
+            "cp {} -r .../hello* .",
             progress_flag
         );
 
@@ -394,7 +395,7 @@ fn copy_to_non_existing_dir_impl(progress: bool) {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ucp {} empty_file ~/not_a_dir{}",
+            "cp {} empty_file ~/not_a_dir{}",
             progress_flag,
             PATH_SEPARATOR,
         );
@@ -512,7 +513,7 @@ fn copy_identical_file_impl(progress: bool) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "ucp {} same.txt same.txt",
+            "cp {} same.txt same.txt",
             progress_flag,
         );
         // assert!(actual.err.contains("Copy aborted"));
@@ -568,7 +569,7 @@ fn copy_file_not_exists_dst_impl(progress: bool) {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ucp {} valid.txt ~/invalid_dir/invalid_dir1",
+            "cp {} valid.txt ~/invalid_dir/invalid_dir1",
             progress_flag,
         );
         assert!(
@@ -597,7 +598,7 @@ fn copy_file_with_read_permission_impl(progress: bool) {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            "ucp {} valid.txt invalid_prem.txt",
+            "cp {} valid.txt invalid_prem.txt",
             progress_flag,
         );
         assert!(actual.err.contains("invalid_prem.txt") && actual.err.contains("denied"));
@@ -629,7 +630,7 @@ fn test_cp_cp() {
 
         nu!(
             cwd: dirs.root(),
-            "ucp {} ucp_test_19/{}",
+            "cp {} ucp_test_19/{}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );
@@ -654,7 +655,7 @@ fn test_cp_existing_target() {
         // Copy existing file to destination, so that it exists for the test
         nu!(
             cwd: dirs.root(),
-            "ucp {} ucp_test_20/{}",
+            "cp {} ucp_test_20/{}",
             existing.display(),
             TEST_EXISTING_FILE
         );
@@ -665,7 +666,7 @@ fn test_cp_existing_target() {
         // Now for the test
         nu!(
             cwd: dirs.root(),
-            "ucp {} ucp_test_20/{}",
+            "cp {} ucp_test_20/{}",
             src.display(),
             TEST_EXISTING_FILE
         );
@@ -694,7 +695,7 @@ fn test_cp_multiple_files() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "ucp {} {} ucp_test_21/{}",
+            "cp {} {} ucp_test_21/{}",
             src1.display(),
             src2.display(),
             TEST_COPY_TO_FOLDER
@@ -727,7 +728,7 @@ fn test_cp_recurse() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "ucp -r {} ucp_test_22/{}",
+            "cp -r {} ucp_test_22/{}",
             TEST_COPY_FROM_FOLDER,
             TEST_COPY_TO_FOLDER_NEW,
         );
@@ -747,7 +748,7 @@ fn test_cp_with_dirs() {
         // Start test
         nu!(
             cwd: dirs.root(),
-            "ucp {} ucp_test_23/{}",
+            "cp {} ucp_test_23/{}",
             src.display(),
             TEST_COPY_TO_FOLDER,
         );
@@ -760,7 +761,7 @@ fn test_cp_with_dirs() {
         let src2_hash = get_file_hash(src2.display());
         nu!(
             cwd: dirs.root(),
-            "ucp {} ucp_test_23/{}",
+            "cp {} ucp_test_23/{}",
             src2.display(),
             TEST_HELLO_WORLD_DEST,
         );
@@ -778,7 +779,7 @@ fn test_cp_arg_force() {
 
         nu!(
         cwd: dirs.root(),
-        "ucp {} --force ucp_test_24/{}",
+        "cp {} --force ucp_test_24/{}",
         src.display(),
         "invalid_prem.txt"
         );
@@ -794,7 +795,7 @@ fn test_cp_directory_to_itself_disallowed() {
         sandbox.mkdir("d");
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp -r ucp_test_25/{}  ucp_test_25/{}",
+        "cp -r ucp_test_25/{}  ucp_test_25/{}",
         "d",
         "d"
         );
@@ -812,7 +813,7 @@ fn test_cp_nested_directory_to_itself_disallowed() {
         sandbox.mkdir("a/b/c");
         let actual = nu!(
         cwd: dirs.test(),
-        "ucp -r {} {}",
+        "cp -r {} {}",
         "a/b",
         "a/b/c"
         );
@@ -829,7 +830,7 @@ fn test_cp_same_file_force() {
         sandbox.with_files(vec![EmptyFile("f")]);
         let actual = nu!(
         cwd: dirs.test(),
-        "ucp --force {} {}",
+        "cp --force {} {}",
         "f",
         "f"
         );
@@ -847,7 +848,7 @@ fn test_cp_arg_no_clobber() {
 
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp {} {} --no-clobber",
+        "cp {} {} --no-clobber",
         src.display(),
         target.display()
         );
@@ -867,7 +868,7 @@ fn test_cp_arg_no_clobber_twice() {
         ]);
         nu!(
         cwd: dirs.root(),
-        "ucp --no-clobber ucp_test_29/{} ucp_test_29/{}",
+        "cp --no-clobber ucp_test_29/{} ucp_test_29/{}",
         "source.txt",
         "dest.txt"
         );
@@ -875,7 +876,7 @@ fn test_cp_arg_no_clobber_twice() {
 
         nu!(
         cwd: dirs.root(),
-        "ucp --no-clobber ucp_test_29/{} ucp_test_29/{}",
+        "cp --no-clobber ucp_test_29/{} ucp_test_29/{}",
         "source_with_body.txt",
         "dest.txt"
         );
@@ -891,7 +892,7 @@ fn test_cp_debug_default() {
 
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp --debug {} ucp_test_30/{}",
+        "cp --debug {} ucp_test_30/{}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
@@ -926,7 +927,7 @@ fn test_cp_verbose_default() {
 
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp --verbose {} {}",
+        "cp --verbose {} {}",
         src.display(),
         TEST_HELLO_WORLD_DEST
         );
@@ -947,7 +948,7 @@ fn test_cp_only_source_no_dest() {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let actual = nu!(
         cwd: dirs.root(),
-        "ucp {}",
+        "cp {}",
         src.display(),
         );
         assert!(actual
@@ -963,8 +964,51 @@ fn test_cp_with_vars() {
         sandbox.with_files(vec![EmptyFile("input")]);
         nu!(
         cwd: dirs.test(),
-        "let src = 'input'; let dst = 'target'; ucp $src $dst",
+        "let src = 'input'; let dst = 'target'; cp $src $dst",
         );
         assert!(dirs.test().join("target").exists());
     });
+}
+
+#[rstest]
+#[case(r#"'a]c'"#)]
+#[case(r#"'a[c'"#)]
+#[case(r#"'a[bc]d'"#)]
+#[case(r#"'a][c'"#)]
+fn copies_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("ucp_test_34", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        // -- open command doesn't like file name
+        //// Get the hash of the file content to check integrity after copy.
+        //let src_hash = get_file_hash(src.display());
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "cp {} {}",
+            src.display(),
+            TEST_HELLO_WORLD_DEST
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join(TEST_HELLO_WORLD_DEST).exists());
+
+        //// Get the hash of the copied file content to check against first_hash.
+        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        //assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case(r#"'a]?c'"#)]
+#[case(r#"'a*.?c'"#)]
+// windows doesn't allow filename with `*`.
+fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    copies_files_with_glob_metachars(src_name);
 }

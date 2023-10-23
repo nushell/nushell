@@ -107,22 +107,22 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count length using grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str index-of -g 'ふが'",
+                example: "'🇯🇵ほげ ふが ぴよ' | str index-of --grapheme-clusters 'ふが'",
                 result: Some(Value::test_int(4)),
             },
             Example {
                 description: "Returns index of string in input within a`rhs open range`",
-                example: " '.rb.rb' | str index-of '.rb' -r 1..",
+                example: " '.rb.rb' | str index-of '.rb' --range 1..",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 description: "Returns index of string in input within a lhs open range",
-                example: " '123456' | str index-of '6' -r ..4",
+                example: " '123456' | str index-of '6' --range ..4",
                 result: Some(Value::test_int(-1)),
             },
             Example {
                 description: "Returns index of string in input within a range",
-                example: " '123456' | str index-of '3' -r 1..4",
+                example: " '123456' | str index-of '3' --range 1..4",
                 result: Some(Value::test_int(2)),
             },
             Example {
