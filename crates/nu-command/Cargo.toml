@@ -110,6 +110,7 @@ version = "3.1"
 features = [
 	"Win32_Foundation",
 	"Win32_Storage_FileSystem",
+	"Win32_System_Environment",
 	"Win32_System_SystemServices",
 	"Win32_Security",
 	"Win32_System_Threading",
