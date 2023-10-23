@@ -1,6 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
     record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
     ShellError, Signature, Type, Value,
 };
@@ -110,28 +110,36 @@ impl Command for Describe {
                     )),
                 ))),
             },
-            // TODO: Uncomment these tests when/if we allow external commands in examples.
-            /*
             Example {
                 description: "Describe the type of a stream with detailed information",
-                example: "[1 2 3] | each {|i| $i} | describe -d",
-                result: Some(Value::test_record(record!(
-                    "type" => Value::test_string("stream"),
-                    "origin" => Value::test_string("nushell"),
-                    "subtype" => Value::test_string("int"),
-                ))),
+                example: "[1 2 3] | each {|i| echo $i} | describe -d",
+                result: None // Give "Running external commands not supported" error
+                // result: Some(Value::test_record(record!(
+                //     "type" => Value::test_string("stream"),
+                //     "origin" => Value::test_string("nushell"),
+                //     "subtype" => Value::test_record(record!(
+                //         "type" => Value::test_string("list"),
+                //         "length" => Value::test_int(3),
+                //         "values" => Value::test_list(vec![
+                //             Value::test_string("int"),
+                //             Value::test_string("int"),
+                //             Value::test_string("int"),
+                //         ])
+                //     ))
+                // ))),
             },
             Example {
                 description: "Describe a stream of data, collecting it first",
-                example: "[1 2 3] | each {|i| $i} | describe",
-                result: Some(Value::test_string("list<int> (stream)")),
+                example: "[1 2 3] | each {|i| echo $i} | describe",
+                result: None // Give "Running external commands not supported" error
+                // result: Some(Value::test_string("list<int> (stream)")),
             },
             Example {
                 description: "Describe the input but do not collect streams",
-                example: "[1 2 3] | each {|i| $i} | describe --no-collect",
-                result: Some(Value::test_string("stream")),
+                example: "[1 2 3] | each {|i| echo $i} | describe --no-collect",
+                result: None // Give "Running external commands not supported" error
+                // result: Some(Value::test_string("stream")),
             },
-            */
         ]
     }
 
@@ -145,10 +153,8 @@ fn run(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata().clone();
-
+    let metadata = input.metadata().clone().map(Box::new);
     let head = call.head;
-
     let no_collect: bool = call.has_flag("no-collect");
     let detailed = call.has_flag("detailed");
 
