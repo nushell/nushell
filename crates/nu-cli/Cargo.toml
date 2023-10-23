@@ -39,7 +39,7 @@ percent-encoding = "2"
 pathdiff = "0.2"
 sysinfo = "0.29"
 unicode-segmentation = "1.10"
-uuid = { version = "1.4.1", features = ["v4"] }
+uuid = { version = "1.5.0", features = ["v4"] }
 
 [features]
 plugin = []
