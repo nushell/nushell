@@ -20,6 +20,16 @@ impl Record {
         }
     }
 
+    // Constructor that checks that `cols` and `vals` are of the same length.
+    //
+    // For perf reasons does not validate the rest of the record assumptions.
+    // - unique keys
+    pub fn from_raw_cols_vals(cols: Vec<String>, vals: Vec<Value>) -> Self {
+        assert_eq!(cols.len(), vals.len());
+
+        Self { cols, vals }
+    }
+
     pub fn iter(&self) -> Iter {
         self.into_iter()
     }
