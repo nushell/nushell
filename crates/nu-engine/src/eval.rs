@@ -1082,7 +1082,6 @@ pub fn eval_block(
         }
 
         if pipeline_idx < (num_pipelines) - 1 {
-            println!("debug pipeline_index: {pipeline_idx}, num_pipelines: {num_pipelines}, input: {input:?}");
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
                 PipelineData::ExternalStream {
