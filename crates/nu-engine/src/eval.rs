@@ -6,8 +6,8 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack, DB_VARIABLE_ID},
-    report_error_new, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    SQLiteDatabase, ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, SQLiteDatabase,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
