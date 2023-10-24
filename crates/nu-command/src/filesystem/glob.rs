@@ -49,6 +49,12 @@ impl Command for Glob {
                 "Patterns to exclude from the results",
                 Some('n'),
             )
+            .named(
+                "prune",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Patterns to prune from the results: `glob` will not walk the inside of directories matching the prune patterns.",
+                Some('p'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -142,7 +148,23 @@ impl Command for Glob {
         let no_symlinks = call.has_flag("no-symlink");
 
         let not_flag: Option<Value> = call.get_flag(engine_state, stack, "not")?;
-        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match not_flag {
+        let prune_flag: Option<Value> = call.get_flag(engine_state, stack, "prune")?;
+
+        let paths_to_prune = match (not_flag, prune_flag) {
+            (Some(not_flag), Some(prune_flag)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "Cannot pass --not".into(),
+                    left_span: not_flag.span(),
+                    right_message: "and --prune".into(),
+                    right_span: prune_flag.span(),
+                })
+            }
+            (Some(not_flag), None) => Some(not_flag),
+            (None, Some(prune_flag)) => Some(prune_flag),
+            (None, None) => None,
+        };
+
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_prune {
             None => (vec![], span),
             Some(f) => {
                 let pat_span = f.span();
