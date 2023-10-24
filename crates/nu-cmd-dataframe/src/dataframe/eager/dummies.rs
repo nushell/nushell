@@ -36,10 +36,10 @@ impl Command for Dummies {
                 result: Some(
                     NuDataFrame::try_from_series(
                         vec![
-                            Series::new("a_1", &[1 as u8, 0]),
-                            Series::new("a_3", &[0 as u8, 1]),
-                            Series::new("b_2", &[1 as u8, 0]),
-                            Series::new("b_4", &[0 as u8, 1]),
+                            Series::new("a_1", &[1_u8, 0]),
+                            Series::new("a_3", &[0_u8, 1]),
+                            Series::new("b_2", &[1_u8, 0]),
+                            Series::new("b_4", &[0_u8, 1]),
                         ],
                         Span::test_data(),
                     )
@@ -53,9 +53,9 @@ impl Command for Dummies {
                 result: Some(
                     NuDataFrame::try_from_series(
                         vec![
-                            Series::new("0_1", &[1 as u8, 0, 0, 0, 0]),
-                            Series::new("0_2", &[0 as u8, 1, 1, 0, 0]),
-                            Series::new("0_3", &[0 as u8, 0, 0, 1, 1]),
+                            Series::new("0_1", &[1_u8, 0, 0, 0, 0]),
+                            Series::new("0_2", &[0_u8, 1, 1, 0, 0]),
+                            Series::new("0_3", &[0_u8, 0, 0, 1, 1]),
                         ],
                         Span::test_data(),
                     )
