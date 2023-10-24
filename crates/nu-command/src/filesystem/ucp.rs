@@ -46,6 +46,11 @@ impl Command for UCp {
                 Some('f'),
             )
             .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch(
+                "update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
@@ -87,6 +92,7 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag("interactive");
+        let update = if call.has_flag("update") { UpdateMode::ReplaceIfOlder } else { UpdateMode::ReplaceAll };
         let force = call.has_flag("force");
         let no_clobber = call.has_flag("no-clobber");
         let progress = call.has_flag("progress");
@@ -207,7 +213,7 @@ impl Command for UCp {
             attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
-            update: UpdateMode::ReplaceAll,
+            update: update,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
