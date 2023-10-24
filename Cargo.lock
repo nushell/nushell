@@ -5625,12 +5625,12 @@ dependencies = [
 [[package]]
 name = "uu_mv"
 version = "0.0.22"
-source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+source = "git+https://github.com/uutils/coreutils.git?rev=769eb29#769eb29cd3503d7734776572f7875a864c847c92"
 dependencies = [
  "clap",
  "fs_extra",
  "indicatif",
- "uucore 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
+ "uucore 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=769eb29)",
 ]
 
 [[package]]
@@ -5656,7 +5656,7 @@ dependencies = [
 [[package]]
 name = "uucore"
 version = "0.0.22"
-source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+source = "git+https://github.com/uutils/coreutils.git?rev=769eb29#769eb29cd3503d7734776572f7875a864c847c92"
 dependencies = [
  "clap",
  "dunce",
@@ -5665,7 +5665,7 @@ dependencies = [
  "nix",
  "once_cell",
  "os_display",
- "uucore_procs 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
+ "uucore_procs 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=769eb29)",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
@@ -5685,11 +5685,11 @@ dependencies = [
 [[package]]
 name = "uucore_procs"
 version = "0.0.22"
-source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+source = "git+https://github.com/uutils/coreutils.git?rev=769eb29#769eb29cd3503d7734776572f7875a864c847c92"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=a3fed79)",
+ "uuhelp_parser 0.0.22 (git+https://github.com/uutils/coreutils.git?rev=769eb29)",
 ]
 
 [[package]]
@@ -5701,7 +5701,7 @@ checksum = "6de61731e36d52d3babb63e2dce8fe648e2644e9ddfe2621e0eea699022051a6"
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.22"
-source = "git+https://github.com/uutils/coreutils.git?rev=a3fed79#a3fed79b5ce384bd0c2b9996d1cc8ed1b52f7e45"
+source = "git+https://github.com/uutils/coreutils.git?rev=769eb29#769eb29cd3503d7734776572f7875a864c847c92"
 
 [[package]]
 name = "uuid"

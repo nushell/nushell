@@ -285,10 +285,6 @@ fn errors_if_renaming_directory_to_an_existing_file() {
 }
 
 #[test]
-#[ignore = "Bug on uutils. Current PR waiting for approval on uutils, if did it correctly :P"]
-// mkdir mydir/mydir_2
-// mv mydir mydir/mydir_2/
-// ./coreutils mv mydir mydir/mydir_2/
 fn errors_if_moving_to_itself() {
     Playground::setup("umv_test_10_4", |dirs, sandbox| {
         sandbox.mkdir("mydir").mkdir("mydir/mydir_2");
@@ -297,9 +293,11 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "umv mydir mydir/mydir_2/"
         );
-
-        assert!(actual.err.contains("cannot move to itself"));
-    })
+        assert!(actual
+            .err
+            .contains(format!("cannot move '{}'", dirs.test().join("mydir").display()).as_str()));
+        assert!(actual.err.contains("to a subdirectory of"));
+    });
 }
 
 #[test]
