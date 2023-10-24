@@ -13,6 +13,7 @@ mod continue_;
 mod conversions;
 mod cp;
 mod date;
+mod debug_info;
 mod def;
 mod default;
 mod detect_columns;
