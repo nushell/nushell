@@ -1,8 +1,8 @@
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::NuDataFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Type,
 };
 use polars::{prelude::*, series::Series};
 
@@ -34,12 +34,15 @@ impl Command for Dummies {
                 description: "Create new dataframe with dummy variables from a dataframe",
                 example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dummies",
                 result: Some(
-                    NuDataFrame::try_from_series(vec![
-                        Series::new("a_1", &[1 as u8, 0 as u8]),
-                        Series::new("a_3", &[0 as u8, 1 as u8]),
-                        Series::new("b_2", &[1 as u8, 0 as u8]),
-                        Series::new("b_4", &[0 as u8, 1 as u8]),
-                    ], Span::test_data())
+                    NuDataFrame::try_from_series(
+                        vec![
+                            Series::new("a_1", &[1 as u8, 0]),
+                            Series::new("a_3", &[0 as u8, 1]),
+                            Series::new("b_2", &[1 as u8, 0]),
+                            Series::new("b_4", &[0 as u8, 1]),
+                        ],
+                        Span::test_data(),
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -48,11 +51,14 @@ impl Command for Dummies {
                 description: "Create new dataframe with dummy variables from a series",
                 example: "[1 2 2 3 3] | dfr into-df | dfr dummies",
                 result: Some(
-                    NuDataFrame::try_from_series(vec![
-                        Series::new("0_1", &[1 as u8, 0 as u8, 0 as u8, 0 as u8, 0 as u8]),
-                        Series::new("0_2", &[0 as u8, 1 as u8, 1 as u8, 0 as u8, 0 as u8]),
-                        Series::new("0_3", &[0 as u8, 0 as u8, 0 as u8, 1 as u8, 1 as u8]),
-                    ], Span::test_data())
+                    NuDataFrame::try_from_series(
+                        vec![
+                            Series::new("0_1", &[1 as u8, 0, 0, 0, 0]),
+                            Series::new("0_2", &[0 as u8, 1, 1, 0, 0]),
+                            Series::new("0_3", &[0 as u8, 0, 0, 1, 1]),
+                        ],
+                        Span::test_data(),
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
