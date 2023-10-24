@@ -217,7 +217,7 @@ impl Command for UCp {
             attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
-            update: update,
+            update,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
