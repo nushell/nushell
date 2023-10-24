@@ -7,7 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::path::PathBuf;
-use uu_cp::{BackupMode, UpdateMode};
+use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
@@ -81,6 +81,11 @@ impl Command for UCp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
+                result: None,
+            },
         ]
     }
 
@@ -92,10 +97,10 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag("interactive");
-        let update = if call.has_flag("update") {
-            UpdateMode::ReplaceIfOlder
+        let (update, copy_mode) = if call.has_flag("update") {
+            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
         } else {
-            UpdateMode::ReplaceAll
+            (UpdateMode::ReplaceAll, CopyMode::Copy)
         };
         let force = call.has_flag("force");
         let no_clobber = call.has_flag("no-clobber");
@@ -208,7 +213,7 @@ impl Command for UCp {
             backup: BackupMode::NoBackup,
             copy_contents: false,
             cli_dereference: false,
-            copy_mode: uu_cp::CopyMode::Copy,
+            copy_mode,
             no_target_dir: false,
             one_file_system: false,
             parents: false,
