@@ -155,3 +155,11 @@ fn alias_ordering() {
     let actual = nu!(r#"alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'"#);
     assert_eq!(actual.out, "foo");
 }
+
+#[test]
+fn alias_default_help() {
+    let actual = nu!("alias teapot = echo 'I am a beautiful teapot'; help teapot");
+    // There must be at least one line of help
+    let first_help_line = actual.out.lines().next().unwrap();
+    assert!(first_help_line.starts_with("Alias for `echo 'I am a beautiful teapot'`"));
+}
