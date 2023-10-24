@@ -534,3 +534,31 @@ fn test_mv_no_clobber() {
             .contains(format!("not replacing '{}'", dirs.test().join(file_b).display()).as_str()));
     })
 }
+
+#[test]
+fn mv_with_no_arguments() {
+    Playground::setup("umv_test_14", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "umv",
+        );
+        assert!(actual.err.contains("Missing file operand"));
+    })
+}
+
+#[test]
+fn mv_with_no_target() {
+    Playground::setup("umv_test_15", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "umv a",
+        );
+        assert!(actual.err.contains(
+            format!(
+                "Missing destination path operand after {}",
+                dirs.test().join("a").display()
+            )
+            .as_str()
+        ));
+    })
+}
