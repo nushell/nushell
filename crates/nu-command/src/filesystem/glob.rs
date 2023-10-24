@@ -46,7 +46,7 @@ impl Command for Glob {
             .named(
                 "not",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Patterns to exclude from the results",
+                "DEPRECATED OPTION: Patterns to exclude from the results",
                 Some('n'),
             )
             .named(
@@ -146,6 +146,20 @@ impl Command for Glob {
         let no_dirs = call.has_flag("no-dir");
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
+
+        if call.has_flag("not") {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError(
+                    "Deprecated option".into(),
+                    "`glob --prune {list<string>}` is deprecated and will be removed in 0.88."
+                        .into(),
+                    Some(call.head),
+                    Some("Please use `glob --prune {list<string>}` instead.".into()),
+                    vec![],
+                ),
+            );
+        }
 
         let not_flag: Option<Value> = call.get_flag(engine_state, stack, "not")?;
         let prune_flag: Option<Value> = call.get_flag(engine_state, stack, "prune")?;
