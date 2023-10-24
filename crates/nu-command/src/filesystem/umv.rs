@@ -1,19 +1,15 @@
+use nu_cmd_base::arg_glob;
+use nu_engine::current_dir;
 use nu_engine::CallExt;
-use nu_path::expand_to_real_path;
+use nu_glob::GlobResult;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
+use std::path::PathBuf;
 use uu_mv::{BackupMode, UpdateMode};
-
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[derive(Clone)]
 pub struct UMv;
@@ -123,38 +119,36 @@ impl Command for UMv {
 
         // Do not glob target
         let sources = &paths[..paths.len() - 1];
-        let sources: Vec<Vec<OsString>> = sources
-            .iter()
-            .map(|p| {
-                // Need to expand too make it work with globbing
-                let expanded_src = expand_to_real_path(&p.item);
-                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => {
-                        // let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        let f = files
-                            .filter_map(Result::ok)
-                            .map(|p| p.into())
-                            .collect::<Vec<OsString>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(p.span));
-                        }
-                        Ok(f)
+        let cwd = current_dir(engine_state, stack)?;
+        let mut files: Vec<PathBuf> = Vec::new();
+        for p in sources {
+            let exp_files = arg_glob(p, &cwd)?.collect::<Vec<GlobResult>>();
+            if exp_files.is_empty() {
+                return Err(ShellError::FileNotFound(p.span));
+            };
+            let mut app_vals: Vec<PathBuf> = Vec::new();
+            for v in exp_files {
+                match v {
+                    Ok(path) => {
+                        app_vals.push(path);
                     }
-                    Err(e) => Err(ShellError::GenericError(
-                        e.to_string(),
-                        "invalid pattern".to_string(),
-                        Some(p.span),
-                        None,
-                        Vec::new(),
-                    )),
+                    Err(e) => {
+                        return Err(ShellError::ErrorExpandingGlob(
+                            format!("error {} in path {}", e.error(), e.path().display()),
+                            p.span,
+                        ));
+                    }
                 }
-            })
-            .collect::<Result<Vec<Vec<OsString>>, ShellError>>()?;
-
-        let mut files = sources.into_iter().flatten().collect::<Vec<OsString>>();
+            }
+            files.append(&mut app_vals);
+        }
         // Add back the target after globbing
         let target = paths.last().expect("Should not be reached");
-        files.push(OsString::from(target.item.clone()));
+        files.push(target.item.clone().into());
+        let files = files
+            .into_iter()
+            .map(|p| p.into_os_string())
+            .collect::<Vec<OsString>>();
         let options = uu_mv::Options {
             overwrite,
             progress_bar: progress,

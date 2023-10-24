@@ -1,6 +1,7 @@
 use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use rstest::rstest;
 
 #[test]
 fn moves_a_file() {
@@ -561,4 +562,47 @@ fn mv_with_no_target() {
             .as_str()
         ));
     })
+}
+
+#[rstest]
+#[case(r#"'a]c'"#)]
+#[case(r#"'a[c'"#)]
+#[case(r#"'a[bc]d'"#)]
+#[case(r#"'a][c'"#)]
+fn mv_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("umv_test_16", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            src_name,
+            "What is the sound of one hand clapping?",
+        )]);
+
+        let src = dirs.test().join(src_name);
+
+        // -- open command doesn't like file name
+        //// Get the hash of the file content to check integrity after copy.
+        //let src_hash = get_file_hash(src.display());
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "umv {} {}",
+            src.display(),
+            "hello_world_dest"
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(dirs.test().join("hello_world_dest").exists());
+
+        //// Get the hash of the copied file content to check against first_hash.
+        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
+        //assert_eq!(src_hash, after_cp_hash);
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case(r#"'a]?c'"#)]
+#[case(r#"'a*.?c'"#)]
+// windows doesn't allow filename with `*`.
+fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    mv_files_with_glob_metachars(src_name);
 }
