@@ -530,9 +530,9 @@ fn test_mv_no_clobber() {
             file_b,
         );
 
-        assert!(actual
-            .err
-            .contains(format!("not replacing '{}'", dirs.test().join(file_b).display()).as_str()));
+        assert!(actual.err.contains(
+            format!("not replacing '{}'\n", dirs.test().join(file_b).display()).as_str()
+        ));
     })
 }
 
