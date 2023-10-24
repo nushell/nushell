@@ -96,6 +96,9 @@ impl Matcher for Pattern {
             Pattern::Value(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
+                    Expr::Nothing => {
+                        matches!(value, Value::Nothing { .. })
+                    }
                     Expr::Int(x) => {
                         if let Value::Int { val, .. } = &value {
                             x == val
