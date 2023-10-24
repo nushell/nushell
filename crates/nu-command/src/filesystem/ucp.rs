@@ -92,7 +92,11 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag("interactive");
-        let update = if call.has_flag("update") { UpdateMode::ReplaceIfOlder } else { UpdateMode::ReplaceAll };
+        let update = if call.has_flag("update") {
+            UpdateMode::ReplaceIfOlder
+        } else {
+            UpdateMode::ReplaceAll
+        };
         let force = call.has_flag("force");
         let no_clobber = call.has_flag("no-clobber");
         let progress = call.has_flag("progress");
