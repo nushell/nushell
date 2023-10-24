@@ -117,12 +117,12 @@ impl Command for Glob {
             },
             Example {
                 description: "Search for files named tsconfig.json that are not in node_modules directories",
-                example: r#"glob **/tsconfig.json --not [**/node_modules/**]"#,
+                example: r#"glob **/tsconfig.json --prune [**/node_modules/**]"#,
                 result: None,
             },
             Example {
                 description: "Search for all files that are not in the target nor .git directories",
-                example: r#"glob **/* --not [**/target/** **/.git/** */]"#,
+                example: r#"glob **/* --prune [**/target/** **/.git/** */]"#,
                 result: None,
             },
         ]
