@@ -4,7 +4,7 @@ use nu_protocol::{
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::path::{Path, MAIN_SEPARATOR as SEP};
+use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -37,7 +37,7 @@ impl Completer for FileCompletion {
             let remnant: String = after_prefix
                 .chars()
                 .skip(1)
-                .take_while(|&c| c != SEP)
+                .take_while(|&c| !is_separator(c))
                 .collect();
             prefix.push_str(&remnant);
             end = span.start + prefix.len() + 1;
