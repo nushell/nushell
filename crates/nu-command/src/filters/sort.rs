@@ -2,8 +2,8 @@ use alphanumeric_sort::compare_str;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
-    ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Record, ShellError, Signature, Span, Type, Value,
 };
 use std::cmp::Ordering;
 
@@ -113,17 +113,18 @@ impl Command for Sort {
             Example {
                 description: "Sort record by key (case-insensitive)",
                 example: "{b: 3, a: 4} | sort",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(4), Value::test_int(3)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(4),
+                    "b" => Value::test_int(3),
                 })),
             },
             Example {
                 description: "Sort record by value",
                 example: "{b: 4, a: 3, c:1} | sort -v",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["c".to_string(), "a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+                result: Some(Value::test_record(record! {
+                    "c" => Value::test_int(1),
+                    "a" => Value::test_int(3),
+                    "b" => Value::test_int(4),
                 })),
             },
         ]
