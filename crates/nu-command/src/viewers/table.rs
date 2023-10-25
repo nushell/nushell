@@ -354,10 +354,14 @@ fn handle_record(
     };
 
     if let Some(limit) = cfg.abbreviation {
-        if record.cols.len() > limit * 2 + 1 {
-            record.cols = abbreviate_list(&record.cols, limit, String::from("..."));
-            record.vals =
-                abbreviate_list(&record.vals, limit, Value::string("...", Span::unknown()));
+        let prev_len = record.len();
+        if record.len() > limit * 2 + 1 {
+            // TODO: see if the following table builders would be happy with a simple iterator
+            let mut record_iter = record.into_iter();
+            record = Record::with_capacity(limit * 2 + 1);
+            record.extend(record_iter.by_ref().take(limit));
+            record.push(String::from("..."), Value::string("...", Span::unknown()));
+            record.extend(record_iter.skip(prev_len - 2 * limit));
         }
     }
 
@@ -747,10 +751,19 @@ impl Iterator for PagingTableCreator {
                 if limit > 0 && is_record_list {
                     // in case it's a record list we set a default text to each column instead of a single value.
 
-                    let cols = batch[0].as_record().expect("ok").cols.clone();
-                    let vals =
-                        vec![Value::string(String::from("..."), Span::unknown()); cols.len()];
-                    batch[limit] = Value::record(Record { cols, vals }, Span::unknown());
+                    let dummy: Record = batch[0]
+                        .as_record()
+                        .expect("ok")
+                        .columns()
+                        .map(|k| {
+                            (
+                                k.to_owned(),
+                                Value::string(String::from("..."), Span::unknown()),
+                            )
+                        })
+                        .collect();
+
+                    batch[limit] = Value::record(dummy, Span::unknown());
                 }
             }
         }
