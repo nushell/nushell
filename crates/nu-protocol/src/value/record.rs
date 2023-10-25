@@ -252,10 +252,10 @@ impl ExactSizeIterator for IntoValues {
 #[macro_export]
 macro_rules! record {
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Record {
-            cols: vec![$($col.into(),)+],
-            vals: vec![$($val,)+]
-        }
+        $crate::Record::from_raw_cols_vals (
+            vec![$($col.into(),)+],
+            vec![$($val,)+]
+        )
     };
     {} => {
         $crate::Record::new()
