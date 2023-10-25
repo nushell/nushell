@@ -119,6 +119,16 @@ impl FromIterator<(String, Value)> for Record {
     }
 }
 
+impl Extend<(String, Value)> for Record {
+    fn extend<T: IntoIterator<Item = (String, Value)>>(&mut self, iter: T) {
+        for (k, v) in iter {
+            // TODO: should this .insert with a check?
+            self.cols.push(k);
+            self.vals.push(v);
+        }
+    }
+}
+
 pub type IntoIter = std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>;
 
 impl IntoIterator for Record {
