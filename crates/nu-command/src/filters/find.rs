@@ -1,5 +1,4 @@
 use crate::help::highlight_search_string;
-use itertools::Itertools;
 
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
@@ -291,46 +290,31 @@ fn highlight_terms_in_record_with_search_columns(
     string_style: Style,
     highlight_style: Style,
 ) -> Value {
-    let cols_to_search = if search_cols.is_empty() {
-        &record.cols
-    } else {
-        search_cols
-    };
+    let col_select = !search_cols.is_empty();
     let term_strs: Vec<_> = terms.iter().map(|v| v.into_string("", config)).collect();
 
+    // TODO: change API to mutate in place
+    let mut record = record.clone();
     // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted, otherwise Err(val)
-    let try_val_highlight = record.iter().map(|(col, val)| {
+    for (col, val) in record.iter_mut() {
+        if col_select && !search_cols.contains(col) {
+            continue;
+        }
         let val_str = val.into_string("", config);
-        let predicate = cols_to_search.contains(col);
-        predicate
-            .then_some(val_str)
-            .and_then(|val_str| {
-                term_strs
-                    .iter()
-                    .find(|term_str| contains_ignore_case(&val_str, term_str))
-                    .map(|term_str| (val_str, term_str))
-            })
-            .ok_or_else(|| val.clone())
-    });
+        let Some(term_str) = term_strs
+            .iter()
+            .find(|term_str| contains_ignore_case(&val_str, term_str)) else {
+                continue;
+        };
 
-    // turn Ok pairs into vals of highlighted strings, Err vals is original vals
-    let new_vals = try_val_highlight
-        .map_ok(|(val_str, term_str)| {
-            let highlighted_str =
-                highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
-                    .unwrap_or_else(|_| string_style.paint(term_str).to_string());
+        let highlighted_str =
+            highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
+                .unwrap_or_else(|_| string_style.paint(term_str).to_string());
 
-            Value::string(highlighted_str, span)
-        })
-        .map(|v| v.unwrap_or_else(|v| v));
+        *val = Value::string(highlighted_str, span);
+    }
 
-    Value::record(
-        Record {
-            cols: record.cols.clone(),
-            vals: new_vals.collect(),
-        },
-        span,
-    )
+    Value::record(record, span)
 }
 
 fn contains_ignore_case(string: &str, substring: &str) -> bool {
