@@ -397,6 +397,7 @@ fn describe_value(
                             describe_value(val.vals[i].clone(), head, engine_state, call)?,
                         );
                     }
+                    record.push("columns", Value::record(record_cols, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));
@@ -406,7 +407,7 @@ fn describe_value(
                 record.push("length", Value::int(cols.len() as i64, head));
             }
 
-            Value::record(record!(), head)
+            Value::record(record, head)
         }
     })
 }
