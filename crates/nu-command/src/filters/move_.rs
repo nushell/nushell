@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
-    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone, Debug)]
@@ -95,9 +95,10 @@ impl Command for Move {
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
                 description: "Move columns of a record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["value".to_string(), "name".to_string(), "index".to_string()],
-                    vals: vec![Value::test_string("a"), Value::test_string("foo"), Value::test_int(1)],
+                result: Some(Value::test_record(record! {
+                    "value" => Value::test_string("a"),
+                    "name" => Value::test_string("foo"),
+                    "index" => Value::test_int(1),
                 }))
             },
         ]
