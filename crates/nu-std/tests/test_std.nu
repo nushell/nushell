@@ -12,19 +12,19 @@ def path_add [] {
         assert equal (get_path) []
 
         std path add "/foo/"
-        assert equal (get_path) ["/foo/"]
+        assert equal (get_path) (["/foo/"] | path expand)
 
         std path add "/bar/" "/baz/"
-        assert equal (get_path) ["/bar/", "/baz/", "/foo/"]
+        assert equal (get_path) (["/bar/", "/baz/", "/foo/"] | path expand)
 
         load-env {$path_name: []}
 
         std path add "foo"
         std path add "bar" "baz" --append
-        assert equal (get_path) ["foo", "bar", "baz"]
+        assert equal (get_path) (["foo", "bar", "baz"] | path expand)
 
-        assert equal (std path add "fooooo" --ret) ["fooooo", "foo", "bar", "baz"]
-        assert equal (get_path) ["fooooo", "foo", "bar", "baz"]
+        assert equal (std path add "fooooo" --ret) (["fooooo", "foo", "bar", "baz"] | path expand)
+        assert equal (get_path) (["fooooo", "foo", "bar", "baz"] | path expand)
 
         load-env {$path_name: []}
 
@@ -36,7 +36,11 @@ def path_add [] {
         }
 
         std path add $target_paths
-        assert equal (get_path) [($target_paths | get $nu.os-info.name)]
+        assert equal (get_path) ([($target_paths | get $nu.os-info.name)] | path expand)
+
+        load-env {$path_name: [$"/foo(char esep)/bar"]}
+        std path add "~/foo"
+        assert equal (get_path) (["~/foo", "/foo", "/bar"] | path expand)
     }
 }
 

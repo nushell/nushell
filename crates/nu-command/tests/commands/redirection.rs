@@ -272,13 +272,32 @@ fn redirect_support_variable() {
 
         assert!(output.out.contains("hello"));
 
-        // FIXME: this doesn't work, currently nushell returns an error.
+        nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello there' out+err> $x; open tmp_file"
+        );
+        // check for stdout redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual = file_contents(expected_out_file);
+        assert!(actual.contains("hello there"));
+
+        // append mode support variable too.
         let output = nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out+err> $x; open tmp_file"
+            "let x = 'tmp_file'; echo 'hello' out>> $x; open tmp_file"
         );
+        let v: Vec<_> = output.out.match_indices("hello").collect();
+        assert_eq!(v.len(), 2);
 
-        assert!(output.out.contains("hello"));
+        let output = nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello' out+err>> $x; open tmp_file"
+        );
+        // check for stdout redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual = file_contents(expected_out_file);
+        let v: Vec<_> = output.out.match_indices("hello").collect();
+        assert_eq!(v.len(), 3);
     })
 }
 
@@ -320,4 +339,26 @@ fn separate_redirection_support_variable() {
             assert!(actual.contains(expect_body));
         },
     )
+}
+
+#[test]
+fn redirection_should_have_a_target() {
+    let scripts = [
+        "echo asdf o+e>",
+        "echo asdf o>",
+        "echo asdf e>",
+        "echo asdf o> e>",
+        "echo asdf o> tmp.txt e>",
+        "echo asdf o> e> tmp.txt",
+        "echo asdf o> | ignore",
+        "echo asdf o>; echo asdf",
+    ];
+    for code in scripts {
+        let actual = nu!(code);
+        assert!(
+            actual.err.contains("expected redirection target",),
+            "should be error, code: {}",
+            code
+        );
+    }
 }

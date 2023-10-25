@@ -247,12 +247,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
             | TokenContents::ErrGreaterGreaterThan
             | TokenContents::OutErrGreaterThan
             | TokenContents::OutErrGreaterGreaterThan => {
-                push_command_to(
+                if let Some(err) = push_command_to(
                     &mut curr_pipeline,
                     curr_command,
                     last_connector,
                     last_connector_span,
-                );
+                ) {
+                    error = Some(err);
+                }
 
                 curr_command = LiteCommand::new();
                 last_token = token.contents;
@@ -260,12 +262,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_connector_span = Some(token.span);
             }
             TokenContents::Pipe => {
-                push_command_to(
+                if let Some(err) = push_command_to(
                     &mut curr_pipeline,
                     curr_command,
                     last_connector,
                     last_connector_span,
-                );
+                ) {
+                    error = Some(err);
+                }
 
                 curr_command = LiteCommand::new();
                 last_token = TokenContents::Pipe;
@@ -281,12 +285,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 if actual_token != Some(TokenContents::Pipe)
                     && actual_token != Some(TokenContents::OutGreaterThan)
                 {
-                    push_command_to(
+                    if let Some(err) = push_command_to(
                         &mut curr_pipeline,
                         curr_command,
                         last_connector,
                         last_connector_span,
-                    );
+                    ) {
+                        error = Some(err);
+                    }
 
                     curr_command = LiteCommand::new();
                     if !curr_pipeline.is_empty() {
@@ -306,12 +312,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
                 last_token = TokenContents::Eol;
             }
             TokenContents::Semicolon => {
-                push_command_to(
+                if let Some(err) = push_command_to(
                     &mut curr_pipeline,
                     curr_command,
                     last_connector,
                     last_connector_span,
-                );
+                ) {
+                    error = Some(err);
+                }
 
                 curr_command = LiteCommand::new();
                 if !curr_pipeline.is_empty() {
@@ -343,12 +351,14 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
         }
     }
 
-    push_command_to(
+    if let Some(err) = push_command_to(
         &mut curr_pipeline,
         curr_command,
         last_connector,
         last_connector_span,
-    );
+    ) {
+        error = Some(err);
+    }
     if !curr_pipeline.is_empty() {
         block.push(curr_pipeline);
     }
@@ -378,12 +388,16 @@ fn get_redirection(connector: TokenContents) -> Option<(Redirection, bool)> {
     }
 }
 
+/// push a `command` to `pipeline`
+///
+/// It will return Some(err) if `command` is empty and we want to push a
+/// redirection command.
 fn push_command_to(
     pipeline: &mut LitePipeline,
     command: LiteCommand,
     last_connector: TokenContents,
     last_connector_span: Option<Span>,
-) {
+) -> Option<ParseError> {
     if !command.is_empty() {
         match get_redirection(last_connector) {
             Some((redirect, is_append_mode)) => pipeline.push(LiteElement::Redirection(
@@ -393,6 +407,16 @@ fn push_command_to(
                 is_append_mode,
             )),
             None => pipeline.push(LiteElement::Command(last_connector_span, command)),
+        }
+        None
+    } else {
+        if let Some(_) = get_redirection(last_connector) {
+            Some(ParseError::Expected(
+                "redirection target",
+                last_connector_span.expect("internal error: redirection missing span information"),
+            ))
+        } else {
+            None
         }
     }
 }
