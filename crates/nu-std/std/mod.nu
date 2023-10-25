@@ -326,6 +326,9 @@ export def repeat [
 }
 
 # read from standard input and write to standard output and files
+#
+# > **Important**  
+# > this command does not stream the input pipeline.
 export def tee [
     filename: path  # the file to write the input to
     --append (-a): bool  # append to the file instead of overwriting
