@@ -21,16 +21,31 @@ impl FileCompletion {
 impl Completer for FileCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(
-            span,
+        let span_contents =
+            String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+        let mut prefix = String::from_utf8_lossy(&prefix).to_string();
+        let mut end = span.end;
+        let mut completing_intermediate = false;
+        if let Some(after_cursor) = &span_contents.get(prefix.len() + 1..) {
+            let prefix_left_out = after_cursor
+                .split_once(SEP)
+                .map(|split| split.0)
+                .unwrap_or_default();
+            prefix.push_str(prefix_left_out);
+            end = span.start + prefix.len() + 1;
+            completing_intermediate = true;
+        };
+
+        let output: Vec<_> = complete_item(
+            completing_intermediate,
+            Span::new(span.start, end),
             &prefix,
             &self.engine_state.current_work_dir(),
             options,

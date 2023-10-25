@@ -21,19 +21,30 @@ impl DirectoryCompletion {
 impl Completer for DirectoryCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let partial = String::from_utf8_lossy(&prefix).to_string();
+        let span_contents =
+            String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+        let mut prefix = String::from_utf8_lossy(&prefix).to_string();
+        let mut end = span.end;
+        if let Some(after_cursor) = &span_contents.get(prefix.len() + 1..) {
+            let prefix_left_out = after_cursor
+                .split_once(SEP)
+                .map(|split| split.0)
+                .unwrap_or_default();
+            prefix.push_str(prefix_left_out);
+            end = span.start + prefix.len() + 1;
+        };
 
         // Filter only the folders
         let output: Vec<_> = directory_completion(
-            span,
-            &partial,
+            Span::new(span.start, end),
+            &prefix,
             &self.engine_state.current_work_dir(),
             options,
         )
