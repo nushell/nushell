@@ -324,7 +324,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                         // this can avoid output column order changed.
                         if index == parent_column_index {
                             for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
-                                if record.cols.contains(col) {
+                                if record.contains(col) {
                                     record.push(format!("{parent_column_name}_{col}"), val.clone());
                                 } else {
                                     record.push(col, val.clone());
@@ -339,7 +339,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                     // the flattened column may be the last column in the original table.
                     if index == parent_column_index {
                         for (col, val) in inner_cols.iter().zip(inner_vals.iter()) {
-                            if record.cols.contains(col) {
+                            if record.contains(col) {
                                 record.push(format!("{parent_column_name}_{col}"), val.clone());
                             } else {
                                 record.push(col, val.clone());

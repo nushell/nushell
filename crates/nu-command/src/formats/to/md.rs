@@ -210,7 +210,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         } = val
         {
             lists
-                .entry(record.cols.concat())
+                .entry(record.columns().map(|c| c.as_str()).collect::<String>())
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         } else {
