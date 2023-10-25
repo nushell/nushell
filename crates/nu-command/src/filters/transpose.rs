@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError,
+    Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -83,66 +83,54 @@ impl Command for Transpose {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Transposes the table contents with default column names",
                 example: "[[c1 c2]; [1 2]] | transpose",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column0" => Value::test_string("c1"),
+                        "column1" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "column0" =>  Value::test_string("c2"),
+                        "column1" =>  Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description: "Transposes the table contents with specified column names",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c1"), Value::test_int(1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["key".to_string(), "val".to_string()],
-                            vals: vec![Value::test_string("c2"), Value::test_int(2)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "key" =>  Value::test_string("c1"),
+                        "val" =>  Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "key" =>  Value::test_string("c2"),
+                        "val" =>  Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description:
                     "Transposes the table without column names and specify a new column name",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["val".to_string()],
-                            vals: vec![Value::test_int(2)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "val" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "val" => Value::test_int(2),
+                    }),
+                ])),
             },
             Example {
                 description: "Transfer back to record with -d flag",
                 example: "{c1: 1, c2: 2} | transpose | transpose --ignore-titles -r -d",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["c1".to_string(), "c2".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "c1" =>  Value::test_int(1),
+                    "c2" =>  Value::test_int(2),
                 })),
             },
         ]
