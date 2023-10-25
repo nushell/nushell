@@ -51,6 +51,10 @@ impl Record {
         self.vals.push(val);
     }
 
+    pub fn contains(&self, col: impl AsRef<str>) -> bool {
+        self.cols.iter().any(|k| k == col.as_ref())
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
