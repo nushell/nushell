@@ -240,74 +240,30 @@ pub fn transpose(
             }
 
             for i in input.clone() {
-                match &i.get_data_by_key(&desc) {
-                    Some(x) => {
-                        if args.keep_all && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let current_span = record.vals[index].span();
-                            let new_val = match &record.vals[index] {
-                                Value::List { vals, .. } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(x.clone());
-                                    Value::list(vals.to_vec(), current_span)
-                                }
-                                v => Value::list(vec![v.clone(), x.clone()], v.span()),
-                            };
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-
-                            record.push(headers[column_num].clone(), new_val);
-                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-                            record.push(headers[column_num].clone(), x.clone());
-                        } else if !record.cols.contains(&headers[column_num]) {
-                            record.push(headers[column_num].clone(), x.clone());
-                        }
+                let x = i
+                    .get_data_by_key(&desc)
+                    .unwrap_or_else(|| Value::nothing(name));
+                match record.get_mut(&headers[column_num]) {
+                    None => {
+                        record.push(headers[column_num].clone(), x);
                     }
-                    _ => {
-                        if args.keep_all && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let current_span = record.vals[index].span();
-                            let new_val = match &record.vals[index] {
+                    Some(val) => {
+                        if args.keep_all {
+                            let current_span = val.span();
+                            match val {
                                 Value::List { vals, .. } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(Value::nothing(name));
-                                    Value::list(vals.to_vec(), current_span)
+                                    vals.push(x);
                                 }
-                                v => Value::list(vec![v.clone(), Value::nothing(name)], v.span()),
+                                v => {
+                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
+                                }
                             };
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-
-                            record.push(headers[column_num].clone(), new_val);
-                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-                            record.push(headers[column_num].clone(), Value::nothing(name));
-                        } else if !record.cols.contains(&headers[column_num]) {
-                            record.push(headers[column_num].clone(), Value::nothing(name));
+                        } else if args.keep_last {
+                            *val = x;
                         }
                     }
                 }
+
                 column_num += 1;
             }
 
