@@ -77,6 +77,18 @@ impl Record {
         self.cols.iter().any(|k| k == col.as_ref())
     }
 
+    pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
+        self.columns()
+            .position(|k| k == col.as_ref())
+            .and_then(|idx| self.vals.get(idx))
+    }
+
+    pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
+        self.columns()
+            .position(|k| k == col.as_ref())
+            .and_then(|idx| self.vals.get_mut(idx))
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
