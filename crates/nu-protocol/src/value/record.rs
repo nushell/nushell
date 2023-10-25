@@ -89,6 +89,10 @@ impl Record {
             .and_then(|idx| self.vals.get_mut(idx))
     }
 
+    pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
+        Some((self.cols.get(idx)?, self.vals.get(idx)?))
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
