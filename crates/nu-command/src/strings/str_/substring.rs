@@ -117,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
                 result: Some(Value::test_string("ふが")),
             },
         ]

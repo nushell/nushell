@@ -6,8 +6,8 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{EngineState, Stack},
-    report_error_new, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
+    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 
@@ -925,15 +925,18 @@ fn eval_element_with_input(
                         *is_subexpression,
                     )?
                 }
-                _ => eval_element_with_input(
-                    engine_state,
-                    stack,
-                    &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
-                    input,
-                    redirect_stdout,
-                    redirect_stderr,
-                )
-                .map(|x| x.0)?,
+                _ => {
+                    // we need to redirect output, so the result can be saved and pass to `save` command.
+                    eval_element_with_input(
+                        engine_state,
+                        stack,
+                        &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
+                        input,
+                        true,
+                        redirect_stderr,
+                    )
+                    .map(|x| x.0)?
+                }
             };
             eval_element_with_input(
                 engine_state,
@@ -1128,20 +1131,6 @@ pub fn eval_variable(
     span: Span,
 ) -> Result<Value, ShellError> {
     match var_id {
-        // $nothing
-        nu_protocol::NOTHING_VARIABLE_ID => {
-            report_error_new(
-                engine_state,
-                &ShellError::GenericError(
-                    "Deprecated variable".into(),
-                    "`$nothing` is deprecated and will be removed in 0.87.".into(),
-                    Some(span),
-                    Some("Use `null` instead".into()),
-                    vec![],
-                ),
-            );
-            Ok(Value::nothing(span))
-        }
         // $nu
         nu_protocol::NU_VARIABLE_ID => {
             if let Some(val) = engine_state.get_constant(var_id) {

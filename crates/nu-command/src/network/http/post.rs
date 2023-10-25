@@ -111,17 +111,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Post content to example.com, with username and password",
-                example: "http post -u myuser -p mypass https://www.example.com 'body'",
+                example: "http post --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
                 description: "Post content to example.com, with custom header",
-                example: "http post -H [my-header-key my-header-value] https://www.example.com",
+                example: "http post --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Post content to example.com, with JSON body",
-                example: "http post -t application/json https://www.example.com { field: value }",
+                example: "http post --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]

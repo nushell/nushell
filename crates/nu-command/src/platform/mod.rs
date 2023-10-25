@@ -8,7 +8,7 @@ mod sleep;
 mod term_size;
 mod whoami;
 
-pub use ansi::{Ansi, AnsiStrip};
+pub use ansi::{Ansi, AnsiLink, AnsiStrip};
 pub use clear::Clear;
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use du::Du;

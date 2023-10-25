@@ -138,7 +138,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,
@@ -190,6 +189,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrIndexOf,
             StrLength,
             StrReverse,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
@@ -219,6 +219,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
+            AnsiLink,
             AnsiStrip,
             Clear,
             Du,
@@ -373,7 +374,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             RandomDice,
             RandomFloat,
             RandomInt,
-            RandomInteger,
             RandomUuid,
         };
 
@@ -383,7 +383,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Seq,
             SeqDate,
             SeqChar,
-            Unfold,
+            Unfold, // deprecated
+            Generate,
         };
 
         // Hash

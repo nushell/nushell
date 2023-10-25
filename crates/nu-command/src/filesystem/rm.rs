@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use super::util::try_interaction;
 
+use nu_cmd_base::arg_glob_leading_dot;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -14,13 +15,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
-};
-
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
 };
 
 const TRASH_SUPPORTED: bool = cfg!(all(
@@ -49,8 +43,8 @@ impl Command for Rm {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
-                SyntaxShape::Filepath,
-                "the path of the file you want to remove",
+                SyntaxShape::GlobPattern,
+                "the file or files you want to remove",
             )
             .switch(
                 "trash",
@@ -252,13 +246,7 @@ fn rm(
         }
 
         let path = currentdir_path.join(&target.item);
-        match nu_glob::glob_with(
-            &path.to_string_lossy(),
-            nu_glob::MatchOptions {
-                require_literal_leading_dot: true,
-                ..GLOB_PARAMS
-            },
-        ) {
+        match arg_glob_leading_dot(&target, &currentdir_path) {
             Ok(files) => {
                 for file in files {
                     match file {

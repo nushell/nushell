@@ -118,12 +118,12 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
+                example: r"'C:\Users\viking\spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"'C:\Users\viking.d' | path parse -e ''",
+                example: r"'C:\Users\viking.d' | path parse --extension ''",
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "prefix".into(),
@@ -193,12 +193,12 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
+                example: r"'/home/viking/spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"'/etc/conf.d' | path parse -e ''",
+                example: r"'/etc/conf.d' | path parse --extension ''",
                 result: Some(Value::test_record(Record {
                     cols: vec!["parent".into(), "stem".into(), "extension".into()],
                     vals: vec![

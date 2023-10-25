@@ -111,17 +111,17 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Put content to example.com, with username and password",
-                example: "http put -u myuser -p mypass https://www.example.com 'body'",
+                example: "http put --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
                 description: "Put content to example.com, with custom header",
-                example: "http put -H [my-header-key my-header-value] https://www.example.com",
+                example: "http put --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Put content to example.com, with JSON body",
-                example: "http put -t application/json https://www.example.com { field: value }",
+                example: "http put --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
         ]

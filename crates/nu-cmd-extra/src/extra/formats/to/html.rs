@@ -289,11 +289,9 @@ fn to_html(
             })
             .collect();
         return Ok(
-            Value::list(result, head).into_pipeline_data_with_metadata(Box::new(
-                PipelineMetadata {
-                    data_source: DataSource::HtmlThemes,
-                },
-            )),
+            Value::list(result, head).into_pipeline_data_with_metadata(PipelineMetadata {
+                data_source: DataSource::HtmlThemes,
+            }),
         );
     } else {
         let theme_span = match &theme {

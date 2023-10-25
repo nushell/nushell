@@ -1,21 +1,16 @@
-use nu_engine::CallExt;
-use nu_path::expand_to_real_path;
+use nu_cmd_base::arg_glob;
+use nu_engine::{current_dir, CallExt};
+use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::path::PathBuf;
-use uu_cp::{BackupMode, UpdateMode};
+use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[cfg(not(target_os = "windows"))]
 const PATH_SEPARATOR: &str = "/";
@@ -35,7 +30,7 @@ impl Command for UCp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["copy", "file", "files"]
+        vec!["copy", "file", "files", "coreutils"]
     }
 
     fn signature(&self) -> Signature {
@@ -51,6 +46,11 @@ impl Command for UCp {
                 Some('f'),
             )
             .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch(
+                "update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
@@ -81,6 +81,11 @@ impl Command for UCp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
+                result: None,
+            },
         ]
     }
 
@@ -92,6 +97,11 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag("interactive");
+        let (update, copy_mode) = if call.has_flag("update") {
+            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+        } else {
+            (UpdateMode::ReplaceAll, CopyMode::Copy)
+        };
         let force = call.has_flag("force");
         let no_clobber = call.has_flag("no-clobber");
         let progress = call.has_flag("progress");
@@ -154,20 +164,22 @@ impl Command for UCp {
                 Vec::new(),
             ));
         };
+
         // paths now contains the sources
-        let sources: Vec<Vec<PathBuf>> = paths
-            .iter()
-            .map(|p| {
-                // Need to expand too make it work with globbing
-                let expanded_src = expand_to_real_path(&p.item);
-                match nu_glob::glob_with(&expanded_src.to_string_lossy(), GLOB_PARAMS) {
-                    Ok(files) => {
-                        let f = files.filter_map(Result::ok).collect::<Vec<PathBuf>>();
-                        if f.is_empty() {
-                            return Err(ShellError::FileNotFound(p.span));
-                        }
-                        let any_source_is_dir = f.iter().any(|f| matches!(f, f if f.is_dir()));
-                        if any_source_is_dir && !recursive {
+
+        let cwd = current_dir(engine_state, stack)?;
+        let mut sources: Vec<PathBuf> = Vec::new();
+
+        for p in paths {
+            let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
+            if exp_files.is_empty() {
+                return Err(ShellError::FileNotFound(p.span));
+            };
+            let mut app_vals: Vec<PathBuf> = Vec::new();
+            for v in exp_files {
+                match v {
+                    Ok(path) => {
+                        if !recursive && path.is_dir() {
                             return Err(ShellError::GenericError(
                                 "could_not_copy_directory".into(),
                                 "resolves to a directory (not copied)".into(),
@@ -175,22 +187,20 @@ impl Command for UCp {
                                 Some("Directories must be copied using \"--recursive\"".into()),
                                 Vec::new(),
                             ));
-                        }
-
-                        Ok(f)
+                        };
+                        app_vals.push(path)
                     }
-                    Err(e) => Err(ShellError::GenericError(
-                        e.to_string(),
-                        "invalid pattern".to_string(),
-                        Some(p.span),
-                        None,
-                        Vec::new(),
-                    )),
+                    Err(e) => {
+                        return Err(ShellError::ErrorExpandingGlob(
+                            format!("error {} in path {}", e.error(), e.path().display()),
+                            p.span,
+                        ));
+                    }
                 }
-            })
-            .collect::<Result<Vec<Vec<PathBuf>>, ShellError>>()?;
+            }
+            sources.append(&mut app_vals);
+        }
 
-        let sources = sources.into_iter().flatten().collect::<Vec<PathBuf>>();
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
@@ -203,7 +213,7 @@ impl Command for UCp {
             backup: BackupMode::NoBackup,
             copy_contents: false,
             cli_dereference: false,
-            copy_mode: uu_cp::CopyMode::Copy,
+            copy_mode,
             no_target_dir: false,
             one_file_system: false,
             parents: false,
@@ -212,7 +222,7 @@ impl Command for UCp {
             attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
-            update: UpdateMode::ReplaceAll,
+            update,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {

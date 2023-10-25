@@ -50,7 +50,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the sample variance of a list of numbers",
-                example: "[1 2 3 4 5] | math variance -s",
+                example: "[1 2 3 4 5] | math variance --sample",
                 result: Some(Value::test_float(2.5)),
             },
         ]

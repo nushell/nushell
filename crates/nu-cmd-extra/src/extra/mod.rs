@@ -62,7 +62,7 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
             filters::Rotate
         );
 
-        bind_command!(platform::ansi::Gradient, platform::ansi::Link);
+        bind_command!(platform::ansi::Gradient);
 
         bind_command!(
             strings::format::Format,

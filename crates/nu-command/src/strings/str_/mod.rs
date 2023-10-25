@@ -9,6 +9,7 @@ mod length;
 mod replace;
 mod reverse;
 mod starts_with;
+mod stats;
 mod substring;
 mod trim;
 
@@ -23,5 +24,6 @@ pub use length::SubCommand as StrLength;
 pub use replace::SubCommand as StrReplace;
 pub use reverse::SubCommand as StrReverse;
 pub use starts_with::SubCommand as StrStartsWith;
+pub use stats::SubCommand as StrStats;
 pub use substring::SubCommand as StrSubstring;
 pub use trim::Trim as StrTrim;

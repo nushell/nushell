@@ -61,7 +61,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get the arcsine of 1 in degrees",
-                example: "1 | math arcsin -d",
+                example: "1 | math arcsin --degrees",
                 result: Some(Value::test_float(90.0)),
             },
         ]

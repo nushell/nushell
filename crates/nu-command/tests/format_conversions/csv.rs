@@ -460,3 +460,23 @@ fn parses_csv_with_unicode_x1f_sep() {
         assert_eq!(actual.out, "3");
     })
 }
+
+#[test]
+fn from_csv_test_flexible_extra_vals() {
+    let actual = nu!(pipeline(
+        r#"
+          echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
+        "#
+    ));
+    assert_eq!(actual.out, "[1, 2]");
+}
+
+#[test]
+fn from_csv_test_flexible_missing_vals() {
+    let actual = nu!(pipeline(
+        r#"
+          echo "a,b\n1" | from csv --flexible | first | values | to nuon
+        "#
+    ));
+    assert_eq!(actual.out, "[1, null]");
+}
