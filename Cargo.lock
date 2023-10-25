@@ -2884,6 +2884,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_whoami",
  "uuid",
  "wax",
  "which 5.0.0",
@@ -5619,6 +5620,18 @@ dependencies = [
  "uucore",
  "walkdir",
  "xattr",
+]
+
+[[package]]
+name = "uu_whoami"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "585d70c283e4c741889ec8575c23f91b350e4d12bfe39b938d18083816830c5d"
+dependencies = [
+ "clap",
+ "libc",
+ "uucore",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
