@@ -83,12 +83,18 @@ fn surround_remove(partial: &str) -> String {
 }
 
 pub fn complete_item(
-    want_directory: bool,
-    span: nu_protocol::Span,
+    mut want_directory: bool,
+    mut span: nu_protocol::Span,
     partial: &str,
     cwd: &str,
     options: &CompletionOptions,
 ) -> Vec<(nu_protocol::Span, String)> {
+    if span.end - span.start > partial.len() {
+        // only complete for directory since there is something after this partial
+        want_directory = true;
+        // adding one because of the slash after directory
+        span = nu_protocol::Span::new(span.start, span.start + partial.len() + 1);
+    }
     let partial = surround_remove(partial);
     let isdir = partial.ends_with(is_separator);
     let cwd_pathbuf = Path::new(cwd).to_path_buf();
