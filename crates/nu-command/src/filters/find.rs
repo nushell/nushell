@@ -253,26 +253,29 @@ fn find_with_regex(
     input.filter(
         move |value| match value {
             Value::String { val, .. } => re.is_match(val.as_str()).unwrap_or(false) != invert,
-            Value::Record {
-                val: Record { vals, .. },
-                ..
-            }
-            | Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
+            Value::Record { val, .. } => values_match_find(val.values(), &re, &config, invert),
+            Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
             _ => false,
         },
         ctrlc,
     )
 }
 
-fn values_match_find(values: &[Value], re: &Regex, config: &Config, invert: bool) -> bool {
+fn values_match_find<'a, I>(values: I, re: &Regex, config: &Config, invert: bool) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
     match invert {
         true => !record_matches_regex(values, re, config),
         false => record_matches_regex(values, re, config),
     }
 }
 
-fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
-    values.iter().any(|v| {
+fn record_matches_regex<'a, I>(values: I, re: &Regex, config: &Config) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
+    values.into_iter().any(|v| {
         re.is_match(v.into_string(" ", config).as_str())
             .unwrap_or(false)
     })
