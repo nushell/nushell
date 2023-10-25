@@ -344,8 +344,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
     let theme = load_theme_from_config(cfg.opts.config);
     let key_width = record
-        .cols
-        .iter()
+        .columns()
         .map(|col| string_width(col))
         .max()
         .unwrap_or(0);
