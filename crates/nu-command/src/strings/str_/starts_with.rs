@@ -92,7 +92,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Checks if input string starts with 'cargo', case-insensitive",
-                example: "'Cargo.toml' | str starts-with -i 'cargo'",
+                example: "'Cargo.toml' | str starts-with --ignore-case 'cargo'",
                 result: Some(Value::test_bool(true)),
             },
         ]

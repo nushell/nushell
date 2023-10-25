@@ -19,7 +19,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
             metadata,
             span,
             ..
-        } => collect_external_stream(stdout, stderr, exit_code, metadata.map(|m| *m), span),
+        } => collect_external_stream(stdout, stderr, exit_code, metadata, span),
     }
 }
 

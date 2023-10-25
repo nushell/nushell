@@ -90,9 +90,9 @@ let light_theme = {
     binary: dark_gray
     cell-path: dark_gray
     row_index: green_bold
-    record: white
-    list: white
-    block: white
+    record: dark_gray
+    list: dark_gray
+    block: dark_gray
     hints: dark_gray
     search_result: {fg: white bg: red}
     shape_and: purple_bold

@@ -12,15 +12,15 @@ use unicode_segmentation::UnicodeSegmentation;
 pub type Counted = BTreeMap<Counter, usize>;
 
 #[derive(Clone)]
-pub struct Size;
+pub struct SubCommand;
 
-impl Command for Size {
+impl Command for SubCommand {
     fn name(&self) -> &str {
-        "size"
+        "str stats"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("size")
+        Signature::build("str stats")
             .category(Category::Strings)
             .input_output_types(vec![(Type::String, Type::Record(vec![]))])
     }
@@ -40,24 +40,14 @@ impl Command for Size {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        nu_protocol::report_error_new(
-            engine_state,
-            &ShellError::GenericError(
-                "Deprecated command".into(),
-                "`size` is deprecated and will be removed in 0.88.".into(),
-                Some(call.head),
-                Some("Use `str stats` instead".into()),
-                vec![],
-            ),
-        );
-        size(engine_state, call, input)
+        stats(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Count the number of words in a string",
-                example: r#""There are seven words in this sentence" | size"#,
+                example: r#""There are seven words in this sentence" | str stats"#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -77,7 +67,7 @@ impl Command for Size {
             },
             Example {
                 description: "Counts unicode characters",
-                example: r#"'今天天气真好' | size "#,
+                example: r#"'今天天气真好' | str stats "#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -97,7 +87,7 @@ impl Command for Size {
             },
             Example {
                 description: "Counts Unicode characters correctly in a string",
-                example: r#""Amélie Amelie" | size"#,
+                example: r#""Amélie Amelie" | str stats"#,
                 result: Some(Value::test_record(Record {
                     cols: vec![
                         "lines".into(),
@@ -119,7 +109,7 @@ impl Command for Size {
     }
 }
 
-fn size(
+fn stats(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
@@ -310,7 +300,7 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(Size {})
+        test_examples(SubCommand {})
     }
 }
 

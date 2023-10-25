@@ -34,11 +34,21 @@ impl Command for ExportExternWrapped {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
-        _call: &Call,
+        call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        nu_protocol::report_error_new(
+            engine_state,
+            &ShellError::GenericError(
+                "Deprecated command".into(),
+                "`export extern-wrapped` is deprecated and will be removed in 0.88.".into(),
+                Some(call.head),
+                Some("Use `export def --wrapped` instead".into()),
+                vec![],
+            ),
+        );
         Ok(PipelineData::empty())
     }
 

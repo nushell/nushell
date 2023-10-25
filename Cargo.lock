@@ -2886,7 +2886,7 @@ dependencies = [
  "uu_cp",
  "uuid",
  "wax",
- "which",
+ "which 5.0.0",
  "windows 0.48.0",
  "winreg",
 ]
@@ -3068,7 +3068,7 @@ dependencies = [
  "nu-utils",
  "num-format",
  "tempfile",
- "which",
+ "which 4.4.2",
 ]
 
 [[package]]
@@ -4249,8 +4249,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7dc1d1d369c194cf79acc204397aca1fecc4248df3e1c1eabb15e5ef2d16991"
+source = "git+https://github.com/nushell/reedline.git?branch=main#973dbb5f5f2338c18c25ce951bfa42c8d8cacfdf"
 dependencies = [
  "chrono",
  "crossterm 0.27.0",
@@ -5661,9 +5660,9 @@ checksum = "6de61731e36d52d3babb63e2dce8fe648e2644e9ddfe2621e0eea699022051a6"
 
 [[package]]
 name = "uuid"
-version = "1.4.1"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79daa5ed5740825c40b389c5e50312b9c86df53fccd33f281df655642b43869d"
+checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
 dependencies = [
  "getrandom",
 ]
@@ -5846,6 +5845,19 @@ dependencies = [
  "home",
  "once_cell",
  "rustix 0.38.15",
+]
+
+[[package]]
+name = "which"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bf3ea8596f3a0dd5980b46430f2058dfe2c36a27ccfbb1845d6fbfcd9ba6e14"
+dependencies = [
+ "either",
+ "home",
+ "once_cell",
+ "rustix 0.38.15",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

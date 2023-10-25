@@ -36,7 +36,7 @@ impl Command for KeybindingsList {
         vec![
             Example {
                 description: "Get list of key modifiers",
-                example: "keybindings list -m",
+                example: "keybindings list --modifiers",
                 result: None,
             },
             Example {

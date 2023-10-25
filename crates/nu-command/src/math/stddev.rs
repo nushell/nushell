@@ -58,7 +58,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Compute the sample standard deviation of a list of numbers",
-                example: "[1 2 3 4 5] | math stddev -s",
+                example: "[1 2 3 4 5] | math stddev --sample",
                 result: Some(Value::test_float(1.5811388300841898)),
             },
         ]

@@ -65,7 +65,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             },
             Example {
                 description: "Replace characters with HTML entities if they can't be encoded",
-                example: r#""🎈" | encode -i shift-jis"#,
+                example: r#""🎈" | encode --ignore-errors shift-jis"#,
                 result: Some(Value::binary(
                     vec![0x26, 0x23, 0x31, 0x32, 0x37, 0x38, 0x38, 0x30, 0x3b],
                     Span::test_data(),
