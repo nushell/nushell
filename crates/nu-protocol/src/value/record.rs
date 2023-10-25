@@ -62,6 +62,12 @@ impl Record {
             iter: self.vals.iter(),
         }
     }
+
+    pub fn into_values(self) -> IntoValues {
+        IntoValues {
+            iter: self.vals.into_iter(),
+        }
+    }
 }
 
 impl FromIterator<(String, Value)> for Record {
@@ -158,6 +164,34 @@ impl<'a> DoubleEndedIterator for Values<'a> {
 }
 
 impl<'a> ExactSizeIterator for Values<'a> {
+    fn len(&self) -> usize {
+        self.iter.len()
+    }
+}
+
+pub struct IntoValues {
+    iter: std::vec::IntoIter<Value>,
+}
+
+impl Iterator for IntoValues {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for IntoValues {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back()
+    }
+}
+
+impl ExactSizeIterator for IntoValues {
     fn len(&self) -> usize {
         self.iter.len()
     }
