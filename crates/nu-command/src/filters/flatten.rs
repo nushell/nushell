@@ -4,7 +4,8 @@ use nu_protocol::ast::{Call, CellPath, PathMember};
 
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -52,7 +53,7 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
                         Value::test_string("N"),
                         Value::test_string("u"),
@@ -61,7 +62,6 @@ impl Command for Flatten {
                         Value::test_string("e"),
                         Value::test_string("l"),
                         Value::test_string("l")],
-                    Span::test_data()
                 ))
             },
             Example {
@@ -84,49 +84,33 @@ impl Command for Flatten {
                 example: "{ a: b, d: [ 1 2 3 4 ],  e: [ 4 3  ] } | flatten d --all",
                 result: Some(Value::list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(1),
-                                Value::list(
+                        Value::test_record(record! {
+                                "a" => Value::test_string("b"),
+                                "d" => Value::test_int(1),
+                                "e" => Value::test_list(
                                     vec![Value::test_int(4), Value::test_int(3)],
-                                    Span::test_data(),
                                 ),
-                            ],
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(2),
-                                Value::list(
+                        Value::test_record(record! {
+                                "a" => Value::test_string("b"),
+                                "d" => Value::test_int(2),
+                                "e" => Value::test_list(
                                     vec![Value::test_int(4), Value::test_int(3)],
-                                    Span::test_data(),
                                 ),
-                            ],
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(3),
-                                Value::list(
+                        Value::test_record(record! {
+                                "a" => Value::test_string("b"),
+                                "d" => Value::test_int(3),
+                                "e" => Value::test_list(
                                     vec![Value::test_int(4), Value::test_int(3)],
-                                    Span::test_data(),
                                 ),
-                            ],
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "d".to_string(), "e".to_string()],
-                            vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(4),
-                                Value::list(
+                        Value::test_record(record! {
+                                "a" => Value::test_string("b"),
+                                "d" => Value::test_int(4),
+                                "e" => Value::test_list(
                                     vec![Value::test_int(4), Value::test_int(3)],
-                                    Span::test_data()
                                 )
-                            ],
                         }),
                     ],
                     Span::test_data(),
