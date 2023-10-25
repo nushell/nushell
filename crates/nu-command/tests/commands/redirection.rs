@@ -264,3 +264,25 @@ fn separate_redirection_support_variable() {
         },
     )
 }
+
+#[test]
+fn redirection_should_have_a_target() {
+    let scripts = [
+        "echo asdf o+e>",
+        "echo asdf o>",
+        "echo asdf e>",
+        "echo asdf o> e>",
+        "echo asdf o> tmp.txt e>",
+        "echo asdf o> e> tmp.txt",
+        "echo asdf o> | ignore",
+        "echo asdf o>; echo asdf",
+    ];
+    for code in scripts {
+        let actual = nu!(code);
+        assert!(
+            actual.err.contains("expected redirection target",),
+            "should be error, code: {}",
+            code
+        );
+    }
+}
