@@ -128,8 +128,7 @@ fn action(
                         "({})",
                         match list_value {
                             Value::Record { val, .. } => {
-                                val.vals
-                                    .iter()
+                                val.values()
                                     .map(|rec_val| {
                                         format!("'{}'", nu_value_to_string(rec_val.clone(), ""))
                                     })
