@@ -925,15 +925,18 @@ fn eval_element_with_input(
                         *is_subexpression,
                     )?
                 }
-                _ => eval_element_with_input(
-                    engine_state,
-                    stack,
-                    &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
-                    input,
-                    redirect_stdout,
-                    redirect_stderr,
-                )
-                .map(|x| x.0)?,
+                _ => {
+                    // we need to redirect output, so the result can be saved and pass to `save` command.
+                    eval_element_with_input(
+                        engine_state,
+                        stack,
+                        &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
+                        input,
+                        true,
+                        redirect_stderr,
+                    )
+                    .map(|x| x.0)?
+                }
             };
             eval_element_with_input(
                 engine_state,

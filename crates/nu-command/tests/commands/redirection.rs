@@ -216,12 +216,14 @@ fn redirect_support_variable() {
 
         assert!(output.out.contains("hello"));
 
-        let output = nu!(
+        nu!(
             cwd: dirs.test(),
-            "let x = 'tmp_file'; echo 'hello' out+err> $x; open tmp_file"
+            "let x = 'tmp_file'; echo 'hello there' out+err> $x; open tmp_file"
         );
-
-        assert!(output.out.contains("hello"));
+        // check for stdout redirection file.
+        let expected_out_file = dirs.test().join("tmp_file");
+        let actual = file_contents(expected_out_file);
+        assert!(actual.contains("hello there"));
     })
 }
 
