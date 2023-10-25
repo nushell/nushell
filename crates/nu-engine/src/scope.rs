@@ -575,7 +575,7 @@ fn sort_rows(decls: &mut [Value]) {
         (Value::Record { val: rec_a, .. }, Value::Record { val: rec_b, .. }) => {
             // Comparing the first value from the record
             // It is expected that the first value is the name of the entry (command, module, alias, etc.)
-            match (rec_a.vals.get(0), rec_b.vals.get(0)) {
+            match (rec_a.values().next(), rec_b.values().next()) {
                 (Some(val_a), Some(val_b)) => match (val_a, val_b) {
                     (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
                         str_a.cmp(str_b)
