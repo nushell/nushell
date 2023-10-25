@@ -555,13 +555,10 @@ fn record_matches_term(
     term: &Value,
     span: Span,
 ) -> bool {
-    let cols_to_search = if columns_to_search.is_empty() {
-        &record.cols
-    } else {
-        columns_to_search
-    };
+    // Only perform column selection if given columns.
+    let col_select = !columns_to_search.is_empty();
     record.iter().any(|(col, val)| {
-        if !cols_to_search.contains(col) {
+        if col_select && !columns_to_search.contains(col) {
             return false;
         }
         let lower_val = if !val.is_error() {
