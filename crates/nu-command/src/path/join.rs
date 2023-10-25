@@ -246,7 +246,7 @@ fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Val
 }
 
 fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
-    for key in &record.cols {
+    for key in record.columns() {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
             return Err(ShellError::UnsupportedInput { msg: format!(
@@ -255,12 +255,8 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
         }
     }
 
-    let entries: HashMap<&str, &Value> = record
-        .cols
-        .iter()
-        .map(String::as_str)
-        .zip(&record.vals)
-        .collect();
+    // TODO: hashmap seems overkill
+    let entries: HashMap<&str, &Value> = record.iter().map(|(k, v)| (k.as_str(), v)).collect();
 
     let mut result = PathBuf::new();
 
