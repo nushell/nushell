@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::Value;
 
 use serde::{Deserialize, Serialize};
@@ -46,9 +48,29 @@ impl Record {
         usize::min(self.cols.len(), self.vals.len())
     }
 
+    /// Naive push to the end of the datastructure.
+    ///
+    /// May duplicate data!
+    ///
+    /// Consider to use [`Record::insert`] instead
     pub fn push(&mut self, col: impl Into<String>, val: Value) {
         self.cols.push(col.into());
         self.vals.push(val);
+    }
+
+    /// Insert into the record, replacing preexisting value if found.
+    ///
+    /// Returns `Some(previous_value)` if found. Else `None`
+    pub fn insert(&mut self, col: Cow<str>, val: Value) -> Option<Value> {
+        if let Some(idx) = self.columns().position(|k| k == &col) {
+            // Can panic if vals.len() < cols.len()
+            let curr_val = &mut self.vals[idx];
+            Some(std::mem::replace(curr_val, val))
+        } else {
+            self.cols.push(col.into_owned());
+            self.vals.push(val);
+            None
+        }
     }
 
     pub fn contains(&self, col: impl AsRef<str>) -> bool {
