@@ -33,14 +33,17 @@ impl Completer for FileCompletion {
         let mut prefix = String::from_utf8_lossy(&prefix).to_string();
         let mut end = span.end;
         let mut completing_intermediate = false;
-        if let Some(after_prefix) = &span_contents.strip_prefix(&prefix) {
-            let remnant: String = after_prefix
+
+        // A difference of 1 because of the cursor's unicode code point in between.
+        // Using .chars().count() because unicode and Windows.
+        if span_contents.chars().count() - prefix.chars().count() != 1 {
+            let remnant: String = span_contents
                 .chars()
-                .skip(1)
+                .skip(prefix.chars().count() + 1)
                 .take_while(|&c| !is_separator(c))
                 .collect();
             prefix.push_str(&remnant);
-            end = span.start + prefix.len() + 1;
+            end = span.start + prefix.chars().count() + 1;
             completing_intermediate = true;
         };
 
