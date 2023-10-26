@@ -42,6 +42,7 @@ dialoguer = { default-features = false, features = ["fuzzy-select"], version = "
 digest = { default-features = false, version = "0.10" }
 dtparse = "2.0"
 encoding_rs = "0.8"
+errno = "0.2"
 fancy-regex = "0.11"
 filesize = "0.2"
 filetime = "0.2"
@@ -50,6 +51,7 @@ htmlescape = "0.3"
 indexmap = "2.0"
 indicatif = "0.17"
 itertools = "0.11"
+libc = "0.2.8"
 log = "0.4"
 lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
