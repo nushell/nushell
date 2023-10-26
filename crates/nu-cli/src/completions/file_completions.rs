@@ -36,7 +36,7 @@ impl Completer for FileCompletion {
 
         // A difference of 1 because of the cursor's unicode code point in between.
         // Using .chars().count() because unicode and Windows.
-        if span_contents.chars().count() - prefix.chars().count() != 1 {
+        if span_contents.chars().count() - prefix.chars().count() > 1 {
             let remnant: String = span_contents
                 .chars()
                 .skip(prefix.chars().count() + 1)

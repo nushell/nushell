@@ -33,7 +33,7 @@ impl Completer for DirectoryCompletion {
         let mut prefix = String::from_utf8_lossy(&prefix).to_string();
         let mut end = span.end;
 
-        if span_contents.chars().count() - prefix.chars().count() != 1 {
+        if span_contents.chars().count() - prefix.chars().count() > 1 {
             let remnant: String = span_contents
                 .chars()
                 .skip(prefix.chars().count() + 1)
