@@ -163,7 +163,7 @@ macro_rules! exec_try {
 /// # Examples
 ///
 /// ```no_run
-/// let err = execvp("echo", &["echo", "foo"]);
+/// let err = system::exec::execvp("echo", &["echo", "foo"]);
 /// println!("Error: {}", err);
 /// ```
 pub fn execvp<S, I>(program: S, args: I) -> Error
@@ -261,7 +261,7 @@ where
 /// similar to `std::process::Command`.
 ///
 /// ```no_run
-/// let err = ExecCommand::new("echo")
+/// let err = system::exec::ExecCommand::new("echo")
 ///     .arg("hello")
 ///     .arg("world")
 ///     .exec();
@@ -293,7 +293,7 @@ impl ExecCommand {
     /// chained.
     ///
     /// ```no_run
-    /// let err = ExecCommand::new("echo")
+    /// let err = system::exec::ExecCommand::new("echo")
     ///     .args(&["hello", "world"])
     ///     .exec();
     /// println!("Error: {}", err);
