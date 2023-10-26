@@ -63,7 +63,7 @@ impl Record {
     where
         K: AsRef<str> + Into<String>,
     {
-        if let Some(idx) = self.columns().position(|k| k == col.as_ref()) {
+        if let Some(idx) = self.index_of(&col) {
             // Can panic if vals.len() < cols.len()
             let curr_val = &mut self.vals[idx];
             Some(std::mem::replace(curr_val, val))
@@ -79,20 +79,15 @@ impl Record {
     }
 
     pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
-        self.columns()
-            .position(|k| k == col.as_ref())
+        self.columns().position(|k| k == col.as_ref())
     }
 
     pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
-        self.columns()
-            .position(|k| k == col.as_ref())
-            .and_then(|idx| self.vals.get(idx))
+        self.index_of(col).and_then(|idx| self.vals.get(idx))
     }
 
     pub fn get_mut(&mut self, col: impl AsRef<str>) -> Option<&mut Value> {
-        self.columns()
-            .position(|k| k == col.as_ref())
-            .and_then(|idx| self.vals.get_mut(idx))
+        self.index_of(col).and_then(|idx| self.vals.get_mut(idx))
     }
 
     pub fn get_index(&self, idx: usize) -> Option<(&String, &Value)> {
