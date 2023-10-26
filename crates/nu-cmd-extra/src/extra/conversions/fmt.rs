@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -32,27 +32,15 @@ impl Command for Fmt {
         vec![Example {
             description: "Get a record containing multiple formats for the number 42",
             example: "42 | fmt",
-            result: Some(Value::test_record(Record {
-                cols: vec![
-                    "binary".into(),
-                    "debug".into(),
-                    "display".into(),
-                    "lowerexp".into(),
-                    "lowerhex".into(),
-                    "octal".into(),
-                    "upperexp".into(),
-                    "upperhex".into(),
-                ],
-                vals: vec![
-                    Value::test_string("0b101010"),
-                    Value::test_string("42"),
-                    Value::test_string("42"),
-                    Value::test_string("4.2e1"),
-                    Value::test_string("0x2a"),
-                    Value::test_string("0o52"),
-                    Value::test_string("4.2E1"),
-                    Value::test_string("0x2A"),
-                ],
+            result: Some(Value::test_record(record! {
+                    "binary" =>   Value::test_string("0b101010"),
+                    "debug" =>    Value::test_string("42"),
+                    "display" =>  Value::test_string("42"),
+                    "lowerexp" => Value::test_string("4.2e1"),
+                    "lowerhex" => Value::test_string("0x2a"),
+                    "octal" =>    Value::test_string("0o52"),
+                    "upperexp" => Value::test_string("4.2E1"),
+                    "upperhex" => Value::test_string("0x2A"),
             })),
         }]
     }
