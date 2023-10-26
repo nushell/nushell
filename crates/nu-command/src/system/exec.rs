@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -57,11 +57,15 @@ fn exec(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
+    let config = engine_state.get_config();
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let name_span = name.span;
-    let args: Vec<String> = call.rest(engine_state, stack, 1)?;
-
-    let err = ExecCommand::new(name.item).args(&args[1..]).exec();
+    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
+    let args_as_str = args
+        .iter()
+        .map(|x| x.into_string("", config))
+        .collect::<Vec<_>>();
+    let err = ExecCommand::new(name.item).args(&args_as_str[0..]).exec();
 
     Err(ShellError::GenericError(
         "Error on exec".to_string(),
