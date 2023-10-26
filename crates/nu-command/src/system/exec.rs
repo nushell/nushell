@@ -4,8 +4,6 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
-#[cfg(unix)]
-use std::os::unix::process::CommandExt;
 
 #[derive(Clone)]
 pub struct Exec;
