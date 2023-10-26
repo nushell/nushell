@@ -148,7 +148,7 @@ macro_rules! exec_try {
 /// identical.  The former is the program we ask the operating system to
 /// run, and the latter is the value that will show up in `argv[0]` when
 /// the program executes.  On POSIX systems, these can technically be
-/// completely different, and we've perserved that much of the low-level
+/// completely different, and we've preserved that much of the low-level
 /// API here.
 ///
 /// # Examples
