@@ -2,7 +2,7 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -68,48 +68,37 @@ impl Command for GroupBy {
             Example {
                 description: "Group using a block which is evaluated against each input value",
                 example: "[foo.txt bar.csv baz.txt] | group-by { path parse | get extension }",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["txt".to_string(), "csv".to_string()],
-                    vals: vec![
-                        Value::list(
+                result: Some(Value::test_record(record! {
+                    "txt" =>  Value::test_list(
                             vec![
                                 Value::test_string("foo.txt"),
                                 Value::test_string("baz.txt"),
                             ],
-                            Span::test_data(),
                         ),
-                        Value::list(
+                    "csv" => Value::test_list(
                             vec![Value::test_string("bar.csv")],
-                            Span::test_data(),
                         ),
-                    ],
                 })),
             },
 
             Example {
                 description: "You can also group by raw values by leaving out the argument",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["1".to_string(), "3".to_string(), "2".to_string()],
-                    vals: vec![
-                        Value::list(
+                result: Some(Value::test_record(record! {
+                    "1" =>  Value::test_list(
                             vec![
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                                 Value::test_string("1"),
                             ],
-                            Span::test_data(),
                         ),
-                        Value::list(
+                    "3" =>  Value::test_list(
                             vec![Value::test_string("3"), Value::test_string("3")],
-                            Span::test_data(),
                         ),
-                        Value::list(
+                    "2" => Value::test_list(
                             vec![Value::test_string("2")],
-                            Span::test_data(),
                         ),
-                    ],
                 })),
             },
         ]
