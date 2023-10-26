@@ -409,14 +409,12 @@ fn push_command_to(
             None => pipeline.push(LiteElement::Command(last_connector_span, command)),
         }
         None
+    } else if let Some(_) = get_redirection(last_connector) {
+        Some(ParseError::Expected(
+            "redirection target",
+            last_connector_span.expect("internal error: redirection missing span information"),
+        ))
     } else {
-        if let Some(_) = get_redirection(last_connector) {
-            Some(ParseError::Expected(
-                "redirection target",
-                last_connector_span.expect("internal error: redirection missing span information"),
-            ))
-        } else {
-            None
-        }
+        None
     }
 }
