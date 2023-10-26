@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::Value;
 
 use serde::{Deserialize, Serialize};
@@ -61,13 +59,16 @@ impl Record {
     /// Insert into the record, replacing preexisting value if found.
     ///
     /// Returns `Some(previous_value)` if found. Else `None`
-    pub fn insert(&mut self, col: Cow<str>, val: Value) -> Option<Value> {
-        if let Some(idx) = self.columns().position(|k| k == &col) {
+    pub fn insert<K>(&mut self, col: K, val: Value) -> Option<Value>
+    where
+        K: AsRef<str> + Into<String>,
+    {
+        if let Some(idx) = self.columns().position(|k| k == col.as_ref()) {
             // Can panic if vals.len() < cols.len()
             let curr_val = &mut self.vals[idx];
             Some(std::mem::replace(curr_val, val))
         } else {
-            self.cols.push(col.into_owned());
+            self.cols.push(col.into());
             self.vals.push(val);
             None
         }
