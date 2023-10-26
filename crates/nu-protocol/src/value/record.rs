@@ -78,6 +78,11 @@ impl Record {
         self.cols.iter().any(|k| k == col.as_ref())
     }
 
+    pub fn index_of(&self, col: impl AsRef<str>) -> Option<usize> {
+        self.columns()
+            .position(|k| k == col.as_ref())
+    }
+
     pub fn get(&self, col: impl AsRef<str>) -> Option<&Value> {
         self.columns()
             .position(|k| k == col.as_ref())
