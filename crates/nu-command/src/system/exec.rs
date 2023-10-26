@@ -63,7 +63,14 @@ fn exec(
     let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
     let args_as_str = args
         .iter()
-        .map(|x| x.into_string("", config))
+        .map(|x| match x {
+            Value::List { vals, .. } => vals
+                .iter()
+                .map(|y| y.into_string("", config))
+                .collect::<Vec<String>>()
+                .join(" "),
+            _ => x.into_string("", config),
+        })
         .collect::<Vec<_>>();
     let err = ExecCommand::new(name.item).args(&args_as_str[0..]).exec();
 
