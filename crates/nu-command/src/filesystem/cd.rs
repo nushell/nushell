@@ -132,6 +132,11 @@ impl Command for Cd {
             //FIXME: this only changes the current scope, but instead this environment variable
             //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
+                // This set_current_dir is needed because other programs like uutils/coreutils get
+                // information from the environment and if it's not setup properly they will fail. See
+                // note https://github.com/nushell/nushell/issues/10832#issuecomment-1780202986
+                // The key part is that cp doesn't use it explicitly but the syscalls do.
+                std::env::set_current_dir(&path)?;
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
