@@ -33,14 +33,15 @@ impl Completer for DirectoryCompletion {
         let mut prefix = String::from_utf8_lossy(&prefix).to_string();
         let mut end = span.end;
 
-        if span_contents.chars().count() - prefix.chars().count() > 1 {
+        let cursor_size = if cfg!(target_os = "windows") { 0 } else { 1 };
+        if span_contents.chars().count() - prefix.chars().count() > cursor_size {
             let remnant: String = span_contents
                 .chars()
-                .skip(prefix.chars().count() + 1)
+                .skip(prefix.chars().count() + cursor_size)
                 .take_while(|&c| !is_separator(c))
                 .collect();
             prefix.push_str(&remnant);
-            end = span.start + prefix.chars().count() + 1;
+            end = span.start + prefix.len() + cursor_size;
         };
 
         // Filter only the folders
