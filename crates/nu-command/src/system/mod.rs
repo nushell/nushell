@@ -1,5 +1,5 @@
 mod complete;
-mod exec;
+pub mod exec;
 mod nu_check;
 #[cfg(any(
     target_os = "android",
