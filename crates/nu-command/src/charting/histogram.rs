@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
 use std::collections::HashMap;
@@ -51,28 +51,21 @@ impl Command for Histogram {
             Example {
                 description: "Compute a histogram for a list of numbers",
                 example: "[1 2 1] | histogram",
-                result: Some(Value::list (
-                        vec![Value::test_record(Record {
-                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
-                            vals: vec![
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_float(0.6666666666666666),
-                                Value::test_string("66.67%"),
-                                Value::test_string("******************************************************************"),
-                            ],
+                result: Some(Value::test_list (
+                        vec![Value::test_record(record! {
+                            "value" =>      Value::test_int(1),
+                            "count" =>      Value::test_int(2),
+                            "quantile" =>   Value::test_float(0.6666666666666666),
+                            "percentage" => Value::test_string("66.67%"),
+                            "frequency" =>  Value::test_string("******************************************************************"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string(), "count".to_string(), "quantile".to_string(), "percentage".to_string(), "frequency".to_string()],
-                            vals: vec![
-                                Value::test_int(2),
-                                Value::test_int(1),
-                                Value::test_float(0.3333333333333333),
-                                Value::test_string("33.33%"),
-                                Value::test_string("*********************************"),
-                            ],
+                        Value::test_record(record! {
+                            "value" =>      Value::test_int(2),
+                            "count" =>      Value::test_int(1),
+                            "quantile" =>   Value::test_float(0.3333333333333333),
+                            "percentage" => Value::test_string("33.33%"),
+                            "frequency" =>  Value::test_string("*********************************"),
                         })],
-                        Span::test_data(),
                     )
                  ),
             },
