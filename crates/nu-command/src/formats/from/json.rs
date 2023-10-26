@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Type, Value,
 };
 
@@ -29,23 +29,16 @@ impl Command for FromJson {
             Example {
                 example: r#"'{ "a": 1 }' | from json"#,
                 description: "Converts json formatted string to table",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string()],
-                    vals: vec![Value::test_int(1)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: r#"'{ "a": 1, "b": [1, 2] }' | from json"#,
                 description: "Converts json formatted string to table",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::list(
-                            vec![Value::test_int(1), Value::test_int(2)],
-                            Span::test_data(),
-                        ),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                 })),
             },
         ]
