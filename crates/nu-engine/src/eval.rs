@@ -735,61 +735,103 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
-            Expr::String(_)
-            | Expr::FullCellPath(_)
-            | Expr::StringInterpolation(_)
-            | Expr::Filepath(_) => {
-                let exit_code = match &mut input {
-                    PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
-                    _ => None,
-                };
-                let input = match (redirection, input) {
-                    (
-                        Redirection::Stderr,
-                        PipelineData::ExternalStream {
-                            stderr,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                            ..
-                        },
-                    ) => PipelineData::ExternalStream {
-                        stdout: stderr,
-                        stderr: None,
-                        exit_code,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    },
-                    (_, input) => input,
-                };
-
-                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                    let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
-                    eval_call(engine_state, stack, &save_call, input).map(|_| {
-                        // save is internal command, normally it exists with non-ExternalStream
-                        // but here in redirection context, we make it returns ExternalStream
-                        // So nu handles exit_code correctly
+        PipelineElement::Redirection(span, redirection, expr) => {
+            match &expr.expr {
+                Expr::String(_)
+                | Expr::FullCellPath(_)
+                | Expr::StringInterpolation(_)
+                | Expr::Filepath(_) => {
+                    let exit_code = match &mut input {
+                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                        _ => None,
+                    };
+                    let (input, out_stream) = match (redirection, input) {
                         (
+                            Redirection::Stderr,
                             PipelineData::ExternalStream {
-                                stdout: None,
+                                stdout,
+                                stderr,
+                                exit_code,
+                                span,
+                                metadata,
+                                trim_end_newline,
+                            },
+                        ) => (
+                            PipelineData::ExternalStream {
+                                stdout: stderr,
                                 stderr: None,
                                 exit_code,
-                                span: *span,
-                                metadata: None,
-                                trim_end_newline: false,
+                                span,
+                                metadata,
+                                trim_end_newline,
                             },
-                            false,
-                        )
-                    })
-                } else {
-                    Err(ShellError::CommandNotFound(*span))
+                            Some(stdout),
+                        ),
+                        (_, input) => (input, None),
+                    };
+
+                    if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                        let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
+                        match out_stream {
+                            None => {
+                                eval_call(engine_state, stack, &save_call, input).map(|_| {
+                                    // save is internal command, normally it exists with non-ExternalStream
+                                    // but here in redirection context, we make it returns ExternalStream
+                                    // So nu handles exit_code correctly
+                                    (
+                                        PipelineData::ExternalStream {
+                                            stdout: None,
+                                            stderr: None,
+                                            exit_code,
+                                            span: *span,
+                                            metadata: None,
+                                            trim_end_newline: false,
+                                        },
+                                        false,
+                                    )
+                                })
+                            }
+                            Some(out_stream) => {
+                                // delegate to a different thread
+                                // so nushell won't hang if external command generates both too much
+                                // stderr and stdout message
+                                let mut stderr_stack = stack.clone();
+                                let engine_state_clone = engine_state.clone();
+                                std::thread::Builder::new()
+                                .name("stderr saver".to_string())
+                                .spawn(move || {
+                                    let result = eval_call(
+                                        &engine_state_clone,
+                                        &mut stderr_stack,
+                                        &save_call,
+                                        input,
+                                    );
+                                    if let Err(err) = result {
+                                        eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
+                                    }
+                                })
+                                .expect("Failed to create thread");
+
+                                Ok((
+                                    PipelineData::ExternalStream {
+                                        stdout: out_stream,
+                                        stderr: None,
+                                        exit_code,
+                                        span: *span,
+                                        metadata: None,
+                                        trim_end_newline: false,
+                                    },
+                                    false,
+                                ))
+                            }
+                        }
+                    } else {
+                        Err(ShellError::CommandNotFound(*span))
+                    }
                 }
+                _ => Err(ShellError::CommandNotFound(*span)),
             }
-            _ => Err(ShellError::CommandNotFound(*span)),
-        },
+        }
         PipelineElement::SeparateRedirection {
             out: (out_span, out_expr),
             err: (err_span, err_expr),
@@ -812,7 +854,7 @@ fn eval_element_with_input(
                     let save_call = gen_save_call(
                         save_command,
                         (*out_span, out_expr.clone()),
-                        Some((err_span, err_expr.clone())),
+                        Some((*err_span, err_expr.clone())),
                     );
 
                     eval_call(engine_state, stack, &save_call, input).map(|_| {
@@ -967,16 +1009,7 @@ pub fn eval_block(
                     )
                 }));
 
-            let redirect_stdout = redirect_stdout
-                || (elements_iter.peek().map_or(false, |next_element| {
-                    matches!(
-                        next_element,
-                        PipelineElement::Redirection(_, Redirection::Stdout, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                            | PipelineElement::Expression(..)
-                            | PipelineElement::SeparateRedirection { .. }
-                    )
-                }));
+            let redirect_stdout = redirect_stdout || elements_iter.peek().is_some();
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1101,10 +1134,10 @@ fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
 
 fn gen_save_call(
     save_decl_id: DeclId,
-    out_info: (Expression, Span),
-    err_info: Option<(Expression, Span)>,
+    out_info: (Span, Expression),
+    err_info: Option<(Span, Expression)>,
 ) -> Call {
-    let (out_expr, out_span) = out_info;
+    let (out_span, out_expr) = out_info;
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1124,7 +1157,7 @@ fn gen_save_call(
             None,
         )),
     ];
-    if let Some((err_expr, err_span)) = err_info {
+    if let Some((err_span, err_expr)) = err_info {
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
