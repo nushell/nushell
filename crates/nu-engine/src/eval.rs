@@ -812,7 +812,7 @@ fn eval_element_with_input(
                     let save_call = gen_save_call(
                         save_command,
                         (*out_span, out_expr.clone()),
-                        Some((err_span, err_expr.clone())),
+                        Some((*err_span, err_expr.clone())),
                     );
 
                     eval_call(engine_state, stack, &save_call, input).map(|_| {
@@ -1101,10 +1101,10 @@ fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
 
 fn gen_save_call(
     save_decl_id: DeclId,
-    out_info: (Expression, Span),
-    err_info: Option<(Expression, Span)>,
+    out_info: (Span, Expression),
+    err_info: Option<(Span, Expression)>,
 ) -> Call {
-    let (out_expr, out_span) = out_info;
+    let (out_span, out_expr) = out_info;
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1124,7 +1124,7 @@ fn gen_save_call(
             None,
         )),
     ];
-    if let Some((err_expr, err_span)) = err_info {
+    if let Some((err_span, err_expr)) = err_info {
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
