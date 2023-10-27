@@ -121,7 +121,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), head),
+        Value::String { val, .. } => Value::string(val.to_lowercase(), head),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
