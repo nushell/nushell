@@ -94,6 +94,17 @@ impl Record {
         Some((self.cols.get(idx)?, self.vals.get(idx)?))
     }
 
+    /// Remove single value by key
+    ///
+    /// Returns `None` if key not found
+    ///
+    /// Note: makes strong assumption that keys are unique
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.index_of(col)?;
+        self.cols.remove(idx);
+        Some(self.vals.remove(idx))
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
