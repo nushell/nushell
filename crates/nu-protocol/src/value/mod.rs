@@ -3848,6 +3848,7 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
 mod tests {
 
     use super::{Record, Span, Value};
+    use crate::record;
 
     mod is_empty {
         use super::*;
@@ -3872,21 +3873,18 @@ mod tests {
         fn test_record() {
             let no_columns_nor_cell_values = Value::test_record(Record::new());
 
-            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(Record {
-                cols: vec![String::from("")],
-                vals: vec![Value::string("", Span::unknown())],
+            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(record! {
+                "" => Value::test_string(""),
             });
 
             let one_column_with_a_string_and_one_cell_value_with_empty_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("column")],
-                    vals: vec![Value::string("", Span::unknown())],
+                Value::test_record(record! {
+                    "column" => Value::test_string(""),
                 });
 
             let one_column_with_empty_string_and_one_value_with_a_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("")],
-                    vals: vec![Value::string("text", Span::unknown())],
+                Value::test_record(record! {
+                    "" => Value::test_string("text"),
                 });
 
             assert!(no_columns_nor_cell_values.is_empty());
