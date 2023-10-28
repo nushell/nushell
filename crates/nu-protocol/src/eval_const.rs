@@ -307,11 +307,9 @@ pub fn eval_constant(
                 for expr in val {
                     row.push(eval_constant(working_set, expr)?);
                 }
+                // length equality already ensured in parser
                 output_rows.push(Value::record(
-                    Record {
-                        cols: output_headers.clone(),
-                        vals: row,
-                    },
+                    Record::from_raw_cols_vals(output_headers.clone(), row),
                     expr.span,
                 ));
             }
