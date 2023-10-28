@@ -66,19 +66,18 @@ fn create_directory_two_parents_up_using_multiple_dots() {
 fn print_created_paths() {
     Playground::setup("umkdir_test_2", |dirs, _| {
         let actual = nu!(
-         cwd: dirs.test(),
-         pipeline(
-             "umkdir -v dir_1 dir_2 dir_3"
-        ));
+            cwd: dirs.test(),
+            pipeline("umkdir -v dir_1 dir_2 dir_3")
+        );
 
         assert!(files_exist_at(
             vec![Path::new("dir_1"), Path::new("dir_2"), Path::new("dir_3")],
             dirs.test()
         ));
 
-        assert!(actual.err.contains("dir_1"));
-        assert!(actual.err.contains("dir_2"));
-        assert!(actual.err.contains("dir_3"));
+        assert!(actual.out.contains("dir_1"));
+        assert!(actual.out.contains("dir_2"));
+        assert!(actual.out.contains("dir_3"));
     })
 }
 
