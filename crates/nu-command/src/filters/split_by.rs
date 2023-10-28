@@ -23,7 +23,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Create a new table split."
+        "Split a record into groups"
     }
 
     fn run(
@@ -202,24 +202,18 @@ pub fn data_split(
                     }
                 }
                 _ => {
-                    return Err(ShellError::GenericError(
-                        "unsupported input".into(),
-                        "requires a table with one row for splitting".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ))
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "requires a record to split".into(),
+                        span,
+                    })
                 }
             }
         }
         _ => {
-            return Err(ShellError::GenericError(
-                "unsupported input".into(),
-                "requires a table with one row for splitting".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ))
+            return Err(ShellError::TypeMismatch {
+                err_message: "requires a record to split".into(),
+                span,
+            })
         }
     }
 
