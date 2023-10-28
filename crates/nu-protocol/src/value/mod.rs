@@ -1424,19 +1424,7 @@ impl Value {
 
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let mut found = false;
-                                        let mut index = 0;
-                                        record.cols.retain_mut(|col| {
-                                            if col == col_name {
-                                                found = true;
-                                                record.vals.remove(index);
-                                                false
-                                            } else {
-                                                index += 1;
-                                                true
-                                            }
-                                        });
-                                        if !found && !optional {
+                                        if record.remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
@@ -1456,19 +1444,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            let mut found = false;
-                            let mut index = 0;
-                            record.cols.retain_mut(|col| {
-                                if col == col_name {
-                                    found = true;
-                                    record.vals.remove(index);
-                                    false
-                                } else {
-                                    index += 1;
-                                    true
-                                }
-                            });
-                            if !found && !optional {
+                            if record.remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
