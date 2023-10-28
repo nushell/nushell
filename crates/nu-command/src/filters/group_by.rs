@@ -22,10 +22,15 @@ impl Command for GroupBy {
             // example. Perhaps Table should be a subtype of List, in which case
             // the current signature would suffice even when a Table example
             // exists.
-            .input_output_types(vec![(
-                Type::List(Box::new(Type::Any)),
-                Type::Record(vec![]),
-            )])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
+                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
+            ])
+            .switch(
+                "to-table",
+                "Return a table with \"groups\" and \"items\" columns",
+                None,
+            )
             .optional(
                 "grouper",
                 SyntaxShape::OneOf(vec![
@@ -80,7 +85,6 @@ impl Command for GroupBy {
                         ),
                 })),
             },
-
             Example {
                 description: "You can also group by raw values by leaving out the argument",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
@@ -100,6 +104,46 @@ impl Command for GroupBy {
                             vec![Value::test_string("2")],
                         ),
                 })),
+            },
+            Example {
+                description: "You can also output a table instead of a record",
+                example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        record! {
+                            "group" => Value::test_string("1"),
+                            "items" => Value::test_list(
+                                vec![
+                                    Value::test_string("1"),
+                                    Value::test_string("1"),
+                                    Value::test_string("1"),
+                                    Value::test_string("1"),
+                                ]
+                            )
+                        }
+                    ),
+                    Value::test_record(
+                        record! {
+                            "group" => Value::test_string("3"),
+                            "items" => Value::test_list(
+                                vec![
+                                    Value::test_string("3"),
+                                    Value::test_string("3"),
+                                ]
+                            )
+                        }
+                    ),
+                    Value::test_record(
+                        record! {
+                            "group" => Value::test_string("2"),
+                            "items" => Value::test_list(
+                                vec![
+                                    Value::test_string("2"),
+                                ]
+                            )
+                        }
+                    ),
+                ])),
             },
         ]
     }
@@ -123,11 +167,11 @@ pub fn group_by(
         ));
     }
 
-    let group_value = match grouper {
+    let groups = match grouper {
         Some(v) => {
             let span = v.span();
             match v {
-                Value::CellPath { val, .. } => group_cell_path(val, values, span)?,
+                Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Block { .. } | Value::Closure { .. } => {
                     let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
                     group_closure(&values, span, block, stack, engine_state, call)?
@@ -141,17 +185,22 @@ pub fn group_by(
                 }
             }
         }
-        None => group_no_grouper(values, span)?,
+        None => group_no_grouper(values)?,
     };
 
-    Ok(PipelineData::Value(group_value, None))
+    let value = if call.has_flag("to-table") {
+        groups_to_table(groups, span)
+    } else {
+        groups_to_record(groups, span)
+    };
+
+    Ok(PipelineData::Value(value, None))
 }
 
 pub fn group_cell_path(
     column_name: CellPath,
     values: Vec<Value>,
-    span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for value in values.into_iter() {
@@ -167,16 +216,10 @@ pub fn group_cell_path(
         group.push(value);
     }
 
-    Ok(Value::record(
-        groups
-            .into_iter()
-            .map(|(k, v)| (k, Value::list(v, span)))
-            .collect(),
-        span,
-    ))
+    Ok(groups)
 }
 
-pub fn group_no_grouper(values: Vec<Value>, span: Span) -> Result<Value, ShellError> {
+pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for value in values.into_iter() {
@@ -185,13 +228,7 @@ pub fn group_no_grouper(values: Vec<Value>, span: Span) -> Result<Value, ShellEr
         group.push(value);
     }
 
-    Ok(Value::record(
-        groups
-            .into_iter()
-            .map(|(k, v)| (k, Value::list(v, span)))
-            .collect(),
-        span,
-    ))
+    Ok(groups)
 }
 
 // TODO: refactor this, it's a bit of a mess
@@ -202,7 +239,7 @@ fn group_closure(
     stack: &mut Stack,
     engine_state: &EngineState,
     call: &Call,
-) -> Result<Value, ShellError> {
+) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let value_list = Value::list(values.to_vec(), span);
@@ -268,13 +305,35 @@ fn group_closure(
         group.push(value);
     }
 
-    Ok(Value::record(
+    Ok(groups)
+}
+
+fn groups_to_record(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
+    Value::record(
         groups
             .into_iter()
             .map(|(k, v)| (k, Value::list(v, span)))
             .collect(),
         span,
-    ))
+    )
+}
+
+fn groups_to_table(groups: IndexMap<String, Vec<Value>>, span: Span) -> Value {
+    Value::list(
+        groups
+            .into_iter()
+            .map(|(group, items)| {
+                Value::record(
+                    record! {
+                        "group" => Value::string(group, span),
+                        "items" => Value::list(items, span),
+                    },
+                    span,
+                )
+            })
+            .collect(),
+        span,
+    )
 }
 
 #[cfg(test)]
