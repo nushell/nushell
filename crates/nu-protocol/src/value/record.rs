@@ -105,6 +105,33 @@ impl Record {
         Some(self.vals.remove(idx))
     }
 
+    /// Remove elements in-place that do not satisfy `keep`
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    pub fn retain<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &Value) -> bool,
+    {
+        let mut idx = 0;
+
+        // `Vec::retain` is able to optimize memcopies internally. For maximum benefit as `Value`
+        // is a larger struct than `String` use `retain` on `vals`
+        //
+        // The calls to `Vec::remove` are suboptimal as they need memcopies to shift each time.
+        //
+        // As the operations should remain inplace, we don't allocate a separate index `Vec` which
+        // could be used to avoid the repeated shifting of `Vec::remove` in cols.
+        self.vals.retain(|val| {
+            if keep(self.cols[idx].as_str(), val) {
+                idx += 1;
+                true
+            } else {
+                self.cols.remove(idx);
+                false
+            }
+        });
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
