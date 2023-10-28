@@ -176,7 +176,7 @@ fn data_group(
 pub fn data_split(
     value: PipelineData,
     splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
-    span: Span,
+    dst_span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();
 
@@ -202,27 +202,24 @@ pub fn data_split(
                     }
                 }
                 _ => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "requires a record to split".into(),
-                        span,
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "Record".into(),
+                        wrong_type: v.get_type().to_string(),
+                        dst_span,
+                        src_span: v.span(),
                     })
                 }
             }
         }
-        _ => {
-            return Err(ShellError::TypeMismatch {
-                err_message: "requires a record to split".into(),
-                span,
-            })
-        }
+        _ => return Err(ShellError::PipelineEmpty { dst_span }),
     }
 
     let record = splits
         .into_iter()
-        .map(|(k, rows)| (k, Value::record(rows.into_iter().collect(), span)))
+        .map(|(k, rows)| (k, Value::record(rows.into_iter().collect(), dst_span)))
         .collect();
 
-    Ok(PipelineData::Value(Value::record(record, span), None))
+    Ok(PipelineData::Value(Value::record(record, dst_span), None))
 }
 
 #[cfg(test)]
