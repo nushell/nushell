@@ -3846,23 +3846,22 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
 
 #[cfg(test)]
 mod tests {
-
-    use super::{Record, Span, Value};
+    use super::{Record, Value};
+    use crate::record;
 
     mod is_empty {
         use super::*;
 
         #[test]
         fn test_string() {
-            let value = Value::string("", Span::unknown());
+            let value = Value::test_string("");
             assert!(value.is_empty());
         }
 
         #[test]
         fn test_list() {
-            let list_with_no_values = Value::list(vec![], Span::unknown());
-            let list_with_one_empty_string =
-                Value::list(vec![Value::string("", Span::unknown())], Span::unknown());
+            let list_with_no_values = Value::test_list(vec![]);
+            let list_with_one_empty_string = Value::test_list(vec![Value::test_string("")]);
 
             assert!(list_with_no_values.is_empty());
             assert!(!list_with_one_empty_string.is_empty());
@@ -3872,21 +3871,18 @@ mod tests {
         fn test_record() {
             let no_columns_nor_cell_values = Value::test_record(Record::new());
 
-            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(Record {
-                cols: vec![String::from("")],
-                vals: vec![Value::string("", Span::unknown())],
+            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(record! {
+                "" => Value::test_string(""),
             });
 
             let one_column_with_a_string_and_one_cell_value_with_empty_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("column")],
-                    vals: vec![Value::string("", Span::unknown())],
+                Value::test_record(record! {
+                    "column" => Value::test_string(""),
                 });
 
             let one_column_with_empty_string_and_one_value_with_a_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("")],
-                    vals: vec![Value::string("text", Span::unknown())],
+                Value::test_record(record! {
+                    "" => Value::test_string("text"),
                 });
 
             assert!(no_columns_nor_cell_values.is_empty());
@@ -3903,24 +3899,15 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_of_ints = Value::list(vec![Value::int(0, Span::unknown())], Span::unknown());
-            let list_of_floats =
-                Value::list(vec![Value::float(0.0, Span::unknown())], Span::unknown());
-            let list_of_ints_and_floats = Value::list(
-                vec![
-                    Value::int(0, Span::unknown()),
-                    Value::float(0.0, Span::unknown()),
-                ],
-                Span::unknown(),
-            );
-            let list_of_ints_and_floats_and_bools = Value::list(
-                vec![
-                    Value::int(0, Span::unknown()),
-                    Value::float(0.0, Span::unknown()),
-                    Value::bool(false, Span::unknown()),
-                ],
-                Span::unknown(),
-            );
+            let list_of_ints = Value::test_list(vec![Value::test_int(0)]);
+            let list_of_floats = Value::test_list(vec![Value::test_float(0.0)]);
+            let list_of_ints_and_floats =
+                Value::test_list(vec![Value::test_int(0), Value::test_float(0.0)]);
+            let list_of_ints_and_floats_and_bools = Value::test_list(vec![
+                Value::test_int(0),
+                Value::test_float(0.0),
+                Value::test_bool(false),
+            ]);
             assert_eq!(list_of_ints.get_type(), Type::List(Box::new(Type::Int)));
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
@@ -3941,13 +3928,10 @@ mod tests {
 
         #[test]
         fn test_datetime() {
-            let string = Value::date(
-                DateTime::from_naive_utc_and_offset(
-                    NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
-                    FixedOffset::east_opt(0).unwrap(),
-                ),
-                Span::unknown(),
-            )
+            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
+                NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
+                FixedOffset::east_opt(0).unwrap(),
+            ))
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
@@ -3958,13 +3942,10 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::date(
-                DateTime::from_naive_utc_and_offset(
-                    NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
-                    FixedOffset::east_opt(0).unwrap(),
-                ),
-                Span::unknown(),
-            )
+            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
+                NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
+                FixedOffset::east_opt(0).unwrap(),
+            ))
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because

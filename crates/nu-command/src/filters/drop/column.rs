@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -66,14 +66,8 @@ impl Command for DropColumn {
             example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
             result: Some(Value::list(
                 vec![
-                    Value::test_record(Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-lib")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-core")],
-                    }),
+                    Value::test_record(record!("lib" =>Value::test_string("nu-lib"))),
+                    Value::test_record(record!("lib" =>Value::test_string("nu-core"))),
                 ],
                 Span::test_data(),
             )),

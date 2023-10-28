@@ -3,7 +3,7 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
@@ -57,50 +57,43 @@ impl Command for Rename {
             Example {
                 description: "Rename a column",
                 example: "[[a, b]; [1, 2]] | rename my_column",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["my_column".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "my_column" => Value::test_int(1),
+                    "b" =>         Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Rename many columns",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "eggs" =>  Value::test_int(1),
+                    "ham" =>   Value::test_int(2),
+                    "bacon" => Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Rename a specific column",
                 example: "[[a, b, c]; [1, 2, 3]] | rename --column { a: ham }",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ham" => Value::test_int(1),
+                    "b" =>   Value::test_int(2),
+                    "c" =>   Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Rename the fields of a record",
                 example: "{a: 1 b: 2} | rename x y",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["x".to_string(), "y".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "x" => Value::test_int(1),
+                    "y" => Value::test_int(2),
                 })),
             },
             Example {
                 description: "Rename fields based on a given closure",
                 example: "{abc: 1, bbc: 2} | rename --block {str replace --all 'b' 'z'}",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["azc".to_string(), "zzc".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "azc" => Value::test_int(1),
+                    "zzc" => Value::test_int(2),
                 })),
             },
         ]

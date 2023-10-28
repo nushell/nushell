@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -81,15 +81,11 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(2),
-                        ],
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" => Value::test_int(1),
+                        "ColB" => Value::test_int(2),
                     })],
-                    Span::test_data(),
                 ))
             },
             Example {
