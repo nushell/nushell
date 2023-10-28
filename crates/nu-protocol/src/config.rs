@@ -939,13 +939,8 @@ impl Value {
                                             config.table_indent.right = *val as usize;
                                         }
                                         Value::Record { val, .. } => {
-                                            let Record { cols, vals } = val;
-                                            let left = cols.iter().position(|e| e == "left");
-                                            let right = cols.iter().position(|e| e == "right");
-
-                                            if let Some(i) = left {
-                                                let value = vals[i].as_int();
-                                                match value {
+                                            if let Some(left) = val.get("left") {
+                                                match left.as_int() {
                                                     Ok(val) => {
                                                         if val < 0 {
                                                             invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
@@ -959,9 +954,8 @@ impl Value {
                                                 }
                                             }
 
-                                            if let Some(i) = right {
-                                                let value = vals[i].as_int();
-                                                match value {
+                                            if let Some(right) = val.get("right") {
+                                                match right.as_int() {
                                                     Ok(val) => {
                                                         if val < 0 {
                                                             invalid!(Some(span), "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
@@ -1613,7 +1607,6 @@ pub fn extract_value<'record>(
     span: Span,
 ) -> Result<&'record Value, ShellError> {
     record
-        .iter()
-        .find_map(|(col, val)| if col == name { Some(val) } else { None })
+        .get(name)
         .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
 }
