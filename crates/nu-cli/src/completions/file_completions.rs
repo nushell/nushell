@@ -36,15 +36,14 @@ impl Completer for FileCompletion {
 
         // A difference of 1 because of the cursor's unicode code point in between.
         // Using .chars().count() because unicode and Windows.
-        let cursor_size = if cfg!(target_os = "windows") { 0 } else { 1 };
-        if span_contents.chars().count() - prefix.chars().count() > cursor_size {
+        if span_contents.chars().count() - prefix.chars().count() > 1 {
             let remnant: String = span_contents
                 .chars()
-                .skip(prefix.chars().count() + cursor_size)
+                .skip(prefix.chars().count() + 1)
                 .take_while(|&c| !is_separator(c))
                 .collect();
             prefix.push_str(&remnant);
-            end = span.start + prefix.len() + cursor_size;
+            end = span.start + prefix.chars().count() + 1;
             completing_intermediate = true;
         };
 
