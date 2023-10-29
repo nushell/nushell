@@ -324,33 +324,6 @@ impl Value {
         }
     }
 
-    /// Converts into string values that can be changed into string natively
-    pub fn as_string(&self) -> Result<String, ShellError> {
-        match self {
-            Value::Int { val, .. } => Ok(val.to_string()),
-            Value::Float { val, .. } => Ok(val.to_string()),
-            Value::String { val, .. } => Ok(val.to_string()),
-            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
-                Ok(s) => s.to_string(),
-                Err(_) => {
-                    return Err(ShellError::CantConvert {
-                        to_type: "string".into(),
-                        from_type: "binary".into(),
-                        span: self.span(),
-                        help: None,
-                    });
-                }
-            }),
-            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
-            x => Err(ShellError::CantConvert {
-                to_type: "string".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
-        }
-    }
-
     pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
         let span = self.span();
         match self {
@@ -794,6 +767,33 @@ impl Value {
             Value::CellPath { val, .. } => val.into_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
+        }
+    }
+
+    /// Converts into string values that can be changed into string natively
+    pub fn into_simple_string(&self) -> Result<String, ShellError> {
+        match self {
+            Value::Int { val, .. } => Ok(val.to_string()),
+            Value::Float { val, .. } => Ok(val.to_string()),
+            Value::String { val, .. } => Ok(val.to_string()),
+            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
+                Ok(s) => s.to_string(),
+                Err(_) => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: "binary".into(),
+                        span: self.span(),
+                        help: None,
+                    });
+                }
+            }),
+            Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            x => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
         }
     }
 

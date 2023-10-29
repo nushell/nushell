@@ -466,7 +466,7 @@ impl Value {
                                         try_int!(cols, vals, index, span, max_history_size)
                                     }
                                     "file_format" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 "sqlite" => {
@@ -552,7 +552,7 @@ impl Value {
                                         try_bool!(cols, vals, index, span, partial_completions)
                                     }
                                     "algorithm" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 // This should match the MatchAlgorithm enum in completions::completion_options
@@ -699,7 +699,7 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "vi_insert" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
@@ -750,7 +750,7 @@ impl Value {
                                         }
                                     }
                                     "vi_normal" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
@@ -801,7 +801,7 @@ impl Value {
                                         }
                                     }
                                     "emacs" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             let val_str = v.to_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
@@ -921,7 +921,7 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "mode" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             config.table_mode = v;
                                         } else {
                                             invalid!(Some(span), "should be a string");
@@ -983,7 +983,7 @@ impl Value {
                                         }
                                     },
                                     "index_mode" => {
-                                        if let Ok(b) = value.as_string() {
+                                        if let Ok(b) = value.into_simple_string() {
                                             let val_str = b.to_lowercase();
                                             match val_str.as_ref() {
                                                 "always" => {
@@ -1067,7 +1067,7 @@ impl Value {
                                         try_bool!(cols, vals, index, span, filesize_metric)
                                     }
                                     "format" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             config.filesize_format = v.to_lowercase();
                                         } else {
                                             invalid!(Some(span), "should be a string");
@@ -1136,7 +1136,7 @@ impl Value {
                         try_bool!(cols, vals, index, span, use_grid_icons);
                     }
                     "footer_mode" => {
-                        if let Ok(b) = value.as_string() {
+                        if let Ok(b) = value.into_simple_string() {
                             let val_str = b.to_lowercase();
                             config.footer_mode = match val_str.as_ref() {
                                 "auto" => FooterMode::Auto,
@@ -1168,7 +1168,7 @@ impl Value {
                         try_bool!(cols, vals, index, span, use_ansi_coloring);
                     }
                     "edit_mode" => {
-                        if let Ok(v) = value.as_string() {
+                        if let Ok(v) = value.into_simple_string() {
                             config.edit_mode = v.to_lowercase();
                         } else {
                             invalid!(Some(span), "should be a string");
@@ -1307,14 +1307,14 @@ impl Value {
                                 let key2 = cols[index].as_str();
                                 match key2 {
                                     "normal" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             config.datetime_normal_format = Some(v);
                                         } else {
                                             invalid!(Some(span), "should be a string");
                                         }
                                     }
                                     "table" => {
-                                        if let Ok(v) = value.as_string() {
+                                        if let Ok(v) = value.into_simple_string() {
                                             config.datetime_table_format = Some(v);
                                         } else {
                                             invalid!(Some(span), "should be a string");
@@ -1344,7 +1344,7 @@ impl Value {
                         }
                     }
                     "error_style" => {
-                        if let Ok(style) = value.as_string() {
+                        if let Ok(style) = value.into_simple_string() {
                             config.error_style = style;
                         } else {
                             invalid!(Some(span), "should be a string");
@@ -1447,7 +1447,7 @@ fn try_parse_trim_strategy(
         }
         TrimStrategy::Truncate { suffix } => {
             if let Some(value) = map.get("truncating_suffix") {
-                if let Ok(v) = value.as_string() {
+                if let Ok(v) = value.into_simple_string() {
                     *suffix = Some(v);
                 } else {
                     errors.push(ShellError::GenericError(
@@ -1466,7 +1466,7 @@ fn try_parse_trim_strategy(
 }
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    if let Ok(value) = value.as_string() {
+    if let Ok(value) = value.into_simple_string() {
         match value.to_lowercase().as_str() {
             "wrapping" => {
                 return Some(TrimStrategy::Wrap {

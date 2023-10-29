@@ -94,7 +94,7 @@ impl Command for InputList {
                                 break;
                             }
 
-                            if let Ok(val) = val.as_string() {
+                            if let Ok(val) = val.into_simple_string() {
                                 let len = nu_utils::strip_ansi_likely(&val).len()
                                     + nu_utils::strip_ansi_likely(col).len();
                                 if let Some(max_len) = lentable.get(i) {
@@ -109,7 +109,7 @@ impl Command for InputList {
 
                 rows.into_iter()
                     .map_while(move |x| {
-                        if let Ok(val) = x.as_string() {
+                        if let Ok(val) = x.into_simple_string() {
                             Some(Options {
                                 name: val,
                                 value: x,
@@ -118,7 +118,7 @@ impl Command for InputList {
                             let mut options = Vec::new();
                             let columns = record.len();
                             for (i, (col, val)) in record.iter().enumerate() {
-                                if let Ok(val) = val.as_string() {
+                                if let Ok(val) = val.into_simple_string() {
                                     let len = nu_utils::strip_ansi_likely(&val).len()
                                         + nu_utils::strip_ansi_likely(col).len();
                                     options.push(format!(

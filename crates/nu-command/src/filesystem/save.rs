@@ -255,7 +255,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
-                .map(|it| it.as_string())
+                .map(|it| it.into_simple_string())
                 .collect::<Result<Vec<String>, ShellError>>()?
                 .join("\n")
                 + "\n";
@@ -264,7 +264,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error),
-        other => Ok(other.as_string()?.into_bytes()),
+        other => Ok(other.into_simple_string()?.into_bytes()),
     }
 }
 

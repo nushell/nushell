@@ -340,7 +340,7 @@ pub fn evaluate_repl(
                 engine_state
                     .render_env_vars()
                     .into_iter()
-                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+                    .filter_map(|(k, v)| v.into_simple_string().ok().map(|v| (k, v))),
             );
             line_editor.with_buffer_editor(command, temp_file.clone())
         } else {
@@ -624,7 +624,7 @@ pub fn evaluate_repl(
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                        let path = cwd.as_string()?;
+                        let path = cwd.into_simple_string()?;
 
                         // Communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
                         run_ansi_sequence(&format!(

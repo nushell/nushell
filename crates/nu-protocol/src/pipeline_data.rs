@@ -190,7 +190,7 @@ impl PipelineData {
                 } else {
                     let mut output = String::new();
                     for item in items {
-                        match item.as_string() {
+                        match item.into_simple_string() {
                             Ok(s) => output.push_str(&s),
                             Err(err) => {
                                 return Value::error(err, span);
@@ -334,7 +334,7 @@ impl PipelineData {
                 let mut output = String::new();
 
                 for val in s {
-                    output.push_str(&val?.as_string()?);
+                    output.push_str(&val?.into_simple_string()?);
                 }
                 if trim_end_newline {
                     output.truncate(output.trim_end_matches(LINE_ENDING_PATTERN).len());

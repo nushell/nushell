@@ -238,8 +238,11 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                     df_series.push(series)
                 }
                 InputType::String => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_string()).collect();
+                    let series_values: Result<Vec<_>, _> = column
+                        .values
+                        .iter()
+                        .map(|v| v.into_simple_string())
+                        .collect();
                     let series = Series::new(&name, series_values?);
                     df_series.push(series)
                 }
@@ -392,7 +395,7 @@ fn input_type_list_to_series(
                 let value_list = v
                     .as_list()?
                     .iter()
-                    .map(|v| v.as_string())
+                    .map(|v| v.into_simple_string())
                     .collect::<Result<Vec<String>, _>>()
                     .map_err(inconsistent_error)?;
                 builder.append_values_iter(value_list.iter().map(AsRef::as_ref));

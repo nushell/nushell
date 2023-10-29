@@ -156,7 +156,7 @@ fn operate(
             let mut parsed: Vec<Value> = Vec::new();
 
             for v in input {
-                match v.as_string() {
+                match v.into_simple_string() {
                     Ok(s) => {
                         let results = regex_pattern.captures_iter(&s);
 
@@ -331,7 +331,7 @@ impl Iterator for ParseStreamer {
                 return None;
             };
 
-            let Ok(s) = v.as_string() else {
+            let Ok(s) = v.into_simple_string() else {
                 return Some(Value::error(
                     ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),

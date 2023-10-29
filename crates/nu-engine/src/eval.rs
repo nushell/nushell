@@ -545,7 +545,7 @@ pub fn eval_expression(
 
             for (col, val) in fields {
                 // avoid duplicate cols.
-                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                let col_name = eval_expression(engine_state, stack, col)?.into_simple_string()?;
                 let pos = record.cols.iter().position(|c| c == &col_name);
                 match pos {
                     Some(index) => {
@@ -565,7 +565,8 @@ pub fn eval_expression(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
+                output_headers
+                    .push(eval_expression(engine_state, stack, expr)?.into_simple_string()?);
             }
 
             let mut output_rows = vec![];

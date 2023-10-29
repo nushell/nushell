@@ -54,7 +54,7 @@ impl Command for Format {
         match specified_pattern {
             Err(e) => Err(e),
             Ok(pattern) => {
-                let string_pattern = pattern.as_string()?;
+                let string_pattern = pattern.into_simple_string()?;
                 let string_span = pattern.span();
                 // the string span is start as `"`, we don't need the character
                 // to generate proper span for sub expression.

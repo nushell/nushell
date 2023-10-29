@@ -850,7 +850,7 @@ impl EngineState {
 
     pub fn get_cwd(&self) -> Option<String> {
         if let Some(pwd_value) = self.get_env_var(PWD_ENV) {
-            pwd_value.as_string().ok()
+            pwd_value.into_simple_string().ok()
         } else {
             None
         }
@@ -894,7 +894,7 @@ impl EngineState {
 
     pub fn current_work_dir(&self) -> String {
         self.get_env_var("PWD")
-            .map(|d| d.as_string().unwrap_or_default())
+            .map(|d| d.into_simple_string().unwrap_or_default())
             .unwrap_or_default()
     }
 

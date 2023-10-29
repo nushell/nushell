@@ -177,7 +177,7 @@ pub fn transpose(
             if let Some(desc) = descs.get(0) {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
-                        if let Ok(s) = x.as_string() {
+                        if let Ok(s) = x.into_simple_string() {
                             headers.push(s.to_string());
                         } else {
                             return Err(ShellError::GenericError(

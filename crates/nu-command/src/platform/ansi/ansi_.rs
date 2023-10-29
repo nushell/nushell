@@ -693,7 +693,8 @@ Operating system commands:
         }
 
         let code_string = if param_is_string {
-            code.as_string().expect("error getting code as string")
+            code.into_simple_string()
+                .expect("error getting code as string")
         } else {
             "".to_string()
         };
@@ -768,9 +769,9 @@ Operating system commands:
             // Iterate and populate NuStyle with real values
             for (k, v) in record {
                 match k.as_str() {
-                    "fg" => nu_style.fg = Some(v.as_string()?),
-                    "bg" => nu_style.bg = Some(v.as_string()?),
-                    "attr" => nu_style.attr = Some(v.as_string()?),
+                    "fg" => nu_style.fg = Some(v.into_simple_string()?),
+                    "bg" => nu_style.bg = Some(v.into_simple_string()?),
+                    "attr" => nu_style.attr = Some(v.into_simple_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
                             msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),

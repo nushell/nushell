@@ -83,12 +83,12 @@ fn convert_to_suggestions(
         Value::Record { .. } => {
             let text = value
                 .get_data_by_key("value")
-                .and_then(|val| val.as_string().ok())
+                .and_then(|val| val.into_simple_string().ok())
                 .unwrap_or_else(|| "No value key".to_string());
 
             let description = value
                 .get_data_by_key("description")
-                .and_then(|val| val.as_string().ok());
+                .and_then(|val| val.into_simple_string().ok());
 
             let span = match value.get_data_by_key("span") {
                 Some(span @ Value::Record { .. }) => {

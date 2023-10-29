@@ -119,7 +119,7 @@ impl Completer for CustomCompletion {
                                     .get_data_by_key("completion_algorithm")
                                 {
                                     Some(option) => option
-                                        .as_string()
+                                        .into_simple_string()
                                         .ok()
                                         .and_then(|option| option.try_into().ok())
                                         .unwrap_or(MatchAlgorithm::Prefix),

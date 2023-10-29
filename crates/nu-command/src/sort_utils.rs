@@ -140,7 +140,10 @@ pub fn sort(
                     };
 
                     if natural {
-                        match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                        match (
+                            lowercase_left.into_simple_string(),
+                            lowercase_right.into_simple_string(),
+                        ) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
@@ -150,7 +153,7 @@ pub fn sort(
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
-                    match (a.as_string(), b.as_string()) {
+                    match (a.into_simple_string(), b.into_simple_string()) {
                         (Ok(left), Ok(right)) => compare_str(left, right),
                         _ => Ordering::Equal,
                     }
@@ -199,7 +202,10 @@ pub fn compare(
                 _ => right_res,
             };
             if natural {
-                match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                match (
+                    lowercase_left.into_simple_string(),
+                    lowercase_right.into_simple_string(),
+                ) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }
@@ -209,7 +215,10 @@ pub fn compare(
                     .unwrap_or(Ordering::Equal)
             }
         } else if natural {
-            match (left_res.as_string(), right_res.as_string()) {
+            match (
+                left_res.into_simple_string(),
+                right_res.into_simple_string(),
+            ) {
                 (Ok(left), Ok(right)) => compare_str(left, right),
                 _ => Ordering::Equal,
             }
