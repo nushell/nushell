@@ -12,6 +12,7 @@ use super::PathSubcommandArguments;
 
 struct Arguments {
     pwd: PathBuf,
+    not_follow_symlink: bool,
 }
 
 impl PathSubcommandArguments for Arguments {}
@@ -33,6 +34,7 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::Bool)),
                 ),
             ])
+            .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
             .category(Category::Path)
     }
 
@@ -59,6 +61,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         let head = call.head;
         let args = Arguments {
             pwd: current_dir(engine_state, stack)?,
+            not_follow_symlink: call.has_flag("no-symlink"),
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -79,6 +82,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         let head = call.head;
         let args = Arguments {
             pwd: current_dir_const(working_set)?,
+            not_follow_symlink: call.has_flag("no-symlink"),
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -131,8 +135,22 @@ If you need to distinguish dirs and files, please use `path type`."#
 
 fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
     let path = expand_path_with(path, &args.pwd);
+    let exists = if args.not_follow_symlink {
+        // symlink_metadata returns true if the file/folder exists
+        // whether it is a symbolic link or not. Sorry, but returns Err
+        // in every other scenario including the NotFound
+        std::fs::symlink_metadata(path).map_or_else(
+            |e| match e.kind() {
+                std::io::ErrorKind::NotFound => Ok(false),
+                _ => Err(e),
+            },
+            |_| Ok(true),
+        )
+    } else {
+        path.try_exists()
+    };
     Value::bool(
-        match path.try_exists() {
+        match exists {
             Ok(exists) => exists,
             Err(err) => {
                 return Value::error(ShellError::IOErrorSpanned(err.to_string(), span), span)
