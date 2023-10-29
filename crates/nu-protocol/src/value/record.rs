@@ -108,6 +108,21 @@ impl Record {
     /// Remove elements in-place that do not satisfy `keep`
     ///
     /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_nothing(),
+    ///     "d" => Value::test_int(42),
+    ///     );
+    /// rec.retain(|_k, val| !val.is_nothing());
+    /// let mut iter_rec = rec.columns();
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("b"));
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("d"));
+    /// assert_eq!(iter_rec.next(), None);
+    /// ```
     pub fn retain<F>(&mut self, mut keep: F)
     where
         F: FnMut(&str, &Value) -> bool,
