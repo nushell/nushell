@@ -17,11 +17,12 @@ impl Command for SortBy {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort-by")
             .input_output_types(vec![
-                (Type::Table(vec![]), Type::Table(vec![])),
                 (
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
+                (Type::Record(vec![]), Type::Table(vec![])),
+                (Type::Table(vec![]), Type::Table(vec![])),
             ])
             .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
             .switch("reverse", "Sort in reverse order", Some('r'))
