@@ -40,13 +40,13 @@ impl Command for SplitBy {
         vec![Example {
             description: "split items by column named \"lang\"",
             example: r#"{
-        '2019': [
-          { name: 'andres', lang: 'rb', year: '2019' },
-          { name: 'jt', lang: 'rs', year: '2019' }
-        ],
-        '2021': [
-          { name: 'storm', lang: 'rs', 'year': '2021' }
-        ]
+    '2019': [
+        { name: 'andres', lang: 'rb', year: '2019' },
+        { name: 'jt', lang: 'rs', year: '2019' }
+    ],
+    '2021': [
+        { name: 'storm', lang: 'rs', 'year': '2021' }
+    ]
     } | split-by lang"#,
             result: Some(Value::test_record(record! {
                     "rb" => Value::test_record(record! {
