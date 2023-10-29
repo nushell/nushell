@@ -303,10 +303,18 @@ pub fn eval_constant(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(value_as_string(
-                    eval_constant(working_set, expr)?,
-                    expr.span,
-                )?);
+                let header = value_as_string(eval_constant(working_set, expr)?, expr.span)?;
+                if let Some(idx) = output_headers
+                    .iter()
+                    .position(|existing| existing == &header)
+                {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: expr.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    output_headers.push(header);
+                }
             }
 
             let mut output_rows = vec![];
