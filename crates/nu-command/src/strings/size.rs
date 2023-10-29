@@ -110,7 +110,7 @@ fn size(
                 return Value::error(*error, span);
             }
             // Now, check if it's a string.
-            match v.into_simple_string() {
+            match v.as_string() {
                 Ok(s) => counter(&s, span),
                 Err(_) => Value::error(
                     ShellError::PipelineMismatch {

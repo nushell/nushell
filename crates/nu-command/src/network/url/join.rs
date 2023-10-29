@@ -224,7 +224,7 @@ impl UrlComponents {
         }
 
         // apart from port and params all other keys are strings.
-        let s = value.into_simple_string()?; // If value fails String conversion, just output this ShellError
+        let s = value.as_string()?; // If value fails String conversion, just output this ShellError
         if !Self::check_empty_string_ok(&key, &s, value_span)? {
             return Ok(self);
         }

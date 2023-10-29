@@ -255,12 +255,12 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
         Value::List { vals, .. } => {
             let val = vals
                 .into_iter()
-                .map(|it| it.into_simple_string())
-                .collect::<Result<Vec<String>, ShellError>>()?
-                .join("\n")
-                + "\n";
-
-            Ok(val.into_bytes())
+                .map(value_to_bytes)
+                .collect::<Result<Vec<Vec<u8>>, ShellError>>()?
+                .into_iter()
+                .flat_map(|each| each.into_iter().chain(*b"\n"))
+                .collect();
+            Ok(val)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { error, .. } => Err(*error),

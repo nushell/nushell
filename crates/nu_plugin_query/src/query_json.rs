@@ -8,16 +8,7 @@ pub fn execute_json_query(
     input: &Value,
     query: Option<Spanned<String>>,
 ) -> Result<Value, LabeledError> {
-    let input_string = match &input.into_simple_string() {
-        Ok(s) => s.clone(),
-        Err(e) => {
-            return Err(LabeledError {
-                span: Some(call.head),
-                msg: e.to_string(),
-                label: "problem with input data".to_string(),
-            })
-        }
-    };
+    let input_string = input.as_string()?;
 
     let query_string = match &query {
         Some(v) => &v.item,

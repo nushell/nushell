@@ -324,6 +324,30 @@ impl Value {
         }
     }
 
+    /// Converts into string values that can be changed into string natively
+    pub fn as_string(&self) -> Result<String, ShellError> {
+        match self {
+            Value::String { val, .. } => Ok(val.to_string()),
+            Value::Binary { val, .. } => Ok(match std::str::from_utf8(val) {
+                Ok(s) => s.to_string(),
+                Err(_) => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: "binary".into(),
+                        span: self.span(),
+                        help: None,
+                    });
+                }
+            }),
+            x => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: x.get_type().to_string(),
+                span: self.span(),
+                help: None,
+            }),
+        }
+    }
+
     pub fn as_spanned_string(&self) -> Result<Spanned<String>, ShellError> {
         let span = self.span();
         match self {

@@ -118,7 +118,7 @@ mod test {
         let encoded = encoded.as_binary().unwrap();
 
         let decoded = decode(test_span, encoding, encoded).unwrap();
-        let decoded = decoded.into_simple_string().unwrap();
+        let decoded = decoded.as_string().unwrap();
 
         assert_eq!(decoded, expected);
     }

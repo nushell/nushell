@@ -95,11 +95,8 @@ pub fn split_by(
 
     match splitter {
         Some(v) => {
-            let splitter = Some(Spanned {
-                item: v.into_simple_string()?,
-                span: name,
-            });
-            Ok(split(splitter.as_ref(), input, name)?)
+            let splitter = v.as_spanned_string()?;
+            Ok(split(Some(&splitter), input, name)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
         None => Err(ShellError::GenericError(

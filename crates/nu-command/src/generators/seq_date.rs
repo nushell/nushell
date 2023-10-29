@@ -204,34 +204,12 @@ pub fn run_seq_dates(
     }
 
     let in_format = match input_format {
-        Some(i) => match i.into_simple_string() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with input_format as_string".to_string()),
-                    Vec::new(),
-                ));
-            }
-        },
+        Some(i) => i.as_string()?,
         _ => "%Y-%m-%d".to_string(),
     };
 
     let out_format = match output_format {
-        Some(i) => match i.into_simple_string() {
-            Ok(v) => v,
-            Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with output_format as_string".to_string()),
-                    Vec::new(),
-                ));
-            }
-        },
+        Some(i) => i.as_string()?,
         _ => "%Y-%m-%d".to_string(),
     };
 

@@ -188,33 +188,23 @@ fn sort_record(
     input_pairs.sort_by(|a, b| {
         // Extract the data (if sort_by_value) or the column names for comparison
         let left_res = if sort_by_value {
-            match &a.1 {
-                Value::String { val, .. } => val.clone(),
-                val => {
-                    if let Ok(val) = val.into_simple_string() {
-                        val
-                    } else {
-                        // Values that can't be turned to strings are disregarded by the sort
-                        // (same as in sort_utils.rs)
-                        return Ordering::Equal;
-                    }
-                }
+            if let Ok(val) = a.1.into_simple_string() {
+                val
+            } else {
+                // Values that can't be turned to strings are disregarded by the sort
+                // (same as in sort_utils.rs)
+                return Ordering::Equal;
             }
         } else {
             a.0.clone()
         };
         let right_res = if sort_by_value {
-            match &b.1 {
-                Value::String { val, .. } => val.clone(),
-                val => {
-                    if let Ok(val) = val.into_simple_string() {
-                        val
-                    } else {
-                        // Values that can't be turned to strings are disregarded by the sort
-                        // (same as in sort_utils.rs)
-                        return Ordering::Equal;
-                    }
-                }
+            if let Ok(val) = b.1.into_simple_string() {
+                val
+            } else {
+                // Values that can't be turned to strings are disregarded by the sort
+                // (same as in sort_utils.rs)
+                return Ordering::Equal;
             }
         } else {
             b.0.clone()

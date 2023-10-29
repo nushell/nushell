@@ -52,7 +52,7 @@ pub fn http_parse_url(
     span: Span,
     raw_url: Value,
 ) -> Result<(String, Url), ShellError> {
-    let requested_url = raw_url.into_simple_string()?;
+    let requested_url = raw_url.as_string()?;
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
