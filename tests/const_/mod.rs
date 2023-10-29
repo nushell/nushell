@@ -92,9 +92,7 @@ fn const_table() {
 
 #[test]
 fn const_invalid_table() {
-    let inp = &[
-        "const x = [[a b a]; [10 20 30] [100 200 300]]",
-    ];
+    let inp = &["const x = [[a b a]; [10 20 30] [100 200 300]]"];
 
     let actual = nu!(&inp.join("; "));
 

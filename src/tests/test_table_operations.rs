@@ -1,11 +1,9 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
-
 #[test]
 fn illegal_column_duplication() -> TestResult {
     fail_test("[[lang, lang]; [nu, 100]]", "column_defined_twice")
 }
-
 
 #[test]
 fn cell_path_subexpr1() -> TestResult {
