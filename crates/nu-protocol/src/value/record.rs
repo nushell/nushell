@@ -127,6 +127,16 @@ impl Record {
     where
         F: FnMut(&str, &Value) -> bool,
     {
+        self.retain_mut(|k, v| keep(k, v));
+    }
+
+    /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    pub fn retain_mut<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &mut Value) -> bool,
+    {
         let mut idx = 0;
 
         // `Vec::retain` is able to optimize memcopies internally. For maximum benefit as `Value`
@@ -136,7 +146,7 @@ impl Record {
         //
         // As the operations should remain inplace, we don't allocate a separate index `Vec` which
         // could be used to avoid the repeated shifting of `Vec::remove` in cols.
-        self.vals.retain(|val| {
+        self.vals.retain_mut(|val| {
             if keep(self.cols[idx].as_str(), val) {
                 idx += 1;
                 true
