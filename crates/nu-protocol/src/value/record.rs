@@ -132,7 +132,42 @@ impl Record {
 
     /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
     ///
+    /// This can for example be used to recursively prune nested records.
+    ///
     /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Record, Value};
+    ///
+    /// fn remove_foo_recursively(val: &mut Value) {
+    ///     if let Value::Record {val, ..} = val {
+    ///         val.retain_mut(keep_non_foo);
+    ///     }
+    /// }
+    ///
+    /// fn keep_non_foo(k: &str, v: &mut Value) -> bool {
+    ///     if k == "foo" {
+    ///         return false;
+    ///     }
+    ///     remove_foo_recursively(v);
+    ///     true
+    /// }
+    ///
+    /// let mut test = Value::test_record(record!(
+    ///     "foo" => Value::test_nothing(),
+    ///     "bar" => Value::test_record(record!(
+    ///         "foo" => Value::test_nothing(),
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    ///
+    /// remove_foo_recursively(&mut test);
+    /// let expected = Value::test_record(record!(
+    ///     "bar" => Value::test_record(record!(
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    /// assert_eq!(test, expected);
+    /// ```
     pub fn retain_mut<F>(&mut self, mut keep: F)
     where
         F: FnMut(&str, &mut Value) -> bool,
