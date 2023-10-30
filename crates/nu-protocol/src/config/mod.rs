@@ -73,6 +73,12 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    /// Configuration for plugins.
+    ///
+    /// Users can provide configuration for a plugin through this entry.  The entry name must
+    /// match the registered plugin name so `register nu_plugin_example` will be able to place
+    /// its configuration under a `nu_plugin_example` column.
+    pub plugins: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -139,6 +145,8 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
+
+            plugins: HashMap::new(),
         }
     }
 }
@@ -626,6 +634,22 @@ impl Value {
                     }
                     "highlight_resolved_externals" => {
                         process_bool_config(value, &mut errors, &mut config.highlight_resolved_externals);
+                    }
+                    "plugins" => {
+                        if let Ok(map) = create_map(value) {
+                            config.plugins = map;
+                        } else {
+                            report_invalid_value("should be a record", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                config
+                                    .explore
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                                span,
+                            );
+                        }
                     }
                     // Menus
                     "menus" => match create_menus(value) {
