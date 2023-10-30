@@ -68,6 +68,21 @@ pub enum NuCursorShape {
     BlinkBlock,
 }
 
+fn reconstruct_cursor_shape(name: Option<NuCursorShape>, span: Span) -> Value {
+    Value::string(
+        match name {
+            Some(NuCursorShape::Line) => "line",
+            Some(NuCursorShape::Block) => "block",
+            Some(NuCursorShape::UnderScore) => "underscore",
+            Some(NuCursorShape::BlinkLine) => "blink_line",
+            Some(NuCursorShape::BlinkBlock) => "blink_block",
+            Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
+            None => "inherit",
+        },
+        span,
+    )
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<usize>,
@@ -204,6 +219,16 @@ pub enum HistoryFileFormat {
     PlainText,
 }
 
+fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
+    Value::string(
+        match config.history_file_format {
+            HistoryFileFormat::Sqlite => "sqlite",
+            HistoryFileFormat::PlainText => "plaintext",
+        },
+        span,
+    )
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TableIndexMode {
     /// Always show indexes
@@ -212,6 +237,17 @@ pub enum TableIndexMode {
     Never,
     /// Show indexes when a table has "index" column
     Auto,
+}
+
+fn reconstruct_index_mode(config: &Config, span: Span) -> Value {
+    Value::string(
+        match config.table_index_mode {
+            TableIndexMode::Always => "always",
+            TableIndexMode::Never => "never",
+            TableIndexMode::Auto => "auto",
+        },
+        span,
+    )
 }
 
 /// A Table view configuration, for a situation where
@@ -247,6 +283,31 @@ impl TrimStrategy {
 
     pub fn truncate(suffix: Option<String>) -> Self {
         Self::Truncate { suffix }
+    }
+}
+
+fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
+    match &config.trim_strategy {
+        TrimStrategy::Wrap { try_to_keep_words } => Value::record(
+            record! {
+                "methodology" => Value::string("wrapping", span),
+                "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
+            },
+            span,
+        ),
+        TrimStrategy::Truncate { suffix } => Value::record(
+            match suffix {
+                Some(s) => record! {
+                    "methodology" => Value::string("truncating", span),
+                    "truncating_suffix" => Value::string(s.clone(), span),
+                },
+                None => record! {
+                    "methodology" => Value::string("truncating", span),
+                    "truncating_suffix" => Value::nothing(span),
+                },
+            },
+            span,
+        ),
     }
 }
 
@@ -439,16 +500,6 @@ impl Value {
                         }
                     }
                     "history" => {
-                        fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
-                            Value::string(
-                                match config.history_file_format {
-                                    HistoryFileFormat::Sqlite => "sqlite",
-                                    HistoryFileFormat::PlainText => "plaintext",
-                                },
-                                span,
-                            )
-                        }
-
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
@@ -675,23 +726,6 @@ impl Value {
                         }
                     }
                     "cursor_shape" => {
-                        fn reconstruct_cursor_shape(
-                            name: Option<NuCursorShape>,
-                            span: Span,
-                        ) -> Value {
-                            Value::string(
-                                match name {
-                                    Some(NuCursorShape::Line) => "line",
-                                    Some(NuCursorShape::Block) => "block",
-                                    Some(NuCursorShape::UnderScore) => "underscore",
-                                    Some(NuCursorShape::BlinkLine) => "blink_line",
-                                    Some(NuCursorShape::BlinkBlock) => "blink_block",
-                                    Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
-                                    None => "inherit",
-                                },
-                                span,
-                            )
-                        }
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
@@ -876,41 +910,6 @@ impl Value {
                         }
                     }
                     "table" => {
-                        fn reconstruct_index_mode(config: &Config, span: Span) -> Value {
-                            Value::string(
-                                match config.table_index_mode {
-                                    TableIndexMode::Always => "always",
-                                    TableIndexMode::Never => "never",
-                                    TableIndexMode::Auto => "auto",
-                                },
-                                span,
-                            )
-                        }
-                        fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
-                            match &config.trim_strategy {
-                                TrimStrategy::Wrap { try_to_keep_words } => Value::record(
-                                    record! {
-                                        "methodology" => Value::string("wrapping", span),
-                                        "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
-                                    },
-                                    span,
-                                ),
-                                TrimStrategy::Truncate { suffix } => Value::record(
-                                    match suffix {
-                                        Some(s) => record! {
-                                            "methodology" => Value::string("truncating", span),
-                                            "truncating_suffix" => Value::string(s.clone(), span),
-                                        },
-                                        None => record! {
-                                            "methodology" => Value::string("truncating", span),
-                                            "truncating_suffix" => Value::nothing(span),
-                                        },
-                                    },
-                                    span,
-                                ),
-                            }
-                        }
-
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
