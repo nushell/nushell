@@ -157,7 +157,7 @@ fn get_cellpath_columns(keep_cols: Vec<String>, span: Span) -> Vec<CellPath> {
     let mut output = vec![];
     for keep_col in keep_cols {
         let val = Value::string(keep_col, span);
-        let cell_path = match CellPath::from_value(&val) {
+        let cell_path = match CellPath::from_value(val) {
             Ok(v) => v,
             Err(_) => return vec![],
         };
