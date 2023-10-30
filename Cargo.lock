@@ -2884,6 +2884,7 @@ dependencies = [
  "ureq",
  "url",
  "uu_cp",
+ "uu_mkdir",
  "uu_whoami",
  "uuid",
  "wax",
@@ -5619,6 +5620,16 @@ dependencies = [
  "uucore",
  "walkdir",
  "xattr",
+]
+
+[[package]]
+name = "uu_mkdir"
+version = "0.0.22"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4776960a036a4ec375f0701004a41013d66d2e3e46a19e9216fd18d4d92f88f3"
+dependencies = [
+ "clap",
+ "uucore",
 ]
 
 [[package]]
