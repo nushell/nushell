@@ -105,7 +105,8 @@ fn to_md(
 }
 
 fn fragment(input: Value, pretty: bool, config: &Config) -> String {
-    let headers = input.columns();
+    // TODO refactor this to not have to collect an iterator.
+    let headers: Vec<_> = input.columns().collect();
     let mut out = String::new();
 
     if headers.len() == 1 {
