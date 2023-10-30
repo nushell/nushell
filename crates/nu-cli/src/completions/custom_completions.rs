@@ -5,6 +5,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -156,8 +157,8 @@ fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) ->
                 (true, true) => it.value.as_bytes().starts_with(prefix),
                 (true, false) => it.value.contains(std::str::from_utf8(prefix).unwrap_or("")),
                 (false, positional) => {
-                    let value = it.value.to_lowercase();
-                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_lowercase();
+                    let value = it.value.to_folded_case();
+                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
                     if positional {
                         value.starts_with(&prefix)
                     } else {

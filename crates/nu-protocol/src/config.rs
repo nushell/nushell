@@ -467,7 +467,7 @@ impl Value {
                                     }
                                     "file_format" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
+                                            let val_str = v.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 "sqlite" => {
                                                     config.history_file_format =
@@ -553,7 +553,7 @@ impl Value {
                                     }
                                     "algorithm" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
+                                            let val_str = v.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 // This should match the MatchAlgorithm enum in completions::completion_options
                                                 "prefix" | "fuzzy" => {
@@ -700,7 +700,7 @@ impl Value {
                                 match key2 {
                                     "vi_insert" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
+                                            let val_str = v.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
                                                     config.cursor_shape_vi_insert =
@@ -751,7 +751,7 @@ impl Value {
                                     }
                                     "vi_normal" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
+                                            let val_str = v.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
                                                     config.cursor_shape_vi_normal =
@@ -802,7 +802,7 @@ impl Value {
                                     }
                                     "emacs" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
+                                            let val_str = v.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 "line" => {
                                                     config.cursor_shape_emacs =
@@ -984,7 +984,7 @@ impl Value {
                                     },
                                     "index_mode" => {
                                         if let Ok(b) = value.as_string() {
-                                            let val_str = b.to_lowercase();
+                                            let val_str = b.to_ascii_lowercase();
                                             match val_str.as_ref() {
                                                 "always" => {
                                                     config.table_index_mode = TableIndexMode::Always
@@ -1137,7 +1137,7 @@ impl Value {
                     }
                     "footer_mode" => {
                         if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
+                            let val_str = b.to_ascii_lowercase();
                             config.footer_mode = match val_str.as_ref() {
                                 "auto" => FooterMode::Auto,
                                 "never" => FooterMode::Never,
@@ -1467,7 +1467,7 @@ fn try_parse_trim_strategy(
 
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     if let Ok(value) = value.as_string() {
-        match value.to_lowercase().as_str() {
+        match value.to_ascii_lowercase().as_str() {
             "wrapping" => {
                 return Some(TrimStrategy::Wrap {
                     try_to_keep_words: false,

@@ -7,6 +7,7 @@ use nu_protocol::{
     record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -180,7 +181,7 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .into_iter()
-        .find(|n| n.name.to_lowercase() == theme_name.to_lowercase()) // case insensitive search
+        .find(|n| n.name.eq_ignore_case(theme_name)) // case insensitive search
         .unwrap_or_default();
 
     Ok(convert_html_theme_to_hash_map(is_dark, &th))

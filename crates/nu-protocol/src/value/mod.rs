@@ -20,8 +20,8 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::get_system_locale;
 use nu_utils::locale::get_system_locale_string;
+use nu_utils::{get_system_locale, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -1036,7 +1036,7 @@ impl Value {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
                                 if insensitive {
-                                    x.0.to_lowercase() == column_name.to_lowercase()
+                                    x.0.eq_ignore_case(column_name)
                                 } else {
                                     x.0 == column_name
                                 }

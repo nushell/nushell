@@ -162,9 +162,9 @@ used as the next argument to the closure, otherwise generation stops.
                             let mut err = None;
 
                             for (k, v) in iter {
-                                if k.to_lowercase() == "out" {
+                                if k.eq_ignore_ascii_case("out") {
                                     out = Some(v);
-                                } else if k.to_lowercase() == "next" {
+                                } else if k.eq_ignore_ascii_case("next") {
                                     next = Some(v);
                                 } else {
                                     let error = ShellError::GenericError(

@@ -46,7 +46,7 @@ impl Zone {
         }
     }
     fn from_string(s: String) -> Self {
-        match s.to_lowercase().as_str() {
+        match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
             _ => Self::Error,

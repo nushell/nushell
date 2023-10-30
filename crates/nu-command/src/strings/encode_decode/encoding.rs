@@ -28,7 +28,7 @@ pub fn decode(
     bytes: &[u8],
 ) -> Result<Value, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let encoding = if encoding_name.item.to_lowercase() == "utf16" {
+    let encoding = if encoding_name.item.eq_ignore_ascii_case("utf16") {
         parse_encoding(encoding_name.span, "utf-16")
     } else {
         parse_encoding(encoding_name.span, &encoding_name.item)
@@ -45,7 +45,7 @@ pub fn encode(
     ignore_errors: bool,
 ) -> Result<Value, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let encoding = if encoding_name.item.to_lowercase() == "utf16" {
+    let encoding = if encoding_name.item.eq_ignore_ascii_case("utf16") {
         parse_encoding(encoding_name.span, "utf-16")
     } else {
         parse_encoding(encoding_name.span, &encoding_name.item)
@@ -69,7 +69,7 @@ pub fn encode(
 
 fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let label = if label.to_lowercase() == "utf16" {
+    let label = if label.eq_ignore_ascii_case("utf16") {
         "utf-16"
     } else {
         label

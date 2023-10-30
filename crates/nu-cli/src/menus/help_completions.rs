@@ -1,5 +1,6 @@
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
+use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
 use std::fmt::Write;
 use std::sync::Arc;
@@ -13,21 +14,19 @@ impl NuHelpCompleter {
 
     fn completion_helper(&self, line: &str, pos: usize) -> Vec<Suggestion> {
         let full_commands = self.0.get_signatures_with_examples(false);
+        let folded_line = line.to_folded_case();
 
         //Vec<(Signature, Vec<Example>, bool, bool)> {
         let mut commands = full_commands
             .iter()
             .filter(|(sig, _, _, _, _)| {
-                sig.name.to_lowercase().contains(&line.to_lowercase())
-                    || sig.usage.to_lowercase().contains(&line.to_lowercase())
+                sig.name.to_folded_case().contains(&folded_line)
+                    || sig.usage.to_folded_case().contains(&folded_line)
                     || sig
                         .search_terms
                         .iter()
-                        .any(|term| term.to_lowercase().contains(&line.to_lowercase()))
-                    || sig
-                        .extra_usage
-                        .to_lowercase()
-                        .contains(&line.to_lowercase())
+                        .any(|term| term.to_folded_case().contains(&folded_line))
+                    || sig.extra_usage.to_folded_case().contains(&folded_line)
             })
             .collect::<Vec<_>>();
 

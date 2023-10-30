@@ -3,6 +3,7 @@ use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 use std::path::{Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
@@ -116,7 +117,7 @@ pub fn matches(partial: &str, from: &str, options: &CompletionOptions) -> bool {
     if !options.case_sensitive {
         return options
             .match_algorithm
-            .matches_str(&from.to_ascii_lowercase(), &partial.to_ascii_lowercase());
+            .matches_str(&from.to_folded_case(), &partial.to_folded_case());
     }
 
     options.match_algorithm.matches_str(from, partial)
