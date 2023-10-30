@@ -145,7 +145,7 @@ pub fn check_example_evaluates_to_expected_output(
         assert_eq!(
             DebuggableValue(&result),
             DebuggableValue(expected),
-            "The example result differs from the expected value",
+            "The result differs from the expected value in {example:?}",
         )
     }
 }
