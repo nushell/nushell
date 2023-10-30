@@ -5,7 +5,7 @@ use nu_protocol::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, Stack},
+    engine::{Closure, EngineState, Stack},
     IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
     Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
@@ -530,7 +530,13 @@ pub fn eval_expression(
             for var_id in &block.captures {
                 captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
             }
-            Ok(Value::closure(*block_id, captures, expr.span))
+            Ok(Value::closure(
+                Closure {
+                    block_id: *block_id,
+                    captures,
+                },
+                expr.span,
+            ))
         }
         Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         Expr::List(x) => {

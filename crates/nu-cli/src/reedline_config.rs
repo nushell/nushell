@@ -248,11 +248,11 @@ pub(crate) fn add_columnar_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(&val.captures),
                 engine_state,
                 only_buffer_difference,
             );
@@ -330,11 +330,11 @@ pub(crate) fn add_list_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(&val.captures),
                 engine_state,
                 only_buffer_difference,
             );
@@ -448,11 +448,11 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(&val.captures),
                 engine_state,
                 only_buffer_difference,
             );
