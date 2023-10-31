@@ -6,8 +6,8 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{Closure, EngineState, Stack},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 
@@ -773,38 +773,8 @@ fn eval_element_with_input(
                 };
 
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *span,
-                            arguments: vec![
-                                Argument::Positional(expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
+                    let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
+                    eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -845,46 +815,13 @@ fn eval_element_with_input(
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *out_span,
-                            arguments: vec![
-                                Argument::Positional(out_expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "stderr".into(),
-                                        span: *err_span,
-                                    },
-                                    None,
-                                    Some(err_expr.clone()),
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
+                    let save_call = gen_save_call(
+                        save_command,
+                        (*out_span, out_expr.clone()),
+                        Some((*err_span, err_expr.clone())),
+                    );
+
+                    eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -1166,4 +1103,50 @@ pub fn eval_variable(
 
 fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
+}
+
+fn gen_save_call(
+    save_decl_id: DeclId,
+    out_info: (Span, Expression),
+    err_info: Option<(Span, Expression)>,
+) -> Call {
+    let (out_span, out_expr) = out_info;
+    let mut args = vec![
+        Argument::Positional(out_expr),
+        Argument::Named((
+            Spanned {
+                item: "raw".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+        Argument::Named((
+            Spanned {
+                item: "force".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+    ];
+    if let Some((err_span, err_expr)) = err_info {
+        args.push(Argument::Named((
+            Spanned {
+                item: "stderr".into(),
+                span: err_span,
+            },
+            None,
+            Some(err_expr),
+        )))
+    }
+
+    Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: args,
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    }
 }
