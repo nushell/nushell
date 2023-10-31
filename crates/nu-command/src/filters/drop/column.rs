@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::iter;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -55,7 +56,7 @@ impl Command for DropColumn {
             1
         };
 
-        Ok(dropcol(engine_state, input, columns))
+        Ok(drop_cols(engine_state, input, columns))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,17 +74,38 @@ impl Command for DropColumn {
     }
 }
 
-fn dropcol(engine_state: &EngineState, input: PipelineData, columns: usize) -> PipelineData {
+fn drop_cols(engine_state: &EngineState, input: PipelineData, columns: usize) -> PipelineData {
     match input {
-        PipelineData::ListStream(stream, ..) => {
-            let mut vals = stream.into_iter().collect::<Vec<_>>();
-            drop_record_cols(&mut vals, columns);
-            vals.into_iter()
-                .into_pipeline_data(engine_state.ctrlc.clone())
+        PipelineData::ListStream(mut stream, ..) => {
+            let ctrl_c = engine_state.ctrlc.clone();
+            if let Some(mut first) = stream.next() {
+                let drop_cols = drop_cols_set(&mut first, columns);
+                if drop_cols.is_empty() {
+                    iter::once(first).chain(stream).into_pipeline_data(ctrl_c)
+                } else {
+                    iter::once(first)
+                        .chain(stream.map(move |mut v| {
+                            drop_record_cols(&mut v, &drop_cols);
+                            v
+                        }))
+                        .into_pipeline_data(ctrl_c)
+                }
+            } else {
+                PipelineData::Empty
+            }
         }
         PipelineData::Value(mut v, ..) => {
             match &mut v {
-                Value::List { vals, .. } => drop_record_cols(vals, columns),
+                Value::List { vals, .. } => {
+                    if let Some((first, rest)) = vals.split_first_mut() {
+                        let drop_cols = drop_cols_set(first, columns);
+                        if !drop_cols.is_empty() {
+                            for val in rest {
+                                drop_record_cols(val, &drop_cols)
+                            }
+                        }
+                    }
+                }
                 Value::Record { val: record, .. } => {
                     let len = record.len().saturating_sub(columns);
                     record.cols.truncate(len);
@@ -108,20 +130,13 @@ fn drop_cols_set(input: &mut Value, drop: usize) -> HashSet<String> {
     }
 }
 
-fn drop_record_cols(vals: &mut [Value], drop: usize) {
-    if let Some((first, rest)) = vals.split_first_mut() {
-        let drop_cols = drop_cols_set(first, drop);
-        if !drop_cols.is_empty() {
-            for val in rest {
-                if let Value::Record { val, .. } = val {
-                    // TOOO: Needs `Record::retain` to be performant,
-                    // since this is currently O(n^2)
-                    // where n is the number of columns being dropped.
-                    // (Assuming dropped columns are at the end of the record.)
-                    val.retain(|col, _| !drop_cols.contains(col))
-                }
-            }
-        }
+fn drop_record_cols(val: &mut Value, drop_cols: &HashSet<String>) {
+    if let Value::Record { val, .. } = val {
+        // TOOO: Needs `Record::retain` to be performant,
+        // since this is currently O(n^2)
+        // where n is the number of columns being dropped.
+        // (Assuming dropped columns are at the end of the record.)
+        val.retain(|col, _| !drop_cols.contains(col))
     }
 }
 
