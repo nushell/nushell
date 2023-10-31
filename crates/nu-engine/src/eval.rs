@@ -741,7 +741,6 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-<<<<<<< HEAD
         PipelineElement::Redirection(span, redirection, expr) => {
             match &expr.expr {
                 Expr::String(_)
@@ -753,45 +752,6 @@ fn eval_element_with_input(
                         _ => None,
                     };
                     let (input, out_stream) = match (redirection, input) {
-=======
-        PipelineElement::Redirection(span, redirection, expr) => match &expr.expr {
-            Expr::String(_)
-            | Expr::FullCellPath(_)
-            | Expr::StringInterpolation(_)
-            | Expr::Filepath(_) => {
-                let exit_code = match &mut input {
-                    PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
-                    _ => None,
-                };
-                let input = match (redirection, input) {
-                    (
-                        Redirection::Stderr,
-                        PipelineData::ExternalStream {
-                            stderr,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                            ..
-                        },
-                    ) => PipelineData::ExternalStream {
-                        stdout: stderr,
-                        stderr: None,
-                        exit_code,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    },
-                    (_, input) => input,
-                };
-
-                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                    let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
-                    eval_call(engine_state, stack, &save_call, input).map(|_| {
-                        // save is internal command, normally it exists with non-ExternalStream
-                        // but here in redirection context, we make it returns ExternalStream
-                        // So nu handles exit_code correctly
->>>>>>> main
                         (
                             Redirection::Stderr,
                             PipelineData::ExternalStream {
