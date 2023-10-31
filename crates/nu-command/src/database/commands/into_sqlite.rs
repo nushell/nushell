@@ -259,7 +259,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
             Err(error) => format!("{error:?}"),
         },
         Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),

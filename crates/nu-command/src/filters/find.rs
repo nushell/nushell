@@ -8,7 +8,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
+    record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
@@ -125,38 +125,27 @@ impl Command for Find {
             Example {
                 description: "Find value in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["version".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::test_string("0.1.0"),
-                            Value::test_string("nushell".to_string()),
-                        ],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                            "version" => Value::test_string("0.1.0"),
+                            "name" => Value::test_string("nushell".to_string()),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Find inverted values in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["version".to_string(), "name".to_string()],
-                            vals: vec![
-                                Value::test_string("0.1.1"),
-                                Value::test_string("fish".to_string()),
-                            ],
+                        Value::test_record(record!{
+                                "version" => Value::test_string("0.1.1"),
+                                "name" => Value::test_string("fish".to_string()),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["version".to_string(), "name".to_string()],
-                            vals: vec![
-                                Value::test_string("0.2.0"),
-                                Value::test_string("zsh".to_string()),
-                            ],
+                        Value::test_record(record! {
+                                "version" => Value::test_string("0.2.0"),
+                                "name" =>Value::test_string("zsh".to_string()),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
@@ -191,16 +180,13 @@ impl Command for Find {
                 example:
                     "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
                 result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["col1".to_string(), "col2".to_string(), "col3".to_string()],
-                        vals: vec![
-                            Value::test_string(
+                    vec![Value::test_record(record! {
+                            "col1" => Value::test_string(
                                 "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
                                     .to_string(),
                             ),
-                            Value::test_string("larry".to_string()),
-                            Value::test_string("curly".to_string()),
-                        ],
+                            "col2" => Value::test_string("larry".to_string()),
+                            "col3" => Value::test_string("curly".to_string()),
                     })],
                     Span::test_data(),
                 )),

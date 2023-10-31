@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
 
@@ -48,63 +48,32 @@ impl Command for SplitBy {
           { name: 'storm', lang: 'rs', 'year': '2021' }
         ]
     } | split-by lang"#,
-            result: Some(Value::test_record(Record {
-                cols: vec!["rb".to_string(), "rs".to_string()],
-                vals: vec![
-                    Value::test_record(Record {
-                        cols: vec!["2019".to_string()],
-                        vals: vec![Value::list(
-                            vec![Value::test_record(Record {
-                                cols: vec![
-                                    "name".to_string(),
-                                    "lang".to_string(),
-                                    "year".to_string(),
-                                ],
-                                vals: vec![
-                                    Value::test_string("andres"),
-                                    Value::test_string("rb"),
-                                    Value::test_string("2019"),
-                                ],
+            result: Some(Value::test_record(record! {
+                    "rb" => Value::test_record(record! {
+                        "2019" => Value::test_list(
+                            vec![Value::test_record(record! {
+                                    "name" => Value::test_string("andres"),
+                                    "lang" => Value::test_string("rb"),
+                                    "year" => Value::test_string("2019"),
                             })],
-                            Span::test_data(),
-                        )],
+                        ),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["2019".to_string(), "2021".to_string()],
-                        vals: vec![
-                            Value::list(
-                                vec![Value::test_record(Record {
-                                    cols: vec![
-                                        "name".to_string(),
-                                        "lang".to_string(),
-                                        "year".to_string(),
-                                    ],
-                                    vals: vec![
-                                        Value::test_string("jt"),
-                                        Value::test_string("rs"),
-                                        Value::test_string("2019"),
-                                    ],
+                    "rs" => Value::test_record(record! {
+                            "2019" => Value::test_list(
+                                vec![Value::test_record(record! {
+                                        "name" => Value::test_string("jt"),
+                                        "lang" => Value::test_string("rs"),
+                                        "year" => Value::test_string("2019"),
                                 })],
-                                Span::test_data(),
                             ),
-                            Value::list(
-                                vec![Value::test_record(Record {
-                                    cols: vec![
-                                        "name".to_string(),
-                                        "lang".to_string(),
-                                        "year".to_string(),
-                                    ],
-                                    vals: vec![
-                                        Value::test_string("storm"),
-                                        Value::test_string("rs"),
-                                        Value::test_string("2021"),
-                                    ],
+                            "2021" => Value::test_list(
+                                vec![Value::test_record(record! {
+                                        "name" => Value::test_string("storm"),
+                                        "lang" => Value::test_string("rs"),
+                                        "year" => Value::test_string("2021"),
                                 })],
-                                Span::test_data(),
                             ),
-                        ],
                     }),
-                ],
             })),
         }]
     }

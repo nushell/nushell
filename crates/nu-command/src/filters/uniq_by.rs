@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -92,23 +92,20 @@ impl Command for UniqBy {
         vec![Example {
             description: "Get rows from table filtered by column uniqueness ",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
-            result: Some(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["fruit".to_string(), "count".to_string()],
-                        vals: vec![Value::test_string("apple"), Value::test_int(9)],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["fruit".to_string(), "count".to_string()],
-                        vals: vec![Value::test_string("pear"), Value::test_int(3)],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["fruit".to_string(), "count".to_string()],
-                        vals: vec![Value::test_string("orange"), Value::test_int(7)],
-                    }),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![
+                Value::test_record(record! {
+                    "fruit" => Value::test_string("apple"),
+                    "count" => Value::test_int(9),
+                }),
+                Value::test_record(record! {
+                    "fruit" => Value::test_string("pear"),
+                    "count" => Value::test_int(3),
+                }),
+                Value::test_record(record! {
+                    "fruit" => Value::test_string("orange"),
+                    "count" => Value::test_int(7),
+                }),
+            ])),
         }]
     }
 }

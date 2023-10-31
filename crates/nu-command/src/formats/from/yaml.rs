@@ -3,7 +3,7 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
 use serde::de::Deserialize;
@@ -221,30 +221,22 @@ pub fn get_examples() -> Vec<Example<'static>> {
         Example {
             example: "'a: 1' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::test_record(Record {
-                cols: vec!["a".to_string()],
-                vals: vec![Value::test_int(1)],
+            result: Some(Value::test_record(record! {
+                "a" => Value::test_int(1),
             })),
         },
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(1)],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["b".to_string()],
-                        vals: vec![Value::list(
-                            vec![Value::test_int(1), Value::test_int(2)],
-                            Span::test_data(),
-                        )],
-                    }),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                }),
+                Value::test_record(record! {
+                    "b" => Value::test_list(
+                        vec![Value::test_int(1), Value::test_int(2)],),
+                }),
+            ])),
         },
     ]
 }
@@ -274,17 +266,15 @@ mod test {
             TestCase {
                 description: "Double Curly Braces With Quotes",
                 input: r#"value: "{{ something }}""#,
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                expected: Ok(Value::test_record(record! {
+                    "value" => Value::test_string("{{ something }}"),
                 })),
             },
             TestCase {
                 description: "Double Curly Braces Without Quotes",
                 input: r#"value: {{ something }}"#,
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                expected: Ok(Value::test_record(record! {
+                    "value" => Value::test_string("{{ something }}"),
                 })),
             },
         ];
@@ -335,19 +325,16 @@ mod test {
                 Span::test_data(),
             );
 
-            let expected: Result<Value, ShellError> = Ok(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("b"), Value::test_string("c")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("g"), Value::test_string("h")],
-                    }),
-                ],
-                Span::test_data(),
-            ));
+            let expected: Result<Value, ShellError> = Ok(Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_string("b"),
+                    "b" => Value::test_string("c"),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_string("g"),
+                    "b" => Value::test_string("h"),
+                }),
+            ]));
 
             // Unfortunately the eq function for Value doesn't compare well enough to detect
             // ordering errors in List columns or values.
@@ -388,37 +375,32 @@ mod test {
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 input: "Key: !Value ${TEST}-Test-role",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value ${TEST}-Test-role")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value ${TEST}-Test-role"),
                 })),
             },
             TestCase {
                 input: "Key: !Value test-${TEST}",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value test-${TEST}")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value test-${TEST}"),
                 })),
             },
             TestCase {
                 input: "Key: !Value",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value"),
                 })),
             },
             TestCase {
                 input: "Key: !True",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!True")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!True"),
                 })),
             },
             TestCase {
                 input: "Key: !123",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!123")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!123"),
                 })),
             },
         ];

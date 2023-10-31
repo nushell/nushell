@@ -112,26 +112,24 @@ impl Command for Uniq {
             Example {
                 description: "Ignore differences in case when comparing input values",
                 example: "['hello' 'goodbye' 'Hello'] | uniq --ignore-case",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![Value::test_string("hello"), Value::test_string("goodbye")],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq --count",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(1)],
+                        Value::test_record(record! {
+                            "value" => Value::test_int(1),
+                            "count" => Value::test_int(1),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string(), "count".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_int(2)],
+                        Value::test_record(record! {
+                            "value" => Value::test_int(2),
+                            "count" => Value::test_int(2),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
         ]
