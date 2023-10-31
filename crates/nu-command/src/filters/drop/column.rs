@@ -75,6 +75,12 @@ impl Command for DropColumn {
 }
 
 fn drop_cols(engine_state: &EngineState, input: PipelineData, columns: usize) -> PipelineData {
+    // For simplicity and performance, we use the first row's columns
+    // as the columns for the whole table, and assume that later rows/records
+    // have these same columns. However, this can give weird results like:
+    // `[{a: 1}, {b: 2}] | drop column`
+    // This will drop the column "a" instead of "b" even though column "b"
+    // is displayed farther to the right.
     match input {
         PipelineData::ListStream(mut stream, ..) => {
             let ctrl_c = engine_state.ctrlc.clone();
