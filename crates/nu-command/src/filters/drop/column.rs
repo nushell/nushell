@@ -162,7 +162,7 @@ fn drop_record_cols(
     drop_cols: &HashSet<String>,
 ) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
-        // TOOO: Needs `Record::retain` to be performant,
+        // TODO: Needs `Record::retain` to be performant,
         // since this is currently O(n^2)
         // where n is the number of columns being dropped.
         // (Assuming dropped columns are at the end of the record.)
