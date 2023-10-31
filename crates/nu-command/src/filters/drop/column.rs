@@ -19,7 +19,10 @@ impl Command for DropColumn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(Type::Table(vec![]), Type::Table(vec![]))])
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .optional(
                 "columns",
                 SyntaxShape::Int,
@@ -148,10 +151,10 @@ fn drop_record_cols(val: &mut Value, drop_cols: &HashSet<String>) {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
     #[test]
     fn test_examples() {
-        use super::DropColumn;
-        use crate::test_examples;
-        test_examples(DropColumn {})
+        crate::test_examples(DropColumn)
     }
 }
