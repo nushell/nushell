@@ -1,6 +1,3 @@
-use std::collections::HashSet;
-use std::iter;
-
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -8,6 +5,8 @@ use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
+
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct DropColumn;
@@ -100,7 +99,7 @@ fn drop_cols(
             if let Some(mut first) = stream.next() {
                 let drop_cols = drop_cols_set(&mut first, head, columns)?;
 
-                Ok(iter::once(first)
+                Ok(std::iter::once(first)
                     .chain(stream.map(move |mut v| {
                         match drop_record_cols(&mut v, head, &drop_cols) {
                             Ok(()) => v,
