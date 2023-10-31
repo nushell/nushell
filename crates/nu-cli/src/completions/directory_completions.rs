@@ -1,10 +1,13 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions, SortBy};
+use crate::completions::{
+    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
+    Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
 };
 use reedline::Suggestion;
-use std::path::{is_separator, Path, MAIN_SEPARATOR as SEP};
+use std::path::{Path, MAIN_SEPARATOR as SEP};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -28,24 +31,11 @@ impl Completer for DirectoryCompletion {
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let span_contents =
-            String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
-        let mut prefix = String::from_utf8_lossy(&prefix).to_string();
-        let mut end = span.end;
-
-        if span_contents.chars().count() - prefix.chars().count() > 1 {
-            let remnant: String = span_contents
-                .chars()
-                .skip(prefix.chars().count() + 1)
-                .take_while(|&c| !is_separator(c))
-                .collect();
-            prefix.push_str(&remnant);
-            end = span.start + prefix.chars().count() + 1;
-        };
+        let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
 
         // Filter only the folders
         let output: Vec<_> = directory_completion(
-            Span::new(span.start, end),
+            span,
             &prefix,
             &self.engine_state.current_work_dir(),
             options,
