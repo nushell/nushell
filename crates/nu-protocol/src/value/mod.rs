@@ -628,10 +628,7 @@ impl Value {
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
-            Value::Record { val, .. } => val
-                .iter()
-                .find(|(col, _)| col == &name)
-                .map(|(_, val)| val.clone()),
+            Value::Record { val, .. } => val.get(name).cloned(),
             Value::List { vals, .. } => {
                 let mut out = vec![];
                 for item in vals {
