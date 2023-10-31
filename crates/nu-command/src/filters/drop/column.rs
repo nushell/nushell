@@ -3,7 +3,7 @@ use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,24 +40,22 @@ impl Command for DropColumn {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // the number of columns to drop
-        let columns: Option<i64> = call.opt(engine_state, stack, 0)?;
         let span = call.head;
 
-        let columns_to_drop = if let Some(quantity) = columns {
-            quantity
+        // the number of columns to drop
+        let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+
+        let columns = if let Some(columns) = columns {
+            if columns.item < 0 {
+                return Err(ShellError::NeedsPositiveValue(columns.span));
+            } else {
+                columns.item
+            }
         } else {
             1
         };
 
-        // Make columns to drop is positive
-        if columns_to_drop < 0 {
-            if let Some(expr) = call.positional_nth(0) {
-                return Err(ShellError::NeedsPositiveValue(expr.span));
-            }
-        }
-
-        dropcol(engine_state, span, input, columns_to_drop)
+        dropcol(engine_state, span, input, columns)
     }
 
     fn examples(&self) -> Vec<Example> {
