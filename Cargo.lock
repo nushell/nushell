@@ -2897,6 +2897,7 @@ dependencies = [
 name = "nu-engine"
 version = "0.86.1"
 dependencies = [
+ "indexmap 2.0.2",
  "nu-glob",
  "nu-path",
  "nu-protocol",
