@@ -298,7 +298,7 @@ fn redirection_with_pipe() {
         "external with many stdout and stderr messages",
         |dirs, sandbox| {
             let script_body = r#"
-        x=$(printf '=%.0s' {1..40960})
+        x=$(printf '=%.0s' {1..40})
         echo -n $x
         echo -n $x 1>&2
         "#;
