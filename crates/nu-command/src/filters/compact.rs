@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call, engine::Command, engine::EngineState, engine::Stack, record, Category, Example,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -54,26 +54,23 @@ impl Command for Compact {
             Example {
                 description: "Filter out all records where 'Hello' is null (returns nothing)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
-                result: Some(Value::list(vec![], Span::test_data())),
+                result: Some(Value::test_list(vec![])),
             },
             Example {
                 description: "Filter out all records where 'World' is null (Returns the table)",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["Hello".into(), "World".into()],
-                        vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "Hello" => Value::nothing(Span::test_data()),
+                    "World" => Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Filter out all instances of nothing from a list (Returns [1,2])",
                 example: r#"[1, null, 2] | compact"#,
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
         ]
     }

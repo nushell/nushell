@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -33,9 +33,9 @@ impl Command for ExprLit {
         vec![Example {
             description: "Created a literal expression and converts it to a nu object",
             example: "dfr lit 2 | dfr into-nu",
-            result: Some(Value::test_record(Record {
-                cols: vec!["expr".into(), "value".into()],
-                vals: vec![Value::test_string("literal"), Value::test_string("2")],
+            result: Some(Value::test_record(record! {
+                "expr" =>  Value::test_string("literal"),
+                "value" => Value::test_string("2"),
             })),
         }]
     }

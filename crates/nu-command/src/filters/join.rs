@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Config, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
+    record, Category, Config, Example, PipelineData, Record, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
@@ -108,13 +108,9 @@ impl Command for Join {
         vec![Example {
             description: "Join two tables",
             example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(Value::list(
-                vec![Value::test_record(Record {
-                    cols: vec!["a".into(), "b".into(), "c".into()],
-                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                })],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![Value::test_record(record! {
+                "a" => Value::test_int(1), "b" => Value::test_int(2), "c" => Value::test_int(3),
+            })])),
         }]
     }
 }

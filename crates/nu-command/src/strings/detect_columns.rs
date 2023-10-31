@@ -6,8 +6,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -58,26 +58,15 @@ impl Command for DetectColumns {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Splits string across multiple columns",
                 example: "'a b c' | detect columns --no-headers",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec![
-                            "column0".to_string(),
-                            "column1".to_string(),
-                            "column2".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                    })],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("c"),
+                })])),
             },
             Example {
                 description: "",

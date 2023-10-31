@@ -3,7 +3,7 @@ use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -67,44 +67,32 @@ impl Command for Wrap {
             Example {
                 description: "Wrap a list into a table with a given column name",
                 example: "[1 2 3] | wrap num",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(3)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "num" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "num" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "num" => Value::test_int(3),
+                    }),
+                ])),
             },
             Example {
                 description: "Wrap a range into a table with a given column name",
                 example: "1..3 | wrap num",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["num".into()],
-                            vals: vec![Value::test_int(3)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "num" => Value::test_int(1),
+                    }),
+                    Value::test_record(record! {
+                        "num" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "num" => Value::test_int(3),
+                    }),
+                ])),
             },
         ]
     }

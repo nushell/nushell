@@ -3,7 +3,7 @@ use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -52,9 +52,9 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the minima of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1}] | math min",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(-1)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(-1),
                 })),
             },
             Example {

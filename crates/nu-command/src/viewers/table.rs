@@ -2,6 +2,7 @@ use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -130,7 +131,6 @@ impl Command for Table {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1.",
@@ -140,53 +140,44 @@ impl Command for Table {
             Example {
                 description: "Render data in table view",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
             },
             Example {
                 description: "Render data in table view (expanded)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --expand"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
             },
             Example {
                 description: "Render data in table view (collapsed)",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --collapse"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string(), "b".to_string()],
-                            vals: vec![Value::test_int(3), Value::test_int(4)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" =>  Value::test_int(3),
+                        "b" =>  Value::test_int(4),
+                    }),
+                ])),
             },
         ]
     }

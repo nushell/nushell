@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 use crate::dataframe::values::NuExpression;
@@ -39,18 +39,20 @@ impl Command for ToNu {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let cols = vec!["index".into(), "a".into(), "b".into()];
-        let rec_1 = Value::test_record(Record {
-            cols: cols.clone(),
-            vals: vec![Value::test_int(0), Value::test_int(1), Value::test_int(2)],
+        let rec_1 = Value::test_record(record! {
+            "index" => Value::test_int(0),
+            "a" =>     Value::test_int(1),
+            "b" =>     Value::test_int(2),
         });
-        let rec_2 = Value::test_record(Record {
-            cols: cols.clone(),
-            vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+        let rec_2 = Value::test_record(record! {
+            "index" => Value::test_int(1),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
         });
-        let rec_3 = Value::test_record(Record {
-            cols,
-            vals: vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
+        let rec_3 = Value::test_record(record! {
+            "index" => Value::test_int(2),
+            "a" =>     Value::test_int(3),
+            "b" =>     Value::test_int(4),
         });
 
         vec![
@@ -67,9 +69,9 @@ impl Command for ToNu {
             Example {
                 description: "Convert a col expression into a nushell value",
                 example: "dfr col a | dfr into-nu",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["expr".into(), "value".into()],
-                    vals: vec![Value::test_string("column"), Value::test_string("a")],
+                result: Some(Value::test_record(record! {
+                    "expr" =>  Value::test_string("column"),
+                    "value" => Value::test_string("a"),
                 })),
             },
         ]

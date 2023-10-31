@@ -105,6 +105,7 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
+mod umkdir;
 mod uniq;
 mod uniq_by;
 mod update;
