@@ -59,7 +59,7 @@ impl Command for DropColumn {
             1
         };
 
-        Ok(drop_cols(engine_state, input, columns))
+        drop_cols(engine_state, input, call.head, columns)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -77,7 +77,12 @@ impl Command for DropColumn {
     }
 }
 
-fn drop_cols(engine_state: &EngineState, input: PipelineData, columns: usize) -> PipelineData {
+fn drop_cols(
+    engine_state: &EngineState,
+    input: PipelineData,
+    head: Span,
+    columns: usize,
+) -> Result<PipelineData, ShellError> {
     // For simplicity and performance, we use the first row's columns
     // as the columns for the whole table, and assume that later rows/records
     // have these same columns. However, this can give weird results like:
@@ -86,66 +91,89 @@ fn drop_cols(engine_state: &EngineState, input: PipelineData, columns: usize) ->
     // is displayed farther to the right.
     match input {
         PipelineData::ListStream(mut stream, ..) => {
-            let ctrl_c = engine_state.ctrlc.clone();
             if let Some(mut first) = stream.next() {
-                let drop_cols = drop_cols_set(&mut first, columns);
-                if drop_cols.is_empty() {
-                    iter::once(first).chain(stream).into_pipeline_data(ctrl_c)
-                } else {
-                    iter::once(first)
-                        .chain(stream.map(move |mut v| {
-                            drop_record_cols(&mut v, &drop_cols);
-                            v
-                        }))
-                        .into_pipeline_data(ctrl_c)
-                }
+                let drop_cols = drop_cols_set(&mut first, head, columns)?;
+
+                Ok(iter::once(first)
+                    .chain(stream.map(move |mut v| {
+                        match drop_record_cols(&mut v, head, &drop_cols) {
+                            Ok(()) => v,
+                            Err(e) => Value::error(e, head),
+                        }
+                    }))
+                    .into_pipeline_data(engine_state.ctrlc.clone()))
             } else {
-                PipelineData::Empty
+                Ok(PipelineData::Empty)
             }
         }
-        PipelineData::Value(mut v, ..) => {
-            match &mut v {
-                Value::List { vals, .. } => {
+        PipelineData::Value(v, ..) => {
+            let span = v.span();
+            match v {
+                Value::List { mut vals, .. } => {
                     if let Some((first, rest)) = vals.split_first_mut() {
-                        let drop_cols = drop_cols_set(first, columns);
-                        if !drop_cols.is_empty() {
-                            for val in rest {
-                                drop_record_cols(val, &drop_cols)
-                            }
+                        let drop_cols = drop_cols_set(first, head, columns)?;
+                        for val in rest {
+                            drop_record_cols(val, head, &drop_cols)?
                         }
                     }
+                    Ok(Value::list(vals, span).into_pipeline_data())
                 }
-                Value::Record { val: record, .. } => {
+                Value::Record {
+                    val: mut record, ..
+                } => {
                     let len = record.len().saturating_sub(columns);
                     record.cols.truncate(len);
                     record.vals.truncate(len);
+                    Ok(Value::record(record, span).into_pipeline_data())
                 }
-                _ => {}
-            };
-            v.into_pipeline_data()
+                // Propagate errors
+                Value::Error { error, .. } => Err(*error),
+                val => Err(unsupported_value_error(&val, head)),
+            }
         }
-        x => x,
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "table or record".into(),
+            wrong_type: "raw data".into(),
+            dst_span: head,
+            src_span: span,
+        }),
     }
 }
 
-fn drop_cols_set(input: &mut Value, drop: usize) -> HashSet<String> {
-    match input {
-        Value::Record { val: record, .. } => {
-            let len = record.len().saturating_sub(drop);
-            record.vals.truncate(len);
-            record.cols.drain(len..).collect()
-        }
-        _ => HashSet::new(),
+fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
+    if let Value::Record { val: record, .. } = val {
+        let len = record.len().saturating_sub(drop);
+        record.vals.truncate(len);
+        Ok(record.cols.drain(len..).collect())
+    } else {
+        Err(unsupported_value_error(val, head))
     }
 }
 
-fn drop_record_cols(val: &mut Value, drop_cols: &HashSet<String>) {
+fn drop_record_cols(
+    val: &mut Value,
+    head: Span,
+    drop_cols: &HashSet<String>,
+) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
         // TOOO: Needs `Record::retain` to be performant,
         // since this is currently O(n^2)
         // where n is the number of columns being dropped.
         // (Assuming dropped columns are at the end of the record.)
-        val.retain(|col, _| !drop_cols.contains(col))
+        val.retain(|col, _| !drop_cols.contains(col));
+        Ok(())
+    } else {
+        Err(unsupported_value_error(val, head))
+    }
+}
+
+fn unsupported_value_error(val: &Value, head: Span) -> ShellError {
+    ShellError::OnlySupportsThisInputType {
+        exp_input_type: "table or record".into(),
+        wrong_type: val.get_type().to_string(),
+        dst_span: head,
+        src_span: val.span(),
     }
 }
 
