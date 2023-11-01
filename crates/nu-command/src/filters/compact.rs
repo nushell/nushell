@@ -80,7 +80,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all instances of null and empty items from a list",
-                example: r#"[1, null, 2, "", {}, 3, [], 5] | compact --empty"#,
+                example: r#"[1, null, 2, "", 3, [], 4, {}, 5] | compact --empty"#,
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
