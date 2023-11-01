@@ -141,7 +141,7 @@ fn rename(
         if let Some(capture_block) = call.get_flag::<Closure>(engine_state, stack, "block")? {
             let engine_state = engine_state.clone();
             let block = engine_state.get_block(capture_block.block_id).clone();
-            let stack = stack.captures_to_stack(&capture_block.captures);
+            let stack = stack.captures_to_stack(capture_block.captures);
             let orig_env_vars = stack.env_vars.clone();
             let orig_env_hidden = stack.env_hidden.clone();
             Some((engine_state, block, stack, orig_env_vars, orig_env_hidden))
