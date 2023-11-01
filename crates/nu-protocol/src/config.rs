@@ -834,35 +834,56 @@ impl Value {
                                         Value::Int { val, .. } => {
                                             if *val < 0 {
                                                 invalid!(span, "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                                *value = reconstruct_padding(&config, span);
                                             } else {
                                                 config.table_indent.left = *val as usize;
                                                 config.table_indent.right = *val as usize;
                                             }
                                         }
                                         Value::Record { val, .. } => {
-                                            if let Some(left) = val.get("left") {
-                                                match left.as_int() {
-                                                    Ok(val) if val >= 0 => {
-                                                        config.table_indent.left = val as usize;
+                                            let mut invalid = false;
+                                            val.retain(|key3, value| {
+                                                match key3 {
+                                                    "left" => {
+                                                        match value.as_int() {
+                                                            Ok(val) if val >= 0 => {
+                                                                config.table_indent.left = val as usize;
+
+                                                            }
+                                                            _ => {
+                                                                invalid!(span, "unexpected $env.config.{key}.{key2}.{key3} value; expected a unsigned integer >= 0");
+                                                                invalid = true;
+                                                            }
+                                                        }
+                                                    }
+                                                    "right" => {
+                                                        match value.as_int() {
+                                                            Ok(val) if val >= 0 => {
+                                                                config.table_indent.right = val as usize;
+                                                            }
+                                                            _ => {
+                                                                invalid!(span, "unexpected $env.config.{key}.{key2}.{key3} value; expected a unsigned integer >= 0");
+                                                                invalid = true;
+                                                            }
+                                                        }
                                                     }
                                                     _ => {
-                                                        invalid!(span, "unexpected $env.config.{key}.{key2}.left value; expected a unsigned integer >= 0");
+                                                    invalid_key!(
+                                                        span,
+                                                        "$env.config.{key}.{key2}.{key3} is an unknown config setting"
+                                                    );
+                                                    return false;
                                                     }
-                                                }
-                                            }
-                                            if let Some(right) = val.get("right") {
-                                                match right.as_int() {
-                                                    Ok(val) if val >= 0 => {
-                                                        config.table_indent.right = val as usize;
-                                                    }
-                                                    _ => {
-                                                        invalid!(span, "unexpected $env.config.{key}.{key2}.right value; expected a unsigned integer >= 0");
-                                                    }
-                                                }
+                                                };
+                                                true
+                                            });
+                                            if invalid {
+                                                *value = reconstruct_padding(&config, span);
                                             }
                                         }
                                         _ => {
                                             invalid!(span, "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                            *value = reconstruct_padding(&config, span);
                                         }
                                     },
                                     "index_mode" => {
@@ -916,10 +937,10 @@ impl Value {
                                             invalid!(span, "should be an int");
                                         }
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false
                                     }
@@ -1285,6 +1306,18 @@ fn reconstruct_external(config: &Config, span: Span) -> Value {
             "completer" => reconstruct_external_completer(config, span),
             "enable" => Value::bool(config.enable_external_completion, span),
         },
+        span,
+    )
+}
+
+fn reconstruct_padding(config: &Config, span: Span) -> Value {
+    // For better completions always reconstruct the record version even though unsigned int would
+    // be supported, `as` conversion is sane as it came from an i64 original
+    Value::record(
+        record!(
+            "left" => Value::int(config.table_indent.left as i64, span),
+            "right" => Value::int(config.table_indent.right as i64, span),
+        ),
         span,
     )
 }
