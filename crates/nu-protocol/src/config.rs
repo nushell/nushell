@@ -404,10 +404,10 @@ impl Value {
                                     "clickable_links" => {
                                         try_bool!(value, show_clickable_links_in_ls)
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false;
                                     }
@@ -433,10 +433,10 @@ impl Value {
                                     "always_trash" => {
                                         try_bool!(value, rm_always_trash)
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false;
                                     }
@@ -497,10 +497,10 @@ impl Value {
                                                 reconstruct_history_file_format(&config, span);
                                         }
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false;
                                     }
@@ -615,10 +615,10 @@ impl Value {
                                                             enable_external_completion
                                                         );
                                                     }
-                                                    x => {
+                                                    _ => {
                                                         invalid_key!(
                                                             span,
-                                                            "$env.config.{key}.{key2}.{x} is an unknown config setting"
+                                                            "$env.config.{key}.{key2}.{key3} is an unknown config setting"
                                                     );
                                                         return false;
                                                     }
@@ -629,10 +629,10 @@ impl Value {
                                             *value = reconstruct_external(&config, span);
                                         }
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false;
                                     }
@@ -810,10 +810,10 @@ impl Value {
                                             );
                                         }
                                     }
-                                    x => {
+                                    _ => {
                                         invalid_key!(
                                             span,
-                                            "$env.config.{key}.{x} is an unknown config setting"
+                                            "$env.config.{key}.{key2} is an unknown config setting"
                                         );
                                         return false;
                                     }
@@ -984,10 +984,10 @@ impl Value {
                                             Value::string(config.filesize_format.clone(), span);
                                     }
                                 }
-                                x => {
+                                _ => {
                                     invalid_key!(
                                         span,
-                                        "$env.config.{key}.{x} is an unknown config setting"
+                                        "$env.config.{key}.{key2} is an unknown config setting"
                                     );
                                     return false;
                                 }
@@ -1252,10 +1252,10 @@ impl Value {
                         }
                     }
                     // Catch all
-                    x => {
+                    _ => {
                         invalid_key!(
                             span,
-                            "$env.config.{x} is an unknown config setting"
+                            "$env.config.{key} is an unknown config setting"
                         );
                         return false;
                     }
