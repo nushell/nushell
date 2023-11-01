@@ -52,12 +52,12 @@ impl Command for Compact {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Filter out all records where 'Hello' is null (returns nothing)",
+                description: "Filter out all records where 'Hello' is null",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
                 result: Some(Value::test_list(vec![])),
             },
             Example {
-                description: "Filter out all records where 'World' is null (Returns the table)",
+                description: "Filter out all records where 'World' is null",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "Hello" => Value::nothing(Span::test_data()),
@@ -65,11 +65,20 @@ impl Command for Compact {
                 })])),
             },
             Example {
-                description: "Filter out all instances of nothing from a list (Returns [1,2])",
+                description: "Filter out all instances of null from a list",
                 example: r#"[1, null, 2] | compact"#,
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
+                ])),
+            },
+            Example {
+                description: "Filter out all instances of null and empty string from a list",
+                example: r#"[1, null, 2, "", 3] | compact"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
                 ])),
             },
         ]
@@ -98,11 +107,23 @@ pub fn compact(
                                     if let Value::Nothing { .. } = x {
                                         return false;
                                     }
+                                    if let Value::String { val, .. } = x {
+                                        if val.is_empty() {
+                                            return false;
+                                        }
+                                    }
                                 }
                             }
                         }
                         // No defined columns contained Nothing
                         true
+                    }
+                    Value::String { val, .. } => {
+                        if val.is_empty() {
+                            false
+                        } else {
+                            true
+                        }
                     }
                     // Any non-Nothing, non-record should be kept
                     _ => true,
