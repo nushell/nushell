@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fs::File, io::Cursor, sync::Arc};
 
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
@@ -15,6 +15,7 @@ use nu_protocol::{
     DeclId, Span, Value, VarId,
 };
 use reedline::Completer;
+use ropey::Rope;
 
 #[derive(Debug)]
 enum Id {
@@ -137,69 +138,29 @@ impl LanguageServer {
             .into_diagnostic()
     }
 
-    fn span_to_range(span: &Span, file: &[u8], offset: usize) -> lsp_types::Range {
-        let content = String::from_utf8_lossy(file);
-        let mut iter = content.as_ref().chars();
+    fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
+        let line = rope_of_file.char_to_line(span.start - offset);
+        let character = span.start - offset - rope_of_file.line_to_char(line);
 
-        let mut line = 0;
-        let mut character = 0;
-        let mut i = 0;
-        for c in iter.by_ref() {
-            if span.start - offset == i {
-                break;
-            }
+        let start = lsp_types::Position {
+            line: line as u32,
+            character: character as u32,
+        };
 
-            if c == '\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
+        let line = rope_of_file.char_to_line(span.end - offset);
+        let character = span.end - offset - rope_of_file.line_to_char(line);
 
-            i += 1;
-        }
-
-        let start = lsp_types::Position { line, character };
-
-        for c in iter {
-            if span.end - offset == i {
-                break;
-            }
-
-            if c == '\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-
-            i += 1;
-        }
-
-        let end = lsp_types::Position { line, character };
+        let end = lsp_types::Position {
+            line: line as u32,
+            character: character as u32,
+        };
 
         lsp_types::Range { start, end }
     }
 
-    fn lsp_position_to_location(position: &lsp_types::Position, file: &[u8]) -> usize {
-        let mut line = 0;
-        let mut character = 0;
-        let content = String::from_utf8_lossy(file);
-
-        for (i, c) in content.as_ref().chars().enumerate() {
-            if line == position.line && character == position.character {
-                return i;
-            }
-
-            if c == '\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-
-        content.len() - 1
+    fn lsp_position_to_location(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
+        let line_idx = rope_of_file.line_to_char(position.line as usize);
+        line_idx + position.character as usize
     }
 
     fn find_id(
@@ -260,12 +221,16 @@ impl LanguageServer {
         let file_path = file_path.to_string_lossy();
 
         let (file, mut working_set) = Self::read_in_file(engine_state, &file_path).ok()?;
+        let rope_of_file = Rope::from_reader(Cursor::new(&file)).ok()?;
 
         let (id, _, _) = Self::find_id(
             &mut working_set,
             &file_path,
             &file,
-            Self::lsp_position_to_location(&params.text_document_position_params.position, &file),
+            Self::lsp_position_to_location(
+                &params.text_document_position_params.position,
+                &rope_of_file,
+            ),
         )?;
 
         match id {
@@ -277,7 +242,7 @@ impl LanguageServer {
                             if span.start >= *file_start && span.start < *file_end {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: Url::from_file_path(file_path).ok()?,
-                                    range: Self::span_to_range(span, &file, *file_start),
+                                    range: Self::span_to_range(span, &rope_of_file, *file_start),
                                 }));
                             }
                         }
@@ -296,7 +261,11 @@ impl LanguageServer {
                                 .text_document
                                 .uri
                                 .clone(),
-                            range: Self::span_to_range(&var.declaration_span, &file, *file_start),
+                            range: Self::span_to_range(
+                                &var.declaration_span,
+                                &rope_of_file,
+                                *file_start,
+                            ),
                         }));
                     }
                 }
@@ -320,12 +289,16 @@ impl LanguageServer {
         let file_path = file_path.to_string_lossy();
 
         let (file, mut working_set) = Self::read_in_file(engine_state, &file_path).ok()?;
+        let rope_of_file = Rope::from_reader(Cursor::new(&file)).ok()?;
 
         let (id, _, _) = Self::find_id(
             &mut working_set,
             &file_path,
             &file,
-            Self::lsp_position_to_location(&params.text_document_position_params.position, &file),
+            Self::lsp_position_to_location(
+                &params.text_document_position_params.position,
+                &rope_of_file,
+            ),
         )?;
 
         match id {
@@ -449,7 +422,10 @@ impl LanguageServer {
                     }
                     description.push_str("\n```\n");
                 }
-                description.push_str(&format!("### Usage\n  {}\n", decl.usage()));
+                description.push_str(&format!(
+                    "### Usage\n  {}\n",
+                    decl.usage().replace('\r', "")
+                ));
                 if !decl.extra_usage().is_empty() {
                     description
                         .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
@@ -527,14 +503,14 @@ impl LanguageServer {
             .ok()?;
 
         let file_path = file_path.to_string_lossy();
-        let file = std::fs::read(file_path.as_ref()).ok()?;
+        let rope_of_file = Rope::from_reader(File::open(file_path.as_ref()).ok()?).ok()?;
 
         let stack = Stack::new();
         let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
 
         let location =
-            Self::lsp_position_to_location(&params.text_document_position.position, &file);
-        let results = completer.complete(&String::from_utf8_lossy(&file), location);
+            Self::lsp_position_to_location(&params.text_document_position.position, &rope_of_file);
+        let results = completer.complete(&rope_of_file.to_string(), location);
         if results.is_empty() {
             None
         } else {
@@ -756,7 +732,7 @@ mod tests {
                "uri": script,
                "range": {
                   "start": { "line": 0, "character": 17 },
-                  "end": { "line": 3, "character": 0 }
+                  "end": { "line": 2, "character": 1 }
                }
             })
         );
