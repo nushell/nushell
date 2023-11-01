@@ -116,11 +116,13 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             }
 
             let index = row + cfg.opts.row_offset;
-            let text = matches!(item, Value::Record { .. })
-                .then(|| {
-                    lookup_index_value(item, cfg.opts.config).unwrap_or_else(|| index.to_string())
-                })
-                .unwrap_or_else(|| index.to_string());
+            let text = if let Value::Record { val, .. } = item {
+                val.get(INDEX_COLUMN_NAME)
+            } else {
+                None
+            }
+            .map(|value| value.into_string("", cfg.opts.config))
+            .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;
             let value = NuTableCell::new(text);
@@ -563,11 +565,6 @@ fn dive_options<'b>(cfg: &Cfg<'b>, span: Span) -> Cfg<'b> {
     }
 
     cfg
-}
-
-fn lookup_index_value(item: &Value, config: &Config) -> Option<String> {
-    item.get_data_by_key(INDEX_COLUMN_NAME)
-        .map(|value| value.into_string("", config))
 }
 
 fn maybe_expand_table(out: TableOutput, term_width: usize, opts: &TableOpts<'_>) -> StringResult {

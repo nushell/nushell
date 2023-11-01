@@ -119,11 +119,11 @@ impl Command for ErrorMake {
 
 fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
     let span = value.span();
-    if let Value::Record { .. } = &value {
-        let msg = value.get_data_by_key("msg");
-        let label = value.get_data_by_key("label");
+    if let Value::Record { val, .. } = &value {
+        let msg = val.get("msg").cloned();
+        let label = val.get("label");
 
-        match (msg, &label) {
+        match (msg, label) {
             (Some(Value::String { val: message, .. }), Some(label)) => {
                 let label_start = label.get_data_by_key("start");
                 let label_end = label.get_data_by_key("end");

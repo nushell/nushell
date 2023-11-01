@@ -75,14 +75,17 @@ fn table_to_delimited(
             .expect("can not write.");
 
         for l in vals {
-            let mut row = vec![];
-            for desc in &merged_descriptors {
-                row.push(match l.to_owned().get_data_by_key(desc) {
-                    Some(s) => to_string_tagged_value(&s, config, head, span)?,
-                    None => String::new(),
-                });
+            // should always be true because of `find_non_record` above
+            if let Value::Record { val: l, .. } = l {
+                let mut row = vec![];
+                for desc in &merged_descriptors {
+                    row.push(match l.get(desc) {
+                        Some(s) => to_string_tagged_value(s, config, head, span)?,
+                        None => String::new(),
+                    });
+                }
+                wtr.write_record(&row).expect("can not write");
             }
-            wtr.write_record(&row).expect("can not write");
         }
     }
     writer_to_string(wtr).map_err(|_| make_conversion_error("table", span))

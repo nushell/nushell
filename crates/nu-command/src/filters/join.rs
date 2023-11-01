@@ -258,7 +258,7 @@ fn join_rows(
             val: this_record, ..
         } = this_row
         {
-            if let Some(this_valkey) = this_row.get_data_by_key(this_join_key) {
+            if let Some(this_valkey) = this_record.get(this_join_key) {
                 if let Some(other_rows) = other.get(&this_valkey.into_string(sep, config)) {
                     if matches!(include_inner, IncludeInner::Yes) {
                         for other_record in other_rows {
@@ -287,8 +287,9 @@ fn join_rows(
                         .iter()
                         .map(|key| {
                             let val = if Some(key.as_ref()) == shared_join_key {
-                                this_row
-                                    .get_data_by_key(key)
+                                this_record
+                                    .get(key)
+                                    .cloned()
                                     .unwrap_or_else(|| Value::nothing(span))
                             } else {
                                 Value::nothing(span)
@@ -339,7 +340,7 @@ fn lookup_table<'a>(
     let mut map = HashMap::<String, Vec<&'a Record>>::with_capacity(cap);
     for row in rows {
         if let Value::Record { val: record, .. } = row {
-            if let Some(val) = &row.get_data_by_key(on) {
+            if let Some(val) = record.get(on) {
                 let valkey = val.into_string(sep, config);
                 map.entry(valkey).or_default().push(record);
             }

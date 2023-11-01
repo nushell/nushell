@@ -402,15 +402,15 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
 
     for row in table {
         let span = row.span();
-        if let Value::Record { .. } = row {
+        if let Value::Record { val: row, .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
-                let data = row.get_data_by_key(header);
+                let data = row
+                    .get(header)
+                    .cloned()
+                    .unwrap_or_else(|| Value::nothing(span));
                 output_string.push_str("<td>");
-                output_string.push_str(&html_value(
-                    data.unwrap_or_else(|| Value::nothing(span)),
-                    config,
-                ));
+                output_string.push_str(&html_value(data, config));
                 output_string.push_str("</td>");
             }
             output_string.push_str("</tr>");

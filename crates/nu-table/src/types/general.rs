@@ -214,8 +214,8 @@ fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
 
 fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize) -> String {
     match item {
-        Value::Record { .. } => item
-            .get_data_by_key(INDEX_COLUMN_NAME)
+        Value::Record { val, .. } => val
+            .get(INDEX_COLUMN_NAME)
             .map(|value| value.into_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),

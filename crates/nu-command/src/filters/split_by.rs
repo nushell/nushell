@@ -125,13 +125,21 @@ pub fn split(
 
     match grouper {
         Grouper::ByColumn(Some(column_name)) => {
-            let block = move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
-                Some(group_key) => Ok(group_key.as_string()?),
-                None => Err(ShellError::CantFindColumn {
-                    col_name: column_name.item.to_string(),
-                    span: column_name.span,
-                    src_span: row.span(),
-                }),
+            let block = move |_, row: &Value| {
+                let group_key = if let Value::Record { val: row, .. } = row {
+                    row.get(&column_name.item)
+                } else {
+                    None
+                };
+
+                match group_key {
+                    Some(group_key) => Ok(group_key.as_string()?),
+                    None => Err(ShellError::CantFindColumn {
+                        col_name: column_name.item.to_string(),
+                        span: column_name.span,
+                        src_span: row.span(),
+                    }),
+                }
             };
 
             data_split(values, Some(&block), span)
