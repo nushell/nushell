@@ -399,10 +399,10 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
-                                        try_bool!(value, use_ls_colors)
+                                        try_bool!(value, use_ls_colors);
                                     }
                                     "clickable_links" => {
-                                        try_bool!(value, show_clickable_links_in_ls)
+                                        try_bool!(value, show_clickable_links_in_ls);
                                     }
                                     _ => {
                                         invalid_key!(
@@ -431,7 +431,7 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
-                                        try_bool!(value, rm_always_trash)
+                                        try_bool!(value, rm_always_trash);
                                     }
                                     _ => {
                                         invalid_key!(
@@ -460,13 +460,13 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
-                                        try_bool!(value, history_isolation)
+                                        try_bool!(value, history_isolation);
                                     }
                                     "sync_on_enter" => {
-                                        try_bool!(value, sync_history_on_enter)
+                                        try_bool!(value, sync_history_on_enter);
                                     }
                                     "max_size" => {
-                                        try_int!(value, max_history_size)
+                                        try_int!(value, max_history_size);
                                     }
                                     "file_format" => {
                                         if let Ok(v) = value.as_string() {
@@ -504,7 +504,8 @@ impl Value {
                                         );
                                         return false;
                                     }
-                                }; true
+                                };
+                                true
                             });
                         } else {
                             invalid!(span, "should be a record");
@@ -545,10 +546,10 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
-                                        try_bool!(value, quick_completions)
+                                        try_bool!(value, quick_completions);
                                     }
                                     "partial" => {
-                                        try_bool!(value, partial_completions)
+                                        try_bool!(value, partial_completions);
                                     }
                                     "algorithm" => {
                                         if let Ok(v) = value.as_string() {
@@ -579,15 +580,12 @@ impl Value {
                                         }
                                     }
                                     "case_sensitive" => {
-                                        try_bool!(
-                                            value,
-                                            case_sensitive_completions
-                                        )
+                                        try_bool!(value, case_sensitive_completions);
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
                                             val.retain_mut(|key3, value|
-                                    {
+                                                {
                                                     let span = value.span();
                                                     match key3 {
                                                     "max_results" => {
@@ -610,10 +608,7 @@ impl Value {
                                                         }
                                                     }
                                                     "enable" => {
-                                                        try_bool!(
-                                                            value,
-                                                            enable_external_completion
-                                                        );
+                                                        try_bool!(value, enable_external_completion);
                                                     }
                                                     _ => {
                                                         invalid_key!(
@@ -622,7 +617,9 @@ impl Value {
                                                     );
                                                         return false;
                                                     }
-                                                };true})
+                                                    };
+                                                    true
+                                                });
                                         } else {
                                             invalid!(span, "should be a record");
                                             // Reconstruct
@@ -636,7 +633,9 @@ impl Value {
                                         );
                                         return false;
                                     }
-                                }; true})
+                                };
+                                true
+                            });
                         } else {
                             invalid!(span, "should be a record");
                             // Reconstruct record
@@ -817,8 +816,9 @@ impl Value {
                                         );
                                         return false;
                                     }
-                                }; true
-                            })
+                                };
+                                true
+                            });
                         } else {
                             invalid!(span, "should be a record");
                             // Reconstruct
@@ -951,7 +951,9 @@ impl Value {
                                         );
                                         return false
                                     }
-                                }; true })
+                                };
+                                true
+                             });
                         } else {
                             invalid!(span, "should be a record");
                             // Reconstruct
@@ -963,7 +965,7 @@ impl Value {
                                     "show_empty" => Value::bool(config.table_show_empty, span),
                                 },
                                 span,
-                            )
+                            );
                         }
                     }
                     "filesize" => {
@@ -991,7 +993,9 @@ impl Value {
                                     );
                                     return false;
                                 }
-                            }; true})
+                            };
+                            true
+                        })
                         } else {
                             invalid!(span, "should be a record");
                             // Reconstruct
@@ -1259,7 +1263,9 @@ impl Value {
                         );
                         return false;
                     }
-            }; true });
+            };
+            true
+        });
         } else {
             return (
                 config,
