@@ -1293,7 +1293,7 @@ fn try_parse_trim_strategy(
     value: &Value,
     errors: &mut Vec<ShellError>,
 ) -> Result<TrimStrategy, ShellError> {
-    let map = create_map(value).map_err(|e| {
+    let map = value.as_record().map_err(|e| {
         ShellError::GenericError(
             "Error while applying config changes".into(),
             "$env.config.table.trim is not a record".into(),
