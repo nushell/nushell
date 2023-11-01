@@ -130,10 +130,9 @@ pub fn compact(
                     }
                     Value::String { val, .. } => {
                         if val.is_empty() {
-                            false
-                        } else {
-                            true
+                            return false;
                         }
+                        true
                     }
                     // Any non-Nothing, non-record should be kept
                     _ => true,
