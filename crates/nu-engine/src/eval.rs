@@ -571,7 +571,18 @@ pub fn eval_expression(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
+                let header = eval_expression(engine_state, stack, expr)?.as_string()?;
+                if let Some(idx) = output_headers
+                    .iter()
+                    .position(|existing| existing == &header)
+                {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: expr.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    output_headers.push(header);
+                }
             }
 
             let mut output_rows = vec![];

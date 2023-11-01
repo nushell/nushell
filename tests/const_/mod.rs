@@ -91,6 +91,15 @@ fn const_table() {
 }
 
 #[test]
+fn const_invalid_table() {
+    let inp = &["const x = [[a b a]; [10 20 30] [100 200 300]]"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("column_defined_twice"));
+}
+
+#[test]
 fn const_string() {
     let inp = &[r#"const x = "abc""#, "$x"];
 
