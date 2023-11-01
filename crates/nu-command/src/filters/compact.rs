@@ -27,6 +27,11 @@ impl Command for Compact {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
+            .switch(
+                "empty",
+                "also compact empty items like \"\", {}, and []",
+                Some('e'),
+            )
             .rest(
                 "columns",
                 SyntaxShape::Any,
@@ -46,7 +51,8 @@ impl Command for Compact {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        compact(engine_state, stack, call, input)
+        let empty = call.has_flag("empty");
+        compact(engine_state, stack, call, input, empty)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -73,12 +79,14 @@ impl Command for Compact {
                 ])),
             },
             Example {
-                description: "Filter out all instances of null and empty string from a list",
-                example: r#"[1, null, 2, "", 3] | compact"#,
+                description: "Filter out all instances of null and empty items from a list",
+                example: r#"[1, null, 2, "", {}, 3, [], 5] | compact --empty"#,
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(5),
                 ])),
             },
         ]
@@ -90,6 +98,7 @@ pub fn compact(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    compact_empties: bool,
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
@@ -107,30 +116,38 @@ pub fn compact(
                                     if let Value::Nothing { .. } = x {
                                         return false;
                                     }
-                                    if let Value::String { val, .. } = x {
-                                        if val.is_empty() {
-                                            return false;
+                                    if compact_empties {
+                                        if let Value::String { val, .. } = x {
+                                            if val.is_empty() {
+                                                return false;
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
 
-                        if val.is_empty() {
-                            return false;
+                        if compact_empties {
+                            if val.is_empty() {
+                                return false;
+                            }
                         }
                         // No defined columns contained Nothing
                         true
                     }
                     Value::List { vals, .. } => {
-                        if vals.is_empty() {
-                            return false;
+                        if compact_empties {
+                            if vals.is_empty() {
+                                return false;
+                            }
                         }
                         true
                     }
                     Value::String { val, .. } => {
-                        if val.is_empty() {
-                            return false;
+                        if compact_empties {
+                            if val.is_empty() {
+                                return false;
+                            }
                         }
                         true
                     }
