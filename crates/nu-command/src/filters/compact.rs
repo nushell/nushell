@@ -127,27 +127,21 @@ pub fn compact(
                             }
                         }
 
-                        if compact_empties {
-                            if val.is_empty() {
-                                return false;
-                            }
+                        if compact_empties && val.is_empty() {
+                            return false;
                         }
                         // No defined columns contained Nothing
                         true
                     }
                     Value::List { vals, .. } => {
-                        if compact_empties {
-                            if vals.is_empty() {
-                                return false;
-                            }
+                        if compact_empties && vals.is_empty() {
+                            return false;
                         }
                         true
                     }
                     Value::String { val, .. } => {
-                        if compact_empties {
-                            if val.is_empty() {
-                                return false;
-                            }
+                        if compact_empties && val.is_empty() {
+                            return false;
                         }
                         true
                     }
