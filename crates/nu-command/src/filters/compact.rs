@@ -99,7 +99,7 @@ pub fn compact(
                 match item {
                     // Nothing is filtered out
                     Value::Nothing { .. } => false,
-                    Value::Record { .. } => {
+                    Value::Record { val, .. } => {
                         for column in columns.iter() {
                             match item.get_data_by_key(column) {
                                 None => return false,
@@ -115,7 +115,17 @@ pub fn compact(
                                 }
                             }
                         }
+
+                        if val.is_empty() {
+                            return false;
+                        }
                         // No defined columns contained Nothing
+                        true
+                    }
+                    Value::List { vals, .. } => {
+                        if vals.is_empty() {
+                            return false;
+                        }
                         true
                     }
                     Value::String { val, .. } => {
