@@ -762,7 +762,7 @@ fn eval_element_with_input(
                                 metadata,
                                 trim_end_newline,
                             },
-                        ) if redirect_stdout => (
+                        ) => (
                             PipelineData::ExternalStream {
                                 stdout: stderr,
                                 stderr: None,

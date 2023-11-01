@@ -1,6 +1,8 @@
 use nu_test_support::fs::{file_contents, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use std::thread;
+use std::time::Duration;
 
 #[cfg(not(windows))]
 #[test]
@@ -11,6 +13,7 @@ fn redirect_err() {
             "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
 
+        thread::sleep(Duration::from_secs(3));
         assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
@@ -24,6 +27,7 @@ fn redirect_err() {
             "vol missingdrive err> a; (open a | size).bytes >= 16"
         );
 
+        thread::sleep(Duration::from_secs(3));
         assert!(output.out.contains("true"));
     })
 }
@@ -115,6 +119,7 @@ fn separate_redirection() {
                     "cmd /D /c test.bat out> out.txt err> err.txt"
                 );
             }
+            thread::sleep(Duration::from_secs(3));
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
@@ -177,6 +182,7 @@ fn redirection_keep_exit_codes() {
                     "cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
                 )
             };
+            thread::sleep(Duration::from_secs(3));
             assert_eq!(output.out, "10")
         },
     )
@@ -254,6 +260,7 @@ fn separate_redirection_support_variable() {
                     r#"let o_f = "out.txt"; let e_f = "err.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
                 );
             }
+            thread::sleep(Duration::from_secs(3));
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
@@ -314,6 +321,7 @@ fn redirection_with_pipe() {
                 cwd: dirs.test(),
                 "bash test.sh err> tmp_file | str length",
             );
+            thread::sleep(Duration::from_secs(3));
             assert_eq!(actual.out, "40");
             // check for stderr redirection file.
             let expected_out_file = dirs.test().join("tmp_file");
