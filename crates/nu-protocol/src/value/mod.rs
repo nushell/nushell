@@ -3113,7 +3113,7 @@ impl Value {
             }
             (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
-                Ok(Value::bool(rhs.cols.contains(lhs), span))
+                Ok(Value::bool(rhs.contains(lhs), span))
             }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
@@ -3161,7 +3161,7 @@ impl Value {
             }
             (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
-                Ok(Value::bool(!rhs.cols.contains(lhs), span))
+                Ok(Value::bool(!rhs.contains(lhs), span))
             }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
