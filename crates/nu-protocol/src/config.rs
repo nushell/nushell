@@ -834,38 +834,29 @@ impl Value {
                                         Value::Int { val, .. } => {
                                             if *val < 0 {
                                                 invalid!(span, "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                            } else {
+                                                config.table_indent.left = *val as usize;
+                                                config.table_indent.right = *val as usize;
                                             }
-
-                                            config.table_indent.left = *val as usize;
-                                            config.table_indent.right = *val as usize;
                                         }
                                         Value::Record { val, .. } => {
                                             if let Some(left) = val.get("left") {
                                                 match left.as_int() {
-                                                    Ok(val) => {
-                                                        if val < 0 {
-                                                            invalid!(span, "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
-                                                        }
-
+                                                    Ok(val) if val >= 0 => {
                                                         config.table_indent.left = val as usize;
                                                     }
-                                                    Err(_) => {
-                                                        invalid!(span, "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                                    _ => {
+                                                        invalid!(span, "unexpected $env.config.{key}.{key2}.left value; expected a unsigned integer >= 0");
                                                     }
                                                 }
                                             }
-
                                             if let Some(right) = val.get("right") {
                                                 match right.as_int() {
-                                                    Ok(val) => {
-                                                        if val < 0 {
-                                                            invalid!(span, "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
-                                                        }
-
+                                                    Ok(val) if val >= 0 => {
                                                         config.table_indent.right = val as usize;
                                                     }
-                                                    Err(_) => {
-                                                        invalid!(span, "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                                    _ => {
+                                                        invalid!(span, "unexpected $env.config.{key}.{key2}.right value; expected a unsigned integer >= 0");
                                                     }
                                                 }
                                             }
