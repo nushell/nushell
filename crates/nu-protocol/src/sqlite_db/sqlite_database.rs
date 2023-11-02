@@ -472,9 +472,8 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::record;
-
     use super::*;
+    use crate::record;
 
     #[test]
     fn can_read_empty_db() {
