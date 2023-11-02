@@ -298,16 +298,13 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
-                                                    *value = reconstruct_history_file_format(
-                                                        &config, span,
-                                                    );
+                                                    *value = config.history_file_format.reconstruct_value(span);
                                                 },
                                             }
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct
-                                            *value =
-                                                reconstruct_history_file_format(&config, span);
+                                            *value = config.history_file_format.reconstruct_value(span);
                                         }
                                     }
                                     _ => {
@@ -327,7 +324,7 @@ impl Value {
                                 record! {
                                     "sync_on_enter" => Value::bool(config.sync_history_on_enter, span),
                                     "max_size" => Value::int(config.max_history_size, span),
-                                    "file_format" => reconstruct_history_file_format(&config, span),
+                                    "file_format" => config.history_file_format.reconstruct_value(span),
                                     "isolation" => Value::bool(config.history_isolation, span),
                                 },
                                 span,
@@ -451,19 +448,13 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
-                                                    *value = reconstruct_cursor_shape(
-                                                        config.cursor_shape_vi_insert,
-                                                        span,
-                                                    );
+                                                    *value = config.cursor_shape_vi_insert.reconstruct_value(span);
                                                 },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct
-                                            *value = reconstruct_cursor_shape(
-                                                config.cursor_shape_vi_insert,
-                                                span,
-                                            );
+                                            *value = config.cursor_shape_vi_insert.reconstruct_value(span);
                                         }
                                     }
                                     "vi_normal" => {
@@ -475,19 +466,13 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
-                                                    *value = reconstruct_cursor_shape(
-                                                        config.cursor_shape_vi_normal,
-                                                        span,
-                                                    );
+                                                    *value = config.cursor_shape_vi_normal.reconstruct_value(span);
                                                 },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct
-                                            *value = reconstruct_cursor_shape(
-                                                config.cursor_shape_vi_normal,
-                                                span,
-                                            );
+                                            *value = config.cursor_shape_vi_normal.reconstruct_value(span);
                                         }
                                     }
                                     "emacs" => {
@@ -499,19 +484,13 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
-                                                    *value = reconstruct_cursor_shape(
-                                                        config.cursor_shape_emacs,
-                                                        span,
-                                                    );
+                                                    *value = config.cursor_shape_emacs.reconstruct_value(span);
                                                 },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct
-                                            *value = reconstruct_cursor_shape(
-                                                config.cursor_shape_emacs,
-                                                span,
-                                            );
+                                            *value = config.cursor_shape_emacs.reconstruct_value(span);
                                         }
                                     }
                                     _ => {
@@ -529,9 +508,9 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "vi_insert" => reconstruct_cursor_shape(config.cursor_shape_vi_insert, span),
-                                    "vi_normal" => reconstruct_cursor_shape(config.cursor_shape_vi_normal, span),
-                                    "emacs" => reconstruct_cursor_shape(config.cursor_shape_emacs, span),
+                                    "vi_insert" => config.cursor_shape_vi_insert.reconstruct_value(span),
+                                    "vi_normal" => config.cursor_shape_vi_normal.reconstruct_value(span),
+                                    "emacs" => config.cursor_shape_emacs.reconstruct_value(span),
                                 },
                                 span,
                             );

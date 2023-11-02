@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use super::extract_value;
-use crate::{Config, ShellError, Span, Value};
+use super::{extract_value, helper::ReconstructVal};
+use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 /// Definition of a parsed keybinding from the config object
@@ -54,19 +54,21 @@ impl FromStr for NuCursorShape {
     }
 }
 
-pub(super) fn reconstruct_cursor_shape(name: NuCursorShape, span: Span) -> Value {
-    Value::string(
-        match name {
-            NuCursorShape::Line => "line",
-            NuCursorShape::Block => "block",
-            NuCursorShape::UnderScore => "underscore",
-            NuCursorShape::BlinkLine => "blink_line",
-            NuCursorShape::BlinkBlock => "blink_block",
-            NuCursorShape::BlinkUnderScore => "blink_underscore",
-            NuCursorShape::Inherit => "inherit",
-        },
-        span,
-    )
+impl ReconstructVal for NuCursorShape {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                NuCursorShape::Line => "line",
+                NuCursorShape::Block => "block",
+                NuCursorShape::UnderScore => "underscore",
+                NuCursorShape::BlinkLine => "blink_line",
+                NuCursorShape::BlinkBlock => "blink_block",
+                NuCursorShape::BlinkUnderScore => "blink_underscore",
+                NuCursorShape::Inherit => "inherit",
+            },
+            span,
+        )
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
@@ -89,14 +91,16 @@ impl FromStr for HistoryFileFormat {
     }
 }
 
-pub(super) fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
-    Value::string(
-        match config.history_file_format {
-            HistoryFileFormat::Sqlite => "sqlite",
-            HistoryFileFormat::PlainText => "plaintext",
-        },
-        span,
-    )
+impl ReconstructVal for HistoryFileFormat {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                HistoryFileFormat::Sqlite => "sqlite",
+                HistoryFileFormat::PlainText => "plaintext",
+            },
+            span,
+        )
+    }
 }
 
 /// Parses the config object to extract the strings that will compose a keybinding for reedline
