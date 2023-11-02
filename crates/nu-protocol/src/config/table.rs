@@ -6,6 +6,78 @@ use serde::{Deserialize, Serialize};
 use super::helper::ReconstructVal;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum TableMode {
+    Basic,
+    Thin,
+    Light,
+    Compact,
+    WithLove,
+    CompactDouble,
+    Rounded,
+    Reinforced,
+    Heavy,
+    None,
+    Psql,
+    Markdown,
+    Dots,
+    Restructured,
+    AsciiRounded,
+    BasicCompact,
+}
+
+impl FromStr for TableMode {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "basic" => Ok(Self::Basic),
+            "thin" => Ok(Self::Thin),
+            "light" => Ok(Self::Light),
+            "compact" => Ok(Self::Compact),
+            "with_love" => Ok(Self::WithLove),
+            "compact_double" => Ok(Self::CompactDouble),
+            "rounded" => Ok(Self::Rounded),
+            "reinforced" => Ok(Self::Reinforced),
+            "heavy" => Ok(Self::Heavy),
+            "none" => Ok(Self::None),
+            "psql" => Ok(Self::Psql),
+            "markdown" => Ok(Self::Markdown),
+            "dots" => Ok(Self::Dots),
+            "restructured" => Ok(Self::Restructured),
+            "ascii_rounded" => Ok(Self::AsciiRounded),
+            "basic_compact" => Ok(Self::BasicCompact),
+            _ => Err("expected either 'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
+        }
+    }
+}
+
+impl ReconstructVal for TableMode {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                TableMode::Basic => "basic",
+                TableMode::Thin => "thin",
+                TableMode::Light => "light",
+                TableMode::Compact => "compact",
+                TableMode::WithLove => "with_love",
+                TableMode::CompactDouble => "compact_double",
+                TableMode::Rounded => "rounded",
+                TableMode::Reinforced => "reinforced",
+                TableMode::Heavy => "heavy",
+                TableMode::None => "none",
+                TableMode::Psql => "psql",
+                TableMode::Markdown => "markdown",
+                TableMode::Dots => "dots",
+                TableMode::Restructured => "restructured",
+                TableMode::AsciiRounded => "ascii_rounded",
+                TableMode::BasicCompact => "basic_compact",
+            },
+            span,
+        )
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum FooterMode {
     /// Never show the footer
     Never,

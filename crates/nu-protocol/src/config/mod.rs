@@ -16,7 +16,7 @@ pub use self::output::ErrorStyle;
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
-pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
+pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
 
 mod completer;
 mod helper;
@@ -29,7 +29,7 @@ mod table;
 pub struct Config {
     pub external_completer: Option<usize>,
     pub filesize_metric: bool,
-    pub table_mode: String,
+    pub table_mode: TableMode,
     pub table_move_header: bool,
     pub table_show_empty: bool,
     pub table_indent: TableIndent,
@@ -84,7 +84,7 @@ impl Default for Config {
 
             rm_always_trash: false,
 
-            table_mode: "rounded".into(),
+            table_mode: TableMode::Rounded,
             table_index_mode: TableIndexMode::Always,
             table_show_empty: true,
             trim_strategy: TrimStrategy::default(),
@@ -432,13 +432,11 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "mode" => {
-                                        if let Ok(v) = value.as_string() {
-                                            config.table_mode = v;
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            *value =
-                                                Value::string(config.table_mode.clone(), span);
-                                        }
+                                        process_string_enum(
+                                            &mut config.table_mode,
+                                            format!("$env.config.{key}.{key2}"),
+                                            value,
+                                            &mut errors);
                                     }
                                     "header_on_separator" => {
                                         process_bool_config(value, &mut errors, &mut config.table_move_header);
@@ -545,7 +543,7 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "mode" => Value::string(config.table_mode.clone(), span),
+                                    "mode" => config.table_mode.reconstruct_value(span),
                                     "index_mode" => config.table_index_mode.reconstruct_value(span),
                                     "trim" => reconstruct_trim_strategy(&config, span),
                                     "show_empty" => Value::bool(config.table_show_empty, span),
