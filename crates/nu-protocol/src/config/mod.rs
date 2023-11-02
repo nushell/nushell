@@ -1,4 +1,5 @@
 use self::completer::*;
+use self::helper::*;
 use self::hooks::*;
 use self::reedline::*;
 use self::table::*;
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub use self::completer::CompletionAlgorithm;
+pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::reedline::{
     create_menus, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
@@ -15,27 +17,10 @@ pub use self::reedline::{
 pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
 
 mod completer;
+mod helper;
 mod hooks;
 mod reedline;
 mod table;
-
-fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
-    Ok(value
-        .as_record()?
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect())
-}
-
-pub fn extract_value<'record>(
-    name: &str,
-    record: &'record Record,
-    span: Span,
-) -> Result<&'record Value, ShellError> {
-    record
-        .get(name)
-        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
-}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
