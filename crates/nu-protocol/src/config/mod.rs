@@ -12,7 +12,7 @@ pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
 pub use self::reedline::{
-    create_menus, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
+    create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
 pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
 
@@ -42,7 +42,7 @@ pub struct Config {
     pub quick_completions: bool,
     pub partial_completions: bool,
     pub completion_algorithm: CompletionAlgorithm,
-    pub edit_mode: String,
+    pub edit_mode: EditBindings,
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
     pub history_file_format: HistoryFileFormat,
@@ -121,7 +121,7 @@ impl Default for Config {
             buffer_editor: Value::nothing(Span::unknown()),
             use_ansi_coloring: true,
             bracketed_paste: true,
-            edit_mode: "emacs".into(),
+            edit_mode: EditBindings::default(),
             shell_integration: false,
             render_right_prompt_on_last_line: false,
 
@@ -702,13 +702,11 @@ impl Value {
                         try_bool!(value, use_ansi_coloring);
                     }
                     "edit_mode" => {
-                        if let Ok(v) = value.as_string() {
-                            config.edit_mode = v.to_lowercase();
-                        } else {
-                            invalid!(span, "should be a string");
-                            // Reconstruct
-                            *value = Value::string(config.edit_mode.clone(), span);
-                        }
+                        process_string_enum(
+                            &mut config.edit_mode,
+                            format!("$env.config.{key}"),
+                            value,
+                            &mut errors);
                     }
                     "shell_integration" => {
                         try_bool!(value, shell_integration);

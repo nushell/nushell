@@ -103,6 +103,37 @@ impl ReconstructVal for HistoryFileFormat {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Copy)]
+pub enum EditBindings {
+    Vi,
+    #[default]
+    Emacs,
+}
+
+impl FromStr for EditBindings {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "vi" => Ok(Self::Vi),
+            "emacs" => Ok(Self::Emacs),
+            _ => Err("expected either 'emacs' or 'vi'"),
+        }
+    }
+}
+
+impl ReconstructVal for EditBindings {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                EditBindings::Vi => "vi",
+                EditBindings::Emacs => "emacs",
+            },
+            span,
+        )
+    }
+}
+
 /// Parses the config object to extract the strings that will compose a keybinding for reedline
 pub(super) fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
     let span = value.span();
