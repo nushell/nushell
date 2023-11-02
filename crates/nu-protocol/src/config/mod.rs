@@ -164,29 +164,6 @@ impl Value {
                 ));
             };
         }
-        // Some extra helpers
-        macro_rules! try_bool {
-            ($val_ref:ident, $setting:ident) => {
-                if let Ok(b) = &$val_ref.as_bool() {
-                    config.$setting = *b;
-                } else {
-                    invalid!($val_ref.span(), "should be a bool");
-                    // Reconstruct
-                    *$val_ref = Value::bool(config.$setting, $val_ref.span());
-                }
-            };
-        }
-        macro_rules! try_int {
-            ($val_ref:ident, $setting:ident) => {
-                if let Ok(b) = &$val_ref.as_int() {
-                    config.$setting = *b;
-                } else {
-                    invalid!($val_ref.span(), "should be an int");
-                    // Reconstruct
-                    *$val_ref = Value::int(config.$setting, $val_ref.span());
-                }
-            };
-        }
         // When an unsupported config value is found, remove it from this record.
         macro_rules! invalid_key {
             // Because Value::Record discards all of the spans of its
@@ -223,10 +200,10 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "use_ls_colors" => {
-                                        try_bool!(value, use_ls_colors);
+                                        process_bool_config(value, &mut errors, &mut config.use_ls_colors);
                                     }
                                     "clickable_links" => {
-                                        try_bool!(value, show_clickable_links_in_ls);
+                                        process_bool_config(value, &mut errors, &mut config.show_clickable_links_in_ls);
                                     }
                                     _ => {
                                         invalid_key!(
@@ -255,7 +232,7 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "always_trash" => {
-                                        try_bool!(value, rm_always_trash);
+                                        process_bool_config(value, &mut errors, &mut config.rm_always_trash);
                                     }
                                     _ => {
                                         invalid_key!(
@@ -284,13 +261,13 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
-                                        try_bool!(value, history_isolation);
+                                        process_bool_config(value, &mut errors, &mut config.history_isolation);
                                     }
                                     "sync_on_enter" => {
-                                        try_bool!(value, sync_history_on_enter);
+                                        process_bool_config(value, &mut errors, &mut config.sync_history_on_enter);
                                     }
                                     "max_size" => {
-                                        try_int!(value, max_history_size);
+                                        process_int_config(value, &mut errors, &mut config.max_history_size);
                                     }
                                     "file_format" => {
                                         process_string_enum(
@@ -329,10 +306,10 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                     "quick" => {
-                                        try_bool!(value, quick_completions);
+                                        process_bool_config(value, &mut errors, &mut config.quick_completions);
                                     }
                                     "partial" => {
-                                        try_bool!(value, partial_completions);
+                                        process_bool_config(value, &mut errors, &mut config.partial_completions);
                                     }
                                     "algorithm" => {
                                         process_string_enum(
@@ -342,7 +319,7 @@ impl Value {
                                             &mut errors);
                                     }
                                     "case_sensitive" => {
-                                        try_bool!(value, case_sensitive_completions);
+                                        process_bool_config(value, &mut errors, &mut config.case_sensitive_completions);
                                     }
                                     "external" => {
                                         if let Value::Record { val, .. } = value {
@@ -351,7 +328,7 @@ impl Value {
                                                     let span = value.span();
                                                     match key3 {
                                                     "max_results" => {
-                                                        try_int!(value, max_external_completion_results);
+                                                        process_int_config(value, &mut errors, &mut config.max_external_completion_results);
                                                     }
                                                     "completer" => {
                                                         if let Ok(v) = value.as_block() {
@@ -370,7 +347,7 @@ impl Value {
                                                         }
                                                     }
                                                     "enable" => {
-                                                        try_bool!(value, enable_external_completion);
+                                                        process_bool_config(value, &mut errors, &mut config.enable_external_completion);
                                                     }
                                                     _ => {
                                                         invalid_key!(
@@ -464,7 +441,7 @@ impl Value {
                                         }
                                     }
                                     "header_on_separator" => {
-                                        try_bool!(value, table_move_header);
+                                        process_bool_config(value, &mut errors, &mut config.table_move_header);
                                     }
                                     "padding" => match value {
                                         Value::Int { val, .. } => {
@@ -540,7 +517,7 @@ impl Value {
                                         }
                                     }
                                     "show_empty" => {
-                                        try_bool!(value, table_show_empty);
+                                        process_bool_config(value, &mut errors, &mut config.table_show_empty);
                                     }
                                     "abbreviated_row_count" => {
                                         if let Ok(b) = value.as_int() {
@@ -583,7 +560,7 @@ impl Value {
                                 let span = value.span();
                                 match key2 {
                                 "metric" => {
-                                    try_bool!(value, filesize_metric);
+                                    process_bool_config(value, &mut errors, &mut config.filesize_metric);
                                 }
                                 "format" => {
                                     if let Ok(v) = value.as_string() {
@@ -651,7 +628,7 @@ impl Value {
                         }
                     }
                     "use_grid_icons" => {
-                        try_bool!(value, use_grid_icons);
+                        process_bool_config(value, &mut errors, &mut config.use_grid_icons);
                     }
                     "footer_mode" => {
                         if let Ok(b) = value.as_string() {
@@ -680,10 +657,10 @@ impl Value {
                         }
                     }
                     "float_precision" => {
-                        try_int!(value, float_precision);
+                        process_int_config(value, &mut errors, &mut config.float_precision);
                     }
                     "use_ansi_coloring" => {
-                        try_bool!(value, use_ansi_coloring);
+                        process_bool_config(value, &mut errors, &mut config.use_ansi_coloring);
                     }
                     "edit_mode" => {
                         process_string_enum(
@@ -693,7 +670,7 @@ impl Value {
                             &mut errors);
                     }
                     "shell_integration" => {
-                        try_bool!(value, shell_integration);
+                        process_bool_config(value, &mut errors, &mut config.shell_integration);
                     }
                     "buffer_editor" => match value {
                         Value::Nothing { .. } | Value::String { .. } => {
@@ -710,16 +687,16 @@ impl Value {
                         }
                     },
                     "show_banner" => {
-                        try_bool!(value, show_banner);
+                        process_bool_config(value, &mut errors, &mut config.show_banner);
                     }
                     "render_right_prompt_on_last_line" => {
-                        try_bool!(value, render_right_prompt_on_last_line);
+                        process_bool_config(value, &mut errors, &mut config.render_right_prompt_on_last_line);
                     }
                     "bracketed_paste" => {
-                        try_bool!(value, bracketed_paste);
+                        process_bool_config(value, &mut errors, &mut config.bracketed_paste);
                     }
                     "use_kitty_protocol" => {
-                        try_bool!(value, use_kitty_protocol);
+                        process_bool_config(value, &mut errors, &mut config.use_kitty_protocol);
                     }
                     // Menus
                     "menus" => match create_menus(value) {

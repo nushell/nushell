@@ -46,6 +46,46 @@ pub(super) fn process_string_enum<T, S, E>(
     }
 }
 
+pub(super) fn process_bool_config(
+    value: &mut Value,
+    errors: &mut Vec<ShellError>,
+    config_point: &mut bool,
+) {
+    if let Ok(b) = value.as_bool() {
+        *config_point = b;
+    } else {
+        errors.push(ShellError::GenericError(
+            "Error while applying config changes".into(),
+            "should be a bool".to_string(),
+            Some(value.span()),
+            Some("This value will be ignored.".into()),
+            vec![],
+        ));
+        // Reconstruct
+        *value = Value::bool(*config_point, value.span());
+    }
+}
+
+pub(super) fn process_int_config(
+    value: &mut Value,
+    errors: &mut Vec<ShellError>,
+    config_point: &mut i64,
+) {
+    if let Ok(b) = value.as_int() {
+        *config_point = b;
+    } else {
+        errors.push(ShellError::GenericError(
+            "Error while applying config changes".into(),
+            "should be an int".to_string(),
+            Some(value.span()),
+            Some("This value will be ignored.".into()),
+            vec![],
+        ));
+        // Reconstruct
+        *value = Value::int(*config_point, value.span());
+    }
+}
+
 pub(super) fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     Ok(value
         .as_record()?
