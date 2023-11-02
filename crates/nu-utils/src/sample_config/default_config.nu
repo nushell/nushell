@@ -50,6 +50,7 @@ let dark_theme = {
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
+    shape_keyword: cyan_bold
     shape_list: cyan_bold
     shape_literal: blue
     shape_match_pattern: green
@@ -113,6 +114,7 @@ let light_theme = {
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
+    shape_keyword: cyan_bold
     shape_list: cyan_bold
     shape_literal: blue
     shape_match_pattern: green
