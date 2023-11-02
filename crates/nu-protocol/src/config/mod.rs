@@ -1,86 +1,39 @@
+use self::external_completer::*;
+use self::hooks::*;
+use self::reedline::*;
+use self::table::*;
+
 use crate::{record, Record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-const TRIM_STRATEGY_DEFAULT: TrimStrategy = TrimStrategy::Wrap {
-    try_to_keep_words: true,
+pub use self::hooks::Hooks;
+pub use self::reedline::{
+    create_menus, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
+pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
 
-/// Definition of a parsed keybinding from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ParsedKeybinding {
-    pub modifier: Value,
-    pub keycode: Value,
-    pub event: Value,
-    pub mode: Value,
+mod external_completer;
+mod hooks;
+mod reedline;
+mod table;
+
+fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
+    Ok(value
+        .as_record()?
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect())
 }
 
-/// Definition of a parsed menu from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct ParsedMenu {
-    pub name: Value,
-    pub marker: Value,
-    pub only_buffer_difference: Value,
-    pub style: Value,
-    pub menu_type: Value,
-    pub source: Value,
-}
-
-/// Definition of a parsed hook from the config object
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct Hooks {
-    pub pre_prompt: Option<Value>,
-    pub pre_execution: Option<Value>,
-    pub env_change: Option<Value>,
-    pub display_output: Option<Value>,
-    pub command_not_found: Option<Value>,
-}
-
-impl Hooks {
-    pub fn new() -> Self {
-        Self {
-            pre_prompt: None,
-            pre_execution: None,
-            env_change: None,
-            display_output: Some(Value::string(
-                "if (term size).columns >= 100 { table -e } else { table }",
-                Span::unknown(),
-            )),
-            command_not_found: None,
-        }
-    }
-}
-
-impl Default for Hooks {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
-#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
-pub enum NuCursorShape {
-    UnderScore,
-    Line,
-    Block,
-    BlinkUnderScore,
-    BlinkLine,
-    BlinkBlock,
-}
-
-fn reconstruct_cursor_shape(name: Option<NuCursorShape>, span: Span) -> Value {
-    Value::string(
-        match name {
-            Some(NuCursorShape::Line) => "line",
-            Some(NuCursorShape::Block) => "block",
-            Some(NuCursorShape::UnderScore) => "underscore",
-            Some(NuCursorShape::BlinkLine) => "blink_line",
-            Some(NuCursorShape::BlinkBlock) => "blink_block",
-            Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
-            None => "inherit",
-        },
-        span,
-    )
+pub fn extract_value<'record>(
+    name: &str,
+    record: &'record Record,
+    span: Span,
+) -> Result<&'record Value, ShellError> {
+    record
+        .get(name)
+        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -145,7 +98,7 @@ impl Default for Config {
             table_mode: "rounded".into(),
             table_index_mode: TableIndexMode::Always,
             table_show_empty: true,
-            trim_strategy: TRIM_STRATEGY_DEFAULT,
+            trim_strategy: TrimStrategy::default(),
             table_move_header: false,
             table_indent: TableIndent { left: 1, right: 1 },
             table_abbreviation_threshold: None,
@@ -197,124 +150,6 @@ impl Default for Config {
             use_kitty_protocol: false,
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum FooterMode {
-    /// Never show the footer
-    Never,
-    /// Always show the footer
-    Always,
-    /// Only show the footer if there are more than RowCount rows
-    RowCount(u64),
-    /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
-    Auto,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
-pub enum HistoryFileFormat {
-    /// Store history as an SQLite database with additional context
-    Sqlite,
-    /// store history as a plain text file where every line is one command (without any context such as timestamps)
-    PlainText,
-}
-
-fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
-    Value::string(
-        match config.history_file_format {
-            HistoryFileFormat::Sqlite => "sqlite",
-            HistoryFileFormat::PlainText => "plaintext",
-        },
-        span,
-    )
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum TableIndexMode {
-    /// Always show indexes
-    Always,
-    /// Never show indexes
-    Never,
-    /// Show indexes when a table has "index" column
-    Auto,
-}
-
-fn reconstruct_index_mode(config: &Config, span: Span) -> Value {
-    Value::string(
-        match config.table_index_mode {
-            TableIndexMode::Always => "always",
-            TableIndexMode::Never => "never",
-            TableIndexMode::Auto => "auto",
-        },
-        span,
-    )
-}
-
-/// A Table view configuration, for a situation where
-/// we need to limit cell width in order to adjust for a terminal size.
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub enum TrimStrategy {
-    /// Wrapping strategy.
-    ///
-    /// It it's similar to original nu_table, strategy.
-    Wrap {
-        /// A flag which indicates whether is it necessary to try
-        /// to keep word boundaries.
-        try_to_keep_words: bool,
-    },
-    /// Truncating strategy, where we just cut the string.
-    /// And append the suffix if applicable.
-    Truncate {
-        /// Suffix which can be appended to a truncated string after being cut.
-        ///
-        /// It will be applied only when there's enough room for it.
-        /// For example in case where a cell width must be 12 chars, but
-        /// the suffix takes 13 chars it won't be used.
-        suffix: Option<String>,
-    },
-}
-
-impl TrimStrategy {
-    pub fn wrap(dont_split_words: bool) -> Self {
-        Self::Wrap {
-            try_to_keep_words: dont_split_words,
-        }
-    }
-
-    pub fn truncate(suffix: Option<String>) -> Self {
-        Self::Truncate { suffix }
-    }
-}
-
-fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
-    match &config.trim_strategy {
-        TrimStrategy::Wrap { try_to_keep_words } => Value::record(
-            record! {
-                "methodology" => Value::string("wrapping", span),
-                "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
-            },
-            span,
-        ),
-        TrimStrategy::Truncate { suffix } => Value::record(
-            match suffix {
-                Some(s) => record! {
-                    "methodology" => Value::string("truncating", span),
-                    "truncating_suffix" => Value::string(s.clone(), span),
-                },
-                None => record! {
-                    "methodology" => Value::string("truncating", span),
-                    "truncating_suffix" => Value::nothing(span),
-                },
-            },
-            span,
-        ),
-    }
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct TableIndent {
-    pub left: usize,
-    pub right: usize,
 }
 
 impl Value {
@@ -1289,255 +1124,4 @@ impl Value {
             },
         )
     }
-}
-
-fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
-    if let Some(block) = config.external_completer {
-        Value::block(block, span)
-    } else {
-        Value::nothing(span)
-    }
-}
-
-fn reconstruct_external(config: &Config, span: Span) -> Value {
-    Value::record(
-        record! {
-            "max_results" => Value::int(config.max_external_completion_results, span),
-            "completer" => reconstruct_external_completer(config, span),
-            "enable" => Value::bool(config.enable_external_completion, span),
-        },
-        span,
-    )
-}
-
-fn reconstruct_padding(config: &Config, span: Span) -> Value {
-    // For better completions always reconstruct the record version even though unsigned int would
-    // be supported, `as` conversion is sane as it came from an i64 original
-    Value::record(
-        record!(
-            "left" => Value::int(config.table_indent.left as i64, span),
-            "right" => Value::int(config.table_indent.right as i64, span),
-        ),
-        span,
-    )
-}
-
-fn try_parse_trim_strategy(
-    value: &Value,
-    errors: &mut Vec<ShellError>,
-) -> Result<TrimStrategy, ShellError> {
-    let map = value.as_record().map_err(|e| {
-        ShellError::GenericError(
-            "Error while applying config changes".into(),
-            "$env.config.table.trim is not a record".into(),
-            Some(value.span()),
-            Some("Please consult the documentation for configuring Nushell.".into()),
-            vec![e],
-        )
-    })?;
-
-    let mut methodology = match map.get("methodology") {
-        Some(value) => match try_parse_trim_methodology(value) {
-            Some(methodology) => methodology,
-            None => return Ok(TRIM_STRATEGY_DEFAULT),
-        },
-        None => {
-            errors.push(ShellError::GenericError(
-                "Error while applying config changes".into(),
-                "$env.config.table.trim.methodology was not provided".into(),
-                Some(value.span()),
-                Some("Please consult the documentation for configuring Nushell.".into()),
-                vec![],
-            ));
-            return Ok(TRIM_STRATEGY_DEFAULT);
-        }
-    };
-
-    match &mut methodology {
-        TrimStrategy::Wrap { try_to_keep_words } => {
-            if let Some(value) = map.get("wrapping_try_keep_words") {
-                if let Ok(b) = value.as_bool() {
-                    *try_to_keep_words = b;
-                } else {
-                    errors.push(ShellError::GenericError(
-                        "Error while applying config changes".into(),
-                        "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
-                        Some(value.span()),
-                        Some("Please consult the documentation for configuring Nushell.".into()),
-                        vec![],
-                    ));
-                }
-            }
-        }
-        TrimStrategy::Truncate { suffix } => {
-            if let Some(value) = map.get("truncating_suffix") {
-                if let Ok(v) = value.as_string() {
-                    *suffix = Some(v);
-                } else {
-                    errors.push(ShellError::GenericError(
-                        "Error while applying config changes".into(),
-                        "$env.config.table.trim.truncating_suffix is not a string".into(),
-                        Some(value.span()),
-                        Some("Please consult the documentation for configuring Nushell.".into()),
-                        vec![],
-                    ));
-                }
-            }
-        }
-    }
-
-    Ok(methodology)
-}
-
-fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
-    if let Ok(value) = value.as_string() {
-        match value.to_lowercase().as_str() {
-            "wrapping" => {
-                return Some(TrimStrategy::Wrap {
-                    try_to_keep_words: false,
-                });
-            }
-            "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
-            _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
-        }
-    } else {
-        eprintln!("$env.config.table.trim.methodology is not a string")
-    }
-
-    None
-}
-
-fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
-    Ok(value
-        .as_record()?
-        .iter()
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect())
-}
-
-// Parse the hooks to find the blocks to run when the hooks fire
-fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => {
-            let mut hooks = Hooks::new();
-
-            for (col, val) in val {
-                match col.as_str() {
-                    "pre_prompt" => hooks.pre_prompt = Some(val.clone()),
-                    "pre_execution" => hooks.pre_execution = Some(val.clone()),
-                    "env_change" => hooks.env_change = Some(val.clone()),
-                    "display_output" => hooks.display_output = Some(val.clone()),
-                    "command_not_found" => hooks.command_not_found = Some(val.clone()),
-                    x => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
-                                .to_string(),
-                            x.to_string(),
-                            span,
-                        ));
-                    }
-                }
-            }
-
-            Ok(hooks)
-        }
-        _ => Err(ShellError::UnsupportedConfigValue(
-            "record for 'hooks' config".into(),
-            "non-record value".into(),
-            span,
-        )),
-    }
-}
-
-// Parses the config object to extract the strings that will compose a keybinding for reedline
-fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => {
-            // Finding the modifier value in the record
-            let modifier = extract_value("modifier", val, span)?.clone();
-            let keycode = extract_value("keycode", val, span)?.clone();
-            let mode = extract_value("mode", val, span)?.clone();
-            let event = extract_value("event", val, span)?.clone();
-
-            let keybinding = ParsedKeybinding {
-                modifier,
-                keycode,
-                mode,
-                event,
-            };
-
-            // We return a menu to be able to do recursion on the same function
-            Ok(vec![keybinding])
-        }
-        Value::List { vals, .. } => {
-            let res = vals
-                .iter()
-                .map(create_keybindings)
-                .collect::<Result<Vec<Vec<ParsedKeybinding>>, ShellError>>();
-
-            let res = res?
-                .into_iter()
-                .flatten()
-                .collect::<Vec<ParsedKeybinding>>();
-
-            Ok(res)
-        }
-        _ => Ok(Vec::new()),
-    }
-}
-
-// Parses the config object to extract the strings that will compose a keybinding for reedline
-pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
-    let span = value.span();
-    match value {
-        Value::Record { val, .. } => {
-            // Finding the modifier value in the record
-            let name = extract_value("name", val, span)?.clone();
-            let marker = extract_value("marker", val, span)?.clone();
-            let only_buffer_difference =
-                extract_value("only_buffer_difference", val, span)?.clone();
-            let style = extract_value("style", val, span)?.clone();
-            let menu_type = extract_value("type", val, span)?.clone();
-
-            // Source is an optional value
-            let source = match extract_value("source", val, span) {
-                Ok(source) => source.clone(),
-                Err(_) => Value::nothing(span),
-            };
-
-            let menu = ParsedMenu {
-                name,
-                only_buffer_difference,
-                marker,
-                style,
-                menu_type,
-                source,
-            };
-
-            Ok(vec![menu])
-        }
-        Value::List { vals, .. } => {
-            let res = vals
-                .iter()
-                .map(create_menus)
-                .collect::<Result<Vec<Vec<ParsedMenu>>, ShellError>>();
-
-            let res = res?.into_iter().flatten().collect::<Vec<ParsedMenu>>();
-
-            Ok(res)
-        }
-        _ => Ok(Vec::new()),
-    }
-}
-
-pub fn extract_value<'record>(
-    name: &str,
-    record: &'record Record,
-    span: Span,
-) -> Result<&'record Value, ShellError> {
-    record
-        .get(name)
-        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
 }
