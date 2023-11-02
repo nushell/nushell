@@ -120,7 +120,7 @@ fn fragment(input: Value, pretty: bool, config: &Config) -> String {
         };
 
         out.push_str(&markup);
-        let data = match input.get_data_by_key(&headers[0]) {
+        let data = match input.get_data_by_key(headers[0]) {
             Some(v) => v,
             None => input,
         };
