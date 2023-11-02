@@ -86,6 +86,22 @@ pub(super) fn process_int_config(
     }
 }
 
+pub(super) fn report_invalid_key(keys: &[&str], span: Span, errors: &mut Vec<ShellError>) {
+    // Because Value::Record discards all of the spans of its
+    // column names (by storing them as Strings), the key name cannot be provided
+    // as a value, even in key errors.
+    errors.push(ShellError::GenericError(
+        "Error while applying config changes".into(),
+        format!(
+            "$env.config.{} is an unknown config setting",
+            keys.join(".")
+        ),
+        Some(span),
+        Some("This value will not appear in your $env.config record.".into()),
+        vec![],
+    ));
+}
+
 pub(super) fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     Ok(value
         .as_record()?

@@ -164,21 +164,6 @@ impl Value {
                 ));
             };
         }
-        // When an unsupported config value is found, remove it from this record.
-        macro_rules! invalid_key {
-            // Because Value::Record discards all of the spans of its
-            // column names (by storing them as Strings), the key name cannot be provided
-            // as a value, even in key errors.
-            ($span:expr, $msg:literal) => {
-                errors.push(ShellError::GenericError(
-                    "Error while applying config changes".into(),
-                    format!($msg),
-                    Some($span),
-                    Some("This value will not appear in your $env.config record.".into()),
-                    vec![],
-                ));
-            };
-        }
 
         // Config record (self) mutation rules:
         // * When parsing a config Record, if a config key error occurs, remove the key.
@@ -206,10 +191,7 @@ impl Value {
                                         process_bool_config(value, &mut errors, &mut config.show_clickable_links_in_ls);
                                     }
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
                                     }
                                 }; true
@@ -235,10 +217,7 @@ impl Value {
                                         process_bool_config(value, &mut errors, &mut config.rm_always_trash);
                                     }
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
                                     }
                                 };
@@ -277,10 +256,7 @@ impl Value {
                                             &mut errors);
                                     }
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
                                     }
                                 };
@@ -349,13 +325,10 @@ impl Value {
                                                     "enable" => {
                                                         process_bool_config(value, &mut errors, &mut config.enable_external_completion);
                                                     }
-                                                    _ => {
-                                                        invalid_key!(
-                                                            span,
-                                                            "$env.config.{key}.{key2}.{key3} is an unknown config setting"
-                                                    );
-                                                        return false;
-                                                    }
+                                                        _ => {
+                                                            report_invalid_key(&[key, key2, key3], span, &mut errors);
+                                                            return false;
+                                                        }
                                                     };
                                                     true
                                                 });
@@ -366,10 +339,7 @@ impl Value {
                                         }
                                     }
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
                                     }
                                 };
@@ -399,10 +369,7 @@ impl Value {
                                     "vi_normal" => &mut config.cursor_shape_vi_normal,
                                     "emacs" =>  &mut config.cursor_shape_emacs,
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
                                     }
                                 };
@@ -478,10 +445,7 @@ impl Value {
                                                         }
                                                     }
                                                     _ => {
-                                                    invalid_key!(
-                                                        span,
-                                                        "$env.config.{key}.{key2}.{key3} is an unknown config setting"
-                                                    );
+                                        report_invalid_key(&[key, key2, key3], span, &mut errors);
                                                     return false;
                                                     }
                                                 };
@@ -529,10 +493,7 @@ impl Value {
                                         }
                                     }
                                     _ => {
-                                        invalid_key!(
-                                            span,
-                                            "$env.config.{key}.{key2} is an unknown config setting"
-                                        );
+                                        report_invalid_key(&[key, key2], span, &mut errors);
                                         return false
                                     }
                                 };
@@ -571,10 +532,7 @@ impl Value {
                                     }
                                 }
                                 _ => {
-                                    invalid_key!(
-                                        span,
-                                        "$env.config.{key}.{key2} is an unknown config setting"
-                                    );
+                                    report_invalid_key(&[key, key2], span, &mut errors);
                                     return false;
                                 }
                             };
@@ -791,11 +749,8 @@ impl Value {
                                         invalid!(span, "should be a string");
                                     }
                                 }
-                                x => {
-                                    invalid_key!(
-                                        span,
-                                        "$env.config.{key}.{x} is an unknown config setting"
-                                    );
+                                _ => {
+                                    report_invalid_key(&[key, key2], span, &mut errors);
                                     return false;
                                 }
                             }; true})
@@ -814,10 +769,7 @@ impl Value {
                     }
                     // Catch all
                     _ => {
-                        invalid_key!(
-                            span,
-                            "$env.config.{key} is an unknown config setting"
-                        );
+                    report_invalid_key(&[key], span, &mut errors);
                         return false;
                     }
             };
