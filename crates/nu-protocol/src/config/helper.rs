@@ -5,15 +5,14 @@ pub(super) trait ReconstructVal {
     fn reconstruct_value(&self, span: Span) -> Value;
 }
 
-pub(super) fn process_string_enum<T, S, E>(
+pub(super) fn process_string_enum<T, E>(
     config_point: &mut T,
-    config_path: S,
+    config_path: &[&str],
     value: &mut Value,
     errors: &mut Vec<ShellError>,
 ) where
     T: FromStr<Err = E> + ReconstructVal,
     E: Display,
-    S: AsRef<str> + Display,
 {
     let span = value.span();
     if let Ok(v) = value.as_string() {
@@ -24,7 +23,10 @@ pub(super) fn process_string_enum<T, S, E>(
             Err(err) => {
                 errors.push(ShellError::GenericError(
                     "Error while applying config changes".into(),
-                    format!("unrecognized {config_path} option '{v}'"),
+                    format!(
+                        "unrecognized $env.config.{} option '{v}'",
+                        config_path.join(".")
+                    ),
                     Some(span),
                     Some(err.to_string()),
                     vec![],
@@ -36,7 +38,7 @@ pub(super) fn process_string_enum<T, S, E>(
     } else {
         errors.push(ShellError::GenericError(
             "Error while applying config changes".into(),
-            format!("{config_path} should be a string"),
+            format!("$env.config.{} should be a string", config_path.join(".")),
             Some(span),
             Some("This value will be ignored.".into()),
             vec![],

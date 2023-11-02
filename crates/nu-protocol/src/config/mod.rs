@@ -251,7 +251,7 @@ impl Value {
                                     "file_format" => {
                                         process_string_enum(
                                             &mut config.history_file_format,
-                                            format!("$env.config.{key}.{key2}"),
+                                            &[key, key2],
                                             value,
                                             &mut errors);
                                     }
@@ -290,7 +290,7 @@ impl Value {
                                     "algorithm" => {
                                         process_string_enum(
                                             &mut config.completion_algorithm,
-                                            format!("$env.config.{key}.{key2}"),
+                                            &[key, key2],
                                             value,
                                             &mut errors);
                                     }
@@ -303,28 +303,28 @@ impl Value {
                                                 {
                                                     let span = value.span();
                                                     match key3 {
-                                                    "max_results" => {
-                                                        process_int_config(value, &mut errors, &mut config.max_external_completion_results);
-                                                    }
-                                                    "completer" => {
-                                                        if let Ok(v) = value.as_block() {
-                                                            config.external_completer = Some(v)
-                                                        } else {
-                                                            match value {
-                                                                Value::Nothing { .. } => {}
-                                                                _ => {
-                                                                    invalid!(span, "should be a block or null");
-                                                                    // Reconstruct
-                                                                    *value = reconstruct_external_completer(&config,
-                                                                        span
-                                                                    );
+                                                        "max_results" => {
+                                                            process_int_config(value, &mut errors, &mut config.max_external_completion_results);
+                                                        }
+                                                        "completer" => {
+                                                            if let Ok(v) = value.as_block() {
+                                                                config.external_completer = Some(v)
+                                                            } else {
+                                                                match value {
+                                                                    Value::Nothing { .. } => {}
+                                                                    _ => {
+                                                                        invalid!(span, "should be a block or null");
+                                                                        // Reconstruct
+                                                                        *value = reconstruct_external_completer(&config,
+                                                                            span
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
                                                         }
-                                                    }
-                                                    "enable" => {
-                                                        process_bool_config(value, &mut errors, &mut config.enable_external_completion);
-                                                    }
+                                                        "enable" => {
+                                                            process_bool_config(value, &mut errors, &mut config.enable_external_completion);
+                                                        }
                                                         _ => {
                                                             report_invalid_key(&[key, key2, key3], span, &mut errors);
                                                             return false;
@@ -375,7 +375,7 @@ impl Value {
                                 };
                                 process_string_enum(
                                     config_point,
-                                    format!("$env.config.{key}.{key2}"),
+                                    &[key, key2],
                                     value,
                                     &mut errors);
                                 true
@@ -401,7 +401,7 @@ impl Value {
                                     "mode" => {
                                         process_string_enum(
                                             &mut config.table_mode,
-                                            format!("$env.config.{key}.{key2}"),
+                                    &[key, key2],
                                             value,
                                             &mut errors);
                                     }
@@ -463,7 +463,7 @@ impl Value {
                                     "index_mode" => {
                                         process_string_enum(
                                             &mut config.table_index_mode,
-                                            format!("$env.config.{key}.{key2}"),
+                                            &[key, key2],
                                             value,
                                             &mut errors);
                                     }
@@ -589,7 +589,7 @@ impl Value {
                     "footer_mode" => {
                         process_string_enum(
                             &mut config.footer_mode,
-                            format!("$env.config.{key}"),
+                            &[key],
                             value,
                             &mut errors);
                     }
@@ -602,7 +602,7 @@ impl Value {
                     "edit_mode" => {
                         process_string_enum(
                             &mut config.edit_mode,
-                            format!("$env.config.{key}"),
+                            &[key],
                             value,
                             &mut errors);
                     }
@@ -763,7 +763,7 @@ impl Value {
                     "error_style" => {
                         process_string_enum(
                             &mut config.error_style,
-                            format!("$env.config.{key}"),
+                            &[key],
                             value,
                             &mut errors);
                     }
