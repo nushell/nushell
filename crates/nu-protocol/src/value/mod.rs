@@ -633,12 +633,10 @@ impl Value {
                 let out = vals
                     .iter()
                     .map(|item| {
-                        if let Value::Record { val, .. } = item {
-                            val.get(name).cloned()
-                        } else {
-                            None
-                        }
-                        .unwrap_or(Value::nothing(span))
+                        item.as_record()
+                            .ok()
+                            .and_then(|val| val.get(name).cloned())
+                            .unwrap_or(Value::nothing(span))
                     })
                     .collect::<Vec<_>>();
 

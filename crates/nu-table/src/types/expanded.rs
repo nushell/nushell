@@ -116,13 +116,12 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             }
 
             let index = row + cfg.opts.row_offset;
-            let text = if let Value::Record { val, .. } = item {
-                val.get(INDEX_COLUMN_NAME)
-            } else {
-                None
-            }
-            .map(|value| value.into_string("", cfg.opts.config))
-            .unwrap_or_else(|| index.to_string());
+            let text = item
+                .as_record()
+                .ok()
+                .and_then(|val| val.get(INDEX_COLUMN_NAME))
+                .map(|value| value.into_string("", cfg.opts.config))
+                .unwrap_or_else(|| index.to_string());
 
             let row = row + with_header as usize;
             let value = NuTableCell::new(text);
