@@ -1,6 +1,7 @@
 use self::completer::*;
 use self::helper::*;
 use self::hooks::*;
+use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
@@ -845,13 +846,7 @@ impl Value {
                         } else {
                             invalid!(span, "should be a record");
                             // Reconstruct
-                            *value = Value::record(
-                                record! {
-                                    "metric" => Value::bool(config.filesize_metric, span),
-                                    "format" => Value::string(config.filesize_format.clone(), span),
-                                },
-                                span,
-                            );
+                            *value = reconstruct_datetime_format(&config, span);
                         }
                     }
                     "error_style" => {
