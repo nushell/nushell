@@ -290,22 +290,11 @@ impl Value {
                                         try_int!(value, max_history_size);
                                     }
                                     "file_format" => {
-                                        if let Ok(v) = value.as_string() {
-                                            match v.parse() {
-                                                Ok(format) => {config.history_file_format = format;},
-                                                Err(err) => {
-                                                    invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
-                                                    );
-                                                    // Reconstruct
-                                                    *value = config.history_file_format.reconstruct_value(span);
-                                                },
-                                            }
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            // Reconstruct
-                                            *value = config.history_file_format.reconstruct_value(span);
-                                        }
+                                        process_string_enum(
+                                            &mut config.history_file_format,
+                                            format!("$env.config.{key}.{key2}"),
+                                            value,
+                                            &mut errors);
                                     }
                                     _ => {
                                         invalid_key!(
@@ -343,24 +332,11 @@ impl Value {
                                         try_bool!(value, partial_completions);
                                     }
                                     "algorithm" => {
-                                        if let Ok(v) = value.as_string() {
-                                            match v.parse() {
-                                                Ok(algo) => {
-                                                    config.completion_algorithm = algo;
-                                                }
-                                                Err(err) => {
-                                                    invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
-                                                    );
-                                                    // Reconstruct
-                                                    *value = config.completion_algorithm.reconstruct_value(span);
-                                                }
-                                            };
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            // Reconstruct
-                                            *value = config.completion_algorithm.reconstruct_value(span);
-                                        }
+                                        process_string_enum(
+                                            &mut config.completion_algorithm,
+                                            format!("$env.config.{key}.{key2}"),
+                                            value,
+                                            &mut errors);
                                     }
                                     "case_sensitive" => {
                                         try_bool!(value, case_sensitive_completions);
@@ -438,61 +414,10 @@ impl Value {
                         if let Value::Record { val, .. } = value {
                             val.retain_mut(|key2, value| {
                                 let span = value.span();
-                                match key2 {
-                                    "vi_insert" => {
-                                        if let Ok(v) = value.as_string() {
-                                            match v.parse() {
-                                                Ok(shape) => {config.cursor_shape_vi_insert = shape;}
-                                                Err(err) => {
-                                                    invalid!( span,
-                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
-                                                    );
-                                                    // Reconstruct
-                                                    *value = config.cursor_shape_vi_insert.reconstruct_value(span);
-                                                },
-                                            };
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            // Reconstruct
-                                            *value = config.cursor_shape_vi_insert.reconstruct_value(span);
-                                        }
-                                    }
-                                    "vi_normal" => {
-                                        if let Ok(v) = value.as_string() {
-                                            match v.parse() {
-                                                Ok(shape) => {config.cursor_shape_vi_normal = shape;}
-                                                Err(err) => {
-                                                    invalid!( span,
-                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
-                                                    );
-                                                    // Reconstruct
-                                                    *value = config.cursor_shape_vi_normal.reconstruct_value(span);
-                                                },
-                                            };
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            // Reconstruct
-                                            *value = config.cursor_shape_vi_normal.reconstruct_value(span);
-                                        }
-                                    }
-                                    "emacs" => {
-                                        if let Ok(v) = value.as_string() {
-                                            match v.parse() {
-                                                Ok(shape) => {config.cursor_shape_emacs = shape;}
-                                                Err(err) => {
-                                                    invalid!( span,
-                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
-                                                    );
-                                                    // Reconstruct
-                                                    *value = config.cursor_shape_emacs.reconstruct_value(span);
-                                                },
-                                            };
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            // Reconstruct
-                                            *value = config.cursor_shape_emacs.reconstruct_value(span);
-                                        }
-                                    }
+                                let config_point = match key2 {
+                                    "vi_insert" => &mut config.cursor_shape_vi_insert,
+                                    "vi_normal" => &mut config.cursor_shape_vi_normal,
+                                    "emacs" =>  &mut config.cursor_shape_emacs,
                                     _ => {
                                         invalid_key!(
                                             span,
@@ -501,6 +426,11 @@ impl Value {
                                         return false;
                                     }
                                 };
+                                process_string_enum(
+                                    config_point,
+                                    format!("$env.config.{key}.{key2}"),
+                                    value,
+                                    &mut errors);
                                 true
                             });
                         } else {
