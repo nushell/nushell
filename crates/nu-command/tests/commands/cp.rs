@@ -582,7 +582,6 @@ fn copy_file_with_read_permission_impl(progress: bool) {
     });
 }
 
-#[ignore = "not implemented with ucp"]
 #[test]
 fn copy_file_with_update_flag() {
     copy_file_with_update_flag_impl(false);

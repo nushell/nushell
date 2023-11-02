@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -60,57 +60,44 @@ impl Command for Insert {
         vec![Example {
             description: "Insert a new entry into a single record",
             example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-            result: Some(Value::test_record(Record {
-                cols: vec!["name".into(), "stars".into(), "alias".into()],
-                vals: vec![
-                    Value::test_string("nu"),
-                    Value::test_int(5),
-                    Value::test_string("Nushell"),
-                ],
+            result: Some(Value::test_record(record! {
+                "name" =>  Value::test_string("nu"),
+                "stars" => Value::test_int(5),
+                "alias" => Value::test_string("Nushell"),
             })),
         },
         Example {
             description: "Insert a new column into a table, populating all rows",
             example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::list (
-                vec![Value::test_record(Record {
-                    cols: vec!["project".into(), "lang".into(), "type".into()],
-                    vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")],
+            result: Some(Value::test_list (
+                vec![Value::test_record(record! {
+                    "project" => Value::test_string("Nushell"),
+                    "lang" =>    Value::test_string("Rust"),
+                    "type" =>    Value::test_string("shell"),
                 })],
-                Span::test_data(),
             )),
         },
         Example {
             description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
             example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
-            result: Some(Value::list (
+            result: Some(Value::test_list (
                 vec![
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(0),
-                            Value::test_int(7),
-                            Value::test_int(7),
-                        ],
+                    Value::test_record(record! {
+                        "index" => Value::test_int(0),
+                        "foo" =>   Value::test_int(7),
+                        "bar" =>   Value::test_int(7),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(),"foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(8),
-                            Value::test_int(9),
-                        ],
+                    Value::test_record(record! {
+                        "index" => Value::test_int(1),
+                        "foo" =>   Value::test_int(8),
+                        "bar" =>   Value::test_int(9),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(2),
-                            Value::test_int(9),
-                            Value::test_int(11),
-                        ],
+                    Value::test_record(record! {
+                        "index" => Value::test_int(2),
+                        "foo" =>   Value::test_int(9),
+                        "bar" =>   Value::test_int(11),
                     }),
                 ],
-                Span::test_data(),
             )),
         }]
     }
@@ -135,7 +122,7 @@ fn insert(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: Closure = FromValue::from_value(&replacement)?;
+        let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
         let mut stack = stack.captures_to_stack(&capture_block.captures);

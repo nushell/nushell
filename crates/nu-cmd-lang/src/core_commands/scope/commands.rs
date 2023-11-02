@@ -17,7 +17,7 @@ impl Command for ScopeCommands {
         Signature::build("scope commands")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .category(Category::Filters)
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {

@@ -472,6 +472,8 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
 
 #[cfg(test)]
 mod test {
+    use nu_protocol::record;
+
     use super::*;
 
     #[test]
@@ -499,9 +501,8 @@ mod test {
         .unwrap();
         let converted_db = read_entire_sqlite_db(db, Span::test_data(), None).unwrap();
 
-        let expected = Value::test_record(Record {
-            cols: vec!["person".to_string()],
-            vals: vec![Value::list(vec![], Span::test_data())],
+        let expected = Value::test_record(record! {
+            "person" => Value::test_list(vec![]),
         });
 
         assert_eq!(converted_db, expected);
@@ -529,24 +530,19 @@ mod test {
 
         let converted_db = read_entire_sqlite_db(db, span, None).unwrap();
 
-        let expected = Value::test_record(Record {
-            cols: vec!["item".to_string()],
-            vals: vec![Value::list(
+        let expected = Value::test_record(record! {
+            "item" => Value::test_list(
                 vec![
-                    Value::test_record(Record {
-                        cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![Value::int(123, span), Value::nothing(span)],
+                    Value::test_record(record! {
+                        "id" =>   Value::test_int(123),
+                        "name" => Value::nothing(span),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["id".to_string(), "name".to_string()],
-                        vals: vec![
-                            Value::int(456, span),
-                            Value::string("foo bar".to_string(), span),
-                        ],
+                    Value::test_record(record! {
+                        "id" =>   Value::test_int(456),
+                        "name" => Value::test_string("foo bar"),
                     }),
-                ],
-                span,
-            )],
+                ]
+            ),
         });
 
         assert_eq!(converted_db, expected);

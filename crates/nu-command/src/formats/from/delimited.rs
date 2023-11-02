@@ -35,21 +35,25 @@ fn from_delimited_string_to_value(
 
     let mut rows = vec![];
     for row in reader.records() {
-        let mut output_row = vec![];
-        for value in row?.iter() {
-            if no_infer {
-                output_row.push(Value::string(value.to_string(), span));
-                continue;
-            }
+        let row = row?;
+        let output_row = (0..headers.len())
+            .map(|i| {
+                row.get(i)
+                    .map(|value| {
+                        if no_infer {
+                            Value::string(value.to_string(), span)
+                        } else if let Ok(i) = value.parse::<i64>() {
+                            Value::int(i, span)
+                        } else if let Ok(f) = value.parse::<f64>() {
+                            Value::float(f, span)
+                        } else {
+                            Value::string(value.to_string(), span)
+                        }
+                    })
+                    .unwrap_or(Value::nothing(span))
+            })
+            .collect::<Vec<Value>>();
 
-            if let Ok(i) = value.parse::<i64>() {
-                output_row.push(Value::int(i, span));
-            } else if let Ok(f) = value.parse::<f64>() {
-                output_row.push(Value::float(f, span));
-            } else {
-                output_row.push(Value::string(value.to_string(), span));
-            }
-        }
         rows.push(Value::record(
             Record {
                 cols: headers.clone(),

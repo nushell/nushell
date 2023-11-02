@@ -597,8 +597,8 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the record to ensure you aren't reusing the same field name
-    #[error("Record field used twice")]
-    #[diagnostic(code(nu::shell::not_a_list))]
+    #[error("Record field or table column used twice")]
+    #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
         #[label = "field redefined here"]
         second_use: Span,

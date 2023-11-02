@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape,
+    Type, Value,
 };
 
 use super::{vertical_rotate_value, VerticalDirection};
@@ -33,27 +33,23 @@ impl Command for RollDown {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let columns = vec!["a".to_string(), "b".to_string()];
         vec![Example {
             description: "Rolls rows down of a table",
             example: "[[a b]; [1 2] [3 4] [5 6]] | roll down",
-            result: Some(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: columns.clone(),
-                        vals: vec![Value::test_int(5), Value::test_int(6)],
-                    }),
-                    Value::test_record(Record {
-                        cols: columns.clone(),
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
-                    }),
-                    Value::test_record(Record {
-                        cols: columns,
-                        vals: vec![Value::test_int(3), Value::test_int(4)],
-                    }),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_int(5),
+                    "b" => Value::test_int(6),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_int(3),
+                    "b" => Value::test_int(4),
+                }),
+            ])),
         }]
     }
 

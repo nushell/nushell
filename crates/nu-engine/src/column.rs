@@ -8,7 +8,7 @@ pub fn get_columns(input: &[Value]) -> Vec<String> {
             return vec![];
         };
 
-        for col in &val.cols {
+        for col in val.columns() {
             if !columns.contains(col) {
                 columns.push(col.to_string());
             }

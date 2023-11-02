@@ -2,7 +2,7 @@ use ical::parser::ical::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
+use nu_protocol::{record, PluginExample, ShellError, Span, Value};
 use std::io::BufReader;
 
 pub const CMD_NAME: &str = "from ics";
@@ -55,29 +55,15 @@ pub fn examples() -> Vec<PluginExample> {
             END:VCALENDAR' | from ics"
             .into(),
         description: "Converts ics formatted string to table".into(),
-        result: Some(Value::list(
-            vec![Value::test_record(Record {
-                cols: vec![
-                    "properties".to_string(),
-                    "events".to_string(),
-                    "alarms".to_string(),
-                    "to-Dos".to_string(),
-                    "journals".to_string(),
-                    "free-busys".to_string(),
-                    "timezones".to_string(),
-                ],
-                vals: vec![
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                    Value::list(vec![], Span::test_data()),
-                ],
-            })],
-            Span::test_data(),
-        )),
+        result: Some(Value::test_list(vec![Value::test_record(record! {
+                "properties" => Value::test_list(vec![]),
+                "events" =>     Value::test_list(vec![]),
+                "alarms" =>     Value::test_list(vec![]),
+                "to-Dos" =>     Value::test_list(vec![]),
+                "journals" =>   Value::test_list(vec![]),
+                "free-busys" => Value::test_list(vec![]),
+                "timezones" =>  Value::test_list(vec![]),
+        })])),
     }]
 }
 
