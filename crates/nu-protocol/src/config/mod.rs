@@ -519,30 +519,11 @@ impl Value {
                                         }
                                     },
                                     "index_mode" => {
-                                        if let Ok(b) = value.as_string() {
-                                            let val_str = b.to_lowercase();
-                                            match val_str.as_ref() {
-                                                "always" => {
-                                                    config.table_index_mode = TableIndexMode::Always
-                                                }
-                                                "never" => {
-                                                    config.table_index_mode = TableIndexMode::Never
-                                                }
-                                                "auto" => {
-                                                    config.table_index_mode = TableIndexMode::Auto
-                                                }
-                                                _ => {
-                                                    invalid!( span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
-                                                    );
-                                                    *value =
-                                                        reconstruct_index_mode(&config, span);
-                                                }
-                                            }
-                                        } else {
-                                            invalid!(span, "should be a string");
-                                            *value = reconstruct_index_mode(&config, span);
-                                        }
+                                        process_string_enum(
+                                            &mut config.table_index_mode,
+                                            format!("$env.config.{key}.{key2}"),
+                                            value,
+                                            &mut errors);
                                     }
                                     "trim" => {
                                         match try_parse_trim_strategy(value, &mut errors) {
@@ -585,7 +566,7 @@ impl Value {
                             *value = Value::record(
                                 record! {
                                     "mode" => Value::string(config.table_mode.clone(), span),
-                                    "index_mode" => reconstruct_index_mode(&config, span),
+                                    "index_mode" => config.table_index_mode.reconstruct_value(span),
                                     "trim" => reconstruct_trim_strategy(&config, span),
                                     "show_empty" => Value::bool(config.table_show_empty, span),
                                 },

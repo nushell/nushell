@@ -1,5 +1,9 @@
+use std::str::FromStr;
+
 use crate::{record, Config, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+
+use super::helper::ReconstructVal;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum FooterMode {
@@ -23,15 +27,30 @@ pub enum TableIndexMode {
     Auto,
 }
 
-pub(super) fn reconstruct_index_mode(config: &Config, span: Span) -> Value {
-    Value::string(
-        match config.table_index_mode {
-            TableIndexMode::Always => "always",
-            TableIndexMode::Never => "never",
-            TableIndexMode::Auto => "auto",
-        },
-        span,
-    )
+impl FromStr for TableIndexMode {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "always" => Ok(TableIndexMode::Always),
+            "never" => Ok(TableIndexMode::Never),
+            "auto" => Ok(TableIndexMode::Auto),
+            _ => Err("expected either 'never', 'always' or 'auto'"),
+        }
+    }
+}
+
+impl ReconstructVal for TableIndexMode {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                TableIndexMode::Always => "always",
+                TableIndexMode::Never => "never",
+                TableIndexMode::Auto => "auto",
+            },
+            span,
+        )
+    }
 }
 
 /// A Table view configuration, for a situation where
