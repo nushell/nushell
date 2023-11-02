@@ -703,6 +703,7 @@ impl Value {
                         }
                         _ => {
                             invalid!(span, "should be a string, list<string>, or null");
+                            *value = config.buffer_editor.clone();
                         }
                     },
                     "show_banner" => {
