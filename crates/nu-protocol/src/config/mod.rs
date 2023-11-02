@@ -11,6 +11,7 @@ use std::collections::HashMap;
 pub use self::completer::CompletionAlgorithm;
 pub use self::helper::extract_value;
 pub use self::hooks::Hooks;
+pub use self::output::ErrorStyle;
 pub use self::reedline::{
     create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
@@ -19,6 +20,7 @@ pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
 mod completer;
 mod helper;
 mod hooks;
+mod output;
 mod reedline;
 mod table;
 
@@ -67,7 +69,7 @@ pub struct Config {
     pub cursor_shape_emacs: NuCursorShape,
     pub datetime_normal_format: Option<String>,
     pub datetime_table_format: Option<String>,
-    pub error_style: String,
+    pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
 }
 
@@ -131,7 +133,7 @@ impl Default for Config {
 
             keybindings: Vec::new(),
 
-            error_style: "fancy".into(),
+            error_style: ErrorStyle::Fancy,
 
             use_kitty_protocol: false,
         }
@@ -853,12 +855,11 @@ impl Value {
                         }
                     }
                     "error_style" => {
-                        if let Ok(style) = value.as_string() {
-                            config.error_style = style;
-                        } else {
-                            invalid!(span, "should be a string");
-                            *value = Value::string(config.error_style.clone(), span);
-                        }
+                        process_string_enum(
+                            &mut config.error_style,
+                            format!("$env.config.{key}"),
+                            value,
+                            &mut errors);
                     }
                     // Catch all
                     _ => {
