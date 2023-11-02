@@ -631,30 +631,11 @@ impl Value {
                         process_bool_config(value, &mut errors, &mut config.use_grid_icons);
                     }
                     "footer_mode" => {
-                        if let Ok(b) = value.as_string() {
-                            let val_str = b.to_lowercase();
-                            config.footer_mode = match val_str.as_ref() {
-                                "auto" => FooterMode::Auto,
-                                "never" => FooterMode::Never,
-                                "always" => FooterMode::Always,
-                                _ => match &val_str.parse::<u64>() {
-                                    Ok(number) => FooterMode::RowCount(*number),
-                                    _ => FooterMode::Never,
-                                },
-                            };
-                        } else {
-                            invalid!(span, "should be a string");
-                            // Reconstruct
-                            *value = Value::string(
-                                match config.footer_mode {
-                                    FooterMode::Auto => "auto".into(),
-                                    FooterMode::Never => "never".into(),
-                                    FooterMode::Always => "always".into(),
-                                    FooterMode::RowCount(number) => number.to_string(),
-                                },
-                                span,
-                            );
-                        }
+                        process_string_enum(
+                            &mut config.footer_mode,
+                            format!("$env.config.{key}"),
+                            value,
+                            &mut errors);
                     }
                     "float_precision" => {
                         process_int_config(value, &mut errors, &mut config.float_precision);

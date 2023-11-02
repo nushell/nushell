@@ -17,6 +17,39 @@ pub enum FooterMode {
     Auto,
 }
 
+impl FromStr for FooterMode {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "always" => Ok(FooterMode::Always),
+            "never" => Ok(FooterMode::Never),
+            "auto" => Ok(FooterMode::Auto),
+            x => {
+                if let Ok(count) = x.parse() {
+                    Ok(FooterMode::RowCount(count))
+                } else {
+                    Err("expected either 'never', 'always', 'auto' or a row count")
+                }
+            }
+        }
+    }
+}
+
+impl ReconstructVal for FooterMode {
+    fn reconstruct_value(&self, span: Span) -> Value {
+        Value::string(
+            match self {
+                FooterMode::Always => "always".to_string(),
+                FooterMode::Never => "never".to_string(),
+                FooterMode::Auto => "auto".to_string(),
+                FooterMode::RowCount(c) => c.to_string(),
+            },
+            span,
+        )
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TableIndexMode {
     /// Always show indexes
