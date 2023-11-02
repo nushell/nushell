@@ -108,7 +108,7 @@ impl SQLiteDatabase {
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
         if self.path == PathBuf::from(MEMORY_DB) {
-            open_connection_in_memory()
+            open_connection_in_memory_custom()
         } else {
             Connection::open(&self.path).map_err(|e| {
                 ShellError::GenericError(
@@ -346,7 +346,7 @@ impl CustomValue for SQLiteDatabase {
 
 pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellError> {
     if path.to_string_lossy() == MEMORY_DB {
-        open_connection_in_memory()
+        open_connection_in_memory_custom()
     } else {
         let path = path.to_string_lossy().to_string();
         Connection::open(path).map_err(|e| {
@@ -548,11 +548,23 @@ mod test {
     }
 }
 
-pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
+pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let flags = OpenFlags::default();
     Connection::open_with_flags(MEMORY_DB, flags).map_err(|err| {
         ShellError::GenericError(
-            "Failed to open SQLite connection in memory".into(),
+            "Failed to open SQLite custom connection in memory".into(),
+            err.to_string(),
+            Some(Span::test_data()),
+            None,
+            Vec::new(),
+        )
+    })
+}
+
+pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
+    Connection::open_in_memory().map_err(|err| {
+        ShellError::GenericError(
+            "Failed to open SQLite standard connection in memory".into(),
             err.to_string(),
             Some(Span::test_data()),
             None,

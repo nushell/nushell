@@ -85,7 +85,7 @@ fn main() -> Result<()> {
     // lifetime of the program. If it's created with how MEMORY_DB is defined
     // you'll be able to access this open connection from anywhere in the program
     // by using the identical connection string.
-    let db = nu_protocol::sqlite_db::open_connection_in_memory()?;
+    let db = nu_protocol::sqlite_db::open_connection_in_memory_custom()?;
     db.last_insert_rowid();
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();

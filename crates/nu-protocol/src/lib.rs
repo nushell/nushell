@@ -43,7 +43,7 @@ pub use signature::*;
 pub use span::*;
 pub use sqlite_db::{
     convert_sqlite_row_to_nu_value, convert_sqlite_value_to_nu_value, open_connection_in_memory,
-    SQLiteDatabase,
+    open_connection_in_memory_custom, SQLiteDatabase,
 };
 pub use syntax_shape::*;
 pub use ty::*;
