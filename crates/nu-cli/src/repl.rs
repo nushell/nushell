@@ -245,15 +245,9 @@ pub fn evaluate_repl(
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: config
-                .cursor_shape_vi_insert
-                .map(map_nucursorshape_to_cursorshape),
-            vi_normal: config
-                .cursor_shape_vi_normal
-                .map(map_nucursorshape_to_cursorshape),
-            emacs: config
-                .cursor_shape_emacs
-                .map(map_nucursorshape_to_cursorshape),
+            vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
+            vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
+            emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
         };
         perf(
             "get config/cursor config",
@@ -760,14 +754,15 @@ fn update_line_editor_history(
     Ok(line_editor)
 }
 
-fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
-        NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
-        NuCursorShape::Line => SetCursorStyle::SteadyBar,
-        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
-        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
-        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
+        NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
+        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
+        NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
+        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
+        NuCursorShape::Inherit => None,
     }
 }
 

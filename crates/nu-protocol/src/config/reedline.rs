@@ -23,7 +23,7 @@ pub struct ParsedMenu {
 }
 
 /// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
-#[derive(Serialize, Deserialize, Clone, Debug, Copy)]
+#[derive(Serialize, Deserialize, Clone, Debug, Copy, Default)]
 pub enum NuCursorShape {
     UnderScore,
     Line,
@@ -31,31 +31,33 @@ pub enum NuCursorShape {
     BlinkUnderScore,
     BlinkLine,
     BlinkBlock,
+    #[default]
+    Inherit,
 }
 
-pub(super) fn parse_cursor_shape(s: &str) -> Result<Option<NuCursorShape>, &'static str> {
+pub(super) fn parse_cursor_shape(s: &str) -> Result<NuCursorShape, &'static str> {
     match s.to_ascii_lowercase().as_str() {
-        "line" => Ok(Some(NuCursorShape::Line)),
-        "block" => Ok(Some(NuCursorShape::Block)),
-        "underscore" => Ok(Some(NuCursorShape::UnderScore)),
-        "blink_line" => Ok(Some(NuCursorShape::BlinkLine)),
-        "blink_block" => Ok(Some(NuCursorShape::BlinkBlock)),
-        "blink_underscore" => Ok(Some(NuCursorShape::BlinkUnderScore)),
-        "inherit" => Ok(None),
+        "line" => Ok(NuCursorShape::Line),
+        "block" => Ok(NuCursorShape::Block),
+        "underscore" => Ok(NuCursorShape::UnderScore),
+        "blink_line" => Ok(NuCursorShape::BlinkLine),
+        "blink_block" => Ok(NuCursorShape::BlinkBlock),
+        "blink_underscore" => Ok(NuCursorShape::BlinkUnderScore),
+        "inherit" => Ok(NuCursorShape::Inherit),
         _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
     }
 }
 
-pub(super) fn reconstruct_cursor_shape(name: Option<NuCursorShape>, span: Span) -> Value {
+pub(super) fn reconstruct_cursor_shape(name: NuCursorShape, span: Span) -> Value {
     Value::string(
         match name {
-            Some(NuCursorShape::Line) => "line",
-            Some(NuCursorShape::Block) => "block",
-            Some(NuCursorShape::UnderScore) => "underscore",
-            Some(NuCursorShape::BlinkLine) => "blink_line",
-            Some(NuCursorShape::BlinkBlock) => "blink_block",
-            Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
-            None => "inherit",
+            NuCursorShape::Line => "line",
+            NuCursorShape::Block => "block",
+            NuCursorShape::UnderScore => "underscore",
+            NuCursorShape::BlinkLine => "blink_line",
+            NuCursorShape::BlinkBlock => "blink_block",
+            NuCursorShape::BlinkUnderScore => "blink_underscore",
+            NuCursorShape::Inherit => "inherit",
         },
         span,
     )
