@@ -80,6 +80,9 @@ pub(super) fn reconstruct_hooks(config: &Config, span: Span) -> Value {
     if let Some(ref value) = config.hooks.display_output {
         hook.push("display_output", value.clone());
     }
+    if let Some(ref value) = config.hooks.command_not_found {
+        hook.push("command_not_found", value.clone());
+    }
 
     Value::record(hook, span)
 }
