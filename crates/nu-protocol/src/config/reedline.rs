@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{extract_value, helper::ReconstructVal};
-use crate::{ShellError, Span, Value};
+use crate::{record, Config, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 
 /// Definition of a parsed keybinding from the config object
@@ -172,6 +172,34 @@ pub(super) fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>,
     }
 }
 
+pub(super) fn reconstruct_keybindings(config: &Config, span: Span) -> Value {
+    Value::list(
+        config
+            .keybindings
+            .iter()
+            .map(
+                |ParsedKeybinding {
+                     modifier,
+                     keycode,
+                     mode,
+                     event,
+                 }| {
+                    Value::record(
+                        record! {
+                            "modifier" => modifier.clone(),
+                            "keycode" => keycode.clone(),
+                            "mode" => mode.clone(),
+                            "event" => event.clone(),
+                        },
+                        span,
+                    )
+                },
+            )
+            .collect(),
+        span,
+    )
+}
+
 /// Parses the config object to extract the strings that will compose a keybinding for reedline
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     let span = value.span();
@@ -214,4 +242,36 @@ pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
         }
         _ => Ok(Vec::new()),
     }
+}
+
+pub(super) fn reconstruct_menus(config: &Config, span: Span) -> Value {
+    Value::list(
+        config
+            .menus
+            .iter()
+            .map(
+                |ParsedMenu {
+                     name,
+                     only_buffer_difference,
+                     marker,
+                     style,
+                     menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
+                     source,
+                 }| {
+                    Value::record(
+                        record! {
+                            "name" => name.clone(),
+                            "only_buffer_difference" => only_buffer_difference.clone(),
+                            "marker" => marker.clone(),
+                            "style" => style.clone(),
+                            "type" => menu_type.clone(),
+                            "source" => source.clone(),
+                        },
+                        span,
+                    )
+                },
+            )
+            .collect(),
+        span,
+    )
 }

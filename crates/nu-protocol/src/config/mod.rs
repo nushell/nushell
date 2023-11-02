@@ -5,7 +5,7 @@ use self::output::*;
 use self::reedline::*;
 use self::table::*;
 
-use crate::{record, Record, ShellError, Span, Value};
+use crate::{record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -642,34 +642,7 @@ impl Value {
                             invalid!(span, "should be a valid list of menus");
                             errors.push(e);
                             // Reconstruct
-                            *value = Value::list(config
-                                    .menus
-                                    .iter()
-                                    .map(
-                                        |ParsedMenu {
-                                             name,
-                                             only_buffer_difference,
-                                             marker,
-                                             style,
-                                             menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
-                                             source,
-                                         }| {
-                                            Value::record(
-                                                record! {
-                                                    "name" => name.clone(),
-                                                    "only_buffer_difference" => only_buffer_difference.clone(),
-                                                    "marker" => marker.clone(),
-                                                    "style" => style.clone(),
-                                                    "type" => menu_type.clone(),
-                                                    "source" => source.clone(),
-                                                },
-                                                span,
-                                            )
-                                        },
-                                    )
-                                    .collect(),
-                                span,
-                            )
+                            *value = reconstruct_menus(&config, span);
                         }
                     },
                     // Keybindings
@@ -679,31 +652,7 @@ impl Value {
                             invalid!(span, "should be a valid keybindings list");
                             errors.push(e);
                             // Reconstruct
-                            *value = Value::list(
-                                config
-                                    .keybindings
-                                    .iter()
-                                    .map(
-                                        |ParsedKeybinding {
-                                             modifier,
-                                             keycode,
-                                             mode,
-                                             event,
-                                         }| {
-                                            Value::record(
-                                                record! {
-                                                    "modifier" => modifier.clone(),
-                                                    "keycode" => keycode.clone(),
-                                                    "mode" => mode.clone(),
-                                                    "event" => event.clone(),
-                                                },
-                                                span,
-                                            )
-                                        },
-                                    )
-                                    .collect(),
-                                span,
-                            )
+                            *value = reconstruct_keybindings(&config, span);
                         }
                     },
                     // Hooks
@@ -712,21 +661,7 @@ impl Value {
                         Err(e) => {
                             invalid!(span, "should be a valid hooks list");
                             errors.push(e);
-                            // Reconstruct
-                            let mut hook = Record::new();
-                            if let Some(ref value) = config.hooks.pre_prompt {
-                                hook.push("pre_prompt", value.clone());
-                            }
-                            if let Some(ref value) = config.hooks.pre_execution {
-                                hook.push("pre_execution", value.clone());
-                            }
-                            if let Some(ref value) = config.hooks.env_change {
-                                hook.push("env_change", value.clone());
-                            }
-                            if let Some(ref value) = config.hooks.display_output {
-                                hook.push("display_output", value.clone());
-                            }
-                            *value = Value::record(hook, span);
+                            *value = reconstruct_hooks(&config, span);
                         }
                     },
                     "datetime_format" => {
