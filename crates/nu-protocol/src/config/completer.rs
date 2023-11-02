@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{record, Config, Span, Value};
 
+use super::helper::ReconstructVal;
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
 pub enum CompletionAlgorithm {
     #[default]
@@ -23,8 +25,8 @@ impl FromStr for CompletionAlgorithm {
     }
 }
 
-impl CompletionAlgorithm {
-    pub(super) fn reconstruct_value(&self, span: Span) -> Value {
+impl ReconstructVal for CompletionAlgorithm {
+    fn reconstruct_value(&self, span: Span) -> Value {
         let str = match self {
             CompletionAlgorithm::Prefix => "prefix",
             CompletionAlgorithm::Fuzzy => "fuzzy",

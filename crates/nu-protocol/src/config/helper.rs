@@ -1,6 +1,10 @@
 use crate::{Record, ShellError, Span, Value};
 use std::collections::HashMap;
 
+pub(super) trait ReconstructVal {
+    fn reconstruct_value(&self, span: Span) -> Value;
+}
+
 pub(super) fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     Ok(value
         .as_record()?
