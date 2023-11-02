@@ -172,24 +172,33 @@ impl Record {
     where
         F: FnMut(&str, &mut Value) -> bool,
     {
+        // `Vec::retain` is able to optimize memcopies internally.
+        // For maximum benefit, `retain` is used on `vals`,
+        // as `Value` is a larger struct than `String`.
+        //
+        // To do a simultaneous retain on the `cols`, three portions of it are tracked:
+        //     [..retained, ..dropped, ..unvisited]
+
+        // number of elements keep so far, start of ..dropped and length of ..retained
+        let mut retained = 0;
+        // current index of element being checked, start of ..unvisited
         let mut idx = 0;
 
-        // `Vec::retain` is able to optimize memcopies internally. For maximum benefit as `Value`
-        // is a larger struct than `String` use `retain` on `vals`
-        //
-        // The calls to `Vec::remove` are suboptimal as they need memcopies to shift each time.
-        //
-        // As the operations should remain inplace, we don't allocate a separate index `Vec` which
-        // could be used to avoid the repeated shifting of `Vec::remove` in cols.
         self.vals.retain_mut(|val| {
-            if keep(self.cols[idx].as_str(), val) {
+            if keep(&self.cols[idx], val) {
+                // skip swaps for first consecutive run of kept elements
+                if idx != retained {
+                    self.cols.swap(idx, retained);
+                }
+                retained += 1;
                 idx += 1;
                 true
             } else {
-                self.cols.remove(idx);
+                idx += 1;
                 false
             }
         });
+        self.cols.truncate(retained);
     }
 
     pub fn columns(&self) -> Columns {
