@@ -33,6 +33,19 @@ pub enum NuCursorShape {
     BlinkBlock,
 }
 
+pub(super) fn parse_cursor_shape(s: &str) -> Result<Option<NuCursorShape>, &'static str> {
+    match s.to_ascii_lowercase().as_str() {
+        "line" => Ok(Some(NuCursorShape::Line)),
+        "block" => Ok(Some(NuCursorShape::Block)),
+        "underscore" => Ok(Some(NuCursorShape::UnderScore)),
+        "blink_line" => Ok(Some(NuCursorShape::BlinkLine)),
+        "blink_block" => Ok(Some(NuCursorShape::BlinkBlock)),
+        "blink_underscore" => Ok(Some(NuCursorShape::BlinkUnderScore)),
+        "inherit" => Ok(None),
+        _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
+    }
+}
+
 pub(super) fn reconstruct_cursor_shape(name: Option<NuCursorShape>, span: Span) -> Value {
     Value::string(
         match name {

@@ -474,45 +474,18 @@ impl Value {
                                 match key2 {
                                     "vi_insert" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
-                                            match val_str.as_ref() {
-                                                "line" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::Line);
-                                                }
-                                                "block" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::Block);
-                                                }
-                                                "underscore" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::UnderScore);
-                                                }
-                                                "blink_line" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::BlinkLine);
-                                                }
-                                                "blink_block" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::BlinkBlock);
-                                                }
-                                                "blink_underscore" => {
-                                                    config.cursor_shape_vi_insert =
-                                                        Some(NuCursorShape::BlinkUnderScore);
-                                                }
-                                                "inherit" => {
-                                                    config.cursor_shape_vi_insert = None;
-                                                }
-                                                _ => {
+                                            match parse_cursor_shape(&v) {
+                                                Ok(shape) => {config.cursor_shape_vi_insert = shape;}
+                                                Err(err) => {
                                                     invalid!( span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
+                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
                                                     *value = reconstruct_cursor_shape(
                                                         config.cursor_shape_vi_insert,
                                                         span,
                                                     );
-                                                }
+                                                },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
@@ -525,45 +498,18 @@ impl Value {
                                     }
                                     "vi_normal" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
-                                            match val_str.as_ref() {
-                                                "line" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::Line);
-                                                }
-                                                "block" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::Block);
-                                                }
-                                                "underscore" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::UnderScore);
-                                                }
-                                                "blink_line" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::BlinkLine);
-                                                }
-                                                "blink_block" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::BlinkBlock);
-                                                }
-                                                "blink_underscore" => {
-                                                    config.cursor_shape_vi_normal =
-                                                        Some(NuCursorShape::BlinkUnderScore);
-                                                }
-                                                "inherit" => {
-                                                    config.cursor_shape_vi_normal = None;
-                                                }
-                                                _ => {
-                                                    invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
+                                            match parse_cursor_shape(&v) {
+                                                Ok(shape) => {config.cursor_shape_vi_normal = shape;}
+                                                Err(err) => {
+                                                    invalid!( span,
+                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
                                                     *value = reconstruct_cursor_shape(
                                                         config.cursor_shape_vi_normal,
                                                         span,
                                                     );
-                                                }
+                                                },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
@@ -576,45 +522,18 @@ impl Value {
                                     }
                                     "emacs" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
-                                            match val_str.as_ref() {
-                                                "line" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::Line);
-                                                }
-                                                "block" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::Block);
-                                                }
-                                                "underscore" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::UnderScore);
-                                                }
-                                                "blink_line" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::BlinkLine);
-                                                }
-                                                "blink_block" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::BlinkBlock);
-                                                }
-                                                "blink_underscore" => {
-                                                    config.cursor_shape_emacs =
-                                                        Some(NuCursorShape::BlinkUnderScore);
-                                                }
-                                                "inherit" => {
-                                                    config.cursor_shape_emacs = None;
-                                                }
-                                                _ => {
-                                                    invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
+                                            match parse_cursor_shape(&v) {
+                                                Ok(shape) => {config.cursor_shape_emacs = shape;}
+                                                Err(err) => {
+                                                    invalid!( span,
+                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
                                                     *value = reconstruct_cursor_shape(
                                                         config.cursor_shape_emacs,
                                                         span,
                                                     );
-                                                }
+                                                },
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
@@ -683,7 +602,6 @@ impl Value {
                                                         match value.as_int() {
                                                             Ok(val) if val >= 0 => {
                                                                 config.table_indent.left = val as usize;
-
                                                             }
                                                             _ => {
                                                                 invalid!(span, "unexpected $env.config.{key}.{key2}.{key3} value; expected a unsigned integer >= 0");
