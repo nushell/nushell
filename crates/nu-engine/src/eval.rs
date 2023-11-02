@@ -1110,6 +1110,7 @@ pub fn eval_variable(
         DB_VARIABLE_ID => {
             let db = match stack.get_var(DB_VARIABLE_ID, span) {
                 Ok(Value::CustomValue { val, .. }) => {
+                    // will remove these comments once this $db is removed
                     // eprintln!("Using existing nudb connection string: {:?}", &val);
                     // let adb = match val.as_any().downcast_ref::<SQLiteDatabase>() {
                     //     Some(adb) => adb,
@@ -1182,27 +1183,6 @@ pub fn eval_variable(
                             )
                         })?;
                     }
-
-                    // if let Ok(conn) = db.open_connection() {
-                    //     // sqlite datatypes https://www.sqlite.org/datatype3.html
-                    //     conn.execute(
-                    //         "CREATE TABLE nudb (
-                    //         id            INTEGER NOT NULL PRIMARY KEY,
-                    //         bool1         BOOLEAN,
-                    //         int1          INTEGER,
-                    //         float1        REAL,
-                    //         str1          VARCHAR(255),
-                    //         datetime1     DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW'))
-                    //         )",
-                    //         [],
-                    //     )
-                    //     .unwrap();
-
-                    //     let mut stmt = conn
-                    //         .prepare("INSERT INTO nudb (bool1,int1,float1,str1,datetime1) VALUES (1,100,1.0,'str1','2019-05-10T09:59:12-07:00')")
-                    //         .unwrap();
-                    //     let _rows_inserted = stmt.execute([]).unwrap();
-                    // }
                     stack.add_var(DB_VARIABLE_ID, Value::custom_value(db.clone(), span));
 
                     db

@@ -1,4 +1,3 @@
-// use crate::database::values::sqlite::open_sqlite_db;
 use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
