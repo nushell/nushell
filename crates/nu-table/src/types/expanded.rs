@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{Config, Record, ShellError, Span, TableIndexMode, Value};
 use tabled::grid::config::Position;
 
 use crate::{
@@ -464,20 +464,10 @@ fn get_key_style(cfg: &Cfg<'_>) -> TextStyle {
 
 fn expanded_table_entry(item: &Value, header: &str, cfg: Cfg<'_>) -> NuText {
     match item {
-        Value::Record { .. } => {
-            let val = header.to_owned();
-            let path = PathMember::String {
-                val,
-                span: cfg.opts.span,
-                optional: false,
-            };
-            let val = item.clone().follow_cell_path(&[path], false);
-
-            match val {
-                Ok(val) => expanded_table_entry2(&val, cfg),
-                Err(_) => error_sign(cfg.opts.style_computer),
-            }
-        }
+        Value::Record { val, .. } => match val.get(header) {
+            Some(val) => expanded_table_entry2(val, cfg),
+            None => error_sign(cfg.opts.style_computer),
+        },
         _ => expanded_table_entry2(item, cfg),
     }
 }
