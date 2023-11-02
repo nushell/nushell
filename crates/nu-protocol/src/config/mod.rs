@@ -306,26 +306,18 @@ impl Value {
                                     }
                                     "file_format" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
-                                            match val_str.as_ref() {
-                                                "sqlite" => {
-                                                    config.history_file_format =
-                                                        HistoryFileFormat::Sqlite
-                                                }
-                                                "plaintext" => {
-                                                    config.history_file_format =
-                                                        HistoryFileFormat::PlainText
-                                                }
-                                                _ => {
+                                            match v.parse() {
+                                                Ok(format) => {config.history_file_format = format;},
+                                                Err(err) => {
                                                     invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
+                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
                                                     *value = reconstruct_history_file_format(
                                                         &config, span,
                                                     );
-                                                }
-                                            };
+                                                },
+                                            }
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct

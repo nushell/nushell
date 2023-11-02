@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::extract_value;
 use crate::{Config, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
@@ -69,6 +71,18 @@ pub enum HistoryFileFormat {
     Sqlite,
     /// store history as a plain text file where every line is one command (without any context such as timestamps)
     PlainText,
+}
+
+impl FromStr for HistoryFileFormat {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "sqlite" => Ok(Self::Sqlite),
+            "plaintext" => Ok(Self::PlainText),
+            _ => Err("expected either 'sqlite' or 'plaintext'"),
+        }
+    }
 }
 
 pub(super) fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
