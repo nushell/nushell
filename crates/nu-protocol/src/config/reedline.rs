@@ -37,8 +37,11 @@ pub enum NuCursorShape {
     Inherit,
 }
 
-pub(super) fn parse_cursor_shape(s: &str) -> Result<NuCursorShape, &'static str> {
-    match s.to_ascii_lowercase().as_str() {
+impl FromStr for NuCursorShape {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<NuCursorShape, &'static str> {
+        match s.to_ascii_lowercase().as_str() {
         "line" => Ok(NuCursorShape::Line),
         "block" => Ok(NuCursorShape::Block),
         "underscore" => Ok(NuCursorShape::UnderScore),
@@ -47,6 +50,7 @@ pub(super) fn parse_cursor_shape(s: &str) -> Result<NuCursorShape, &'static str>
         "blink_underscore" => Ok(NuCursorShape::BlinkUnderScore),
         "inherit" => Ok(NuCursorShape::Inherit),
         _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
+        }
     }
 }
 

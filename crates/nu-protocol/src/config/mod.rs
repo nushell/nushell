@@ -459,7 +459,7 @@ impl Value {
                                 match key2 {
                                     "vi_insert" => {
                                         if let Ok(v) = value.as_string() {
-                                            match parse_cursor_shape(&v) {
+                                            match v.parse() {
                                                 Ok(shape) => {config.cursor_shape_vi_insert = shape;}
                                                 Err(err) => {
                                                     invalid!( span,
@@ -483,7 +483,7 @@ impl Value {
                                     }
                                     "vi_normal" => {
                                         if let Ok(v) = value.as_string() {
-                                            match parse_cursor_shape(&v) {
+                                            match v.parse() {
                                                 Ok(shape) => {config.cursor_shape_vi_normal = shape;}
                                                 Err(err) => {
                                                     invalid!( span,
@@ -507,7 +507,7 @@ impl Value {
                                     }
                                     "emacs" => {
                                         if let Ok(v) = value.as_string() {
-                                            match parse_cursor_shape(&v) {
+                                            match v.parse() {
                                                 Ok(shape) => {config.cursor_shape_emacs = shape;}
                                                 Err(err) => {
                                                     invalid!( span,
