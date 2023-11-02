@@ -1,11 +1,9 @@
-use std::str::FromStr;
-
+use super::helper::ReconstructVal;
 use crate::{record, Config, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
-use super::helper::ReconstructVal;
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub enum TableMode {
     Basic,
     Thin,
@@ -13,6 +11,7 @@ pub enum TableMode {
     Compact,
     WithLove,
     CompactDouble,
+    #[default]
     Rounded,
     Reinforced,
     Heavy,
