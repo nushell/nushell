@@ -1,4 +1,4 @@
-use self::external_completer::*;
+use self::completer::*;
 use self::hooks::*;
 use self::reedline::*;
 use self::table::*;
@@ -7,13 +7,14 @@ use crate::{record, Record, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+pub use self::completer::CompletionAlgorithm;
 pub use self::hooks::Hooks;
 pub use self::reedline::{
     create_menus, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
 };
 pub use self::table::{FooterMode, TableIndexMode, TrimStrategy};
 
-mod external_completer;
+mod completer;
 mod hooks;
 mod reedline;
 mod table;
@@ -55,7 +56,7 @@ pub struct Config {
     pub use_ansi_coloring: bool,
     pub quick_completions: bool,
     pub partial_completions: bool,
-    pub completion_algorithm: String,
+    pub completion_algorithm: CompletionAlgorithm,
     pub edit_mode: String,
     pub max_history_size: i64,
     pub sync_history_on_enter: bool,
@@ -116,7 +117,7 @@ impl Default for Config {
             case_sensitive_completions: false,
             quick_completions: true,
             partial_completions: true,
-            completion_algorithm: "prefix".into(),
+            completion_algorithm: CompletionAlgorithm::default(),
             enable_external_completion: true,
             max_external_completion_results: 100,
             external_completer: None,
@@ -369,30 +370,22 @@ impl Value {
                                     }
                                     "algorithm" => {
                                         if let Ok(v) = value.as_string() {
-                                            let val_str = v.to_lowercase();
-                                            match val_str.as_ref() {
-                                                // This should match the MatchAlgorithm enum in completions::completion_options
-                                                "prefix" | "fuzzy" => {
-                                                    config.completion_algorithm = val_str
+                                            match v.parse() {
+                                                Ok(algo) => {
+                                                    config.completion_algorithm = algo;
                                                 }
-                                                _ => {
+                                                Err(err) => {
                                                     invalid!(span,
-                                                        "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'prefix' or 'fuzzy'"
+                                                        "unrecognized $env.config.{key}.{key2} '{v}'; {err}"
                                                     );
                                                     // Reconstruct
-                                                    *value = Value::string(
-                                                        config.completion_algorithm.clone(),
-                                                        span,
-                                                    );
+                                                    *value = config.completion_algorithm.reconstruct_value(span);
                                                 }
                                             };
                                         } else {
                                             invalid!(span, "should be a string");
                                             // Reconstruct
-                                            *value = Value::string(
-                                                config.completion_algorithm.clone(),
-                                                span,
-                                            );
+                                            *value = config.completion_algorithm.reconstruct_value(span);
                                         }
                                     }
                                     "case_sensitive" => {
@@ -459,7 +452,7 @@ impl Value {
                                 record! {
                                     "quick" => Value::bool(config.quick_completions, span),
                                     "partial" => Value::bool(config.partial_completions, span),
-                                    "algorithm" => Value::string(config.completion_algorithm.clone(), span),
+                                    "algorithm" => config.completion_algorithm.reconstruct_value(span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
                                     "external" => reconstruct_external(&config, span),
                                 },
