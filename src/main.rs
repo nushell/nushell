@@ -59,7 +59,7 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    // This allows more intutive backtraces
+    // This allows more intuitive backtraces
     color_backtrace::install();
 
     // Get initial current working directory.
