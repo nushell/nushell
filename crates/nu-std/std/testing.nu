@@ -94,8 +94,7 @@ def throw-error [error: record] {
         msg: $"(ansi red)($error.msg)(ansi reset)"
         label: {
             text: ($error.label)
-            start: $error.span.start
-            end: $error.span.end
+            span: $error.span
         }
     }
 }
