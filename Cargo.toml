@@ -33,6 +33,7 @@ members = [
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
+	"crates/nu-lsp",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
@@ -56,6 +57,7 @@ nu-command = { path = "./crates/nu-command", version = "0.86.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.86.1" }
 nu-explore = { path = "./crates/nu-explore", version = "0.86.1" }
 nu-json = { path = "./crates/nu-json", version = "0.86.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.86.1" }
 nu-parser = { path = "./crates/nu-parser", version = "0.86.1" }
 nu-path = { path = "./crates/nu-path", version = "0.86.1" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.86.1" }

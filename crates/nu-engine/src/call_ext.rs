@@ -71,7 +71,7 @@ impl CallExt for Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
             let result = eval_expression(engine_state, stack, &expr)?;
-            FromValue::from_value(&result).map(Some)
+            FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
         }
@@ -84,7 +84,7 @@ impl CallExt for Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
             let result = eval_constant(working_set, &expr)?;
-            FromValue::from_value(&result).map(Some)
+            FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
         }
@@ -100,7 +100,7 @@ impl CallExt for Call {
 
         for expr in self.positional_iter().skip(starting_pos) {
             let result = eval_expression(engine_state, stack, expr)?;
-            output.push(FromValue::from_value(&result)?);
+            output.push(FromValue::from_value(result)?);
         }
 
         Ok(output)
@@ -115,7 +115,7 @@ impl CallExt for Call {
 
         for expr in self.positional_iter().skip(starting_pos) {
             let result = eval_constant(working_set, expr)?;
-            output.push(FromValue::from_value(&result)?);
+            output.push(FromValue::from_value(result)?);
         }
 
         Ok(output)
@@ -129,7 +129,7 @@ impl CallExt for Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_expression(engine_state, stack, expr)?;
-            FromValue::from_value(&result).map(Some)
+            FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
         }
@@ -143,7 +143,7 @@ impl CallExt for Call {
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_expression(engine_state, stack, expr)?;
-            FromValue::from_value(&result)
+            FromValue::from_value(result)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
@@ -161,7 +161,7 @@ impl CallExt for Call {
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(&result)
+            FromValue::from_value(result)
         } else if self.positional_len() == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
@@ -180,7 +180,7 @@ impl CallExt for Call {
     ) -> Result<T, ShellError> {
         if let Some(expr) = self.get_parser_info(name) {
             let result = eval_expression(engine_state, stack, expr)?;
-            FromValue::from_value(&result)
+            FromValue::from_value(result)
         } else if self.parser_info.is_empty() {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {

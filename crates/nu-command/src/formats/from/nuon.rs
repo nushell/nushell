@@ -361,13 +361,13 @@ fn convert_to_value(
             "subexpressions not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Table(headers, cells) => {
+        Expr::Table(mut headers, cells) => {
             let mut cols = vec![];
 
             let mut output = vec![];
 
-            for key in headers {
-                let key_str = match key.expr {
+            for key in headers.iter_mut() {
+                let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
                     _ => {
                         return Err(ShellError::OutsideSpannedLabeledError(
@@ -379,7 +379,14 @@ fn convert_to_value(
                     }
                 };
 
-                cols.push(key_str);
+                if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: key.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    cols.push(std::mem::take(key_str));
+                }
             }
 
             for row in cells {

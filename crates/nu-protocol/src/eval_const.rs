@@ -287,15 +287,7 @@ pub fn eval_constant(
             for (col, val) in fields {
                 // avoid duplicate cols.
                 let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                let pos = record.cols.iter().position(|c| c == &col_name);
-                match pos {
-                    Some(index) => {
-                        record.vals[index] = eval_constant(working_set, val)?;
-                    }
-                    None => {
-                        record.push(col_name, eval_constant(working_set, val)?);
-                    }
-                }
+                record.insert(col_name, eval_constant(working_set, val)?);
             }
 
             Ok(Value::record(record, expr.span))
@@ -303,10 +295,18 @@ pub fn eval_constant(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(value_as_string(
-                    eval_constant(working_set, expr)?,
-                    expr.span,
-                )?);
+                let header = value_as_string(eval_constant(working_set, expr)?, expr.span)?;
+                if let Some(idx) = output_headers
+                    .iter()
+                    .position(|existing| existing == &header)
+                {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: expr.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    output_headers.push(header);
+                }
             }
 
             let mut output_rows = vec![];
@@ -315,11 +315,9 @@ pub fn eval_constant(
                 for expr in val {
                     row.push(eval_constant(working_set, expr)?);
                 }
+                // length equality already ensured in parser
                 output_rows.push(Value::record(
-                    Record {
-                        cols: output_headers.clone(),
-                        vals: row,
-                    },
+                    Record::from_raw_cols_vals(output_headers.clone(), row),
                     expr.span,
                 ));
             }
