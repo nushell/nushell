@@ -146,10 +146,10 @@ impl Value {
         // Clone the passed-in config rather than mutating it.
         let mut config = config.clone();
 
-        // Vec for storing errors.
-        // Current Nushell behaviour (Dec 2022) is that having some typo like "always_trash": tru in your config.nu's
-        // set-env config record shouldn't abort all config parsing there and then.
-        // Thus, errors are simply collected one-by-one and wrapped in a GenericError at the end.
+        // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
+        // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
+        // config parsing there and then. Thus, errors are simply collected one-by-one and wrapped
+        // in a GenericError at the end.
         let mut errors = vec![];
 
         // Config record (self) mutation rules:
@@ -157,9 +157,9 @@ impl Value {
         // * When parsing a config Record, if a config value error occurs, replace the value
         // with a reconstructed Nu value for the current (unaltered) configuration for that setting.
         // For instance:
-        // $env.config.ls.use_ls_colors = 2 results in an error, so
-        // the current use_ls_colors config setting is converted to a Value::Boolean and inserted in the
-        // record in place of the 2.
+        // `$env.config.ls.use_ls_colors = 2` results in an error, so the current `use_ls_colors`
+        // config setting is converted to a `Value::Boolean` and inserted in the record in place of
+        // the `2`.
 
         if let Value::Record { val, .. } = self {
             val.retain_mut( |key, value| {
