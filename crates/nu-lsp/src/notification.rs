@@ -1,0 +1,195 @@
+use lsp_types::{
+    notification::{
+        DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification,
+    },
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+};
+use ropey::Rope;
+
+use crate::LanguageServer;
+
+impl LanguageServer {
+    pub(crate) fn handle_lsp_notification(&mut self, notification: lsp_server::Notification) {
+        match notification.method.as_str() {
+            DidOpenTextDocument::METHOD => Self::handle_notification_payload::<
+                DidOpenTextDocumentParams,
+                _,
+            >(notification, |param| {
+                if let Ok(file_path) = param.text_document.uri.to_file_path() {
+                    let rope = Rope::from_str(&param.text_document.text);
+                    self.ropes.insert(file_path, rope);
+                }
+            }),
+            DidChangeTextDocument::METHOD => {
+                Self::handle_notification_payload::<DidChangeTextDocumentParams, _>(
+                    notification,
+                    |params| self.update_rope(params),
+                )
+            }
+            DidCloseTextDocument::METHOD => Self::handle_notification_payload::<
+                DidCloseTextDocumentParams,
+                _,
+            >(notification, |param| {
+                if let Ok(file_path) = param.text_document.uri.to_file_path() {
+                    self.ropes.remove(&file_path);
+                }
+            }),
+            _ => {}
+        }
+    }
+
+    fn handle_notification_payload<P, H>(
+        notification: lsp_server::Notification,
+        mut param_handler: H,
+    ) where
+        P: serde::de::DeserializeOwned,
+        H: FnMut(P),
+    {
+        if let Ok(params) = serde_json::from_value::<P>(notification.params) {
+            param_handler(params);
+        }
+    }
+
+    fn update_rope(&mut self, params: DidChangeTextDocumentParams) {
+        if let Ok(file_path) = params.text_document.uri.to_file_path() {
+            for content_change in params.content_changes.into_iter() {
+                let entry = self.ropes.entry(file_path.clone());
+                match (content_change.range, content_change.range) {
+                    (Some(range), _) => {
+                        entry.and_modify(|rope| {
+                            let start = Self::lsp_position_to_location(&range.start, rope);
+                            let end = Self::lsp_position_to_location(&range.end, rope);
+
+                            rope.remove(start..end);
+                            rope.insert(start, &content_change.text);
+                        });
+                    }
+                    (None, None) => {
+                        entry.and_modify(|r| *r = Rope::from_str(&content_change.text));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_json_diff::assert_json_eq;
+    use lsp_server::{Connection, Message};
+    use lsp_types::{DidChangeTextDocumentParams, Range, TextDocumentContentChangeEvent, Url};
+    use nu_test_support::fs::fixtures;
+
+    use crate::tests::{hover, initialize_language_server, open};
+
+    fn update(client_connection: &Connection, uri: Url, text: String, range: Option<Range>) {
+        client_connection
+            .sender
+            .send(lsp_server::Message::Notification(
+                lsp_server::Notification {
+                    method: DidChangeTextDocument::METHOD.to_string(),
+                    params: serde_json::to_value(DidChangeTextDocumentParams {
+                        text_document: lsp_types::VersionedTextDocumentIdentifier {
+                            uri,
+                            version: 2,
+                        },
+                        content_changes: vec![TextDocumentContentChangeEvent {
+                            range,
+                            range_length: None,
+                            text,
+                        }],
+                    })
+                    .unwrap(),
+                },
+            ))
+            .unwrap();
+    }
+
+    #[test]
+    fn hover_on_command_after_full_content_change() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open(&client_connection, script.clone());
+        update(
+            &client_connection,
+            script.clone(),
+            String::from(
+                r#"# Renders some updated greeting message
+def hello [] {}
+
+hello"#,
+            ),
+            None,
+        );
+
+        let resp = hover(&client_connection, script.clone(), 3, 0);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "contents": {
+                    "kind": "markdown",
+                    "value": "```\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn hover_on_command_after_partial_content_change() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("hover");
+        script.push("command.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open(&client_connection, script.clone());
+        update(
+            &client_connection,
+            script.clone(),
+            String::from("# Renders some updated greeting message"),
+            Some(Range {
+                start: lsp_types::Position {
+                    line: 0,
+                    character: 0,
+                },
+                end: lsp_types::Position {
+                    line: 0,
+                    character: 31,
+                },
+            }),
+        );
+
+        let resp = hover(&client_connection, script.clone(), 3, 0);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!({
+                "contents": {
+                    "kind": "markdown",
+                    "value": "```\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                }
+            })
+        );
+    }
+}

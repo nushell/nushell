@@ -14,6 +14,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.87.0" }
 
 reedline = { version = "0.26" }
 
+crossbeam-channel = "0.5.8"
 lsp-types = "0.94.1"
 lsp-server = "0.7.4"
 miette = "5.10"

@@ -2972,6 +2972,7 @@ name = "nu-lsp"
 version = "0.87.0"
 dependencies = [
  "assert-json-diff",
+ "crossbeam-channel",
  "lsp-server",
  "lsp-types",
  "miette",
