@@ -45,8 +45,8 @@ fn redirect_err() {
             cwd: dirs.test(),
             "vol missingdrive err> a; (open a | size).bytes >= 16"
         );
-        let expected_path = dirs.test().join("a");
-        assert_file_exists(&expected_path, 4);
+        let expected_out_file = dirs.test().join("a");
+        assert_file_exists(&expected_out_file, 4);
         let contents = file_contents(expected_out_file);
         assert!(contents.len() >= 16);
     })
