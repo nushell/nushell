@@ -1,11 +1,11 @@
 use nu_test_support::fs::{file_contents, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use std::fs;
 use std::path::Path;
+use std::thread;
 use std::time::Duration;
 
-fn assert_file_exists(file_path: AsRef<Path>, times: usize) {
+fn assert_file_exists(file_path: dyn AsRef<Path>, times: usize) {
     let mut base = 2;
     let mut exists = false;
     for _ in 0..times {
@@ -30,8 +30,8 @@ fn redirect_err() {
             cwd: dirs.test(),
             "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
-        let expected_path = dirs.test().join("a.txt");
-        assert_file_exists(&expected_path, 4);
+        let expected_out_file = dirs.test().join("a.txt");
+        assert_file_exists(&expected_out_file, 4);
         let contents = file_contents(expected_out_file);
         assert!(contents.contains("asdfasdfasdf.txt"));
     })
@@ -45,8 +45,10 @@ fn redirect_err() {
             cwd: dirs.test(),
             "vol missingdrive err> a; (open a | size).bytes >= 16"
         );
-
-        assert!(output.out.contains("true"));
+        let expected_path = dirs.test().join("a");
+        assert_file_exists(&expected_path, 4);
+        let contents = file_contents(expected_out_file);
+        assert!(contents.len() >= 16);
     })
 }
 
