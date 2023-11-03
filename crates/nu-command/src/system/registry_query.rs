@@ -311,7 +311,7 @@ fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: Span) -> nu_proto
     let value =
         match reg_value.vtype {
             // See discussion here https://github.com/nushell/nushell/pull/10806#issuecomment-1791832088
-            // "The unwraps here are effecitvely infallible...", so I changed them to expects.
+            // "The unwraps here are effectively infallible...", so I changed them to expects.
             REG_DWORD => u32::from_reg_value(&reg_value)
                 .expect("registry value type should be REG_DWORD") as i64,
             REG_DWORD_BIG_ENDIAN => {
