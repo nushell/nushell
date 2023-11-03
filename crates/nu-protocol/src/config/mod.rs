@@ -152,19 +152,6 @@ impl Value {
         // Thus, errors are simply collected one-by-one and wrapped in a GenericError at the end.
         let mut errors = vec![];
 
-        // When an unsupported config value is found, ignore it.
-        macro_rules! invalid {
-            ($span:expr, $msg:literal) => {
-                errors.push(ShellError::GenericError(
-                    "Error while applying config changes".into(),
-                    format!($msg),
-                    Some($span),
-                    Some("This value will be ignored.".into()),
-                    vec![],
-                ));
-            };
-        }
-
         // Config record (self) mutation rules:
         // * When parsing a config Record, if a config key error occurs, remove the key.
         // * When parsing a config Record, if a config value error occurs, replace the value
@@ -197,7 +184,7 @@ impl Value {
                                 }; true
                             });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -224,7 +211,7 @@ impl Value {
                                 true
                             });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -263,7 +250,7 @@ impl Value {
                                 true
                             });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -313,7 +300,7 @@ impl Value {
                                                                 match value {
                                                                     Value::Nothing { .. } => {}
                                                                     _ => {
-                                                                        invalid!(span, "should be a block or null");
+                                                                        report_invalid_value("should be a block or null", span, &mut errors);
                                                                         // Reconstruct
                                                                         *value = reconstruct_external_completer(&config,
                                                                             span
@@ -333,7 +320,7 @@ impl Value {
                                                     true
                                                 });
                                         } else {
-                                            invalid!(span, "should be a record");
+                                            report_invalid_value("should be a record", span, &mut errors);
                                             // Reconstruct
                                             *value = reconstruct_external(&config, span);
                                         }
@@ -346,7 +333,7 @@ impl Value {
                                 true
                             });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct record
                             *value = Value::record(
                                 record! {
@@ -381,7 +368,7 @@ impl Value {
                                 true
                             });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -411,7 +398,7 @@ impl Value {
                                     "padding" => match value {
                                         Value::Int { val, .. } => {
                                             if *val < 0 {
-                                                invalid!(span, "unexpected $env.config.{key}.{key2} '{val}'; expected a unsigned integer");
+                                                report_invalid_value("expected a unsigned integer", span, &mut errors);
                                                 *value = reconstruct_padding(&config, span);
                                             } else {
                                                 config.table_indent.left = *val as usize;
@@ -428,7 +415,7 @@ impl Value {
                                                                 config.table_indent.left = val as usize;
                                                             }
                                                             _ => {
-                                                                invalid!(span, "unexpected $env.config.{key}.{key2}.{key3} value; expected a unsigned integer >= 0");
+                                                                report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
                                                                 invalid = true;
                                                             }
                                                         }
@@ -439,7 +426,7 @@ impl Value {
                                                                 config.table_indent.right = val as usize;
                                                             }
                                                             _ => {
-                                                                invalid!(span, "unexpected $env.config.{key}.{key2}.{key3} value; expected a unsigned integer >= 0");
+                                                                report_invalid_value("expected a unsigned integer >= 0", span, &mut errors);
                                                                 invalid = true;
                                                             }
                                                         }
@@ -456,7 +443,7 @@ impl Value {
                                             }
                                         }
                                         _ => {
-                                            invalid!(span, "unexpected $env.config.{key}.{key2} value; expected a unsigned integer or a record");
+                                            report_invalid_value("expected a unsigned integer or a record", span, &mut errors);
                                             *value = reconstruct_padding(&config, span);
                                         }
                                     },
@@ -484,12 +471,12 @@ impl Value {
                                     "abbreviated_row_count" => {
                                         if let Ok(b) = value.as_int() {
                                             if b < 0 {
-                                                invalid!(span, "should be an int unsigned");
+                                                report_invalid_value("should be an int unsigned", span, &mut errors);
                                             }
 
                                             config.table_abbreviation_threshold = Some(b as usize);
                                         } else {
-                                            invalid!(span, "should be an int");
+                                            report_invalid_value("should be an int", span, &mut errors);
                                         }
                                     }
                                     _ => {
@@ -500,7 +487,7 @@ impl Value {
                                 true
                              });
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -525,7 +512,7 @@ impl Value {
                                     if let Ok(v) = value.as_string() {
                                         config.filesize_format = v.to_lowercase();
                                     } else {
-                                        invalid!(span, "should be a string");
+                                        report_invalid_value("should be a string", span, &mut errors);
                                         // Reconstruct
                                         *value =
                                             Value::string(config.filesize_format.clone(), span);
@@ -539,7 +526,7 @@ impl Value {
                             true
                         })
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 record! {
@@ -554,7 +541,7 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.explore = map;
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 config
@@ -571,7 +558,7 @@ impl Value {
                         if let Ok(map) = create_map(value) {
                             config.color_config = map;
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = Value::record(
                                 config
@@ -619,7 +606,7 @@ impl Value {
                             config.buffer_editor = value.clone();
                         }
                         _ => {
-                            invalid!(span, "should be a string, list<string>, or null");
+                            report_invalid_value("should be a string, list<string>, or null", span, &mut errors);
                             *value = config.buffer_editor.clone();
                         }
                     },
@@ -639,7 +626,7 @@ impl Value {
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
                         Err(e) => {
-                            invalid!(span, "should be a valid list of menus");
+                            report_invalid_value("should be a valid list of menus", span, &mut errors);
                             errors.push(e);
                             // Reconstruct
                             *value = reconstruct_menus(&config, span);
@@ -649,7 +636,7 @@ impl Value {
                     "keybindings" => match create_keybindings(value) {
                         Ok(keybindings) => config.keybindings = keybindings,
                         Err(e) => {
-                            invalid!(span, "should be a valid keybindings list");
+                            report_invalid_value("should be a valid keybindings list", span, &mut errors);
                             errors.push(e);
                             // Reconstruct
                             *value = reconstruct_keybindings(&config, span);
@@ -659,7 +646,7 @@ impl Value {
                     "hooks" => match create_hooks(value) {
                         Ok(hooks) => config.hooks = hooks,
                         Err(e) => {
-                            invalid!(span, "should be a valid hooks list");
+                            report_invalid_value("should be a valid hooks list", span, &mut errors);
                             errors.push(e);
                             *value = reconstruct_hooks(&config, span);
                         }
@@ -674,14 +661,14 @@ impl Value {
                                     if let Ok(v) = value.as_string() {
                                         config.datetime_normal_format = Some(v);
                                     } else {
-                                        invalid!(span, "should be a string");
+                                        report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 "table" => {
                                     if let Ok(v) = value.as_string() {
                                         config.datetime_table_format = Some(v);
                                     } else {
-                                        invalid!(span, "should be a string");
+                                        report_invalid_value("should be a string", span, &mut errors);
                                     }
                                 }
                                 _ => {
@@ -690,7 +677,7 @@ impl Value {
                                 }
                             }; true})
                         } else {
-                            invalid!(span, "should be a record");
+                            report_invalid_value("should be a record", span, &mut errors);
                             // Reconstruct
                             *value = reconstruct_datetime_format(&config, span);
                         }

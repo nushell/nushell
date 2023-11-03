@@ -104,6 +104,16 @@ pub(super) fn report_invalid_key(keys: &[&str], span: Span, errors: &mut Vec<She
     ));
 }
 
+pub(super) fn report_invalid_value(msg: &str, span: Span, errors: &mut Vec<ShellError>) {
+    errors.push(ShellError::GenericError(
+        "Error while applying config changes".into(),
+        msg.into(),
+        Some(span),
+        Some("This value will be ignored.".into()),
+        vec![],
+    ));
+}
+
 pub(super) fn create_map(value: &Value) -> Result<HashMap<String, Value>, ShellError> {
     Ok(value
         .as_record()?
