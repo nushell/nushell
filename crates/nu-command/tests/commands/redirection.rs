@@ -9,7 +9,7 @@ fn assert_file_exists(file_path: &Path, times: usize) {
     let mut base = 2;
     let mut exists = false;
     for _ in 0..times {
-        if file_path.as_ref().exists() {
+        if file_path.exists() {
             if exists {
                 return;
             } else {
