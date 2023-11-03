@@ -28,10 +28,12 @@ fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
+            "cat asdfasdfasdf.txt err> a.txt"
         );
+        // stderr redirection is handled by another thread
+        // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a.txt");
-        assert_file_exists(&expected_out_file, 4);
+        assert_file_exists(&expected_out_file, 7);
         let contents = file_contents(expected_out_file);
         assert!(contents.contains("asdfasdfasdf.txt"));
     })
@@ -41,12 +43,14 @@ fn redirect_err() {
 #[test]
 fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
-        let output = nu!(
+        nu!(
             cwd: dirs.test(),
-            "vol missingdrive err> a; (open a | size).bytes >= 16"
+            "vol missingdrive err> a"
         );
+        // stderr redirection is handled by another thread
+        // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a");
-        assert_file_exists(&expected_out_file, 4);
+        assert_file_exists(&expected_out_file, 7);
         let contents = file_contents(expected_out_file);
         assert!(contents.len() >= 16);
     })
@@ -345,7 +349,7 @@ fn redirection_with_pipe() {
             assert_eq!(actual.out, "40");
             // check for stderr redirection file.
             let expected_out_file = dirs.test().join("tmp_file");
-            assert_file_exists(&expected_out_file, 4);
+            assert_file_exists(&expected_out_file, 7);
             let actual_len = file_contents(expected_out_file).len();
             assert_eq!(actual_len, 40);
         },
