@@ -14,20 +14,19 @@ pub struct NuHighlighter {
 }
 
 impl Highlighter for NuHighlighter {
-    fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
+    fn highlight(&self, line: &str, cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
-        let (shapes, global_span_offset) = {
-            let shapes = flatten_block(&working_set, &block);
-            (shapes, self.engine_state.next_span_start())
-        };
+
+        let shapes = flatten_block(&working_set, &block);
+        let global_span_offset = self.engine_state.next_span_start();
 
         let mut output = StyledText::default();
         let mut last_seen_span = global_span_offset;
 
-        let global_cursor_offset = _cursor + global_span_offset;
+        let global_cursor_offset = cursor + global_span_offset;
         let matching_brackets_pos = find_matching_brackets(
             line,
             &working_set,
@@ -37,97 +36,53 @@ impl Highlighter for NuHighlighter {
         );
 
         for shape in &shapes {
-            if shape.0.end <= last_seen_span
-                || last_seen_span < global_span_offset
-                || shape.0.start < global_span_offset
-            {
+            if shape.0.end <= last_seen_span || shape.0.start < global_span_offset {
                 // We've already output something for this span
                 // so just skip this one
                 continue;
             }
             if shape.0.start > last_seen_span {
-                let gap = line
-                    [(last_seen_span - global_span_offset)..(shape.0.start - global_span_offset)]
-                    .to_string();
+                let gap =
+                    slice(line, last_seen_span, shape.0.start, global_span_offset).to_string();
                 output.push((Style::new(), gap));
             }
-            let next_token = line
-                [(shape.0.start - global_span_offset)..(shape.0.end - global_span_offset)]
-                .to_string();
 
-            macro_rules! add_colored_token_with_bracket_highlight {
-                ($shape:expr, $span:expr, $text:expr) => {{
+            let next_token =
+                slice(line, shape.0.start, shape.0.end, global_span_offset).to_string();
+
+            match shape.1 {
+                FlatShape::List
+                | FlatShape::Table
+                | FlatShape::Record
+                | FlatShape::Block
+                | FlatShape::Closure => {
                     let spans = split_span_by_highlight_positions(
                         line,
-                        $span,
+                        shape.0,
                         &matching_brackets_pos,
                         global_span_offset,
                     );
-                    spans.iter().for_each(|(part, highlight)| {
-                        let start = part.start - $span.start;
-                        let end = part.end - $span.start;
-                        let text = (&next_token[start..end]).to_string();
-                        let mut style = get_shape_color($shape.to_string(), &self.config);
-                        if *highlight {
+
+                    spans.iter().for_each(|part| {
+                        let start = part.0.start - shape.0.start;
+                        let end = part.0.end - shape.0.start;
+                        let text = (next_token[start..end]).to_string();
+
+                        let mut style = get_shape_color(shape.1.to_string(), &self.config);
+                        if part.1 {
                             style = get_matching_brackets_style(style, &self.config);
                         }
                         output.push((style, text));
                     });
-                }};
-            }
-
-            let mut add_colored_token = |shape: &FlatShape, text: String| {
-                output.push((get_shape_color(shape.to_string(), &self.config), text));
-            };
-
-            match shape.1 {
-                FlatShape::Garbage => add_colored_token(&shape.1, next_token),
-                FlatShape::Nothing => add_colored_token(&shape.1, next_token),
-                FlatShape::Binary => add_colored_token(&shape.1, next_token),
-                FlatShape::Bool => add_colored_token(&shape.1, next_token),
-                FlatShape::Int => add_colored_token(&shape.1, next_token),
-                FlatShape::Float => add_colored_token(&shape.1, next_token),
-                FlatShape::Range => add_colored_token(&shape.1, next_token),
-                FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
-                FlatShape::External => add_colored_token(&shape.1, next_token),
-                FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
-                FlatShape::Keyword => add_colored_token(&shape.1, next_token),
-                FlatShape::Literal => add_colored_token(&shape.1, next_token),
-                FlatShape::Operator => add_colored_token(&shape.1, next_token),
-                FlatShape::Signature => add_colored_token(&shape.1, next_token),
-                FlatShape::String => add_colored_token(&shape.1, next_token),
-                FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
-                FlatShape::DateTime => add_colored_token(&shape.1, next_token),
-                FlatShape::List => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-                FlatShape::Table => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-                FlatShape::Record => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
                 }
 
-                FlatShape::Block => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
+                // all other non-nested shapes
+                _ => {
+                    output.push((
+                        get_shape_color(shape.1.to_string(), &self.config),
+                        next_token,
+                    ));
                 }
-                FlatShape::Closure => {
-                    add_colored_token_with_bracket_highlight!(shape.1, shape.0, next_token)
-                }
-
-                FlatShape::Filepath => add_colored_token(&shape.1, next_token),
-                FlatShape::Directory => add_colored_token(&shape.1, next_token),
-                FlatShape::GlobPattern => add_colored_token(&shape.1, next_token),
-                FlatShape::Variable(_) | FlatShape::VarDecl(_) => {
-                    add_colored_token(&shape.1, next_token)
-                }
-                FlatShape::Flag => add_colored_token(&shape.1, next_token),
-                FlatShape::Pipe => add_colored_token(&shape.1, next_token),
-                FlatShape::And => add_colored_token(&shape.1, next_token),
-                FlatShape::Or => add_colored_token(&shape.1, next_token),
-                FlatShape::Redirection => add_colored_token(&shape.1, next_token),
-                FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
-                FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
             }
             last_seen_span = shape.0.end;
         }
@@ -141,6 +96,8 @@ impl Highlighter for NuHighlighter {
     }
 }
 
+// Splits span into sub-spans.  Tuple booleans determines, wherever the span
+// should be highlighted.
 fn split_span_by_highlight_positions(
     line: &str,
     span: Span,
@@ -149,24 +106,27 @@ fn split_span_by_highlight_positions(
 ) -> Vec<(Span, bool)> {
     let mut start = span.start;
     let mut result: Vec<(Span, bool)> = Vec::new();
+
     for pos in highlight_positions {
-        if start <= *pos && pos < &span.end {
+        if start <= *pos && *pos < span.end {
             if start < *pos {
                 result.push((Span::new(start, *pos), false));
             }
-            let span_str = &line[pos - global_span_offset..span.end - global_span_offset];
+            let span_str = slice(line, *pos, span.end, global_span_offset);
             let end = span_str
                 .chars()
                 .next()
-                .map(|c| pos + get_char_length(c))
+                .map(|c| pos + c.len_utf8())
                 .unwrap_or(pos + 1);
             result.push((Span::new(*pos, end), true));
             start = end;
         }
     }
+
     if start < span.end {
         result.push((Span::new(start, span.end), false));
     }
+
     result
 }
 
@@ -185,7 +145,7 @@ fn find_matching_brackets(
         if global_cursor_offset == global_end_offset && global_end_offset > global_span_offset {
             // cursor is at the end of a non-empty string -- find block end at the previous position
             if let Some(last_char) = line.chars().last() {
-                global_cursor_offset - get_char_length(last_char)
+                global_cursor_offset - last_char.len_utf8()
             } else {
                 global_cursor_offset
             }
@@ -197,7 +157,7 @@ fn find_matching_brackets(
     // check that position contains bracket
     let match_idx = global_bracket_pos - global_span_offset;
     if match_idx >= line.len()
-        || !BRACKETS.contains(get_char_at_index(line, match_idx).unwrap_or_default())
+        || !BRACKETS.contains(line.chars().nth(match_idx).unwrap_or_default())
     {
         return Vec::new();
     }
@@ -212,7 +172,7 @@ fn find_matching_brackets(
     );
     if let Some(pos) = matching_block_end {
         let matching_idx = pos - global_span_offset;
-        if BRACKETS.contains(get_char_at_index(line, matching_idx).unwrap_or_default()) {
+        if BRACKETS.contains(line.chars().nth(matching_idx).unwrap_or_default()) {
             return if global_bracket_pos < pos {
                 vec![global_bracket_pos, pos]
             } else {
@@ -281,41 +241,19 @@ fn find_matching_block_end_in_expr(
     if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset
     {
         let expr_first = expression.span.start;
-        let span_str = &line
-            [expression.span.start - global_span_offset..expression.span.end - global_span_offset];
+        let span_str = slice(
+            line,
+            expression.span.start,
+            expression.span.end,
+            global_span_offset,
+        );
         let expr_last = span_str
             .chars()
             .last()
-            .map(|c| expression.span.end - get_char_length(c))
+            .map(|c| expression.span.end - c.len_utf8())
             .unwrap_or(expression.span.start);
 
         return match &expression.expr {
-            Expr::Bool(_) => None,
-            Expr::Int(_) => None,
-            Expr::Float(_) => None,
-            Expr::Binary(_) => None,
-            Expr::Range(..) => None,
-            Expr::Var(_) => None,
-            Expr::VarDecl(_) => None,
-            Expr::ExternalCall(..) => None,
-            Expr::Operator(_) => None,
-            Expr::UnaryNot(_) => None,
-            Expr::Keyword(..) => None,
-            Expr::ValueWithUnit(..) => None,
-            Expr::DateTime(_) => None,
-            Expr::Filepath(_) => None,
-            Expr::Directory(_) => None,
-            Expr::GlobPattern(_) => None,
-            Expr::String(_) => None,
-            Expr::CellPath(_) => None,
-            Expr::ImportPattern(_) => None,
-            Expr::Overlay(_) => None,
-            Expr::Signature(_) => None,
-            Expr::MatchPattern(_) => None,
-            Expr::MatchBlock(_) => None,
-            Expr::Nothing => None,
-            Expr::Garbage => None,
-
             Expr::Table(hdr, rows) => {
                 if expr_last == global_cursor_offset {
                     // cursor is at table end
@@ -429,15 +367,14 @@ fn find_matching_block_end_in_expr(
                     None
                 }
             }
+
+            // all other non-nested expressions
+            _ => None,
         };
     }
     None
 }
 
-fn get_char_at_index(s: &str, index: usize) -> Option<char> {
-    s[index..].chars().next()
-}
-
-fn get_char_length(c: char) -> usize {
-    c.to_string().len()
+fn slice(line: &str, start: usize, end: usize, offset: usize) -> &str {
+    &line[start - offset..end - offset]
 }
