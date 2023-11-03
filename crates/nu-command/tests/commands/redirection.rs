@@ -26,7 +26,7 @@ fn assert_file_exists(file_path: &Path, times: usize) {
 #[test]
 fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
-        let output = nu!(
+        nu!(
             cwd: dirs.test(),
             "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
