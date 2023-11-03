@@ -5,7 +5,7 @@ use std::path::Path;
 use std::thread;
 use std::time::Duration;
 
-fn assert_file_exists(file_path: &dyn AsRef<Path>, times: usize) {
+fn assert_file_exists(file_path: &Path, times: usize) {
     let mut base = 2;
     let mut exists = false;
     for _ in 0..times {
@@ -19,7 +19,7 @@ fn assert_file_exists(file_path: &dyn AsRef<Path>, times: usize) {
         thread::sleep(Duration::from_secs(base));
         base *= base;
     }
-    panic!("{} is not exists!", file_path);
+    panic!("{:?} is not exists!", file_path);
 }
 
 #[cfg(not(windows))]
