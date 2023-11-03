@@ -456,9 +456,27 @@ impl EngineState {
             .as_ref()
             .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin file not found".into()))
             .and_then(|plugin_path| {
+                let plugin_path = plugin_path.as_path();
                 // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path())
-                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                std::fs::File::create(plugin_path).map_err(|err| match err.kind() {
+                    std::io::ErrorKind::NotFound => ShellError::PluginFailedToLoad(format!(
+                        "Plugin file not found: {}. If you're running this command \
+                        from outside of Nushell, you may need to create the \
+                        configuration directory.",
+                        plugin_path.display()
+                    )),
+                    std::io::ErrorKind::PermissionDenied => {
+                        ShellError::PluginFailedToLoad(format!(
+                            "Permission denied when trying to create the plugin file: {}",
+                            plugin_path.display()
+                        ))
+                    }
+                    _ => ShellError::PluginFailedToLoad(format!(
+                        "Error while trying to create the plugin file: {}\n{}",
+                        plugin_path.display(),
+                        err
+                    )),
+                })
             })
             .and_then(|mut plugin_file| {
                 // Plugin definitions with parsed signature
@@ -510,11 +528,19 @@ impl EngineState {
                             // information when nushell starts
                             format!("register {file_name} {shell_str} {signature}\n\n")
                         })
-                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        .map_err(|err| {
+                            ShellError::PluginFailedToLoad(format!(
+                                "Error serializing plugin signature: {}",
+                                err
+                            ))
+                        })
                         .and_then(|line| {
-                            plugin_file
-                                .write_all(line.as_bytes())
-                                .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
+                                ShellError::PluginFailedToLoad(format!(
+                                    "Error writing plugin signature to the plugin file: {}",
+                                    err
+                                ))
+                            })
                         })
                         .and_then(|_| {
                             plugin_file.flush().map_err(|err| {
