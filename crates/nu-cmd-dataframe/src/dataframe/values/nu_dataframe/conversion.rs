@@ -1,23 +1,30 @@
-use super::{DataFrameValue, NuDataFrame};
+use std::ops::{Deref, DerefMut};
 
-use chrono::{DateTime, FixedOffset, NaiveDateTime};
+use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime, NaiveTime, Utc};
 use indexmap::map::{Entry, IndexMap};
-use nu_protocol::{Record, ShellError, Span, Value};
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
 use polars::chunked_array::ChunkedArray;
+use polars::datatypes::AnyValue;
+use polars::export::arrow::array::{
+    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
+    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+};
 use polars::export::arrow::Either;
 use polars::prelude::{
-    DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
-    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType,
-    ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series, TemporalMethods,
-    TimeUnit,
+    ArrayRef, DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
+    LargeBinaryArray, LargeListArray, LargeStringArray, ListBooleanChunkedBuilder,
+    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom,
+    NewChunkedArray, ObjectType, Series, StructArray, TemporalMethods, TimeUnit,
 };
-use std::ops::{Deref, DerefMut};
+
+use nu_protocol::{Record, ShellError, Span, Value};
+
+use super::{DataFrameValue, NuDataFrame};
 
 const SECS_PER_DAY: i64 = 86_400;
 
-// The values capacity is for the size of an internal vec.
+// The values capacity is for the size of an  vec.
 // Since this is impossible to determine without traversing every value
 // I just picked one. Since this is for converting back and forth
 // between nushell tables the values shouldn't be too extremely large for
@@ -199,7 +206,7 @@ fn value_to_input_type(value: &Value) -> InputType {
         Value::Filesize { .. } => InputType::Filesize,
         Value::List { vals, .. } => {
             // We need to determined the type inside of the list.
-            // Since Value::List does not have any kind of internal
+            // Since Value::List does not have any kind of
             // type information, we need to look inside the list.
             // This will cause errors if lists have inconsistent types.
             // Basically, if a list column needs to be converted to dataframe,
@@ -805,28 +812,21 @@ fn series_to_values(
                 )),
                 Some(ca) => {
                     let it = ca.into_iter();
-                    let values: Vec<Value> =
-                        if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
-                            Either::Left(it.skip(from_row).take(size))
+                    if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                        Either::Left(it.skip(from_row).take(size))
+                    } else {
+                        Either::Right(it)
+                    }
+                    .map(|ca| {
+                        let sublist: Vec<Value> = if let Some(ref s) = ca {
+                            series_to_values(s, None, None, Span::unknown())?
                         } else {
-                            Either::Right(it)
-                        }
-                        .map(|ca| {
-                            let sublist = ca
-                                .map(|ref s| {
-                                    match series_to_values(s, None, None, Span::unknown()) {
-                                        Ok(v) => v,
-                                        Err(e) => {
-                                            eprintln!("Error list values: {e}");
-                                            vec![]
-                                        }
-                                    }
-                                })
-                                .unwrap_or(vec![]);
-                            Value::list(sublist, span)
-                        })
-                        .collect::<Vec<Value>>();
-                    Ok(values)
+                            // empty item
+                            vec![]
+                        };
+                        Ok(Value::list(sublist, span))
+                    })
+                    .collect::<Result<Vec<Value>, ShellError>>()
                 }
             }
         }
@@ -850,47 +850,13 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     // elapsed time in day since 1970-01-01
-                    let seconds = a as i64 * SECS_PER_DAY;
-                    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
-                        Some(val) => val,
-                        None => {
-                            return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
-                                        .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
-                                span,
-                            )
-                        }
-                    };
-                    // Zero length offset
-                    let offset = match FixedOffset::east_opt(0) {
-                        Some(val) => val,
-                        None => {
-                            return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
-                                        .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
-                                span,
-                            )
-                        }
-                    };
-                    let datetime =
-                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
-
-                    Value::date(datetime, span)
+                    let seconds = seconds_per_day(a);
+                    let datetime = datetime_from_epoch_seconds(seconds, 0, span)?;
+                    Ok(Value::date(datetime, span))
                 }
-                None => Value::nothing(span),
+                None => Ok(Value::nothing(span)),
             })
-            .collect::<Vec<Value>>();
-
+            .collect::<Result<Vec<Value>, ShellError>>()?;
             Ok(values)
         }
         DataType::Datetime(time_unit, _) => {
@@ -912,54 +878,47 @@ fn series_to_values(
             }
             .map(|v| match v {
                 Some(a) => {
-                    let unit_divisor = match time_unit {
-                        TimeUnit::Nanoseconds => 1_000_000_000,
-                        TimeUnit::Microseconds => 1_000_000,
-                        TimeUnit::Milliseconds => 1_000,
-                    };
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
-                    let seconds = a / unit_divisor;
-                    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, 0) {
-                        Some(val) => val,
-                        None => {
-                            return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
-                                        .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
-                                span,
-                            )
-                        }
-                    };
-                    // Zero length offset
-                    let offset = match FixedOffset::east_opt(0) {
-                        Some(val) => val,
-                        None => {
-                            return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
-                                        .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
-                                span,
-                            )
-                        }
-                    };
-                    let datetime =
-                        DateTime::<FixedOffset>::from_naive_utc_and_offset(naive_datetime, offset);
-
-                    Value::date(datetime, span)
+                    let (seconds, nanos) = seconds_and_nanos_from_timeunit(a, *time_unit);
+                    let datetime = datetime_from_epoch_seconds(seconds, nanos, span)?;
+                    Ok(Value::date(datetime, span))
                 }
-                None => Value::nothing(span),
+                None => Ok(Value::nothing(span)),
             })
-            .collect::<Vec<Value>>();
-
+            .collect::<Result<Vec<Value>, ShellError>>()?;
             Ok(values)
+        }
+        DataType::Struct(polar_fields) => {
+            let casted = series.struct_().map_err(|e| {
+                ShellError::GenericError(
+                    "Error casting column to struct".into(),
+                    "".to_string(),
+                    None,
+                    Some(e.to_string()),
+                    Vec::new(),
+                )
+            })?;
+            let it = casted.into_iter();
+            let values: Result<Vec<Value>, ShellError> =
+                if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                    Either::Left(it.skip(from_row).take(size))
+                } else {
+                    Either::Right(it)
+                }
+                .map(|any_values| {
+                    let vals: Result<Vec<Value>, ShellError> = any_values
+                        .iter()
+                        .map(|v| any_value_to_value(v, span))
+                        .collect();
+                    let cols: Vec<String> = polar_fields
+                        .iter()
+                        .map(|field| field.name.to_string())
+                        .collect();
+                    let record = Record { cols, vals: vals? };
+                    Ok(Value::record(record, span))
+                })
+                .collect();
+            values
         }
         DataType::Time => {
             let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
@@ -996,10 +955,256 @@ fn series_to_values(
     }
 }
 
+fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellError> {
+    match any_value {
+        AnyValue::Null => Ok(Value::nothing(span)),
+        AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
+        AnyValue::Utf8(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::UInt8(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::UInt16(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::UInt32(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::UInt64(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::Int8(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::Int16(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::Int32(i) => Ok(Value::int(*i as i64, span)),
+        AnyValue::Int64(i) => Ok(Value::int(*i, span)),
+        AnyValue::Float32(f) => Ok(Value::float(*f as f64, span)),
+        AnyValue::Float64(f) => Ok(Value::float(*f, span)),
+        AnyValue::Date(d) => {
+            let seconds = seconds_per_day(*d);
+            datetime_from_epoch_seconds(seconds, 0, span)
+                .map(|datetime| Value::date(datetime, span))
+        }
+        AnyValue::Datetime(a, time_unit, _) => {
+            let (seconds, nanos) = seconds_and_nanos_from_timeunit(*a, *time_unit);
+            datetime_from_epoch_seconds(seconds, nanos, span)
+                .map(|datetime| Value::date(datetime, span))
+        }
+        AnyValue::Duration(a, time_unit) => {
+            let nanos = match time_unit {
+                TimeUnit::Nanoseconds => *a,
+                TimeUnit::Microseconds => *a * 1_000,
+                TimeUnit::Milliseconds => *a * 1_000_000,
+            };
+            Ok(Value::duration(nanos, span))
+        }
+        // AnyValue::Time represents the current time since midnight.
+        // Unfortunately, there is no timezone related information.
+        // Given this, calculate the current date from UTC and add the time.
+        AnyValue::Time(nanos) => time_from_midnight(*nanos, span),
+        AnyValue::List(series) => {
+            series_to_values(series, None, None, span).map(|values| Value::list(values, span))
+        }
+        AnyValue::Struct(idx, struct_array, s_fields) => {
+            let cols: Vec<String> = s_fields.iter().map(|f| f.name().to_string()).collect();
+            let vals: Result<Vec<Value>, ShellError> = struct_array
+                .values()
+                .iter()
+                .map(|v| arr_to_value(&**v, *idx, span))
+                .collect();
+            let record = Record { cols, vals: vals? };
+            Ok(Value::record(record, span))
+        }
+        AnyValue::StructOwned(struct_tuple) => {
+            let values: Result<Vec<Value>, ShellError> = struct_tuple
+                .0
+                .iter()
+                .map(|s| any_value_to_value(s, span))
+                .collect();
+            let fields = struct_tuple
+                .1
+                .iter()
+                .map(|f| f.name().to_string())
+                .collect();
+            Ok(Value::Record {
+                val: Record {
+                    cols: fields,
+                    vals: values?,
+                },
+                internal_span: span,
+            })
+        }
+        AnyValue::Utf8Owned(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
+        AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
+        e => Err(ShellError::GenericError(
+            "Error creating Value".into(),
+            "".to_string(),
+            None,
+            Some(format!("Value not supported in nushell: {e}")),
+            Vec::new(),
+        )),
+    }
+}
+
+#[inline]
+fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellError> {
+    macro_rules! downcast {
+        ($casttype:ident) => {{
+            let arr = &*(arr as *const dyn Array as *const $casttype);
+            arr.value_unchecked(idx)
+        }};
+    }
+
+    let dt = arr.data_type().into();
+    // Not loving the unsafe here, however this largely based off the one
+    // example I found for converting Array values in:
+    // polars_core::chunked_array::ops::any_value::arr_to_any_value
+    unsafe {
+        match dt {
+            DataType::Boolean => Ok(Value::bool(downcast!(BooleanArray), span)),
+            DataType::UInt8 => Ok(Value::int(downcast!(UInt8Array) as i64, span)),
+            DataType::UInt16 => Ok(Value::int(downcast!(UInt16Array) as i64, span)),
+            DataType::UInt32 => Ok(Value::int(downcast!(UInt32Array) as i64, span)),
+            DataType::UInt64 => Ok(Value::int(downcast!(UInt64Array) as i64, span)),
+            DataType::Int8 => Ok(Value::int(downcast!(Int8Array) as i64, span)),
+            DataType::Int16 => Ok(Value::int(downcast!(Int16Array) as i64, span)),
+            DataType::Int32 => Ok(Value::int(downcast!(Int32Array) as i64, span)),
+            DataType::Int64 => Ok(Value::int(downcast!(Int64Array), span)),
+            DataType::Float32 => Ok(Value::float(downcast!(Float32Array) as f64, span)),
+            DataType::Float64 => Ok(Value::float(downcast!(Float64Array), span)),
+            // DataType::Decimal(_, _) => {}
+            DataType::Utf8 => Ok(Value::string(downcast!(LargeStringArray).to_string(), span)),
+            DataType::Binary => Ok(Value::binary(downcast!(LargeBinaryArray).to_owned(), span)),
+            DataType::Date => {
+                let date = downcast!(Int32Array);
+                datetime_from_epoch_seconds(date as i64, 0, span)
+                    .map(|datetime| Value::date(datetime, span))
+            }
+            DataType::Datetime(time_unit, _tz) => {
+                let (seconds, nanos) =
+                    seconds_and_nanos_from_timeunit(downcast!(Int64Array), time_unit);
+                datetime_from_epoch_seconds(seconds, nanos, span)
+                    .map(|datetime| Value::date(datetime, span))
+            }
+            // DataType::Duration(_) => {}
+            DataType::Time => {
+                let t = downcast!(Int64Array);
+                time_from_midnight(t, span)
+            }
+            DataType::List(dt) => {
+                let v: ArrayRef = downcast!(LargeListArray);
+                let values_result = if dt.is_primitive() {
+                    let s = Series::from_chunks_and_dtype_unchecked("", vec![v], &dt);
+                    series_to_values(&s, None, None, span)
+                } else {
+                    let s = Series::from_chunks_and_dtype_unchecked("", vec![v], &dt.to_physical())
+                        .cast_unchecked(&dt)
+                        .unwrap();
+                    series_to_values(&s, None, None, span)
+                };
+                values_result.map(|values| Value::list(values, span))
+            }
+            DataType::Null => Ok(Value::nothing(span)),
+            DataType::Struct(fields) => {
+                let arr = &*(arr as *const dyn Array as *const StructArray);
+                let vals: Result<Vec<Value>, ShellError> = arr
+                    .values()
+                    .iter()
+                    .map(|v| arr_to_value(&**v, 0, span))
+                    .collect();
+                let cols = fields.iter().map(|f| f.name().to_string()).collect();
+                Ok(Value::record(Record { cols, vals: vals? }, span))
+            }
+            DataType::Unknown => Ok(Value::nothing(span)),
+            _ => Err(ShellError::CantConvert {
+                to_type: dt.to_string(),
+                from_type: "polars array".to_string(),
+                span,
+                help: Some(format!(
+                    "Could not convert polars array of type {:?} to value",
+                    dt
+                )),
+            }),
+        }
+    }
+}
+
+fn seconds_per_day(days: i32) -> i64 {
+    days as i64 * SECS_PER_DAY
+}
+
+// Contains other types beyond the polars types (e.g. Days)
+fn seconds_and_nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> (i64, u32) {
+    // Calculate the divisor for the other units
+    let unit_divisor = match time_unit {
+        TimeUnit::Nanoseconds => 1_000_000_000,
+        TimeUnit::Microseconds => 1_000_000,
+        TimeUnit::Milliseconds => 1_000,
+    };
+    // Calculate seconds and remaining nanoseconds for smaller units
+    let seconds = a / unit_divisor;
+    let remaining_nanos = a % unit_divisor
+        * match time_unit {
+            TimeUnit::Microseconds => 1_000, // Convert microseconds to nanoseconds
+            TimeUnit::Milliseconds => 1_000_000, // Convert milliseconds to nanoseconds
+            TimeUnit::Nanoseconds => 1,      // Already in nanoseconds
+        };
+
+    // remaining nanos should fit within u32, and this is the type chrono expects
+    (seconds, remaining_nanos as u32)
+}
+
+fn datetime_from_epoch_seconds(
+    seconds: i64,
+    nanos: u32,
+    span: Span,
+) -> Result<DateTime<FixedOffset>, ShellError> {
+    // elapsed time in day since 1970-01-01
+    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, nanos) {
+        Some(val) => val,
+        None => {
+            return Err(ShellError::UnsupportedInput(
+                "The given local datetime representation is invalid.".to_string(),
+                format!("timestamp is {seconds:?}"),
+                span,
+                Span::unknown(),
+            ));
+        }
+    };
+    // Zero length offset
+    let offset = match FixedOffset::east_opt(0) {
+        Some(val) => val,
+        None => {
+            return Err(ShellError::UnsupportedInput(
+                "The given local datetime representation is invalid.".to_string(),
+                format!("timestamp is {seconds:?}"),
+                span,
+                Span::unknown(),
+            ));
+        }
+    };
+    Ok(DateTime::<FixedOffset>::from_naive_utc_and_offset(
+        naive_datetime,
+        offset,
+    ))
+}
+
+fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
+    let today = Utc::now().date_naive();
+    NaiveTime::from_hms_opt(0, 0, 0) // midnight
+        .map(|time| time + Duration::nanoseconds(nanos)) // current time
+        .map(|time| today.and_time(time)) // current date and time
+        .and_then(|datetime| {
+            FixedOffset::east_opt(0) // utc
+                .map(|offset| {
+                    DateTime::<FixedOffset>::from_naive_utc_and_offset(datetime, offset)
+                })
+        })
+        .map(|datetime| Value::date(datetime, span)) // current date and time
+        .ok_or(ShellError::CantConvert {
+            to_type: "datetime".to_string(),
+            from_type: "polars time".to_string(),
+            span,
+            help: Some("Could not convert polars time of {nanos} to datetime".to_string()),
+        })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::*;
     use indexmap::indexmap;
+
+    use super::*;
 
     #[test]
     fn test_parsed_column_string_list() -> Result<(), Box<dyn std::error::Error>> {
