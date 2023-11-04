@@ -126,10 +126,31 @@ impl Command for PluginDeclaration {
             value => CallInput::Value(value),
         };
 
+        // Fetch the configuration for a plugin
+        //
+        // The `plugin` must match the registered name of a plugin.  For
+        // `register nu_plugin_example` the plugin config lookup uses `"example"`
+        let config = self
+            .filename
+            .file_name()
+            .and_then(|file| {
+                file.to_string_lossy()
+                    .clone()
+                    .strip_prefix("nu_plugin_")
+                    .map(|name| {
+                        nu_engine::get_config(engine_state, stack)
+                            .plugins
+                            .get(name)
+                            .cloned()
+                    })
+            })
+            .flatten();
+
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
             call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
             input,
+            config,
         });
 
         let encoding = {

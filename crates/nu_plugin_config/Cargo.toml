@@ -1,0 +1,16 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "A plugin configuration example for Nushell"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_config"
+edition = "2021"
+license = "MIT"
+name = "nu_plugin_config"
+version = "0.87.1"
+
+[[bin]]
+name = "nu_plugin_config"
+bench = false
+
+[dependencies]
+nu-plugin = { path = "../nu-plugin", version = "0.87.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.87.1", features = ["plugin"] }

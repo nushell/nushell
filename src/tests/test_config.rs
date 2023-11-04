@@ -1,4 +1,4 @@
-use super::run_test_std;
+use super::{fail_test, run_test_std};
 use crate::tests::TestResult;
 
 #[test]
@@ -99,4 +99,26 @@ fn mutate_nu_config_nested_filesize() -> TestResult {
         r#"$env.config.filesize.format = 'kb'; $env.config.filesize.format"#,
         "kb",
     )
+}
+
+#[test]
+fn mutate_nu_config_plugin() -> TestResult {
+    run_test_std(
+        r#"
+            $env.config.plugins = {
+                config: {
+                  key1: value
+                  key2: other
+                }
+            };
+            $env.config.plugins.config.key1 = 'updated'
+            $env.config.plugins.config.key1
+        "#,
+        "updated",
+    )
+}
+
+#[test]
+fn reject_nu_config_plugin_non_record() -> TestResult {
+    fail_test(r#"$env.config.plugins = 5"#, "should be a record")
 }

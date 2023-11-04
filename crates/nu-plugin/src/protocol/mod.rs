@@ -13,6 +13,7 @@ pub struct CallInfo {
     pub name: String,
     pub call: EvaluatedCall,
     pub input: CallInput,
+    pub config: Option<Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

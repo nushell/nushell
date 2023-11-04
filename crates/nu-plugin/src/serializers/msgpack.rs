@@ -107,6 +107,7 @@ mod tests {
             name: name.clone(),
             call: call.clone(),
             input: CallInput::Value(input.clone()),
+            config: None,
         });
 
         let encoder = MsgPackSerializer {};
