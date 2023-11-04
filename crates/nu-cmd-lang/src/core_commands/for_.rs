@@ -125,7 +125,7 @@ impl Command for For {
                 }
             }
             Value::Range { val, .. } => {
-                for (idx, x) in val.into_range_iter(ctrlc)?.enumerate() {
+                for (idx, x) in val.into_range_iter(ctrlc).enumerate() {
                     stack.add_var(
                         var_id,
                         if numbered {

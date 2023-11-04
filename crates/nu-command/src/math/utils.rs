@@ -92,7 +92,7 @@ pub fn calculate(
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
-                .into_range_iter(None)?
+                .into_range_iter(None)
                 .map(|val| mf(&[val], span, name))
                 .collect();
 

@@ -33,7 +33,7 @@ where
 #[test]
 fn find_custom_values() {
     use crate::protocol::test_util::test_plugin_custom_value;
-    use nu_protocol::{ast::RangeInclusion, engine::Closure, record, LazyRecord, Range, Span};
+    use nu_protocol::{engine::Closure, record, LazyRecord, Span};
 
     #[derive(Debug, Clone)]
     struct Lazy;
@@ -73,12 +73,6 @@ fn find_custom_values() {
                 captures: vec![(0, cv.clone()), (1, Value::test_string("foo"))]
             }
         ),
-        "range" => Value::test_range(Range {
-            from: cv.clone(),
-            incr: cv.clone(),
-            to: cv.clone(),
-            inclusion: RangeInclusion::Inclusive
-        }),
         "lazy" => Value::test_lazy_record(Box::new(Lazy)),
     });
 

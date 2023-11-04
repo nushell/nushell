@@ -257,13 +257,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::Filesize { val, .. } => val.to_string(),
         Value::Duration { val, .. } => val.to_string(),
         Value::Date { val, .. } => format!("{val:?}"),
-        Value::Range { val, .. } => {
-            format!(
-                "{}..{}",
-                debug_string_without_formatting(&val.from),
-                debug_string_without_formatting(&val.to)
-            )
-        }
+        Value::Range { val, .. } => val.to_string(),
         Value::String { val, .. } => val.clone(),
         Value::Glob { val, .. } => val.clone(),
         Value::List { vals: val, .. } => format!(

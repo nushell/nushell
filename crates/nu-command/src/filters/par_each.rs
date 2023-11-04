@@ -143,7 +143,6 @@ impl Command for ParEach {
                 .install(|| {
                     let vec = val
                         .into_range_iter(ctrlc.clone())
-                        .expect("unable to create a range iterator")
                         .enumerate()
                         .par_bridge()
                         .map(move |(index, x)| {

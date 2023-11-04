@@ -14,11 +14,11 @@ pub use filesize::*;
 pub use from_value::FromValue;
 pub use glob::*;
 pub use lazy_record::LazyRecord;
-pub use range::*;
+pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember, RangeInclusion},
+    ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
     BlockId, Config, ShellError, Span, Type,
@@ -36,6 +36,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     fmt::{Debug, Display, Write},
+    ops::Bound,
     path::PathBuf,
 };
 
@@ -87,7 +88,7 @@ pub enum Value {
         internal_span: Span,
     },
     Range {
-        val: Box<Range>,
+        val: Range,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -197,7 +198,7 @@ impl Clone for Value {
                 internal_span: *internal_span,
             },
             Value::Range { val, internal_span } => Value::Range {
-                val: val.clone(),
+                val: *val,
                 internal_span: *internal_span,
             },
             Value::Float { val, internal_span } => Value::float(*val, *internal_span),
@@ -345,9 +346,9 @@ impl Value {
     }
 
     /// Returns a reference to the inner [`Range`] value or an error if this `Value` is not a range
-    pub fn as_range(&self) -> Result<&Range, ShellError> {
+    pub fn as_range(&self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(val.as_ref())
+            Ok(*val)
         } else {
             self.cant_convert_to("range")
         }
@@ -356,7 +357,7 @@ impl Value {
     /// Unwraps the inner [`Range`] value or returns an error if this `Value` is not a range
     pub fn into_range(self) -> Result<Range, ShellError> {
         if let Value::Range { val, .. } = self {
-            Ok(*val)
+            Ok(val)
         } else {
             self.cant_convert_to("range")
         }
@@ -921,13 +922,7 @@ impl Value {
                     )
                 }
             },
-            Value::Range { val, .. } => {
-                format!(
-                    "{}..{}",
-                    val.from.to_expanded_string(", ", config),
-                    val.to.to_expanded_string(", ", config)
-                )
-            }
+            Value::Range { val, .. } => val.to_string(),
             Value::String { val, .. } => val.clone(),
             Value::Glob { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
@@ -1108,7 +1103,7 @@ impl Value {
                             }
                         }
                         Value::Range { val, .. } => {
-                            if let Some(item) = val.into_range_iter(None)?.nth(*count) {
+                            if let Some(item) = val.into_range_iter(None).nth(*count) {
                                 current = item;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
@@ -1856,12 +1851,6 @@ impl Value {
         f(self)?;
         // Check for contained values
         match self {
-            // Any values that can contain other values need to be handled recursively
-            Value::Range { ref mut val, .. } => {
-                val.from.recurse_mut(f)?;
-                val.to.recurse_mut(f)?;
-                val.incr.recurse_mut(f)
-            }
             Value::Record { ref mut val, .. } => val
                 .iter_mut()
                 .try_for_each(|(_, rec_value)| rec_value.recurse_mut(f)),
@@ -1882,6 +1871,7 @@ impl Value {
             | Value::Filesize { .. }
             | Value::Duration { .. }
             | Value::Date { .. }
+            | Value::Range { .. }
             | Value::String { .. }
             | Value::Glob { .. }
             | Value::Block { .. }
@@ -1975,7 +1965,7 @@ impl Value {
 
     pub fn range(val: Range, span: Span) -> Value {
         Value::Range {
-            val: Box::new(val),
+            val,
             internal_span: span,
         }
     }
@@ -2185,12 +2175,12 @@ impl Value {
             Value::test_filesize(0),
             Value::test_duration(0),
             Value::test_date(DateTime::UNIX_EPOCH.into()),
-            Value::test_range(Range {
-                from: Value::test_nothing(),
-                incr: Value::test_nothing(),
-                to: Value::test_nothing(),
-                inclusion: RangeInclusion::Inclusive,
-            }),
+            Value::test_range(Range::IntRange(IntRange {
+                start: 0,
+                step: 1,
+                end: Bound::Excluded(0),
+                span: Span::test_data(),
+            })),
             Value::test_float(0.0),
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
