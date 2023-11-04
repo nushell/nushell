@@ -83,8 +83,8 @@ impl Command for ErrorMake {
                 start: 123
                 end: 456
             }
-            help: "A help string, suggesting a fix to the user"  # optional
         }
+        help: "A help string, suggesting a fix to the user"  # optional
     }"#,
                 result: Some(Value::error(
                     ShellError::GenericError(
@@ -160,6 +160,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
 
     let label = match value.get_data_by_key("label") {
         Some(value) => value,
+        // correct return: no label
         None => {
             return ShellError::GenericError(
                 msg,
@@ -215,7 +216,8 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
                 Vec::new(),
             )
         }
-        None => return ShellError::GenericError(msg, text, throw_span, None, Vec::new()),
+        // correct return: label, no span
+        None => return ShellError::GenericError(msg, text, throw_span, help, Vec::new()),
     };
 
     let span_start = match get_span_sides(&span, "start") {
@@ -237,6 +239,7 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
         );
     }
 
+    // correct return: everything present
     ShellError::GenericError(
         msg,
         text,
