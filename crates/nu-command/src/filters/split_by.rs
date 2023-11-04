@@ -211,7 +211,14 @@ pub fn data_split(
                 }
             }
         }
-        _ => return Err(ShellError::PipelineEmpty { dst_span }),
+        PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span }),
+        _ => {
+            return Err(ShellError::PipelineMismatch {
+                exp_input_type: "record".into(),
+                dst_span,
+                src_span: value.span().unwrap_or(Span::unknown()),
+            })
+        }
     }
 
     let record = splits
