@@ -161,8 +161,17 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
 
     let (label, label_span) = match value.get("label") {
         Some(value @ Value::Record { val, .. }) => (val, value.span()),
+        Some(_) => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "`$.label` has wrong type, must be a record".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            )
+        }
         // correct return: no label
-        _ => {
+        None => {
             return ShellError::GenericError(
                 msg,
                 "originates from here".to_string(),
