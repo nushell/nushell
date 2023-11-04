@@ -21,6 +21,8 @@
 
         toolchain = (pkgs.rustChannelOf {
           rustToolchain = ./rust-toolchain.toml;
+          # This hash will have to be updated whenever the rust toolchain is
+          # To get the hash, run nix build and just copy the hash from the error message
           sha256 = "sha256-R0F0Risbr74xg9mEYydyebx/z0Wu6HI0/KWwrV30vZo=";
         }).rust;
 
@@ -34,11 +36,6 @@
         defaultPackage = naersk'.buildPackage {
           src = ./.;
           buildInputs = [ pkgs.pkg-config pkgs.openssl ];
-        };
-
-        # For `nix develop` (optional, can be skipped):
-        devShell = pkgs.mkShell {
-          nativeBuildInputs = with pkgs; [ rustc cargo ];
         };
       }
     );
