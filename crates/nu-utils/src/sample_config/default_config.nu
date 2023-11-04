@@ -6,7 +6,8 @@
 # https://www.nushell.sh/book/coloring_and_theming.html
 # And here is the theme collection
 # https://github.com/nushell/nu_scripts/tree/main/themes
-let dark_theme = {
+
+$env.DARK_THEME = {
     # color for nushell primitives
     separator: white
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
@@ -70,7 +71,7 @@ let dark_theme = {
     shape_vardecl: purple
 }
 
-let light_theme = {
+$env.LIGHT_THEME = {
     # color for nushell primitives
     separator: dark_gray
     leading_trailing_space_bg: { attr: n } # no fg, no bg, attr none effectively turns this off
@@ -223,7 +224,7 @@ $env.config = {
         vi_normal: underscore # block, underscore, line, blink_block, blink_underscore, blink_line, inherit to skip setting cursor shape (underscore is the default)
     }
 
-    color_config: $dark_theme # if you want a more interesting theme, you can replace the empty record with `$dark_theme`, `$light_theme` or another custom record
+    color_config: $env.DARK_THEME # if you want a more interesting theme, you can replace the empty record with `$env.DARK_THEME`, `$env.LIGHT_THEME` or another custom record
     use_grid_icons: true
     footer_mode: "25" # always, never, number_of_rows, auto
     float_precision: 2 # the precision for displaying floats in tables
