@@ -6,6 +6,7 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
+use nu_engine::eval_block;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -144,7 +145,24 @@ impl Command for PluginDeclaration {
                             .cloned()
                     })
             })
-            .flatten();
+            .flatten()
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Closure { val, .. } => {
+                        let input = PipelineData::Empty;
+
+                        let block = engine_state.get_block(val.block_id).clone();
+                        let mut stack = stack.captures_to_stack(val.captures);
+
+                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
+                            Ok(v) => v.into_value(span),
+                            Err(e) => Value::error(e, call.head),
+                        }
+                    }
+                    _ => value.clone(),
+                }
+            });
 
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
