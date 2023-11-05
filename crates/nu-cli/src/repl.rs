@@ -7,7 +7,7 @@ use crate::{
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
-use miette::{ErrReport, IntoDiagnostic, Result};
+use miette::{IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
@@ -97,8 +97,6 @@ pub fn evaluate_repl(
     let mut line_editor = Reedline::create();
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
-    // Now that reedline is created, get the history session id and store it in engine_state
-    store_history_id_in_engine(engine_state, &line_editor);
     perf(
         "setup reedline",
         start_time,
@@ -131,7 +129,7 @@ pub fn evaluate_repl(
     );
     if let Some(history_path) = history_path.as_deref() {
         line_editor =
-            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
+            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)
     };
     perf(
         "setup history",
@@ -451,10 +449,7 @@ pub fn evaluate_repl(
         match input {
             Ok(Signal::Success(s)) => {
                 let hostname = sys.host_name();
-                let history_supports_meta =
-                    matches!(config.history_file_format, HistoryFileFormat::Sqlite);
-                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
-                {
+                if !s.is_empty() {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.start_timestamp = Some(chrono::Utc::now());
@@ -463,7 +458,8 @@ pub fn evaluate_repl(
                             c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                             c
                         })
-                        .into_diagnostic()?; // todo: don't stop repl if error here?
+                        .into_diagnostic()
+                        .unwrap_or_else(|e| report_error_new(&engine_state, e.as_ref()));
                 }
 
                 // Right before we start running the code the user gave us, fire the `pre_execution`
@@ -602,8 +598,7 @@ pub fn evaluate_repl(
                     Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
-                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
-                {
+                if !s.is_empty() {
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.duration = Some(cmd_duration);
@@ -612,7 +607,8 @@ pub fn evaluate_repl(
                                 .and_then(|e| e.as_i64().ok());
                             c
                         })
-                        .into_diagnostic()?; // todo: don't stop repl if error here?
+                        .into_diagnostic()
+                        .unwrap_or_else(|e| report_error_new(&engine_state, e.as_ref()));
                 }
 
                 if shell_integration {
@@ -721,47 +717,45 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
-    let session_id = line_editor
-        .get_history_session_id()
-        .map(i64::from)
-        .unwrap_or(0);
-
-    engine_state.history_session_id = session_id;
-}
-
 fn update_line_editor_history(
     engine_state: &mut EngineState,
     history_path: &Path,
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
-) -> Result<Reedline, ErrReport> {
+) -> Reedline {
     let config = engine_state.get_config();
-    let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
-        HistoryFileFormat::PlainText => Box::new(
-            FileBackedHistory::with_file(
-                config.max_history_size as usize,
-                history_path.to_path_buf(),
-            )
-            .into_diagnostic()?,
-        ),
-        HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
-                history_session_id,
-                Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
-        ),
+    let history = match engine_state.config.history_file_format {
+        HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+            config.max_history_size as usize,
+            history_path.to_path_buf(),
+        )
+        .into_diagnostic()
+        .map(|history| Box::new(history) as Box<dyn reedline::History>),
+        HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(
+            history_path.to_path_buf(),
+            history_session_id,
+            Some(chrono::Utc::now()),
+        )
+        .into_diagnostic()
+        .map(|history| Box::new(history) as Box<dyn reedline::History>),
     };
-    let line_editor = line_editor
-        .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(Some(" ".into()))
-        .with_history(history);
 
-    store_history_id_in_engine(engine_state, &line_editor);
+    match history {
+        Ok(history) => {
+            let line_editor = line_editor
+                .with_history_session_id(history_session_id)
+                .with_history_exclusion_prefix(Some(" ".into()))
+                .with_history(history);
 
-    Ok(line_editor)
+            engine_state.history_session_id = history_session_id.map(i64::from).unwrap_or(0);
+
+            line_editor
+        }
+        Err(e) => {
+            report_error_new(&engine_state, e.as_ref());
+            line_editor
+        }
+    }
 }
 
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
@@ -862,7 +856,7 @@ fn are_session_ids_in_sync() {
     let line_editor =
         update_line_editor_history(engine_state, history_path, line_editor, history_session_id);
     assert_eq!(
-        i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
+        i64::from(line_editor.get_history_session_id().unwrap()),
         engine_state.history_session_id
     );
 }
