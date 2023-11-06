@@ -1659,12 +1659,12 @@ impl Value {
                                 // SIGH...
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 _ => {
-                                    return Err(ShellError::UnsupportedInput(
-                                        "expected table or record".into(),
-                                        format!("input type: {:?}", val.get_type()),
-                                        head_span,
-                                        *span,
-                                    ))
+                                    return Err(ShellError::UnsupportedInput {
+                                        msg: "expected table or record".into(),
+                                        input: format!("input type: {:?}", val.get_type()),
+                                        msg_span: head_span,
+                                        input_span: *span,
+                                    })
                                 }
                             }
                         }
@@ -1697,12 +1697,12 @@ impl Value {
                         *self = record
                     }
                     other => {
-                        return Err(ShellError::UnsupportedInput(
-                            "table or record".into(),
-                            format!("input type: {:?}", other.get_type()),
-                            head_span,
-                            *span,
-                        ))
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "table or record".into(),
+                            input: format!("input type: {:?}", other.get_type()),
+                            msg_span: head_span,
+                            input_span: *span,
+                        })
                     }
                 },
                 PathMember::Int {
@@ -3220,27 +3220,24 @@ impl Value {
                         if let Some(regex) = cache.get(rhs) {
                             regex.is_match(lhs)
                         } else {
-                            let regex = Regex::new(rhs).map_err(|e| {
-                                ShellError::UnsupportedInput(
-                                    format!("{e}"),
-                                    "value originated from here".into(),
-                                    span,
-                                    rhs_span,
-                                )
-                            })?;
+                            let regex =
+                                Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
+                                    msg: format!("{e}"),
+                                    input: "value originated from here".into(),
+                                    msg_span: span,
+                                    input_span: rhs_span,
+                                })?;
                             let ret = regex.is_match(lhs);
                             cache.put(rhs.clone(), regex);
                             ret
                         }
                     }
                     Err(_) => {
-                        let regex = Regex::new(rhs).map_err(|e| {
-                            ShellError::UnsupportedInput(
-                                format!("{e}"),
-                                "value originated from here".into(),
-                                span,
-                                rhs_span,
-                            )
+                        let regex = Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
+                            msg: format!("{e}"),
+                            input: "value originated from here".into(),
+                            msg_span: span,
+                            input_span: rhs_span,
                         })?;
                         regex.is_match(lhs)
                     }

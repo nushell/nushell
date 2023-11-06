@@ -56,13 +56,8 @@ pub fn http_parse_url(
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                format!("value: '{requested_url:?}'"),
-                call.head,
-                span,
-            ));
+            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
         }
     };
 

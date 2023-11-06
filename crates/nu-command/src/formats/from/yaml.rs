@@ -81,12 +81,12 @@ fn convert_yaml_value_to_nu_value(
     span: Span,
     val_span: Span,
 ) -> Result<Value, ShellError> {
-    let err_not_compatible_number = ShellError::UnsupportedInput(
-        "Expected a nu-compatible number in YAML input".to_string(),
-        "value originates from here".into(),
-        span,
-        val_span,
-    );
+    let err_not_compatible_number = ShellError::UnsupportedInput {
+        msg: "Expected a nu-compatible number in YAML input".to_string(),
+        input: "value originates from here".into(),
+        msg_span: span,
+        input_span: val_span,
+    };
     Ok(match v {
         serde_yaml::Value::Bool(b) => Value::bool(*b, span),
         serde_yaml::Value::Number(n) if n.is_i64() => {
@@ -109,12 +109,12 @@ fn convert_yaml_value_to_nu_value(
 
             for (k, v) in t {
                 // A ShellError that we re-use multiple times in the Mapping scenario
-                let err_unexpected_map = ShellError::UnsupportedInput(
-                    format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
-                    "value originates from here".into(),
-                    span,
-                    val_span,
-                );
+                let err_unexpected_map = ShellError::UnsupportedInput {
+                    msg: format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: val_span,
+                };
                 match (k, v) {
                     (serde_yaml::Value::Number(k), _) => {
                         collected.insert(
@@ -198,14 +198,13 @@ pub fn from_yaml_string_to_value(
     let mut documents = vec![];
 
     for document in serde_yaml::Deserializer::from_str(&s) {
-        let v: serde_yaml::Value = serde_yaml::Value::deserialize(document).map_err(|x| {
-            ShellError::UnsupportedInput(
-                format!("Could not load YAML: {x}"),
-                "value originates from here".into(),
-                span,
-                val_span,
-            )
-        })?;
+        let v: serde_yaml::Value =
+            serde_yaml::Value::deserialize(document).map_err(|x| ShellError::UnsupportedInput {
+                msg: format!("Could not load YAML: {x}"),
+                input: "value originates from here".into(),
+                msg_span: span,
+                input_span: val_span,
+            })?;
         documents.push(convert_yaml_value_to_nu_value(&v, span, val_span)?);
     }
 

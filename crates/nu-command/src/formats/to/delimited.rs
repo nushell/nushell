@@ -126,12 +126,12 @@ fn to_string_tagged_value(
 }
 
 fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
-    ShellError::UnsupportedInput(
-        "Unexpected type".to_string(),
-        format!("input type: {:?}", value.get_type()),
-        head,
-        span,
-    )
+    ShellError::UnsupportedInput {
+        msg: "Unexpected type".to_string(),
+        input: format!("input type: {:?}", value.get_type()),
+        msg_span: head,
+        input_span: span,
+    }
 }
 
 pub fn find_non_record(values: &[Value]) -> Option<&Value> {

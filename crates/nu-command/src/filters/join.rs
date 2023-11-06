@@ -89,18 +89,18 @@ impl Command for Join {
                 let result = join(rows_1, rows_2, l_on, r_on, join_type, span);
                 Ok(PipelineData::Value(result, None))
             }
-            _ => Err(ShellError::UnsupportedInput(
-                "(PipelineData<table>, table, string, string)".into(),
-                format!(
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "(PipelineData<table>, table, string, string)".into(),
+                input: format!(
                     "({:?}, {:?}, {:?} {:?})",
                     collected_input,
                     table_2.get_type(),
                     l_on.get_type(),
                     r_on.get_type(),
                 ),
-                span,
-                span,
-            )),
+                msg_span: span,
+                input_span: span,
+            }),
         }
     }
 
@@ -126,12 +126,12 @@ fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
         (false, true, false, false) => Ok(JoinType::Left),
         (false, false, true, false) => Ok(JoinType::Right),
         (false, false, false, true) => Ok(JoinType::Outer),
-        _ => Err(ShellError::UnsupportedInput(
-            "Choose one of: --inner, --left, --right, --outer".into(),
-            "".into(),
-            call.head,
-            call.head,
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "Choose one of: --inner, --left, --right, --outer".into(),
+            input: "".into(),
+            msg_span: call.head,
+            input_span: call.head,
+        }),
     }
 }
 

@@ -469,13 +469,12 @@ fn find_with_rest_and_highlight(
                             // Propagate errors by explicitly matching them before the final case.
                             Value::Error { error, .. } => return Err(*error),
                             other => {
-                                return Err(ShellError::UnsupportedInput(
-                                    "unsupported type from raw stream".into(),
-                                    format!("input: {:?}", other.get_type()),
-                                    span,
-                                    // This line requires the Value::Error match above.
-                                    other.span(),
-                                ));
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "unsupported type from raw stream".into(),
+                                    input: format!("input: {:?}", other.get_type()),
+                                    msg_span: span,
+                                    input_span: other.span(),
+                                });
                             }
                         }
                     }

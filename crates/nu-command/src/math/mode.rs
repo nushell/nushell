@@ -138,12 +138,12 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
             Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput(
-                "Unable to give a result with this input".to_string(),
-                "value originates from here".into(),
-                head,
-                other.span(),
-            )),
+            other => Err(ShellError::UnsupportedInput {
+                msg: "Unable to give a result with this input".to_string(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: other.span(),
+            }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
 
