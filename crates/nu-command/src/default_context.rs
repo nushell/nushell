@@ -229,6 +229,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             InputListen,
             Kill,
             Sleep,
+            Terminal,
             TermSize,
             Whoami,
         };

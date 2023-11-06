@@ -6,6 +6,7 @@ mod input;
 mod kill;
 mod sleep;
 mod term_size;
+mod terminal;
 mod whoami;
 
 pub use ansi::{Ansi, AnsiLink, AnsiStrip};
@@ -18,4 +19,5 @@ pub use input::InputListen;
 pub use kill::Kill;
 pub use sleep::Sleep;
 pub use term_size::TermSize;
+pub use terminal::Terminal;
 pub use whoami::Whoami;
