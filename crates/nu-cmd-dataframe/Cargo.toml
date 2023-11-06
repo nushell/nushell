@@ -20,7 +20,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.86.1" }
 # Potential dependencies for extras
 chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
 fancy-regex = "0.11"
-indexmap = { version = "2.0" }
+indexmap = { version = "2.1" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.36.1", optional = true }
