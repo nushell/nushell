@@ -1,14 +1,14 @@
 use nu_protocol::{
-    ast::Call,
+    ast::{Argument, Call},
     engine::{Command, EngineState, Stack},
     Category, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use std::io::IsTerminal;
+use std::io::IsTerminal as _;
 
 #[derive(Clone)]
-pub struct Terminal;
+pub struct IsTerminal;
 
-impl Command for Terminal {
+impl Command for IsTerminal {
     fn name(&self) -> &str {
         "is-terminal"
     }
@@ -28,8 +28,8 @@ impl Command for Terminal {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -42,33 +42,49 @@ impl Command for Terminal {
         let stdout = call.has_flag("stdout");
         let stderr = call.has_flag("stderr");
 
-        match (stdin, stdout, stderr) {
-            (true, false, false) => Ok(PipelineData::Value(
-                Value::bool(std::io::stdin().is_terminal(), call.head),
-                None,
-            )),
-            (false, true, false) => Ok(PipelineData::Value(
-                Value::bool(std::io::stdout().is_terminal(), call.head),
-                None,
-            )),
-            (false, false, true) => Ok(PipelineData::Value(
-                Value::bool(std::io::stderr().is_terminal(), call.head),
-                None,
-            )),
-            (false, false, false) => Err(ShellError::MissingParameter {
-                param_name: "one of --stdin, --stdout, --stderr".into(),
-                span: call.head,
-            }),
-            (true, true, _) => {
-                eprintln!("{:?}", call.arguments);
-
-                Err(ShellError::IncompatibleParametersSingle {
-                    msg: "Only one stream may be checked".into(),
+        let is_terminal = match (stdin, stdout, stderr) {
+            (true, false, false) => std::io::stdin().is_terminal(),
+            (false, true, false) => std::io::stdout().is_terminal(),
+            (false, false, true) => std::io::stderr().is_terminal(),
+            (false, false, false) => {
+                return Err(ShellError::MissingParameter {
+                    param_name: "one of --stdin, --stdout, --stderr".into(),
                     span: call.head,
-                })
+                });
             }
-            (true, false, true) => todo!(),
-            (false, true, true) => todo!(),
-        }
+            _ => {
+                let span = match call.arguments.len() {
+                    0 => call.span(),
+                    1 => *argument_span(call.arguments.first().expect("at least one argument")),
+                    _ => {
+                        // Build a span covering all arguments.  At least one of them must be removed
+                        let first =
+                            argument_span(call.arguments.first().expect("at least one argument"));
+                        let last =
+                            argument_span(call.arguments.last().expect("at least one argument"));
+
+                        Span::new(first.start, last.end)
+                    }
+                };
+
+                return Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Only one stream may be checked".into(),
+                    span,
+                });
+            }
+        };
+
+        Ok(PipelineData::Value(
+            Value::bool(is_terminal, call.head),
+            None,
+        ))
+    }
+}
+
+fn argument_span(argument: &Argument) -> &Span {
+    match argument {
+        Argument::Positional(e) => &e.span,
+        Argument::Named((s, _, _)) => &s.span,
+        Argument::Unknown(e) => &e.span,
     }
 }
