@@ -53,7 +53,6 @@ impl Command for Items {
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
         let input_span = input.span().unwrap_or(call.head);
@@ -80,7 +79,7 @@ impl Command for Items {
                 &mut stack,
                 &block,
                 PipelineData::empty(),
-                redirect_stdout,
+                true,
                 redirect_stderr,
             ) {
                 Ok(v) => Some(v.into_value(span)),
@@ -123,7 +122,8 @@ impl Command for Items {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "{ new: york, san: francisco } | items {|key, value| $'($key) ($value)' }",
+            example:
+                "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
             result: Some(Value::list(
                 vec![
