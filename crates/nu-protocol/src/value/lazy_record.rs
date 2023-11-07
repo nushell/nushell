@@ -11,6 +11,15 @@ pub trait LazyRecord<'a>: fmt::Debug + Send + Sync {
     // Get 1 specific column value
     fn get_column_value(&self, column: &str) -> Result<Value, ShellError>;
 
+    // Returns None if the column doesn't exist and Some(Result) if it does
+    fn get_column_value_opt(&'a self, column: &str) -> Option<Result<Value, ShellError>> {
+        if self.column_names().contains(&column) {
+            Some(self.get_column_value(column))
+        } else {
+            None
+        }
+    }
+
     fn span(&self) -> Span;
 
     // Convert the lazy record into a regular Value::Record by collecting all its columns

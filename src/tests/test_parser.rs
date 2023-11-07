@@ -62,7 +62,7 @@ fn alias_2_multi_word() -> TestResult {
 #[ignore = "TODO: Allow alias to alias existing command with the same name"]
 #[test]
 fn alias_recursion() -> TestResult {
-    run_test_contains(r#"alias ls = ls -a; ls"#, " ")
+    run_test_contains(r#"alias ls = ls -a; ls"#, " ".into())
 }
 
 #[test]
@@ -258,7 +258,7 @@ fn commands_have_usage() -> TestResult {
     # To see if I have cool usage
     def foo [] {}
     help foo"#,
-        "cool usage",
+        "cool usage".into(),
     )
 }
 
