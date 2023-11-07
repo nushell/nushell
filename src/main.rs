@@ -59,6 +59,9 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
+    // This allows more intuitive backtraces
+    color_backtrace::install();
+
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
     let mut engine_state = get_engine_state();
