@@ -627,12 +627,14 @@ pub enum ShellError {
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input))]
-    UnsupportedInput(
-        String,
-        String,
-        #[label("{0}")] Span, // call head (the name of the command itself)
-        #[label("input type: {1}")] Span,
-    ),
+    UnsupportedInput {
+        msg: String,
+        input: String,
+        #[label("{msg}")]
+        msg_span: Span,
+        #[label("{input}")]
+        input_span: Span,
+    },
 
     /// Failed to parse an input into a datetime value.
     ///

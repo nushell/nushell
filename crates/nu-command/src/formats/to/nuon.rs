@@ -131,28 +131,28 @@ pub fn value_to_string(
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
                 if write!(s, "{byte:02X}").is_err() {
-                    return Err(ShellError::UnsupportedInput(
-                        "could not convert binary to string".into(),
-                        "value originates from here".into(),
-                        span,
-                        v.span(),
-                    ));
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "could not convert binary to string".into(),
+                        input: "value originates from here".into(),
+                        msg_span: span,
+                        input_span: v.span(),
+                    });
                 }
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Block { .. } => Err(ShellError::UnsupportedInput(
-            "blocks are currently not nuon-compatible".into(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
-        Value::Closure { .. } => Err(ShellError::UnsupportedInput(
-            "closures are currently not nuon-compatible".into(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
+        Value::Block { .. } => Err(ShellError::UnsupportedInput {
+            msg: "blocks are currently not nuon-compatible".into(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
+        Value::Closure { .. } => Err(ShellError::UnsupportedInput {
+            msg: "closures are currently not nuon-compatible".into(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
         Value::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())
@@ -160,18 +160,18 @@ pub fn value_to_string(
                 Ok("false".to_string())
             }
         }
-        Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cell-paths are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
-            "custom values are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
+        Value::CellPath { .. } => Err(ShellError::UnsupportedInput {
+            msg: "cell-paths are currently not nuon-compatible".to_string(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
+        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput {
+            msg: "custom values are currently not nuon-compatible".to_string(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
@@ -241,12 +241,12 @@ pub fn value_to_string(
                 ))
             }
         }
-        Value::MatchPattern { .. } => Err(ShellError::UnsupportedInput(
-            "match patterns are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
+        Value::MatchPattern { .. } => Err(ShellError::UnsupportedInput {
+            msg: "match patterns are currently not nuon-compatible".to_string(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",

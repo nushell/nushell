@@ -198,18 +198,15 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                     }
                     _ => input.clone(),
                 },
-                ActionMode::Local => {
-                    Value::error(
-                        ShellError::UnsupportedInput(
-                            "Only string values are supported".into(),
-                            format!("input type: {:?}", other.get_type()),
-                            head,
-                            // This line requires the Value::Error match above.
-                            other.span(),
-                        ),
-                        head,
-                    )
-                }
+                ActionMode::Local => Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "Only string values are supported".into(),
+                        input: format!("input type: {:?}", other.get_type()),
+                        msg_span: head,
+                        input_span: other.span(),
+                    },
+                    head,
+                ),
             }
         }
     }

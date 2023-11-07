@@ -127,13 +127,12 @@ fn action(
                 Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
             ActionType::Decode => Value::error(
-                ShellError::UnsupportedInput(
-                    "Binary data can only be encoded".to_string(),
-                    "value originates from here".into(),
-                    command_span,
-                    // This line requires the Value::Error {} match above.
-                    input.span(),
-                ),
+                ShellError::UnsupportedInput {
+                    msg: "Binary data can only be encoded".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: command_span,
+                    input_span: input.span(),
+                },
                 command_span,
             ),
         },

@@ -204,16 +204,9 @@ fn rename(
                                                 "already checked column to rename still exists",
                                             );
                                         return Value::error(
-                                            ShellError::UnsupportedInput(
-                                                format!(
+                                            ShellError::UnsupportedInput { msg: format!(
                                                     "The column '{not_exists_column}' does not exist in the input",
-                                                ),
-                                                "value originated from here".into(),
-                                                // Arrow 1 points at the specified column name,
-                                                head_span,
-                                                // Arrow 2 points at the input value.
-                                                span,
-                                            ),
+                                                ), input: "value originated from here".into(), msg_span: head_span, input_span: span },
                                             span,
                                         );
                                     }

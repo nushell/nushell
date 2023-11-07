@@ -855,13 +855,13 @@ fn series_to_values(
                         Some(val) => val,
                         None => {
                             return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
+                                ShellError::UnsupportedInput {
+                                    msg: "The given local datetime representation is invalid."
                                         .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
+                                    input: format!("timestamp is {a:?}"),
+                                    msg_span: span,
+                                    input_span: Span::unknown(),
+                                },
                                 span,
                             )
                         }
@@ -871,13 +871,13 @@ fn series_to_values(
                         Some(val) => val,
                         None => {
                             return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
+                                ShellError::UnsupportedInput {
+                                    msg: "The given local datetime representation is invalid."
                                         .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
+                                    input: format!("timestamp is {a:?}"),
+                                    msg_span: span,
+                                    input_span: Span::unknown(),
+                                },
                                 span,
                             )
                         }
@@ -923,13 +923,13 @@ fn series_to_values(
                         Some(val) => val,
                         None => {
                             return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
+                                ShellError::UnsupportedInput {
+                                    msg: "The given local datetime representation is invalid."
                                         .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
+                                    input: format!("timestamp is {a:?}"),
+                                    msg_span: span,
+                                    input_span: Span::unknown(),
+                                },
                                 span,
                             )
                         }
@@ -939,13 +939,13 @@ fn series_to_values(
                         Some(val) => val,
                         None => {
                             return Value::error(
-                                ShellError::UnsupportedInput(
-                                    "The given local datetime representation is invalid."
+                                ShellError::UnsupportedInput {
+                                    msg: "The given local datetime representation is invalid."
                                         .to_string(),
-                                    format!("timestamp is {a:?}"),
-                                    span,
-                                    Span::unknown(),
-                                ),
+                                    input: format!("timestamp is {a:?}"),
+                                    msg_span: span,
+                                    input_span: Span::unknown(),
+                                },
                                 span,
                             )
                         }

@@ -208,12 +208,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                 }
                 Value::List { vals, .. } if all && vals.iter().all(|f| f.as_record().is_ok()) => {
                     if need_flatten && inner_table.is_some() {
-                        return vec![Value::error( ShellError::UnsupportedInput(
-                                    "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                    "value originates from here".into(),
-                                    s,
-                                    span
-                                ), span)
+                        return vec![Value::error( ShellError::UnsupportedInput { msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(), input: "value originates from here".into(), msg_span: s, input_span: span }, span)
                             ];
                     }
                     // it's a table (a list of record, we can flatten inner record)
@@ -244,12 +239,7 @@ fn flat_value(columns: &[CellPath], item: &Value, name_tag: Span, all: bool) -> 
                 }
                 Value::List { vals: values, .. } => {
                     if need_flatten && inner_table.is_some() {
-                        return vec![Value::error( ShellError::UnsupportedInput(
-                                "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(),
-                                "value originates from here".into(),
-                                s,
-                                span
-                            ), span)
+                        return vec![Value::error( ShellError::UnsupportedInput { msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".to_string(), input: "value originates from here".into(), msg_span: s, input_span: span }, span)
                         ];
                     }
 
