@@ -23,7 +23,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Create a new table split."
+        "Split a record into groups"
     }
 
     fn run(
@@ -40,13 +40,13 @@ impl Command for SplitBy {
         vec![Example {
             description: "split items by column named \"lang\"",
             example: r#"{
-        '2019': [
-          { name: 'andres', lang: 'rb', year: '2019' },
-          { name: 'jt', lang: 'rs', year: '2019' }
-        ],
-        '2021': [
-          { name: 'storm', lang: 'rs', 'year': '2021' }
-        ]
+    '2019': [
+        { name: 'andres', lang: 'rb', year: '2019' },
+        { name: 'jt', lang: 'rs', year: '2019' }
+    ],
+    '2021': [
+        { name: 'storm', lang: 'rs', 'year': '2021' }
+    ]
     } | split-by lang"#,
             result: Some(Value::test_record(record! {
                     "rb" => Value::test_record(record! {
@@ -176,7 +176,7 @@ fn data_group(
 pub fn data_split(
     value: PipelineData,
     splitter: Option<&dyn Fn(usize, &Value) -> Result<String, ShellError>>,
-    span: Span,
+    dst_span: Span,
 ) -> Result<PipelineData, ShellError> {
     let mut splits = indexmap::IndexMap::new();
 
@@ -202,33 +202,31 @@ pub fn data_split(
                     }
                 }
                 _ => {
-                    return Err(ShellError::GenericError(
-                        "unsupported input".into(),
-                        "requires a table with one row for splitting".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ))
+                    return Err(ShellError::OnlySupportsThisInputType {
+                        exp_input_type: "Record".into(),
+                        wrong_type: v.get_type().to_string(),
+                        dst_span,
+                        src_span: v.span(),
+                    })
                 }
             }
         }
+        PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span }),
         _ => {
-            return Err(ShellError::GenericError(
-                "unsupported input".into(),
-                "requires a table with one row for splitting".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ))
+            return Err(ShellError::PipelineMismatch {
+                exp_input_type: "record".into(),
+                dst_span,
+                src_span: value.span().unwrap_or(Span::unknown()),
+            })
         }
     }
 
     let record = splits
         .into_iter()
-        .map(|(k, rows)| (k, Value::record(rows.into_iter().collect(), span)))
+        .map(|(k, rows)| (k, Value::record(rows.into_iter().collect(), dst_span)))
         .collect();
 
-    Ok(PipelineData::Value(Value::record(record, span), None))
+    Ok(PipelineData::Value(Value::record(record, dst_span), None))
 }
 
 #[cfg(test)]
