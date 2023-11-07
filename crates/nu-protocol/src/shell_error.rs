@@ -632,7 +632,7 @@ pub enum ShellError {
         input: String,
         #[label("{msg}")]
         msg_span: Span,
-        #[label("input type: {input}")]
+        #[label("{input}")]
         input_span: Span,
     },
 
