@@ -1,11 +1,10 @@
 use super::run_external::create_external_command;
-use nu_engine::{current_dir, CallExt};
+use nu_engine::current_dir;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
 };
-use std::os::unix::process::CommandExt;
 
 #[derive(Clone)]
 pub struct Exec;
@@ -62,36 +61,49 @@ fn exec(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let name_span = name.span;
-
-    let redirect_stdout = call.has_flag("redirect-stdout");
-    let redirect_stderr = call.has_flag("redirect-stderr");
-    let redirect_combine = call.has_flag("redirect-combine");
-    let trim_end_newline = call.has_flag("trim-end-newline");
-
-    let external_command = create_external_command(
-        engine_state,
-        stack,
-        call,
-        redirect_stdout,
-        redirect_stderr,
-        redirect_combine,
-        trim_end_newline,
-    )?;
+    let external_command =
+        create_external_command(engine_state, stack, call, false, false, false, false)?;
 
     let cwd = current_dir(engine_state, stack)?;
     let mut command = external_command.spawn_simple_command(&cwd.to_string_lossy())?;
     command.current_dir(cwd);
-    command.envs(&external_command.env_vars);
+    command.envs(external_command.env_vars);
 
-    let err = command.exec(); // this replaces our process, should not return
+    // this either replaces our process and should not return,
+    // or the exec fails and we get an error back
+    exec_impl(command, call.head)
+}
+
+#[cfg(unix)]
+fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
+    use std::os::unix::process::CommandExt;
+
+    let error = command.exec();
 
     Err(ShellError::GenericError(
-        "Error on exec".to_string(),
-        err.to_string(),
-        Some(name_span),
+        "Error on exec".into(),
+        error.to_string(),
+        Some(span),
         None,
         Vec::new(),
     ))
+}
+
+#[cfg(windows)]
+fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineData, ShellError> {
+    match command.spawn() {
+        Ok(mut child) => match child.wait() {
+            Ok(status) => std::process::exit(status.code().unwrap_or(0)),
+            Err(e) => Err(ShellError::ExternalCommand {
+                label: "Error in external command".into(),
+                help: e.to_string(),
+                span,
+            }),
+        },
+        Err(e) => Err(ShellError::ExternalCommand {
+            label: "Error spawning external command".into(),
+            help: e.to_string(),
+            span,
+        }),
+    }
 }
