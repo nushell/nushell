@@ -96,7 +96,7 @@ impl Command for UpdateCells {
         // the block to run on each cell
         let engine_state = engine_state.clone();
         let block: Closure = call.req(&engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(&block.captures);
+        let mut stack = stack.captures_to_stack(block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 

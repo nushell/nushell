@@ -252,7 +252,7 @@ pub(crate) fn add_columnar_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -334,7 +334,7 @@ pub(crate) fn add_list_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -452,7 +452,7 @@ pub(crate) fn add_description_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
