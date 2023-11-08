@@ -127,8 +127,7 @@ fn drop_cols(
                     val: mut record, ..
                 } => {
                     let len = record.len().saturating_sub(columns);
-                    record.cols.truncate(len);
-                    record.vals.truncate(len);
+                    record.truncate(len);
                     Ok(Value::record(record, span).into_pipeline_data())
                 }
                 // Propagate errors
