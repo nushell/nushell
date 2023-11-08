@@ -43,12 +43,14 @@ impl Highlighter for NuHighlighter {
             }
             if shape.0.start > last_seen_span {
                 let gap =
-                    slice(line, last_seen_span, shape.0.start, global_span_offset).to_string();
+                    slice_line_with_offset(line, last_seen_span, shape.0.start, global_span_offset)
+                        .to_string();
                 output.push((Style::new(), gap));
             }
 
             let next_token =
-                slice(line, shape.0.start, shape.0.end, global_span_offset).to_string();
+                slice_line_with_offset(line, shape.0.start, shape.0.end, global_span_offset)
+                    .to_string();
 
             match shape.1 {
                 FlatShape::List
@@ -63,15 +65,13 @@ impl Highlighter for NuHighlighter {
                         global_span_offset,
                     );
 
-                    spans.iter().for_each(|part| {
-                        let start = part.0.start - shape.0.start;
-                        let end = part.0.end - shape.0.start;
+                    spans.iter().for_each(|span| {
+                        let start = span.start - shape.0.start;
+                        let end = span.end - shape.0.start;
                         let text = (next_token[start..end]).to_string();
 
-                        let mut style = get_shape_color(shape.1.to_string(), &self.config);
-                        if part.1 {
-                            style = get_matching_brackets_style(style, &self.config);
-                        }
+                        let style = get_shape_color(shape.1.to_string(), &self.config);
+                        let style = get_matching_brackets_style(style, &self.config);
                         output.push((style, text));
                     });
                 }
@@ -96,35 +96,35 @@ impl Highlighter for NuHighlighter {
     }
 }
 
-/// Splits span into sub-spans.  
+/// Splits span into sub-spans.
 /// Tuple booleans determines, wherever the span should be highlighted.
 fn split_span_by_highlight_positions(
     line: &str,
     span: Span,
     highlight_positions: &[usize],
     global_span_offset: usize,
-) -> Vec<(Span, bool)> {
+) -> Vec<Span> {
     let mut start = span.start;
-    let mut result: Vec<(Span, bool)> = Vec::new();
+    let mut result: Vec<Span> = Vec::new();
 
     for pos in highlight_positions {
         if start <= *pos && *pos < span.end {
             if start < *pos {
-                result.push((Span::new(start, *pos), false));
+                result.push(Span::new(start, *pos));
             }
-            let span_str = slice(line, *pos, span.end, global_span_offset);
+            let span_str = slice_line_with_offset(line, *pos, span.end, global_span_offset);
             let end = span_str
                 .chars()
                 .next()
                 .map(|c| pos + c.len_utf8())
                 .unwrap_or(pos + 1);
-            result.push((Span::new(*pos, end), true));
+            result.push(Span::new(*pos, end));
             start = end;
         }
     }
 
     if start < span.end {
-        result.push((Span::new(start, span.end), false));
+        result.push(Span::new(start, span.end));
     }
 
     result
@@ -241,7 +241,7 @@ fn find_matching_block_end_in_expr(
     if expression.span.contains(global_cursor_offset) && expression.span.start >= global_span_offset
     {
         let expr_first = expression.span.start;
-        let span_str = slice(
+        let span_str = slice_line_with_offset(
             line,
             expression.span.start,
             expression.span.end,
@@ -375,6 +375,7 @@ fn find_matching_block_end_in_expr(
     None
 }
 
-fn slice(line: &str, start: usize, end: usize, offset: usize) -> &str {
+/// Slice `line` from `start` to `end`, accounting for the `offset`.
+fn slice_line_with_offset(line: &str, start: usize, end: usize, offset: usize) -> &str {
     &line[start - offset..end - offset]
 }
