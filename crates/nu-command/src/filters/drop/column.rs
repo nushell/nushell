@@ -149,8 +149,7 @@ fn drop_cols(
 fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
-        record.vals.truncate(len);
-        Ok(record.cols.drain(len..).collect())
+        Ok(record.drain(len..).map(|(col, _)| col).collect())
     } else {
         Err(unsupported_value_error(val, head))
     }
@@ -162,10 +161,6 @@ fn drop_record_cols(
     drop_cols: &HashSet<String>,
 ) -> Result<(), ShellError> {
     if let Value::Record { val, .. } = val {
-        // TODO: Needs `Record::retain` to be performant,
-        // since this is currently O(n^2)
-        // where n is the number of columns being dropped.
-        // (Assuming dropped columns are at the end of the record.)
         val.retain(|col, _| !drop_cols.contains(col));
         Ok(())
     } else {
