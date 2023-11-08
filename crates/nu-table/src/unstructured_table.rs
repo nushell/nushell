@@ -157,17 +157,18 @@ fn build_vertical_array(vals: Vec<Value>, config: &Config) -> TableValue {
 }
 
 fn is_valid_record(vals: &[Value]) -> bool {
-    let mut used_cols: Option<&[String]> = None;
+    let mut first_record: Option<&Record> = None;
     for val in vals {
         match val {
             Value::Record { val, .. } => {
-                let cols_are_not_equal =
-                    used_cols.is_some() && !matches!(used_cols, Some(used) if val.cols == used);
-                if cols_are_not_equal {
-                    return false;
-                }
-
-                used_cols = Some(&val.cols);
+                if let Some(known) = first_record {
+                    let equal = known.columns().eq(val.columns());
+                    if !equal {
+                        return false;
+                    }
+                } else {
+                    first_record = Some(val)
+                };
             }
             _ => return false,
         }
@@ -195,8 +196,8 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     for val in vals {
         match val {
             Value::Record { val, .. } => {
-                for (i, cell) in val.vals.into_iter().take(count_columns).enumerate() {
-                    let cell = convert_nu_value_to_table_value(cell, config);
+                for (i, (_key, val)) in val.into_iter().take(count_columns).enumerate() {
+                    let cell = convert_nu_value_to_table_value(val, config);
                     list[i].push(cell);
                 }
             }
@@ -211,7 +212,7 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
 
 fn get_columns_in_record(vals: &[Value]) -> Vec<String> {
     match vals.iter().next() {
-        Some(Value::Record { val, .. }) => val.cols.clone(),
+        Some(Value::Record { val, .. }) => val.columns().cloned().collect(),
         _ => vec![],
     }
 }
