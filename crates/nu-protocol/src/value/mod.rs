@@ -20,8 +20,8 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::get_system_locale;
 use nu_utils::locale::get_system_locale_string;
+use nu_utils::{get_system_locale, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -920,23 +920,6 @@ impl Value {
         cell_path: &[PathMember],
         insensitive: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, true)
-    }
-
-    pub fn follow_cell_path_not_from_user_input(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, false)
-    }
-
-    fn follow_cell_path_helper(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-        from_user_input: bool,
-    ) -> Result<Value, ShellError> {
         let mut current = self;
 
         for member in cell_path {
@@ -1025,7 +1008,7 @@ impl Value {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
                                 if insensitive {
-                                    x.0.to_lowercase() == column_name.to_lowercase()
+                                    x.0.eq_ignore_case(column_name)
                                 } else {
                                     x.0 == column_name
                                 }
@@ -1033,17 +1016,11 @@ impl Value {
                                 current = found.1.clone();
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) =
+                                did_you_mean(val.columns(), column_name)
+                            {
+                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) =
-                                        did_you_mean(val.columns(), column_name)
-                                    {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
                                     span: *origin_span,
@@ -1058,15 +1035,9 @@ impl Value {
                                 current = val.get_column_value(column_name)?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
                                     span: *origin_span,

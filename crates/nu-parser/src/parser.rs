@@ -2199,7 +2199,7 @@ pub fn parse_filesize(working_set: &mut StateWorkingSet, span: Span) -> Expressi
     }
 
     match parse_unit_value(bytes, span, FILESIZE_UNIT_GROUPS, Type::Filesize, |x| {
-        x.to_uppercase()
+        x.to_ascii_uppercase()
     }) {
         Some(Ok(expr)) => expr,
         Some(Err(mk_err_for)) => {
