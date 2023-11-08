@@ -1,26 +1,6 @@
 use nu_test_support::fs::{file_contents, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
-use std::path::Path;
-use std::thread;
-use std::time::Duration;
-
-fn assert_file_exists(file_path: &Path, times: usize) {
-    let mut base = 2;
-    let mut exists = false;
-    for _ in 0..times {
-        if file_path.exists() {
-            if exists {
-                return;
-            } else {
-                exists = true;
-            }
-        }
-        thread::sleep(Duration::from_secs(base));
-        base *= base;
-    }
-    panic!("{:?} is not exists!", file_path);
-}
 
 #[cfg(not(windows))]
 #[test]
@@ -33,7 +13,6 @@ fn redirect_err() {
         // stderr redirection is handled by another thread
         // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a.txt");
-        assert_file_exists(&expected_out_file, 7);
         let contents = file_contents(expected_out_file);
         assert!(contents.contains("asdfasdfasdf.txt"));
     })
@@ -50,7 +29,6 @@ fn redirect_err() {
         // stderr redirection is handled by another thread
         // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a");
-        assert_file_exists(&expected_out_file, 7);
         let contents = file_contents(expected_out_file);
         assert!(contents.len() >= 16);
     })
@@ -349,7 +327,6 @@ fn redirection_with_pipe() {
             assert_eq!(actual.out, "40");
             // check for stderr redirection file.
             let expected_out_file = dirs.test().join("tmp_file");
-            assert_file_exists(&expected_out_file, 7);
             let actual_len = file_contents(expected_out_file).len();
             assert_eq!(actual_len, 40);
         },
