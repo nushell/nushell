@@ -79,7 +79,10 @@ fn helper(value: Value, head: Span) -> Value {
         }
         Value::Date { val, .. } => Value::string(humanize_date(val), head),
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), head),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head,
+            },
             head,
         ),
     }
