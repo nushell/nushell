@@ -113,21 +113,21 @@ fn parse(value: Value, head: Span, engine_state: &EngineState) -> Result<Pipelin
 
                     Ok(PipelineData::Value(Value::record(record, head), None))
                 }
-                _ => Err(ShellError::UnsupportedInput(
-                    "String not compatible with url-encoding".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    span,
-                )),
+                _ => Err(ShellError::UnsupportedInput {
+                    msg: "String not compatible with url-encoding".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                }),
             }
         }
-        Err(_e) => Err(ShellError::UnsupportedInput(
-            "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+        Err(_e) => Err(ShellError::UnsupportedInput {
+            msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
                 .to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 

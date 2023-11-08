@@ -795,7 +795,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     // Change config adding the external completer
     let mut config = engine_state.get_config().clone();
     config.external_completer = Some(latest_block_id);
-    engine_state.set_config(&config);
+    engine_state.set_config(config);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);

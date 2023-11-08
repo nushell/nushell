@@ -235,11 +235,11 @@ impl Command for InputList {
                     opts.iter().map(|s| options[*s].value.clone()).collect(),
                     head,
                 ),
-                None => Value::list(vec![], head),
+                None => Value::nothing(head),
             },
             InteractMode::Single(res) => match res {
                 Some(opt) => options[opt].value.clone(),
-                None => Value::string("".to_string(), head),
+                None => Value::nothing(head),
             },
         }
         .into_pipeline_data())

@@ -195,7 +195,7 @@ pub(crate) fn print_table_or_error(
     };
 
     // Change the engine_state config to use the passed in configuration
-    engine_state.set_config(config);
+    engine_state.set_config(config.clone());
 
     if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);

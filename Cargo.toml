@@ -33,6 +33,7 @@ members = [
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
+	"crates/nu-lsp",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
@@ -56,6 +57,7 @@ nu-command = { path = "./crates/nu-command", version = "0.86.1" }
 nu-engine = { path = "./crates/nu-engine", version = "0.86.1" }
 nu-explore = { path = "./crates/nu-explore", version = "0.86.1" }
 nu-json = { path = "./crates/nu-json", version = "0.86.1" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.86.1" }
 nu-parser = { path = "./crates/nu-parser", version = "0.86.1" }
 nu-path = { path = "./crates/nu-path", version = "0.86.1" }
 nu-plugin = { path = "./crates/nu-plugin", optional = true, version = "0.86.1" }
@@ -69,6 +71,7 @@ nu-utils = { path = "./crates/nu-utils", version = "0.86.1" }
 nu-ansi-term = "0.49.0"
 reedline = { version = "0.25.0", features = ["bashisms", "sqlite"] }
 
+color-backtrace = "0.6.1"
 crossterm = "0.27"
 ctrlc = "3.4"
 log = "0.4"

@@ -36,7 +36,7 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.7
+        uses: hustcer/setup-nu@v3.8
         if: github.repository == 'nushell/nightly'
         with:
           version: 0.86.0
@@ -141,7 +141,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.7
+      uses: hustcer/setup-nu@v3.8
       with:
         version: 0.86.0
       env:
@@ -255,7 +255,7 @@ jobs:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.7
+      uses: hustcer/setup-nu@v3.8
       with:
         version: 0.86.0
       env:
@@ -321,7 +321,7 @@ jobs:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.7
+        uses: hustcer/setup-nu@v3.8
         with:
           version: 0.86.0
         env:
