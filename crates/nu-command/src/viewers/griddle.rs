@@ -257,7 +257,7 @@ fn convert_to_list(
     let mut iter = iter.into_iter().peekable();
 
     if let Some(first) = iter.peek() {
-        let mut headers = first.columns().to_vec();
+        let mut headers: Vec<String> = first.columns().cloned().collect();
 
         if !headers.is_empty() {
             headers.insert(0, "#".into());
