@@ -115,6 +115,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Complete,
             External,
+            Exec,
             NuCheck,
             Sys,
         };
@@ -144,9 +145,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ViewSource,
             ViewSpan,
         };
-
-        #[cfg(unix)]
-        bind_command! { Exec }
 
         #[cfg(windows)]
         bind_command! { RegistryQuery }
