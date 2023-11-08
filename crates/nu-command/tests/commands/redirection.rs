@@ -6,13 +6,11 @@ use nu_test_support::playground::Playground;
 #[test]
 fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
-        nu!(
+        let output = nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt err> a.txt"
+            "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
-        let expected_out_file = dirs.test().join("a.txt");
-        let contents = file_contents(expected_out_file);
-        assert!(contents.contains("asdfasdfasdf.txt"));
+        assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
 
@@ -20,13 +18,12 @@ fn redirect_err() {
 #[test]
 fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
-        nu!(
+        let output = nu!(
             cwd: dirs.test(),
-            "vol missingdrive err> a"
+            "vol missingdrive err> a; (open a | size).bytes >= 16"
         );
-        let expected_out_file = dirs.test().join("a");
-        let contents = file_contents(expected_out_file);
-        assert!(contents.len() >= 16);
+
+        assert!(output.out.contains("true"))
     })
 }
 
