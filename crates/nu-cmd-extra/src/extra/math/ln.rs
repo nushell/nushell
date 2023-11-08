@@ -74,12 +74,12 @@ fn operate(value: Value, head: Span) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'ln' undefined for values outside the open interval (0, Inf).".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'ln' undefined for values outside the open interval (0, Inf).".into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 )
             }

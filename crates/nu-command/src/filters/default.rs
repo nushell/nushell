@@ -91,17 +91,15 @@ fn default(
                     Value::Record {
                         val: mut record, ..
                     } => {
-                        let mut idx = 0;
                         let mut found = false;
 
-                        while idx < record.len() {
-                            if record.cols[idx] == column.item {
+                        for (col, val) in record.iter_mut() {
+                            if *col == column.item {
                                 found = true;
-                                if matches!(record.vals[idx], Value::Nothing { .. }) {
-                                    record.vals[idx] = value.clone();
+                                if matches!(val, Value::Nothing { .. }) {
+                                    *val = value.clone();
                                 }
                             }
-                            idx += 1;
                         }
 
                         if !found {

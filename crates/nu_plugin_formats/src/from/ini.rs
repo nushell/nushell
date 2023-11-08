@@ -40,12 +40,12 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
             // all sections with all its key value pairs
             Ok(Value::record(sections, span))
         }
-        Err(err) => Err(ShellError::UnsupportedInput(
-            format!("Could not load ini: {err}"),
-            "value originates from here".into(),
-            head,
-            span,
-        )
+        Err(err) => Err(ShellError::UnsupportedInput {
+            msg: format!("Could not load ini: {err}"),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }
         .into()),
     }
 }

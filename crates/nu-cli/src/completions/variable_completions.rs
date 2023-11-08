@@ -237,9 +237,9 @@ fn nested_suggestions(
     match value {
         Value::Record { val, .. } => {
             // Add all the columns as completion
-            for item in val.cols {
+            for (col, _) in val.into_iter() {
                 output.push(Suggestion {
-                    value: item,
+                    value: col,
                     description: None,
                     extra: None,
                     span: current_span,

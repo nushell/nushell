@@ -81,7 +81,7 @@ impl Command for EachWhile {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;

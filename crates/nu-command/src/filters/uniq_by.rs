@@ -126,7 +126,7 @@ fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellEr
                 ));
             }
 
-            if let Some(nonexistent) = nonexistent_column(columns, &record.cols) {
+            if let Some(nonexistent) = nonexistent_column(columns, record.columns()) {
                 return Err(ShellError::CantFindColumn {
                     col_name: nonexistent,
                     span,

@@ -339,7 +339,10 @@ pub enum ParseError {
     OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
-    #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
+    #[diagnostic(
+        code(nu::parser::missing_positional),
+        help("Usage: {2}. Use `--help` for more information.")
+    )]
     MissingPositional(String, #[label("missing {0}")] Span, String),
 
     #[error("Missing argument to `{1}`.")]

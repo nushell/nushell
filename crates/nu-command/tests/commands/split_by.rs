@@ -31,7 +31,16 @@ fn splits() {
 }
 
 #[test]
-fn errors_if_no_table_given_as_input() {
+fn errors_if_no_input() {
+    Playground::setup("split_by_no_input", |dirs, _sandbox| {
+        let actual = nu!(cwd: dirs.test(), pipeline("split-by type"));
+
+        assert!(actual.err.contains("no input value was piped in"));
+    })
+}
+
+#[test]
+fn errors_if_non_record_input() {
     Playground::setup("split_by_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![
             EmptyFile("los.txt"),
@@ -40,7 +49,11 @@ fn errors_if_no_table_given_as_input() {
             EmptyFile("arepas.clu"),
         ]);
 
-        let actual = nu!(
+        let input_mismatch = nu!(cwd: dirs.test(), pipeline("5 | split-by type"));
+
+        assert!(input_mismatch.err.contains("doesn't support int input"));
+
+        let only_supports = nu!(
             cwd: dirs.test(), pipeline(
             "
                 ls
@@ -49,6 +62,8 @@ fn errors_if_no_table_given_as_input() {
             "
         ));
 
-        assert!(actual.err.contains("requires a table"));
+        assert!(only_supports
+            .err
+            .contains("only Record input data is supported"));
     })
 }
