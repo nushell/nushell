@@ -143,15 +143,12 @@ enum TableInside {
     // it contains (column, span, values in the column, column index).
     Entries(String, Vec<Value>, usize),
     // handle for a column which contains a table, we can flatten the inner column to outer level
-    // `columns` means that for the given row, it contains `len(columns)` nested rows, and each nested row contains a list of column name.
-    // Likely, `values` means that for the given row, it contains `len(values)` nested rows, and each nested row contains a list of values.
-    //
+    // `records` is the nested/inner table to flatten to the outer level
     // `parent_column_name` is handled for conflicting column name, the nested table may contains columns which has the same name
     // to outer level, for that case, the output column name should be f"{parent_column_name}_{inner_column_name}".
     // `parent_column_index` is the column index in original table.
     FlattenedRows {
-        columns: Vec<Vec<String>>,
-        values: Vec<Vec<Value>>,
+        records: Vec<Record>,
         parent_column_name: String,
         parent_column_index: usize,
     },
@@ -203,19 +200,19 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
 
                         if need_flatten {
                             // it's a table (a list of record, we can flatten inner record)
-                            let mut columns = vec![];
-                            let mut values = vec![];
-
-                            for v in vals {
-                                if let Value::Record { val, .. } = v {
-                                    columns.push(val.cols);
-                                    values.push(val.vals);
-                                }
-                            }
+                            let records = vals
+                                .into_iter()
+                                .filter_map(|v| {
+                                    if let Value::Record { val, .. } = v {
+                                        Some(val)
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
 
                             inner_table = Some(TableInside::FlattenedRows {
-                                columns,
-                                values,
+                                records,
                                 parent_column_name: column,
                                 parent_column_index: column_index,
                             });
@@ -285,12 +282,11 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     }
                 }
                 Some(TableInside::FlattenedRows {
-                    columns,
-                    values,
+                    records,
                     parent_column_name,
                     parent_column_index,
                 }) => {
-                    for (inner_cols, inner_vals) in columns.into_iter().zip(values) {
+                    for inner_record in records {
                         let base = out.clone();
                         let mut record = Record::new();
                         let mut index = 0;
@@ -299,7 +295,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // meet the flattened column, push them to result record first
                             // this can avoid output column order changed.
                             if index == parent_column_index {
-                                for (col, val) in inner_cols.iter().zip(&inner_vals) {
+                                for (col, val) in &inner_record {
                                     if record.contains(col) {
                                         record.push(
                                             format!("{parent_column_name}_{col}"),
@@ -317,7 +313,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
 
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
-                            for (col, val) in inner_cols.into_iter().zip(inner_vals) {
+                            for (col, val) in inner_record {
                                 if record.contains(&col) {
                                     record.push(format!("{parent_column_name}_{col}"), val);
                                 } else {
