@@ -99,12 +99,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             }
             // This should be more precise, but due to difficulties in getting spans
             // from PipelineData::ListData, this is as it is.
-            _ => Err(ShellError::UnsupportedInput(
-                "non-binary input".into(),
-                "value originates from here".into(),
-                head,
-                input.span().unwrap_or(head),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "non-binary input".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: input.span().unwrap_or(head),
+            }),
         }
     }
 }

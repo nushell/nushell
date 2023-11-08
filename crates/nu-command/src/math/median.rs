@@ -107,14 +107,14 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
     match take {
         Pick::Median => {
             let idx = (values.len() as f64 / 2.0).floor() as usize;
-            let out = sorted.get(idx).ok_or_else(|| {
-                ShellError::UnsupportedInput(
-                    "Empty input".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    span,
-                )
-            })?;
+            let out = sorted
+                .get(idx)
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                })?;
             Ok(out.clone())
         }
         Pick::MedianAverage => {
@@ -123,25 +123,21 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
 
             let left = sorted
                 .get(idx_start)
-                .ok_or_else(|| {
-                    ShellError::UnsupportedInput(
-                        "Empty input".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
                 })?
                 .clone();
 
             let right = sorted
                 .get(idx_end)
-                .ok_or_else(|| {
-                    ShellError::UnsupportedInput(
-                        "Empty input".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
                 })?
                 .clone();
 

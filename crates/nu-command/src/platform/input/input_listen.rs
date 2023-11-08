@@ -178,21 +178,21 @@ impl EventTypeFilter {
     }
 
     fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
-        ShellError::UnsupportedInput(
-            format!("{} is not a valid event type", val),
-            "value originates from here".into(),
-            head,
-            val_span,
-        )
+        ShellError::UnsupportedInput {
+            msg: format!("{} is not a valid event type", val),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: val_span,
+        }
     }
 
     fn bad_list_error(head: Span, value: &Value) -> ShellError {
-        ShellError::UnsupportedInput(
-            "--types expects a list of strings".to_string(),
-            "value originates from here".into(),
-            head,
-            value.span(),
-        )
+        ShellError::UnsupportedInput {
+            msg: "--types expects a list of strings".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: value.span(),
+        }
     }
 
     /// Enable capturing of all events allowed by this filter.

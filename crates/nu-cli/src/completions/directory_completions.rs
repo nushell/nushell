@@ -1,4 +1,7 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions, SortBy};
+use crate::completions::{
+    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
+    Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -21,19 +24,19 @@ impl DirectoryCompletion {
 impl Completer for DirectoryCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let partial = String::from_utf8_lossy(&prefix).to_string();
+        let AdjustView { prefix, span, .. } = adjust_if_intermediate(&prefix, working_set, span);
 
         // Filter only the folders
         let output: Vec<_> = directory_completion(
             span,
-            &partial,
+            &prefix,
             &self.engine_state.current_work_dir(),
             options,
         )

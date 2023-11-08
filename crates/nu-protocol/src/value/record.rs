@@ -94,6 +94,113 @@ impl Record {
         Some((self.cols.get(idx)?, self.vals.get(idx)?))
     }
 
+    /// Remove single value by key
+    ///
+    /// Returns `None` if key not found
+    ///
+    /// Note: makes strong assumption that keys are unique
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.index_of(col)?;
+        self.cols.remove(idx);
+        Some(self.vals.remove(idx))
+    }
+
+    /// Remove elements in-place that do not satisfy `keep`
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_nothing(),
+    ///     "d" => Value::test_int(42),
+    ///     );
+    /// rec.retain(|_k, val| !val.is_nothing());
+    /// let mut iter_rec = rec.columns();
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("b"));
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("d"));
+    /// assert_eq!(iter_rec.next(), None);
+    /// ```
+    pub fn retain<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &Value) -> bool,
+    {
+        self.retain_mut(|k, v| keep(k, v));
+    }
+
+    /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
+    ///
+    /// This can for example be used to recursively prune nested records.
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Record, Value};
+    ///
+    /// fn remove_foo_recursively(val: &mut Value) {
+    ///     if let Value::Record {val, ..} = val {
+    ///         val.retain_mut(keep_non_foo);
+    ///     }
+    /// }
+    ///
+    /// fn keep_non_foo(k: &str, v: &mut Value) -> bool {
+    ///     if k == "foo" {
+    ///         return false;
+    ///     }
+    ///     remove_foo_recursively(v);
+    ///     true
+    /// }
+    ///
+    /// let mut test = Value::test_record(record!(
+    ///     "foo" => Value::test_nothing(),
+    ///     "bar" => Value::test_record(record!(
+    ///         "foo" => Value::test_nothing(),
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    ///
+    /// remove_foo_recursively(&mut test);
+    /// let expected = Value::test_record(record!(
+    ///     "bar" => Value::test_record(record!(
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    /// assert_eq!(test, expected);
+    /// ```
+    pub fn retain_mut<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &mut Value) -> bool,
+    {
+        // `Vec::retain` is able to optimize memcopies internally.
+        // For maximum benefit, `retain` is used on `vals`,
+        // as `Value` is a larger struct than `String`.
+        //
+        // To do a simultaneous retain on the `cols`, three portions of it are tracked:
+        //     [..retained, ..dropped, ..unvisited]
+
+        // number of elements keep so far, start of ..dropped and length of ..retained
+        let mut retained = 0;
+        // current index of element being checked, start of ..unvisited
+        let mut idx = 0;
+
+        self.vals.retain_mut(|val| {
+            if keep(&self.cols[idx], val) {
+                // skip swaps for first consecutive run of kept elements
+                if idx != retained {
+                    self.cols.swap(idx, retained);
+                }
+                retained += 1;
+                idx += 1;
+                true
+            } else {
+                idx += 1;
+                false
+            }
+        });
+        self.cols.truncate(retained);
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),

@@ -255,7 +255,7 @@ pub fn sort(
 ) -> Result<(), ShellError> {
     match vec.first() {
         Some(Value::Record { val, .. }) => {
-            let columns = val.cols.clone();
+            let columns: Vec<String> = val.columns().cloned().collect();
             vec.sort_by(|a, b| process(a, b, &columns, span, insensitive, natural));
         }
         _ => {

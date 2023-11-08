@@ -24,6 +24,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
+use nu_lsp::LanguageServer;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
     PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
@@ -57,6 +58,9 @@ fn main() -> Result<()> {
         crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
         miette_hook(x);
     }));
+
+    // This allows more intuitive backtraces
+    color_backtrace::install();
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
@@ -189,6 +193,10 @@ fn main() -> Result<()> {
 
     if parsed_nu_cli_args.no_std_lib.is_none() {
         load_standard_library(&mut engine_state)?;
+    }
+
+    if parsed_nu_cli_args.lsp {
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state);
     }
 
     // IDE commands

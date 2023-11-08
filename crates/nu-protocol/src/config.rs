@@ -439,17 +439,16 @@ impl Value {
                         }
                     }
                     "history" => {
-                        macro_rules! reconstruct_history_file_format {
-                            ($span:expr) => {
-                                Value::string(
-                                    match config.history_file_format {
-                                        HistoryFileFormat::Sqlite => "sqlite",
-                                        HistoryFileFormat::PlainText => "plaintext",
-                                    },
-                                    $span,
-                                )
-                            };
+                        fn reconstruct_history_file_format(config: &Config, span: Span) -> Value {
+                            Value::string(
+                                match config.history_file_format {
+                                    HistoryFileFormat::Sqlite => "sqlite",
+                                    HistoryFileFormat::PlainText => "plaintext",
+                                },
+                                span,
+                            )
                         }
+
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
@@ -482,14 +481,16 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'sqlite' or 'plaintext'"
                                                     );
                                                     // Reconstruct
-                                                    vals[index] =
-                                                        reconstruct_history_file_format!(span);
+                                                    vals[index] = reconstruct_history_file_format(
+                                                        &config, span,
+                                                    );
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = reconstruct_history_file_format!(span);
+                                            vals[index] =
+                                                reconstruct_history_file_format(&config, span);
                                         }
                                     }
                                     x => {
@@ -510,7 +511,7 @@ impl Value {
                                 record! {
                                     "sync_on_enter" => Value::bool(config.sync_history_on_enter, span),
                                     "max_size" => Value::int(config.max_history_size, span),
-                                    "file_format" => reconstruct_history_file_format!(span),
+                                    "file_format" => reconstruct_history_file_format(&config, span),
                                     "isolation" => Value::bool(config.history_isolation, span),
                                 },
                                 span,
@@ -518,27 +519,25 @@ impl Value {
                         }
                     }
                     "completions" => {
-                        macro_rules! reconstruct_external_completer {
-                            ($span: expr) => {
-                                if let Some(block) = config.external_completer {
-                                    Value::block(block, $span)
-                                } else {
-                                    Value::nothing($span)
-                                }
-                            };
+                        fn reconstruct_external_completer(config: &Config, span: Span) -> Value {
+                            if let Some(block) = config.external_completer {
+                                Value::block(block, span)
+                            } else {
+                                Value::nothing(span)
+                            }
                         }
-                        macro_rules! reconstruct_external {
-                            ($span: expr) => {
-                                Value::record(
-                                    record! {
-                                        "max_results" => Value::int(config.max_external_completion_results, $span),
-                                        "completer" => reconstruct_external_completer!($span),
-                                        "enable" => Value::bool(config.enable_external_completion, $span),
-                                    },
-                                    $span,
-                                )
-                            };
+
+                        fn reconstruct_external(config: &Config, span: Span) -> Value {
+                            Value::record(
+                                record! {
+                                    "max_results" => Value::int(config.max_external_completion_results, span),
+                                    "completer" => reconstruct_external_completer(config, span),
+                                    "enable" => Value::bool(config.enable_external_completion, span),
+                                },
+                                span,
+                            )
                         }
+
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
@@ -616,7 +615,7 @@ impl Value {
                                                                         "should be a block or null"
                                                                     );
                                                                     // Reconstruct
-                                                                    vals[index] = reconstruct_external_completer!(
+                                                                    vals[index] = reconstruct_external_completer(&config,
                                                                         span
                                                                     );
                                                                 }
@@ -646,7 +645,7 @@ impl Value {
                                         } else {
                                             invalid!(Some(span), "should be a record");
                                             // Reconstruct
-                                            vals[index] = reconstruct_external!(span);
+                                            vals[index] = reconstruct_external(&config, span);
                                         }
                                     }
                                     x => {
@@ -669,28 +668,29 @@ impl Value {
                                     "partial" => Value::bool(config.partial_completions, span),
                                     "algorithm" => Value::string(config.completion_algorithm.clone(), span),
                                     "case_sensitive" => Value::bool(config.case_sensitive_completions, span),
-                                    "external" => reconstruct_external!(span),
+                                    "external" => reconstruct_external(&config, span),
                                 },
                                 span,
                             );
                         }
                     }
                     "cursor_shape" => {
-                        macro_rules! reconstruct_cursor_shape {
-                            ($name:expr, $span:expr) => {
-                                Value::string(
-                                    match $name {
-                                        Some(NuCursorShape::Line) => "line",
-                                        Some(NuCursorShape::Block) => "block",
-                                        Some(NuCursorShape::UnderScore) => "underscore",
-                                        Some(NuCursorShape::BlinkLine) => "blink_line",
-                                        Some(NuCursorShape::BlinkBlock) => "blink_block",
-                                        Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
-                                        None => "inherit",
-                                    },
-                                    $span,
-                                )
-                            };
+                        fn reconstruct_cursor_shape(
+                            name: Option<NuCursorShape>,
+                            span: Span,
+                        ) -> Value {
+                            Value::string(
+                                match name {
+                                    Some(NuCursorShape::Line) => "line",
+                                    Some(NuCursorShape::Block) => "block",
+                                    Some(NuCursorShape::UnderScore) => "underscore",
+                                    Some(NuCursorShape::BlinkLine) => "blink_line",
+                                    Some(NuCursorShape::BlinkBlock) => "blink_block",
+                                    Some(NuCursorShape::BlinkUnderScore) => "blink_underscore",
+                                    None => "inherit",
+                                },
+                                span,
+                            )
                         }
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
@@ -734,18 +734,18 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
-                                                    vals[index] = reconstruct_cursor_shape!(
+                                                    vals[index] = reconstruct_cursor_shape(
                                                         config.cursor_shape_vi_insert,
-                                                        span
+                                                        span,
                                                     );
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = reconstruct_cursor_shape!(
+                                            vals[index] = reconstruct_cursor_shape(
                                                 config.cursor_shape_vi_insert,
-                                                span
+                                                span,
                                             );
                                         }
                                     }
@@ -785,18 +785,18 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
-                                                    vals[index] = reconstruct_cursor_shape!(
+                                                    vals[index] = reconstruct_cursor_shape(
                                                         config.cursor_shape_vi_normal,
-                                                        span
+                                                        span,
                                                     );
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = reconstruct_cursor_shape!(
+                                            vals[index] = reconstruct_cursor_shape(
                                                 config.cursor_shape_vi_normal,
-                                                span
+                                                span,
                                             );
                                         }
                                     }
@@ -836,18 +836,18 @@ impl Value {
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"
                                                     );
                                                     // Reconstruct
-                                                    vals[index] = reconstruct_cursor_shape!(
+                                                    vals[index] = reconstruct_cursor_shape(
                                                         config.cursor_shape_emacs,
-                                                        span
+                                                        span,
                                                     );
                                                 }
                                             };
                                         } else {
                                             invalid!(Some(span), "should be a string");
                                             // Reconstruct
-                                            vals[index] = reconstruct_cursor_shape!(
+                                            vals[index] = reconstruct_cursor_shape(
                                                 config.cursor_shape_emacs,
-                                                span
+                                                span,
                                             );
                                         }
                                     }
@@ -867,53 +867,50 @@ impl Value {
                             // Reconstruct
                             vals[index] = Value::record(
                                 record! {
-                                    "vi_insert" => reconstruct_cursor_shape!(config.cursor_shape_vi_insert, span),
-                                    "vi_normal" => reconstruct_cursor_shape!(config.cursor_shape_vi_normal, span),
-                                    "emacs" => reconstruct_cursor_shape!(config.cursor_shape_emacs, span),
+                                    "vi_insert" => reconstruct_cursor_shape(config.cursor_shape_vi_insert, span),
+                                    "vi_normal" => reconstruct_cursor_shape(config.cursor_shape_vi_normal, span),
+                                    "emacs" => reconstruct_cursor_shape(config.cursor_shape_emacs, span),
                                 },
                                 span,
                             );
                         }
                     }
                     "table" => {
-                        macro_rules! reconstruct_index_mode {
-                            ($span:expr) => {
-                                Value::string(
-                                    match config.table_index_mode {
-                                        TableIndexMode::Always => "always",
-                                        TableIndexMode::Never => "never",
-                                        TableIndexMode::Auto => "auto",
+                        fn reconstruct_index_mode(config: &Config, span: Span) -> Value {
+                            Value::string(
+                                match config.table_index_mode {
+                                    TableIndexMode::Always => "always",
+                                    TableIndexMode::Never => "never",
+                                    TableIndexMode::Auto => "auto",
+                                },
+                                span,
+                            )
+                        }
+                        fn reconstruct_trim_strategy(config: &Config, span: Span) -> Value {
+                            match &config.trim_strategy {
+                                TrimStrategy::Wrap { try_to_keep_words } => Value::record(
+                                    record! {
+                                        "methodology" => Value::string("wrapping", span),
+                                        "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, span),
                                     },
-                                    $span,
-                                )
-                            };
-                        }
-                        macro_rules! reconstruct_trim_strategy {
-                            ($span:expr) => {
-                                match &config.trim_strategy {
-                                    TrimStrategy::Wrap { try_to_keep_words } => Value::record(
-                                        record! {
-                                            "methodology" => Value::string("wrapping", $span),
-                                            "wrapping_try_keep_words" => Value::bool(*try_to_keep_words, $span),
+                                    span,
+                                ),
+                                TrimStrategy::Truncate { suffix } => Value::record(
+                                    match suffix {
+                                        Some(s) => record! {
+                                            "methodology" => Value::string("truncating", span),
+                                            "truncating_suffix" => Value::string(s.clone(), span),
                                         },
-                                        $span,
-                                    ),
-                                    TrimStrategy::Truncate { suffix } => Value::record(
-                                        match suffix {
-                                            Some(s) => record! {
-                                                "methodology" => Value::string("truncating", $span),
-                                                "truncating_suffix" => Value::string(s.clone(), $span),
-                                            },
-                                            None => record! {
-                                                "methodology" => Value::string("truncating", $span),
-                                                "truncating_suffix" => Value::nothing($span),
-                                            },
+                                        None => record! {
+                                            "methodology" => Value::string("truncating", span),
+                                            "truncating_suffix" => Value::nothing(span),
                                         },
-                                        $span,
-                                    ),
-                                }
-                            };
+                                    },
+                                    span,
+                                ),
+                            }
                         }
+
                         if let Value::Record { val, .. } = &mut vals[index] {
                             let Record { cols, vals } = val;
                             for index in (0..cols.len()).rev() {
@@ -999,12 +996,13 @@ impl Value {
                                                     invalid!( Some(span),
                                                         "unrecognized $env.config.{key}.{key2} '{val_str}'; expected either 'never', 'always' or 'auto'"
                                                     );
-                                                    vals[index] = reconstruct_index_mode!(span);
+                                                    vals[index] =
+                                                        reconstruct_index_mode(&config, span);
                                                 }
                                             }
                                         } else {
                                             invalid!(Some(span), "should be a string");
-                                            vals[index] = reconstruct_index_mode!(span);
+                                            vals[index] = reconstruct_index_mode(&config, span);
                                         }
                                     }
                                     "trim" => {
@@ -1013,7 +1011,8 @@ impl Value {
                                             Err(e) => {
                                                 // try_parse_trim_strategy() already adds its own errors
                                                 errors.push(e);
-                                                vals[index] = reconstruct_trim_strategy!(span);
+                                                vals[index] =
+                                                    reconstruct_trim_strategy(&config, span);
                                             }
                                         }
                                     }
@@ -1048,8 +1047,8 @@ impl Value {
                             vals[index] = Value::record(
                                 record! {
                                     "mode" => Value::string(config.table_mode.clone(), span),
-                                    "index_mode" => reconstruct_index_mode!(span),
-                                    "trim" => reconstruct_trim_strategy!(span),
+                                    "index_mode" => reconstruct_index_mode(&config, span),
+                                    "trim" => reconstruct_trim_strategy(&config, span),
                                     "show_empty" => Value::bool(config.table_show_empty, span),
                                 },
                                 span,

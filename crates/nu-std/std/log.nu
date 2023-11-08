@@ -237,8 +237,7 @@ def log-level-deduction-error [
                 $"        Available log levels in $env.LOG_LEVEL:"
                  ($env.LOG_LEVEL | to text | lines | each {|it| $"            ($it)" } | to text)
             ] | str join "\n")
-            start: $span.start
-            end: $span.end
+            span: $span
         }
     }
 }

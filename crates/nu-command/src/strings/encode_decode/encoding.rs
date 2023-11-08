@@ -12,12 +12,12 @@ pub fn detect_encoding_name(
     //Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
     let (encoding, is_certain) = detector.guess_assess(None, true);
     if !is_certain {
-        return Err(ShellError::UnsupportedInput(
-            "Input contains unknown encoding, try giving a encoding name".into(),
-            "value originates from here".into(),
-            head,
-            input,
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "Input contains unknown encoding, try giving a encoding name".into(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input,
+        });
     }
     Ok(encoding)
 }

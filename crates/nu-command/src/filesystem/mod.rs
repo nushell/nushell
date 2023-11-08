@@ -10,6 +10,7 @@ mod save;
 mod start;
 mod touch;
 mod ucp;
+mod umkdir;
 mod util;
 mod watch;
 
@@ -25,4 +26,5 @@ pub use save::Save;
 pub use start::Start;
 pub use touch::Touch;
 pub use ucp::UCp;
+pub use umkdir::UMkdir;
 pub use watch::Watch;

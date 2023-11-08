@@ -54,13 +54,11 @@ fn filesize_format_auto_metric_false() {
 fn fancy_default_errors() {
     let actual = nu!(nu_repl_code(&[
         r#"def force_error [x] {
-        let span = (metadata $x).span;
         error make {
             msg: "oh no!"
             label: {
                 text: "here's the error"
-                start: $span.start
-                end: $span.end
+                span: (metadata $x).span
             }
         }
     }"#,
@@ -78,13 +76,11 @@ fn narratable_errors() {
     let actual = nu!(nu_repl_code(&[
         r#"$env.config = { error_style: "plain" }"#,
         r#"def force_error [x] {
-        let span = (metadata $x).span;
         error make {
             msg: "oh no!"
             label: {
                 text: "here's the error"
-                start: $span.start
-                end: $span.end
+                span: (metadata $x).span
             }
         }
     }"#,
