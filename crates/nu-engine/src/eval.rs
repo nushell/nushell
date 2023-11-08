@@ -1032,10 +1032,6 @@ pub fn eval_block(
             match (eval_result, redirect_stderr) {
                 (Ok((pipeline_data, _)), true) => {
                     input = pipeline_data;
-
-                    // external command may runs to failed
-                    // make early return so remaining commands will not be executed.
-                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                 }
                 (Err(error), true) => {
                     input = PipelineData::Value(
@@ -1059,6 +1055,9 @@ pub fn eval_block(
             }
         }
 
+        // `eval_element_with_input` may creates some threads
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
         for h in stderr_writer_jobs {
             let _ = h.join();
         }
@@ -1110,7 +1109,9 @@ pub fn eval_subexpression(
             )?
             .0
         }
-
+        // `eval_element_with_input` may creates some threads
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
         for h in stderr_writer_jobs {
             let _ = h.join();
         }
