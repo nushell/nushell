@@ -42,7 +42,7 @@ fn get_prompt_string(
         .and_then(|v| match v {
             Value::Closure { val, .. } => {
                 let block = engine_state.get_block(val.block_id);
-                let mut stack = stack.captures_to_stack(&val.captures);
+                let mut stack = stack.captures_to_stack(val.captures);
                 // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
                 let ret_val =
                     eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());

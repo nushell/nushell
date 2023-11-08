@@ -124,9 +124,8 @@ fn getcol(
                     })
                 }
                 Value::Record { val, .. } => Ok(val
-                    .cols
                     .into_iter()
-                    .map(move |x| Value::string(x, head))
+                    .map(move |(x, _)| Value::string(x, head))
                     .into_pipeline_data(ctrlc)
                     .set_metadata(metadata)),
                 // Propagate errors

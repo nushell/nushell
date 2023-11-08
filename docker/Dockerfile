@@ -14,17 +14,17 @@ RUN echo '/usr/bin/nu' >> /etc/shells \
     && wget -q https://raw.githubusercontent.com/nushell/nushell/main/crates/nu-utils/src/sample_config/default_env.nu -O /home/nushell/.config/nushell/env.nu \
     && cd /tmp \
     && wget -qO - https://api.github.com/repos/nushell/nushell/releases/latest \
-    |grep browser_download_url \
-    |grep musl \
-    |cut -f4 -d '"' \
-    |xargs -I{} wget {} \
+    | grep browser_download_url \
+    | grep musl.tar.gz \
+    | cut -f4 -d '"' \
+    | xargs -I{} wget {} \
     && tar -xzf nu* \
     && cd nu*-musl \
     && mv nu* /usr/bin \
     && chmod +x /usr/bin/nu \
     && chown -R nushell:nushell /home/nushell/.config/nushell \
     && ls /usr/bin/nu_plugin* \
-    |xargs -I{} su -c 'register {}' nushell \
+    | xargs -I{} su -c 'register {}' nushell \
     && rm -rf /tmp/*
 
 USER nushell

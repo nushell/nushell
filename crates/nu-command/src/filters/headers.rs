@@ -129,7 +129,7 @@ fn extract_headers(
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            for v in &record.vals {
+            for v in record.values() {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
                         err_message: "needs compatible type: Null, String, Bool, Float, Int"
@@ -139,10 +139,9 @@ fn extract_headers(
                 }
             }
 
-            let old_headers = record.cols.clone();
+            let old_headers = record.columns().cloned().collect();
             let new_headers = record
-                .vals
-                .iter()
+                .values()
                 .enumerate()
                 .map(|(idx, value)| {
                     let col = value.into_string("", config);

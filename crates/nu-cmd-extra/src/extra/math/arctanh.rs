@@ -74,12 +74,13 @@ fn operate(value: Value, head: Span) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'arctanh' undefined for values outside the open interval (-1, 1).".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'arctanh' undefined for values outside the open interval (-1, 1)."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     head,
                 )
             }
