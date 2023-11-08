@@ -1,3 +1,5 @@
+use std::ops::RangeBounds;
+
 use crate::Value;
 
 use serde::{Deserialize, Serialize};
@@ -218,6 +220,42 @@ impl Record {
             iter: self.vals.into_iter(),
         }
     }
+
+    /// Obtain an iterator to remove elements in `range`
+    ///
+    /// Elements not consumed from the iterator will be dropped
+    ///
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_string("foo"),
+    /// );
+    /// {
+    ///     let mut drainer = rec.drain(1..);
+    ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
+    ///     // Dropping the `Drain`
+    /// }
+    /// let mut rec_iter = rec.into_iter();
+    /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
+    /// assert_eq!(rec_iter.next(), None);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> Drain
+    where
+        R: RangeBounds<usize> + Clone,
+    {
+        assert_eq!(
+            self.cols.len(),
+            self.vals.len(),
+            "Length of cols and vals must be equal for sane `Record::drain`"
+        );
+        Drain {
+            keys: self.cols.drain(range.clone()),
+            values: self.vals.drain(range),
+        }
+    }
 }
 
 impl FromIterator<(String, Value)> for Record {
@@ -354,6 +392,35 @@ impl DoubleEndedIterator for IntoValues {
 impl ExactSizeIterator for IntoValues {
     fn len(&self) -> usize {
         self.iter.len()
+    }
+}
+
+pub struct Drain<'a> {
+    keys: std::vec::Drain<'a, String>,
+    values: std::vec::Drain<'a, Value>,
+}
+
+impl Iterator for Drain<'_> {
+    type Item = (String, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some((self.keys.next()?, self.values.next()?))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.keys.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for Drain<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        Some((self.keys.next_back()?, self.values.next_back()?))
+    }
+}
+
+impl ExactSizeIterator for Drain<'_> {
+    fn len(&self) -> usize {
+        self.keys.len()
     }
 }
 

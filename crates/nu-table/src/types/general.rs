@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{ast::PathMember, Config, Record, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{Config, Record, ShellError, TableIndexMode, Value};
 
 use crate::{
     clean_charset, colorize_space,
@@ -185,19 +185,10 @@ fn to_table_with_no_header(
 
 fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) -> NuText {
     match item {
-        Value::Record { .. } => {
-            let path = PathMember::String {
-                val: header.to_owned(),
-                span: Span::unknown(),
-                optional: false,
-            };
-            let value = item.clone().follow_cell_path(&[path], false);
-
-            match value {
-                Ok(value) => get_string_value(&value, opts),
-                Err(_) => get_empty_style(opts.style_computer),
-            }
-        }
+        Value::Record { val, .. } => match val.get(header) {
+            Some(value) => get_string_value(value, opts),
+            None => get_empty_style(opts.style_computer),
+        },
         value => get_string_value(value, opts),
     }
 }
@@ -214,8 +205,8 @@ fn get_string_value(item: &Value, opts: &TableOpts) -> NuText {
 
 fn get_table_row_index(item: &Value, config: &Config, row: usize, offset: usize) -> String {
     match item {
-        Value::Record { .. } => item
-            .get_data_by_key(INDEX_COLUMN_NAME)
+        Value::Record { val, .. } => val
+            .get(INDEX_COLUMN_NAME)
             .map(|value| value.into_string("", config))
             .unwrap_or_else(|| (row + offset).to_string()),
         _ => (row + offset).to_string(),
