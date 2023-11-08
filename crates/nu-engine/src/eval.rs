@@ -10,7 +10,7 @@ use nu_protocol::{
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
-use std::thread::JoinHandle;
+use std::thread::{self, JoinHandle};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -736,7 +736,7 @@ fn eval_element_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-    stderr_handler: &mut Vec<JoinHandle<()>>,
+    stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
@@ -807,22 +807,14 @@ fn eval_element_with_input(
                                 // delegate to a different thread
                                 // so nushell won't hang if external command generates both too much
                                 // stderr and stdout message
-                                let mut stderr_stack = stack.clone();
+                                let stderr_stack = stack.clone();
                                 let engine_state_clone = engine_state.clone();
-                                stderr_handler.push(std::thread::Builder::new()
-                                .name("stderr saver".to_string())
-                                .spawn(move || {
-                                    let result = eval_call(
-                                        &engine_state_clone,
-                                        &mut stderr_stack,
-                                        &save_call,
-                                        input,
-                                    );
-                                    if let Err(err) = result {
-                                        eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
-                                    }
-                                })
-                                .expect("Failed to create thread"));
+                                stderr_writer_jobs.push(DataSaveJob::spawn(
+                                    engine_state_clone,
+                                    stderr_stack,
+                                    save_call,
+                                    input,
+                                ));
 
                                 Ok((
                                     PipelineData::ExternalStream {
@@ -925,7 +917,7 @@ fn eval_element_with_input(
                         input,
                         true,
                         redirect_stderr,
-                        stderr_handler,
+                        stderr_writer_jobs,
                     )
                     .map(|x| x.0)?
                 }
@@ -941,7 +933,7 @@ fn eval_element_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
-                stderr_handler,
+                stderr_writer_jobs,
             )
         }
         PipelineElement::And(_, expr) => eval_expression_with_input(
@@ -1012,7 +1004,7 @@ pub fn eval_block(
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut elements_iter = pipeline.elements.iter().peekable();
-        let mut stderr_handler = vec![];
+        let mut stderr_writer_jobs = vec![];
         while let Some(element) = elements_iter.next() {
             let redirect_stderr = redirect_stderr
                 || (elements_iter.peek().map_or(false, |next_element| {
@@ -1034,7 +1026,7 @@ pub fn eval_block(
                 input,
                 redirect_stdout,
                 redirect_stderr,
-                &mut stderr_handler,
+                &mut stderr_writer_jobs,
             );
 
             match (eval_result, redirect_stderr) {
@@ -1067,7 +1059,7 @@ pub fn eval_block(
             }
         }
 
-        for h in stderr_handler {
+        for h in stderr_writer_jobs {
             let _ = h.join();
         }
         if pipeline_idx < (num_pipelines) - 1 {
@@ -1105,7 +1097,7 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
-        let mut stderr_handler = vec![];
+        let mut stderr_writer_jobs = vec![];
         for expr in pipeline.elements.iter() {
             input = eval_element_with_input(
                 engine_state,
@@ -1114,9 +1106,13 @@ pub fn eval_subexpression(
                 input,
                 true,
                 false,
-                &mut stderr_handler,
+                &mut stderr_writer_jobs,
             )?
             .0
+        }
+
+        for h in stderr_writer_jobs {
+            let _ = h.join();
         }
     }
 
@@ -1204,5 +1200,35 @@ fn gen_save_call(
         redirect_stdout: false,
         redirect_stderr: false,
         parser_info: HashMap::new(),
+    }
+}
+
+/// A job which saves `PipelineData` to a file in a child thread.
+struct DataSaveJob {
+    inner: JoinHandle<()>,
+}
+
+impl DataSaveJob {
+    pub fn spawn(
+        engine_state: EngineState,
+        mut stack: Stack,
+        save_call: Call,
+        input: PipelineData,
+    ) -> Self {
+        Self {
+            inner: thread::Builder::new()
+                .name("stderr saver".to_string())
+                .spawn(move || {
+                    let result = eval_call(&engine_state, &mut stack, &save_call, input);
+                    if let Err(err) = result {
+                        eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
+                    }
+                })
+                .expect("Failed to create thread"),
+        }
+    }
+
+    pub fn join(self) -> thread::Result<()> {
+        self.inner.join()
     }
 }
