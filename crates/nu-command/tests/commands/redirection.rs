@@ -10,8 +10,6 @@ fn redirect_err() {
             cwd: dirs.test(),
             "cat asdfasdfasdf.txt err> a.txt"
         );
-        // stderr redirection is handled by another thread
-        // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a.txt");
         let contents = file_contents(expected_out_file);
         assert!(contents.contains("asdfasdfasdf.txt"));
@@ -26,8 +24,6 @@ fn redirect_err() {
             cwd: dirs.test(),
             "vol missingdrive err> a"
         );
-        // stderr redirection is handled by another thread
-        // so we have to sleep and check target file first.
         let expected_out_file = dirs.test().join("a");
         let contents = file_contents(expected_out_file);
         assert!(contents.len() >= 16);
@@ -121,7 +117,6 @@ fn separate_redirection() {
                     "cmd /D /c test.bat out> out.txt err> err.txt"
                 );
             }
-
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
@@ -184,7 +179,6 @@ fn redirection_keep_exit_codes() {
                     "cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
                 )
             };
-
             assert_eq!(output.out, "10")
         },
     )
