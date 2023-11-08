@@ -588,6 +588,12 @@ pub fn evaluate_repl(
                         }
                     }
 
+                    // We should not have bracketed paste enabled during the execution
+                    // of a child.
+                    if engine_state.get_config().bracketed_paste {
+                        let _ = line_editor.disable_bracketed_paste();
+                    }
+
                     eval_source(
                         engine_state,
                         stack,
@@ -596,8 +602,9 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                         false,
                     );
+
+                    // Ensure bracketed paste is enabled again
                     if engine_state.get_config().bracketed_paste {
-                        #[cfg(not(target_os = "windows"))]
                         let _ = line_editor.enable_bracketed_paste();
                     }
                 }
