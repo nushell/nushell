@@ -1007,8 +1007,7 @@ pub fn parse_alias(
 
         // special case for `alias foo=bar`
         if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
-            let arg = working_set.get_span_contents(spans[1]).to_owned();
-            let arg = String::from_utf8_lossy(&arg);
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
 
             // split at '='.  Note that the output must never be None, the
             // `unwrap` is just to avoid the possibility of panic, if the
