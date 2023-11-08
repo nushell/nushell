@@ -2,14 +2,17 @@ use lsp_types::{
     notification::{
         DidChangeTextDocument, DidCloseTextDocument, DidOpenTextDocument, Notification,
     },
-    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams,
+    DidChangeTextDocumentParams, DidCloseTextDocumentParams, DidOpenTextDocumentParams, Url,
 };
 use ropey::Rope;
 
 use crate::LanguageServer;
 
 impl LanguageServer {
-    pub(crate) fn handle_lsp_notification(&mut self, notification: lsp_server::Notification) {
+    pub(crate) fn handle_lsp_notification(
+        &mut self,
+        notification: lsp_server::Notification,
+    ) -> Option<Url> {
         match notification.method.as_str() {
             DidOpenTextDocument::METHOD => Self::handle_notification_payload::<
                 DidOpenTextDocumentParams,
@@ -18,6 +21,9 @@ impl LanguageServer {
                 if let Ok(file_path) = param.text_document.uri.to_file_path() {
                     let rope = Rope::from_str(&param.text_document.text);
                     self.ropes.insert(file_path, rope);
+                    Some(param.text_document.uri)
+                } else {
+                    None
                 }
             }),
             DidChangeTextDocument::METHOD => {
@@ -33,24 +39,28 @@ impl LanguageServer {
                 if let Ok(file_path) = param.text_document.uri.to_file_path() {
                     self.ropes.remove(&file_path);
                 }
+                None
             }),
-            _ => {}
+            _ => None,
         }
     }
 
     fn handle_notification_payload<P, H>(
         notification: lsp_server::Notification,
         mut param_handler: H,
-    ) where
+    ) -> Option<Url>
+    where
         P: serde::de::DeserializeOwned,
-        H: FnMut(P),
+        H: FnMut(P) -> Option<Url>,
     {
         if let Ok(params) = serde_json::from_value::<P>(notification.params) {
-            param_handler(params);
+            param_handler(params)
+        } else {
+            None
         }
     }
 
-    fn update_rope(&mut self, params: DidChangeTextDocumentParams) {
+    fn update_rope(&mut self, params: DidChangeTextDocumentParams) -> Option<Url> {
         if let Ok(file_path) = params.text_document.uri.to_file_path() {
             for content_change in params.content_changes.into_iter() {
                 let entry = self.ropes.entry(file_path.clone());
@@ -70,42 +80,22 @@ impl LanguageServer {
                     _ => {}
                 }
             }
+
+            Some(params.text_document.uri)
+        } else {
+            None
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use assert_json_diff::assert_json_eq;
-    use lsp_server::{Connection, Message};
-    use lsp_types::{DidChangeTextDocumentParams, Range, TextDocumentContentChangeEvent, Url};
+    use lsp_server::Message;
+    use lsp_types::{Range, Url};
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{hover, initialize_language_server, open};
-
-    fn update(client_connection: &Connection, uri: Url, text: String, range: Option<Range>) {
-        client_connection
-            .sender
-            .send(lsp_server::Message::Notification(
-                lsp_server::Notification {
-                    method: DidChangeTextDocument::METHOD.to_string(),
-                    params: serde_json::to_value(DidChangeTextDocumentParams {
-                        text_document: lsp_types::VersionedTextDocumentIdentifier {
-                            uri,
-                            version: 2,
-                        },
-                        content_changes: vec![TextDocumentContentChangeEvent {
-                            range,
-                            range_length: None,
-                            text,
-                        }],
-                    })
-                    .unwrap(),
-                },
-            ))
-            .unwrap();
-    }
+    use crate::tests::{hover, initialize_language_server, open, update};
 
     #[test]
     fn hover_on_command_after_full_content_change() {

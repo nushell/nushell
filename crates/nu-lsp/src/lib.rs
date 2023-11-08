@@ -25,6 +25,7 @@ use nu_protocol::{
 use reedline::Completer;
 use ropey::Rope;
 
+mod diagnostics;
 mod notification;
 
 #[derive(Debug)]
@@ -131,7 +132,12 @@ impl LanguageServer {
                         .into_diagnostic()?;
                 }
                 Message::Response(_) => {}
-                Message::Notification(notification) => self.handle_lsp_notification(notification),
+                Message::Notification(notification) => {
+                    if let Some(updated_file) = self.handle_lsp_notification(notification) {
+                        let mut engine_state = engine_state.clone();
+                        self.publish_diagnostics_for_file(updated_file, &mut engine_state)?;
+                    }
+                }
             }
         }
 
@@ -232,7 +238,7 @@ impl LanguageServer {
         None
     }
 
-    fn rope<'a, 'b: 'a>(&'b mut self, file_url: &Url) -> Option<(&'a Rope, &'a PathBuf)> {
+    fn rope<'a, 'b: 'a>(&'b self, file_url: &Url) -> Option<(&'a Rope, &'a PathBuf)> {
         let file_path = file_url.to_file_path().ok()?;
 
         self.ropes
@@ -569,11 +575,13 @@ mod tests {
     use super::*;
     use assert_json_diff::assert_json_eq;
     use lsp_types::{
-        notification::{DidOpenTextDocument, Exit, Initialized, Notification},
+        notification::{
+            DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
+        },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
-        CompletionParams, DidOpenTextDocumentParams, GotoDefinitionParams, InitializeParams,
-        InitializedParams, TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams,
-        Url,
+        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+        GotoDefinitionParams, InitializeParams, InitializedParams, TextDocumentContentChangeEvent,
+        TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, Url,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
@@ -685,7 +693,7 @@ mod tests {
         assert_json_eq!(result, serde_json::json!(null));
     }
 
-    pub fn open(client_connection: &Connection, uri: Url) {
+    pub fn open(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
         let text = std::fs::read_to_string(uri.to_file_path().unwrap()).unwrap();
 
         client_connection
@@ -703,6 +711,56 @@ mod tests {
                 .unwrap(),
             }))
             .unwrap();
+
+        let notification = client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+
+        if let Message::Notification(n) = notification {
+            n
+        } else {
+            panic!();
+        }
+    }
+
+    pub fn update(
+        client_connection: &Connection,
+        uri: Url,
+        text: String,
+        range: Option<Range>,
+    ) -> lsp_server::Notification {
+        client_connection
+            .sender
+            .send(lsp_server::Message::Notification(
+                lsp_server::Notification {
+                    method: DidChangeTextDocument::METHOD.to_string(),
+                    params: serde_json::to_value(DidChangeTextDocumentParams {
+                        text_document: lsp_types::VersionedTextDocumentIdentifier {
+                            uri,
+                            version: 2,
+                        },
+                        content_changes: vec![TextDocumentContentChangeEvent {
+                            range,
+                            range_length: None,
+                            text,
+                        }],
+                    })
+                    .unwrap(),
+                },
+            ))
+            .unwrap();
+
+        let notification = client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+
+        if let Message::Notification(n) = notification {
+            n
+        } else {
+            panic!();
+        }
     }
 
     fn goto_definition(
