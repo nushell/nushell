@@ -96,8 +96,8 @@ impl Highlighter for NuHighlighter {
     }
 }
 
-// Splits span into sub-spans.  Tuple booleans determines, wherever the span
-// should be highlighted.
+/// Splits span into sub-spans.  
+/// Tuple booleans determines, wherever the span should be highlighted.
 fn split_span_by_highlight_positions(
     line: &str,
     span: Span,
