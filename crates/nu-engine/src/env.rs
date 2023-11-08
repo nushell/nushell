@@ -408,7 +408,7 @@ fn get_converted_value(
                     })
                 }
             }
-            _ => ConversionResult::CellPathError,
+            Err(e) => ConversionResult::ConversionError(e),
         }
     } else {
         ConversionResult::CellPathError
