@@ -1124,7 +1124,6 @@ fn seconds_per_day(days: i32) -> i64 {
     days as i64 * SECS_PER_DAY
 }
 
-// Contains other types beyond the polars types (e.g. Days)
 fn seconds_and_nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> (i64, u32) {
     // Calculate the divisor for the other units
     let unit_divisor = match time_unit {
@@ -1154,11 +1153,12 @@ fn datetime_from_epoch_seconds(
     let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, nanos) {
         Some(val) => val,
         None => {
-            return Err(ShellError::UnsupportedInput(
-                "The given local datetime representation is invalid.".to_string(),
-                format!("timestamp is {seconds:?}"),
-                span,
-                Span::unknown(),
+            return Err(ShellError::GenericError(
+                format!("The given local datetime representation is invalid: seconds: {seconds}, nanos: {nanos}"),
+                "".to_string(),
+                Some(span),
+                None,
+                vec![],
             ));
         }
     };
@@ -1166,11 +1166,13 @@ fn datetime_from_epoch_seconds(
     let offset = match FixedOffset::east_opt(0) {
         Some(val) => val,
         None => {
-            return Err(ShellError::UnsupportedInput(
-                "The given local datetime representation is invalid.".to_string(),
-                format!("timestamp is {seconds:?}"),
-                span,
-                Span::unknown(),
+            // should not happen
+            return Err(ShellError::GenericError(
+                "Invalid offset: east_opt(0)".to_string(),
+                "".to_string(),
+                Some(span),
+                None,
+                vec![],
             ));
         }
     };
@@ -1202,7 +1204,9 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone;
     use indexmap::indexmap;
+    use polars::{export::arrow::array::PrimitiveArray, prelude::Field};
 
     use super::*;
 
@@ -1236,6 +1240,186 @@ mod tests {
             .expect("There should be a first value in columns");
         assert_eq!(column.name(), "foo");
         assert_eq!(column.values, values);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_any_value_to_value() -> Result<(), Box<dyn std::error::Error>> {
+        let span = Span::test_data();
+        assert_eq!(
+            any_value_to_value(&AnyValue::Null, span)?,
+            Value::nothing(span)
+        );
+
+        let test_bool = true;
+        assert_eq!(
+            any_value_to_value(&AnyValue::Boolean(test_bool), span)?,
+            Value::bool(test_bool, span)
+        );
+
+        let test_str = "foo";
+        assert_eq!(
+            any_value_to_value(&AnyValue::Utf8(test_str), span)?,
+            Value::string(test_str.to_string(), span)
+        );
+        assert_eq!(
+            any_value_to_value(&AnyValue::Utf8Owned(test_str.into()), span)?,
+            Value::string(test_str.to_owned(), span)
+        );
+
+        let tests_uint8 = 4;
+        assert_eq!(
+            any_value_to_value(&AnyValue::UInt8(tests_uint8), span)?,
+            Value::int(tests_uint8 as i64, span)
+        );
+
+        let tests_uint16 = 233;
+        assert_eq!(
+            any_value_to_value(&AnyValue::UInt16(tests_uint16), span)?,
+            Value::int(tests_uint16 as i64, span)
+        );
+
+        let tests_uint32 = 897688233;
+        assert_eq!(
+            any_value_to_value(&AnyValue::UInt32(tests_uint32), span)?,
+            Value::int(tests_uint32 as i64, span)
+        );
+
+        let tests_uint64 = 903225135897388233;
+        assert_eq!(
+            any_value_to_value(&AnyValue::UInt64(tests_uint64), span)?,
+            Value::int(tests_uint64 as i64, span)
+        );
+
+        let tests_float32 = 903225135897388233.3223353;
+        assert_eq!(
+            any_value_to_value(&AnyValue::Float32(tests_float32), span)?,
+            Value::float(tests_float32 as f64, span)
+        );
+
+        let tests_float64 = 9064251358973882322333.64233533232;
+        assert_eq!(
+            any_value_to_value(&AnyValue::Float64(tests_float64), span)?,
+            Value::float(tests_float64 as f64, span)
+        );
+
+        let test_days = 10_957;
+        let comparison_date = Utc
+            .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
+            .unwrap()
+            .fixed_offset();
+        assert_eq!(
+            any_value_to_value(&AnyValue::Date(test_days), span)?,
+            Value::date(comparison_date, span)
+        );
+
+        let test_millis = 946_684_800_000;
+        assert_eq!(
+            any_value_to_value(
+                &AnyValue::Datetime(test_millis, TimeUnit::Milliseconds, &None),
+                span
+            )?,
+            Value::date(comparison_date, span)
+        );
+
+        let test_duration_millis = 99_999;
+        let test_duration_micros = 99_999_000;
+        let test_duration_nanos = 99_999_000_000;
+        assert_eq!(
+            any_value_to_value(
+                &AnyValue::Duration(test_duration_nanos, TimeUnit::Nanoseconds),
+                span
+            )?,
+            Value::duration(test_duration_nanos, span)
+        );
+        assert_eq!(
+            any_value_to_value(
+                &AnyValue::Duration(test_duration_micros, TimeUnit::Microseconds),
+                span
+            )?,
+            Value::duration(test_duration_nanos, span)
+        );
+        assert_eq!(
+            any_value_to_value(
+                &AnyValue::Duration(test_duration_millis, TimeUnit::Milliseconds),
+                span
+            )?,
+            Value::duration(test_duration_nanos, span)
+        );
+
+        let test_binary = b"sdf2332f32q3f3afwaf3232f32";
+        assert_eq!(
+            any_value_to_value(&AnyValue::Binary(test_binary), span)?,
+            Value::binary(test_binary.to_vec(), span)
+        );
+        assert_eq!(
+            any_value_to_value(&AnyValue::BinaryOwned(test_binary.to_vec()), span)?,
+            Value::binary(test_binary.to_vec(), span)
+        );
+
+        let test_time_nanos = 54_000_000_000_000;
+        let test_time = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+            Utc::now()
+                .date_naive()
+                .and_time(NaiveTime::from_hms_opt(15, 00, 00).unwrap()),
+            FixedOffset::east_opt(0).unwrap(),
+        );
+        assert_eq!(
+            any_value_to_value(&AnyValue::Time(test_time_nanos), span)?,
+            Value::date(test_time, span)
+        );
+
+        let test_list_series = Series::new("int series", &[1, 2, 3]);
+        let comparison_list_series = Value::list(
+            vec![
+                Value::int(1, span),
+                Value::int(2, span),
+                Value::int(3, span),
+            ],
+            span,
+        );
+        assert_eq!(
+            any_value_to_value(&AnyValue::List(test_list_series), span)?,
+            comparison_list_series
+        );
+
+        let field_value_0 = AnyValue::Int32(1);
+        let field_value_1 = AnyValue::Boolean(true);
+        let values = vec![field_value_0, field_value_1];
+        let field_name_0 = "num_field";
+        let field_name_1 = "bool_field";
+        let fields = vec![
+            Field::new(field_name_0, DataType::Int32),
+            Field::new(field_name_1, DataType::Boolean),
+        ];
+        let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
+        let comparison_owned_record = Value::record(
+            Record {
+                cols: vec![field_name_0.to_owned(), field_name_1.to_owned()],
+                vals: vec![Value::int(1, span), Value::bool(true, span)],
+            },
+            span,
+        );
+        assert_eq!(
+            any_value_to_value(&test_owned_struct, span)?,
+            comparison_owned_record.clone()
+        );
+
+        let test_int_arr = PrimitiveArray::from([Some(1_i32)]);
+        let test_bool_arr = BooleanArray::from([Some(true)]);
+        let test_struct_arr = StructArray::new(
+            DataType::Struct(fields.clone()).to_arrow(),
+            vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
+            None,
+        );
+        assert_eq!(
+            any_value_to_value(
+                &AnyValue::Struct(0, &test_struct_arr, fields.as_slice()),
+                span
+            )?,
+            comparison_owned_record
+        );
 
         Ok(())
     }
