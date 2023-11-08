@@ -7,8 +7,8 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, Record, ShellError, Span,
-    Value,
+    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
+    ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -537,11 +537,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
-    match config.edit_mode.as_str() {
-        "emacs" => {
+    match config.edit_mode {
+        EditBindings::Emacs => {
             add_menu_keybindings(&mut emacs_keybindings);
         }
-        _ => {
+        EditBindings::Vi => {
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
         }
@@ -557,9 +557,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         )?
     }
 
-    match config.edit_mode.as_str() {
-        "emacs" => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
-        _ => Ok(KeybindingsMode::Vi {
+    match config.edit_mode {
+        EditBindings::Emacs => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        EditBindings::Vi => Ok(KeybindingsMode::Vi {
             insert_keybindings,
             normal_keybindings,
         }),
