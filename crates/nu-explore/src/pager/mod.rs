@@ -1041,21 +1041,9 @@ fn set_config(hm: &mut HashMap<String, Value>, path: &[&str], value: Value) -> b
     match val {
         Value::Record { val: record, .. } => {
             if path.len() == 2 {
-                if record.cols.len() != record.vals.len() {
-                    return false;
-                }
+                let key = path[1];
 
-                let key = &path[1];
-
-                let pos = record.cols.iter().position(|v| v == key);
-                match pos {
-                    Some(i) => {
-                        record.vals[i] = value;
-                    }
-                    None => {
-                        record.push(*key, value);
-                    }
-                }
+                record.insert(key, value);
             } else {
                 let mut hm2: HashMap<String, Value> = HashMap::new();
                 for (k, v) in record.iter() {

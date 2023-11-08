@@ -354,10 +354,14 @@ fn handle_record(
     };
 
     if let Some(limit) = cfg.abbreviation {
-        if record.cols.len() > limit * 2 + 1 {
-            record.cols = abbreviate_list(&record.cols, limit, String::from("..."));
-            record.vals =
-                abbreviate_list(&record.vals, limit, Value::string("...", Span::unknown()));
+        let prev_len = record.len();
+        if record.len() > limit * 2 + 1 {
+            // TODO: see if the following table builders would be happy with a simple iterator
+            let mut record_iter = record.into_iter();
+            record = Record::with_capacity(limit * 2 + 1);
+            record.extend(record_iter.by_ref().take(limit));
+            record.push(String::from("..."), Value::string("...", Span::unknown()));
+            record.extend(record_iter.skip(prev_len - 2 * limit));
         }
     }
 
@@ -456,26 +460,19 @@ fn handle_row_stream(
                 None => None,
             };
             let ls_colors = get_ls_colors(ls_colors_env_str);
-            let span = input.call.head;
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
-                        let mut idx = 0;
-
-                        while idx < record.len() {
-                            // Only the name column gets special colors, for now
-                            if record.cols[idx] == "name" {
-                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(span);
-                                if let Some(Value::String { val, .. }) = record.vals.get(idx) {
-                                    let val = render_path_name(val, &config, &ls_colors, span);
-                                    if let Some(val) = val {
-                                        record.vals[idx] = val;
-                                    }
+                        // Only the name column gets special colors, for now
+                        if let Some(value) = record.get_mut("name") {
+                            let span = value.span();
+                            if let Value::String { val, .. } = value {
+                                if let Some(val) = render_path_name(val, &config, &ls_colors, span)
+                                {
+                                    *value = val;
                                 }
                             }
-
-                            idx += 1;
                         }
 
                         x
@@ -490,36 +487,34 @@ fn handle_row_stream(
             data_source: DataSource::HtmlThemes,
         }) => {
             let ctrlc = ctrlc.clone();
-            let span = input.call.head;
 
             ListStream::from_stream(
                 stream.map(move |mut x| match &mut x {
                     Value::Record { val: record, .. } => {
-                        let mut idx = 0;
-                        // Every column in the HTML theme table except 'name' is colored
-                        while idx < record.len() {
-                            if record.cols[idx] != "name" {
-                                // Simple routine to grab the hex code, convert to a style,
-                                // then place it in a new Value::String.
-
-                                let span = record.vals.get(idx).map(|v| v.span()).unwrap_or(span);
-                                if let Some(Value::String { val, .. }) = record.vals.get(idx) {
-                                    let s = match color_from_hex(val) {
-                                        Ok(c) => match c {
-                                            // .normal() just sets the text foreground color.
-                                            Some(c) => c.normal(),
-                                            None => nu_ansi_term::Style::default(),
-                                        },
-                                        Err(_) => nu_ansi_term::Style::default(),
-                                    };
-                                    record.vals[idx] = Value::string(
-                                        // Apply the style (ANSI codes) to the string
-                                        s.paint(val).to_string(),
-                                        span,
-                                    );
-                                }
+                        for (rec_col, rec_val) in record.iter_mut() {
+                            // Every column in the HTML theme table except 'name' is colored
+                            if rec_col != "name" {
+                                continue;
                             }
-                            idx += 1;
+                            // Simple routine to grab the hex code, convert to a style,
+                            // then place it in a new Value::String.
+
+                            let span = rec_val.span();
+                            if let Value::String { val, .. } = rec_val {
+                                let s = match color_from_hex(val) {
+                                    Ok(c) => match c {
+                                        // .normal() just sets the text foreground color.
+                                        Some(c) => c.normal(),
+                                        None => nu_ansi_term::Style::default(),
+                                    },
+                                    Err(_) => nu_ansi_term::Style::default(),
+                                };
+                                *rec_val = Value::string(
+                                    // Apply the style (ANSI codes) to the string
+                                    s.paint(&*val).to_string(),
+                                    span,
+                                );
+                            }
                         }
                         x
                     }
@@ -756,10 +751,19 @@ impl Iterator for PagingTableCreator {
                 if limit > 0 && is_record_list {
                     // in case it's a record list we set a default text to each column instead of a single value.
 
-                    let cols = batch[0].as_record().expect("ok").cols.clone();
-                    let vals =
-                        vec![Value::string(String::from("..."), Span::unknown()); cols.len()];
-                    batch[limit] = Value::record(Record { cols, vals }, Span::unknown());
+                    let dummy: Record = batch[0]
+                        .as_record()
+                        .expect("ok")
+                        .columns()
+                        .map(|k| {
+                            (
+                                k.to_owned(),
+                                Value::string(String::from("..."), Span::unknown()),
+                            )
+                        })
+                        .collect();
+
+                    batch[limit] = Value::record(dummy, Span::unknown());
                 }
             }
         }

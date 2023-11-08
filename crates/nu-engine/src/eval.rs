@@ -524,19 +524,15 @@ pub fn eval_expression(
             )
         }
         Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-            let mut captures = HashMap::new();
-            let block = engine_state.get_block(*block_id);
+            let block_id = *block_id;
+            let captures = engine_state
+                .get_block(block_id)
+                .captures
+                .iter()
+                .map(|&id| stack.get_var(id, expr.span).map(|var| (id, var)))
+                .collect::<Result<_, _>>()?;
 
-            for var_id in &block.captures {
-                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
-            }
-            Ok(Value::closure(
-                Closure {
-                    block_id: *block_id,
-                    captures,
-                },
-                expr.span,
-            ))
+            Ok(Value::closure(Closure { block_id, captures }, expr.span))
         }
         Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         Expr::List(x) => {

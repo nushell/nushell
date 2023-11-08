@@ -138,19 +138,13 @@ impl Stack {
             })
     }
 
-    pub fn captures_to_stack(&self, captures: &HashMap<VarId, Value>) -> Stack {
+    pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
         // FIXME: this is probably slow
         let mut env_vars = self.env_vars.clone();
         env_vars.push(HashMap::new());
 
-        // FIXME make this more efficient
-        let mut vars = vec![];
-        for (id, val) in captures {
-            vars.push((*id, val.clone()));
-        }
-
         Stack {
-            vars,
+            vars: captures,
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),

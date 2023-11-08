@@ -108,26 +108,14 @@ fn action(
         Value::Binary { val, .. } => match hex_config.action_type {
             ActionType::Encode => Value::string(hex_encode(val.as_ref()), command_span),
             ActionType::Decode => Value::error(
-                ShellError::UnsupportedInput(
-                    "Binary data can only be encoded".to_string(),
-                    "value originates from here".into(),
-                    command_span,
-                    // This line requires the Value::Error {} match above.
-                    input.span(),
-                ),
+                ShellError::UnsupportedInput { msg: "Binary data can only be encoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
                 command_span,
             ),
         },
         Value::String { val, .. } => {
             match hex_config.action_type {
                 ActionType::Encode => Value::error(
-                    ShellError::UnsupportedInput(
-                        "String value can only be decoded".to_string(),
-                        "value originates from here".into(),
-                        command_span,
-                        // This line requires the Value::Error {} match above.
-                        input.span(),
-                    ),
+                    ShellError::UnsupportedInput { msg: "String value can only be decoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
                     command_span,
                 ),
 

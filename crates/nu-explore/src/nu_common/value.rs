@@ -90,7 +90,10 @@ fn collect_external_stream(
 pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     let span = value.span();
     match value {
-        Value::Record { val: record, .. } => (record.cols, vec![record.vals]),
+        Value::Record { val: record, .. } => {
+            let (key, val) = record.into_iter().unzip();
+            (key, vec![val])
+        }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
