@@ -812,14 +812,12 @@ fn eval_element_with_input(
                                 stderr_handler.push(std::thread::Builder::new()
                                 .name("stderr saver".to_string())
                                 .spawn(move || {
-                                    eprintln!("start save call");
                                     let result = eval_call(
                                         &engine_state_clone,
                                         &mut stderr_stack,
                                         &save_call,
                                         input,
                                     );
-                                    eprintln!("save call is complete");
                                     if let Err(err) = result {
                                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                                     }
