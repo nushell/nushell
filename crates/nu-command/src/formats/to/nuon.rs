@@ -209,7 +209,7 @@ pub fn value_to_string(
                     let mut row = vec![];
 
                     if let Value::Record { val, .. } = val {
-                        for val in &val.vals {
+                        for val in val.values() {
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,

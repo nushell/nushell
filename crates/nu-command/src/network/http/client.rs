@@ -602,9 +602,12 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { val, .. } = val {
-                if let Some(Value::String {
-                    val: header_name, ..
-                }) = val.vals.get(0)
+                if let Some((
+                    _col,
+                    Value::String {
+                        val: header_name, ..
+                    },
+                )) = val.get_index(0)
                 {
                     return name == header_name;
                 }
