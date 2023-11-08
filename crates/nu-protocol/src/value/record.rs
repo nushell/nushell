@@ -203,6 +203,30 @@ impl Record {
         self.cols.truncate(retained);
     }
 
+    /// Truncate record to the first `len` elements.
+    ///
+    /// `len > self.len()` will be ignored
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_nothing(),
+    ///     "d" => Value::test_int(42),
+    ///     );
+    /// rec.truncate(42); // this is fine
+    /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "abcd");
+    /// rec.truncate(2); // truncate
+    /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "ab");
+    /// rec.truncate(0); // clear the record
+    /// assert_eq!(rec.len(), 0);
+    /// ```
+    pub fn truncate(&mut self, len: usize) {
+        self.cols.truncate(len);
+        self.vals.truncate(len);
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
