@@ -288,7 +288,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             Value::date(dt, *span)
                         }
                         None => Value::error(
-                            ShellError::DatetimeParseError(input.debug_value(), *span),
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
                             *span,
                         ),
                     },
@@ -298,7 +301,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             Value::date(dt, *span)
                         }
                         None => Value::error(
-                            ShellError::DatetimeParseError(input.debug_value(), *span),
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
                             *span,
                         ),
                     },
