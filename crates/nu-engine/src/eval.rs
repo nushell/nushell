@@ -10,6 +10,7 @@ use nu_protocol::{
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
+use std::thread::JoinHandle;
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -735,6 +736,7 @@ fn eval_element_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    stderr_handler: &mut Vec<JoinHandle<()>>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
@@ -807,7 +809,7 @@ fn eval_element_with_input(
                                 // stderr and stdout message
                                 let mut stderr_stack = stack.clone();
                                 let engine_state_clone = engine_state.clone();
-                                std::thread::Builder::new()
+                                stderr_handler.push(std::thread::Builder::new()
                                 .name("stderr saver".to_string())
                                 .spawn(move || {
                                     eprintln!("start save call");
@@ -822,7 +824,7 @@ fn eval_element_with_input(
                                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                                     }
                                 })
-                                .expect("Failed to create thread");
+                                .expect("Failed to create thread"));
 
                                 Ok((
                                     PipelineData::ExternalStream {
@@ -925,6 +927,7 @@ fn eval_element_with_input(
                         input,
                         true,
                         redirect_stderr,
+                        stderr_handler,
                     )
                     .map(|x| x.0)?
                 }
@@ -940,6 +943,7 @@ fn eval_element_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                stderr_handler,
             )
         }
         PipelineElement::And(_, expr) => eval_expression_with_input(
@@ -1010,6 +1014,7 @@ pub fn eval_block(
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut elements_iter = pipeline.elements.iter().peekable();
+        let mut stderr_handler = vec![];
         while let Some(element) = elements_iter.next() {
             let redirect_stderr = redirect_stderr
                 || (elements_iter.peek().map_or(false, |next_element| {
@@ -1031,6 +1036,7 @@ pub fn eval_block(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                &mut stderr_handler,
             );
 
             match (eval_result, redirect_stderr) {
@@ -1063,6 +1069,9 @@ pub fn eval_block(
             }
         }
 
+        for h in stderr_handler {
+            let _ = h.join();
+        }
         if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
@@ -1098,8 +1107,18 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
+        let mut stderr_handler = vec![];
         for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
+            input = eval_element_with_input(
+                engine_state,
+                stack,
+                expr,
+                input,
+                true,
+                false,
+                &mut stderr_handler,
+            )?
+            .0
         }
     }
 
