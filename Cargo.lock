@@ -3141,6 +3141,7 @@ dependencies = [
  "num-format",
  "strip-ansi-escapes",
  "sys-locale",
+ "unicase",
 ]
 
 [[package]]

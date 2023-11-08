@@ -134,7 +134,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let usage = sig.usage;
         let search_terms = sig.search_terms;
 
-        let command_type = format!("{:?}", decl.command_type()).to_lowercase();
+        let command_type = format!("{:?}", decl.command_type()).to_ascii_lowercase();
 
         // Build table of parameters
         let param_table = {
