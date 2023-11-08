@@ -183,45 +183,6 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             out.insert(column, Value::record(val, span));
                         }
                     }
-                    Value::List { vals, .. }
-                        if all && vals.iter().all(|f| f.as_record().is_ok()) =>
-                    {
-                        if need_flatten && inner_table.is_some() {
-                            return vec![Value::error(
-                                ShellError::UnsupportedInput {
-                                    msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".into(),
-                                    input: "value originates from here".into(),
-                                    msg_span: tag,
-                                    input_span: span
-                                },
-                                span,
-                            )];
-                        }
-
-                        if need_flatten {
-                            // it's a table (a list of record, we can flatten inner record)
-                            let records = vals
-                                .into_iter()
-                                .filter_map(|v| {
-                                    if let Value::Record { val, .. } = v {
-                                        Some(val)
-                                    } else {
-                                        None
-                                    }
-                                })
-                                .collect();
-
-                            inner_table = Some(TableInside::FlattenedRows {
-                                records,
-                                parent_column_name: column,
-                                parent_column_index: column_index,
-                            });
-                        } else if out.contains_key(&column) {
-                            out.insert(format!("{column}_{column}"), Value::list(vals, span));
-                        } else {
-                            out.insert(column, Value::list(vals, span));
-                        }
-                    }
                     Value::List { vals, .. } => {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::error(
@@ -235,7 +196,31 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             )];
                         }
 
-                        if !columns.is_empty() {
+                        if all && vals.iter().all(|f| f.as_record().is_ok()) {
+                            // it's a table (a list of record, we can flatten inner record)
+                            if need_flatten {
+                                let records = vals
+                                    .into_iter()
+                                    .filter_map(|v| {
+                                        if let Value::Record { val, .. } = v {
+                                            Some(val)
+                                        } else {
+                                            None
+                                        }
+                                    })
+                                    .collect();
+
+                                inner_table = Some(TableInside::FlattenedRows {
+                                    records,
+                                    parent_column_name: column,
+                                    parent_column_index: column_index,
+                                });
+                            } else if out.contains_key(&column) {
+                                out.insert(format!("{column}_{column}"), Value::list(vals, span));
+                            } else {
+                                out.insert(column, Value::list(vals, span));
+                            }
+                        } else if !columns.is_empty() {
                             let cell_path =
                                 column_requested.and_then(|x| match x.members.first() {
                                     Some(PathMember::String { val, .. }) => Some(val),
