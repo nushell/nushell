@@ -58,6 +58,7 @@ mod match_;
 mod math;
 mod merge;
 mod mkdir;
+mod mktemp;
 mod move_;
 mod mut_;
 mod network;
