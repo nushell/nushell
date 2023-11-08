@@ -10,6 +10,7 @@ fn redirect_err() {
             cwd: dirs.test(),
             "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
         );
+
         assert!(output.out.contains("asdfasdfasdf.txt"));
     })
 }
@@ -23,7 +24,7 @@ fn redirect_err() {
             "vol missingdrive err> a; (open a | size).bytes >= 16"
         );
 
-        assert!(output.out.contains("true"))
+        assert!(output.out.contains("true"));
     })
 }
 
