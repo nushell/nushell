@@ -256,7 +256,6 @@ fn separate_redirection_support_variable() {
                     r#"let o_f = "out.txt"; let e_f = "err.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
                 );
             }
-
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
