@@ -23,11 +23,12 @@ impl Command for Exec {
     }
 
     fn usage(&self) -> &str {
-        "Execute a command, replacing the current process."
+        "Execute a command, replacing or exiting the current process, depending on platform."
     }
 
     fn extra_usage(&self) -> &str {
-        "Currently supported only on Unix-based systems."
+        r#"On Unix-based systems, the current process is replaced with the command.
+On Windows based systems, Nushell will wait for the command to finish and then exit with the command's exit code."#
     }
 
     fn run(
