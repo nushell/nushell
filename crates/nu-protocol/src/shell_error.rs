@@ -1159,6 +1159,21 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     )]
     //todo: add error detail
     ErrorExpandingGlob(String, #[label = "{0}"] Span),
+
+    /// Tried spreading a value that can't be spread as a list.
+    ///
+    /// ## Resolution
+    ///
+    /// Only lists and strings can be spread as lists. Try converting the value to a list before spreading.
+    #[error("Cannot spread value")]
+    #[diagnostic(
+        code(nu::shell::cannot_spread),
+        help("Try converting the value to a list before spreading")
+    )]
+    CannotSpreadAsList {
+        #[label = "cannot spread value"]
+        span: Span,
+    },
 }
 
 // TODO: Implement as From trait
