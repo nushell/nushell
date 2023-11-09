@@ -348,6 +348,12 @@ fn convert_to_value(
             "signatures not supported in nuon".into(),
             expr.span,
         )),
+        Expr::Spread(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "spread operator not supported in nuon".into(),
+            expr.span,
+        )),
         Expr::String(s) => Ok(Value::string(s, span)),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError(
             original_text.to_string(),
