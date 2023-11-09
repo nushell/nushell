@@ -289,6 +289,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
+            Expr::Spread(expr) => expr.has_in_variable(working_set),
         }
     }
 
@@ -480,6 +481,7 @@ impl Expression {
                 }
             }
             Expr::VarDecl(_) => {}
+            Expr::Spread(expr) => expr.replace_in_variable(working_set, new_var_id),
         }
     }
 
@@ -618,6 +620,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
+            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span),
         }
     }
 }
