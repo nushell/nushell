@@ -1,6 +1,7 @@
 mod eager;
 mod expressions;
 mod lazy;
+mod plotting;
 mod series;
 mod stub;
 mod utils;
