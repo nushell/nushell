@@ -24,7 +24,6 @@ mod echo;
 mod empty;
 mod error_make;
 mod every;
-#[cfg(not(windows))]
 mod exec;
 mod export_def;
 mod fill;
@@ -105,6 +104,7 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
+mod umkdir;
 mod uniq;
 mod uniq_by;
 mod update;

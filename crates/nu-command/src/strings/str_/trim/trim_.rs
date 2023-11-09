@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -181,15 +181,12 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             match mode {
                 ActionMode::Global => match other {
                     Value::Record { val: record, .. } => {
-                        let new_vals = record.vals.iter().map(|v| action(v, arg, head)).collect();
+                        let new_record = record
+                            .iter()
+                            .map(|(k, v)| (k.clone(), action(v, arg, head)))
+                            .collect();
 
-                        Value::record(
-                            Record {
-                                cols: record.cols.to_vec(),
-                                vals: new_vals,
-                            },
-                            span,
-                        )
+                        Value::record(new_record, span)
                     }
                     Value::List { vals, .. } => {
                         let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
@@ -198,18 +195,15 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                     }
                     _ => input.clone(),
                 },
-                ActionMode::Local => {
-                    Value::error(
-                        ShellError::UnsupportedInput(
-                            "Only string values are supported".into(),
-                            format!("input type: {:?}", other.get_type()),
-                            head,
-                            // This line requires the Value::Error match above.
-                            other.span(),
-                        ),
-                        head,
-                    )
-                }
+                ActionMode::Local => Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "Only string values are supported".into(),
+                        input: format!("input type: {:?}", other.get_type()),
+                        msg_span: head,
+                        input_span: other.span(),
+                    },
+                    head,
+                ),
             }
         }
     }

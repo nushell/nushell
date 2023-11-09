@@ -46,8 +46,14 @@ impl Command for Glob {
             .named(
                 "not",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Patterns to exclude from the results",
+                "DEPRECATED OPTION: Patterns to exclude from the results",
                 Some('n'),
+            )
+            .named(
+                "exclude",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Patterns to exclude from the search: `glob` will not walk the inside of directories matching the excluded patterns.",
+                Some('e'),
             )
             .category(Category::FileSystem)
     }
@@ -111,12 +117,12 @@ impl Command for Glob {
             },
             Example {
                 description: "Search for files named tsconfig.json that are not in node_modules directories",
-                example: r#"glob **/tsconfig.json --not [**/node_modules/**]"#,
+                example: r#"glob **/tsconfig.json --exclude [**/node_modules/**]"#,
                 result: None,
             },
             Example {
                 description: "Search for all files that are not in the target nor .git directories",
-                example: r#"glob **/* --not [**/target/** **/.git/** */]"#,
+                example: r#"glob **/* --exclude [**/target/** **/.git/** */]"#,
                 result: None,
             },
         ]
@@ -141,8 +147,37 @@ impl Command for Glob {
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
 
+        if call.has_flag("not") {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError(
+                    "Deprecated option".into(),
+                    "`glob --not {list<string>}` is deprecated and will be removed in 0.88.".into(),
+                    Some(call.head),
+                    Some("Please use `glob --exclude {list<string>}` instead.".into()),
+                    vec![],
+                ),
+            );
+        }
+
         let not_flag: Option<Value> = call.get_flag(engine_state, stack, "not")?;
-        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match not_flag {
+        let exclude_flag: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
+
+        let paths_to_exclude = match (not_flag, exclude_flag) {
+            (Some(not_flag), Some(exclude_flag)) => {
+                return Err(ShellError::IncompatibleParameters {
+                    left_message: "Cannot pass --not".into(),
+                    left_span: not_flag.span(),
+                    right_message: "and --exclude".into(),
+                    right_span: exclude_flag.span(),
+                })
+            }
+            (Some(not_flag), None) => Some(not_flag),
+            (None, Some(exclude_flag)) => Some(exclude_flag),
+            (None, None) => None,
+        };
+
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
             None => (vec![], span),
             Some(f) => {
                 let pat_span = f.span();

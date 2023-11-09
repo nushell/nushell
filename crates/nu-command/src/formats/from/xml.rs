@@ -3,8 +3,8 @@ use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
-    Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Type, Value,
 };
 use roxmltree::NodeType;
 
@@ -69,45 +69,22 @@ string. This way content of every tag is always a table and is easier to parse"#
   <remember>Event</remember>
 </note>' | from xml"#,
             description: "Converts xml formatted string to record",
-            result: Some(Value::test_record(Record {
-                cols: vec![
-                    COLUMN_TAG_NAME.to_string(),
-                    COLUMN_ATTRS_NAME.to_string(),
-                    COLUMN_CONTENT_NAME.to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("note"),
-                    Value::test_record(Record::new()),
-                    Value::list(
-                        vec![Value::test_record(Record {
-                            cols: vec![
-                                COLUMN_TAG_NAME.to_string(),
-                                COLUMN_ATTRS_NAME.to_string(),
-                                COLUMN_CONTENT_NAME.to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("remember"),
-                                Value::test_record(Record::new()),
-                                Value::list(
-                                    vec![Value::test_record(Record {
-                                        cols: vec![
-                                            COLUMN_TAG_NAME.to_string(),
-                                            COLUMN_ATTRS_NAME.to_string(),
-                                            COLUMN_CONTENT_NAME.to_string(),
-                                        ],
-                                        vals: vec![
-                                            Value::test_nothing(),
-                                            Value::test_nothing(),
-                                            Value::test_string("Event"),
-                                        ],
-                                    })],
-                                    Span::test_data(),
-                                ),
-                            ],
+            result: Some(Value::test_record(record! {
+                COLUMN_TAG_NAME =>     Value::test_string("note"),
+                COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
+                COLUMN_CONTENT_NAME => Value::test_list(vec![
+                Value::test_record(record! {
+                    COLUMN_TAG_NAME =>     Value::test_string("remember"),
+                    COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
+                    COLUMN_CONTENT_NAME => Value::test_list(vec![
+                    Value::test_record(record! {
+                        COLUMN_TAG_NAME =>     Value::test_nothing(),
+                        COLUMN_ATTRS_NAME =>   Value::test_nothing(),
+                        COLUMN_CONTENT_NAME => Value::test_string("Event"),
                         })],
-                        Span::test_data(),
                     ),
-                ],
+                    })],
+                ),
             })),
         }]
     }
@@ -344,28 +321,18 @@ mod tests {
         attrs: IndexMap<&str, &str>,
         content: &[Value],
     ) -> Value {
-        Value::test_record(Record {
-            cols: vec![
-                COLUMN_TAG_NAME.into(),
-                COLUMN_ATTRS_NAME.into(),
-                COLUMN_CONTENT_NAME.into(),
-            ],
-            vals: vec![string(tag), attributes(attrs), table(content)],
+        Value::test_record(record! {
+            COLUMN_TAG_NAME =>     string(tag),
+            COLUMN_ATTRS_NAME =>   attributes(attrs),
+            COLUMN_CONTENT_NAME => table(content),
         })
     }
 
     fn content_string(value: impl Into<String>) -> Value {
-        Value::test_record(Record {
-            cols: vec![
-                COLUMN_TAG_NAME.into(),
-                COLUMN_ATTRS_NAME.into(),
-                COLUMN_CONTENT_NAME.into(),
-            ],
-            vals: vec![
-                Value::nothing(Span::test_data()),
-                Value::nothing(Span::test_data()),
-                string(value),
-            ],
+        Value::test_record(record! {
+            COLUMN_TAG_NAME =>     Value::nothing(Span::test_data()),
+            COLUMN_ATTRS_NAME =>   Value::nothing(Span::test_data()),
+            COLUMN_CONTENT_NAME => string(value),
         })
     }
 

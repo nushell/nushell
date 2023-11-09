@@ -1,5 +1,5 @@
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, Record, ShellError, Value};
+use nu_protocol::{record, PluginExample, Record, ShellError, Value};
 
 pub const CMD_NAME: &str = "from ini";
 
@@ -40,12 +40,12 @@ pub fn from_ini_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
             // all sections with all its key value pairs
             Ok(Value::record(sections, span))
         }
-        Err(err) => Err(ShellError::UnsupportedInput(
-            format!("Could not load ini: {err}"),
-            "value originates from here".into(),
-            head,
-            span,
-        )
+        Err(err) => Err(ShellError::UnsupportedInput {
+            msg: format!("Could not load ini: {err}"),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }
         .into()),
     }
 }
@@ -57,12 +57,11 @@ a=1
 b=2' | from ini"
             .into(),
         description: "Converts ini formatted string to record".into(),
-        result: Some(Value::test_record(Record {
-            cols: vec!["foo".to_string()],
-            vals: vec![Value::test_record(Record {
-                cols: vec!["a".to_string(), "b".to_string()],
-                vals: vec![Value::test_string("1"), Value::test_string("2")],
-            })],
+        result: Some(Value::test_record(record! {
+            "foo" => Value::test_record(record! {
+                "a" =>  Value::test_string("1"),
+                "b" =>  Value::test_string("2"),
+            }),
         })),
     }]
 }

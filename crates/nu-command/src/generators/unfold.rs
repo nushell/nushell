@@ -114,7 +114,7 @@ used as the next argument to the closure, otherwise generation stops.
         let block = engine_state.get_block(capture_block.item.block_id).clone();
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
-        let mut stack = stack.captures_to_stack(&capture_block.item.captures);
+        let mut stack = stack.captures_to_stack(capture_block.item.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let redirect_stdout = call.redirect_stdout;
@@ -162,9 +162,9 @@ used as the next argument to the closure, otherwise generation stops.
                             let mut err = None;
 
                             for (k, v) in iter {
-                                if k.to_lowercase() == "out" {
+                                if k.eq_ignore_ascii_case("out") {
                                     out = Some(v);
-                                } else if k.to_lowercase() == "next" {
+                                } else if k.eq_ignore_ascii_case("next") {
                                     next = Some(v);
                                 } else {
                                     let error = ShellError::GenericError(

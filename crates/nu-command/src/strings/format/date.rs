@@ -157,7 +157,10 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), head_span),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head_span,
+            },
             head_span,
         ),
     }
@@ -175,7 +178,10 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), span),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span,
+            },
             span,
         ),
     }

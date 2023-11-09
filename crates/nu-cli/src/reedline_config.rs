@@ -7,8 +7,8 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, Record, ShellError, Span,
-    Value,
+    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
+    ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -248,11 +248,11 @@ pub(crate) fn add_columnar_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(columnar_menu))))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -330,11 +330,11 @@ pub(crate) fn add_list_menu(
         Value::Nothing { .. } => {
             Ok(line_editor.with_menu(ReedlineMenu::HistoryMenu(Box::new(list_menu))))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -448,11 +448,11 @@ pub(crate) fn add_description_menu(
                 completer,
             }))
         }
-        Value::Closure { val, captures, .. } => {
+        Value::Closure { val, .. } => {
             let menu_completer = NuMenuCompleter::new(
-                *val,
+                val.block_id,
                 span,
-                stack.captures_to_stack(captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -537,11 +537,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
-    match config.edit_mode.as_str() {
-        "emacs" => {
+    match config.edit_mode {
+        EditBindings::Emacs => {
             add_menu_keybindings(&mut emacs_keybindings);
         }
-        _ => {
+        EditBindings::Vi => {
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
         }
@@ -557,9 +557,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         )?
     }
 
-    match config.edit_mode.as_str() {
-        "emacs" => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
-        _ => Ok(KeybindingsMode::Vi {
+    match config.edit_mode {
+        EditBindings::Emacs => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        EditBindings::Vi => Ok(KeybindingsMode::Vi {
             insert_keybindings,
             normal_keybindings,
         }),
@@ -616,7 +616,7 @@ fn add_parsed_keybinding(
     let modifier = match keybinding
         .modifier
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "control" => KeyModifiers::CONTROL,
@@ -641,7 +641,7 @@ fn add_parsed_keybinding(
     let keycode = match keybinding
         .keycode
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "backspace" => KeyCode::Backspace,
@@ -728,7 +728,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
     match value {
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
-                value.into_string("", config).to_lowercase().as_str(),
+                value.into_string("", config).to_ascii_lowercase().as_str(),
                 record,
                 config,
                 span,
@@ -736,7 +736,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             .map(Some),
             EventType::Edit(value) => {
                 let edit = edit_from_record(
-                    value.into_string("", config).to_lowercase().as_str(),
+                    value.into_string("", config).to_ascii_lowercase().as_str(),
                     record,
                     config,
                     span,
@@ -976,13 +976,15 @@ fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
 
 #[cfg(test)]
 mod test {
+    use nu_protocol::record;
+
     use super::*;
 
     #[test]
     fn test_send_event() {
-        let cols = vec!["send".to_string()];
-        let vals = vec![Value::test_string("Enter")];
-        let event = Record { vals, cols };
+        let event = record! {
+            "send" => Value::test_string("Enter"),
+        };
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
@@ -997,9 +999,9 @@ mod test {
 
     #[test]
     fn test_edit_event() {
-        let cols = vec!["edit".to_string()];
-        let vals = vec![Value::test_string("Clear")];
-        let event = Record { vals, cols };
+        let event = record! {
+            "edit" => Value::test_string("Clear"),
+        };
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
@@ -1017,12 +1019,10 @@ mod test {
 
     #[test]
     fn test_send_menu() {
-        let cols = vec!["send".to_string(), "name".to_string()];
-        let vals = vec![
-            Value::test_string("Menu"),
-            Value::test_string("history_menu"),
-        ];
-        let event = Record { vals, cols };
+        let event = record! {
+            "send" =>  Value::test_string("Menu"),
+            "name" =>  Value::test_string("history_menu"),
+        };
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
@@ -1040,28 +1040,19 @@ mod test {
 
     #[test]
     fn test_until_event() {
-        // Menu event
-        let cols = vec!["send".to_string(), "name".to_string()];
-        let vals = vec![
-            Value::test_string("Menu"),
-            Value::test_string("history_menu"),
-        ];
-
-        let menu_event = Value::test_record(Record { cols, vals });
-
-        // Enter event
-        let cols = vec!["send".to_string()];
-        let vals = vec![Value::test_string("Enter")];
-
-        let enter_event = Value::test_record(Record { cols, vals });
-
-        // Until event
-        let cols = vec!["until".to_string()];
-        let vals = vec![Value::list(
-            vec![menu_event, enter_event],
-            Span::test_data(),
-        )];
-        let event = Record { cols, vals };
+        let menu_event = Value::test_record(record! {
+            "send" =>  Value::test_string("Menu"),
+            "name" =>  Value::test_string("history_menu"),
+        });
+        let enter_event = Value::test_record(record! {
+            "send" => Value::test_string("Enter"),
+        });
+        let event = record! {
+            "until" => Value::list(
+                vec![menu_event, enter_event],
+                Span::test_data(),
+            ),
+        };
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span).unwrap();
@@ -1082,22 +1073,13 @@ mod test {
 
     #[test]
     fn test_multiple_event() {
-        // Menu event
-        let cols = vec!["send".to_string(), "name".to_string()];
-        let vals = vec![
-            Value::test_string("Menu"),
-            Value::test_string("history_menu"),
-        ];
-
-        let menu_event = Value::test_record(Record { cols, vals });
-
-        // Enter event
-        let cols = vec!["send".to_string()];
-        let vals = vec![Value::test_string("Enter")];
-
-        let enter_event = Value::test_record(Record { cols, vals });
-
-        // Multiple event
+        let menu_event = Value::test_record(record! {
+            "send" => Value::test_string("Menu"),
+            "name" => Value::test_string("history_menu"),
+        });
+        let enter_event = Value::test_record(record! {
+            "send" => Value::test_string("Enter"),
+        });
         let event = Value::list(vec![menu_event, enter_event], Span::test_data());
 
         let config = Config::default();
@@ -1113,9 +1095,9 @@ mod test {
 
     #[test]
     fn test_error() {
-        let cols = vec!["not_exist".to_string()];
-        let vals = vec![Value::test_string("Enter")];
-        let event = Record { cols, vals };
+        let event = record! {
+            "not_exist" => Value::test_string("Enter"),
+        };
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);

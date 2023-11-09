@@ -5,9 +5,9 @@ use nu_protocol::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, Stack},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    engine::{Closure, EngineState, Stack},
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 
@@ -524,13 +524,15 @@ pub fn eval_expression(
             )
         }
         Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-            let mut captures = HashMap::new();
-            let block = engine_state.get_block(*block_id);
+            let block_id = *block_id;
+            let captures = engine_state
+                .get_block(block_id)
+                .captures
+                .iter()
+                .map(|&id| stack.get_var(id, expr.span).map(|var| (id, var)))
+                .collect::<Result<_, _>>()?;
 
-            for var_id in &block.captures {
-                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
-            }
-            Ok(Value::closure(*block_id, captures, expr.span))
+            Ok(Value::closure(Closure { block_id, captures }, expr.span))
         }
         Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         Expr::List(x) => {
@@ -546,7 +548,7 @@ pub fn eval_expression(
             for (col, val) in fields {
                 // avoid duplicate cols.
                 let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = record.cols.iter().position(|c| c == &col_name);
+                let pos = record.index_of(&col_name);
                 match pos {
                     Some(index) => {
                         return Err(ShellError::ColumnDefinedTwice {
@@ -565,7 +567,18 @@ pub fn eval_expression(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
+                let header = eval_expression(engine_state, stack, expr)?.as_string()?;
+                if let Some(idx) = output_headers
+                    .iter()
+                    .position(|existing| existing == &header)
+                {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: expr.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    output_headers.push(header);
+                }
             }
 
             let mut output_rows = vec![];
@@ -575,10 +588,7 @@ pub fn eval_expression(
                     row.push(eval_expression(engine_state, stack, expr)?);
                 }
                 output_rows.push(Value::record(
-                    Record {
-                        cols: output_headers.clone(),
-                        vals: row,
-                    },
+                    Record::from_raw_cols_vals(output_headers.clone(), row),
                     expr.span,
                 ));
             }
@@ -767,38 +777,8 @@ fn eval_element_with_input(
                 };
 
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *span,
-                            arguments: vec![
-                                Argument::Positional(expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
+                    let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
+                    eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -839,46 +819,13 @@ fn eval_element_with_input(
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *out_span,
-                            arguments: vec![
-                                Argument::Positional(out_expr.clone()),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "stderr".into(),
-                                        span: *err_span,
-                                    },
-                                    None,
-                                    Some(err_expr.clone()),
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "raw".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                                Argument::Named((
-                                    Spanned {
-                                        item: "force".into(),
-                                        span: *out_span,
-                                    },
-                                    None,
-                                    None,
-                                )),
-                            ],
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
+                    let save_call = gen_save_call(
+                        save_command,
+                        (*out_span, out_expr.clone()),
+                        Some((*err_span, err_expr.clone())),
+                    );
+
+                    eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -925,15 +872,18 @@ fn eval_element_with_input(
                         *is_subexpression,
                     )?
                 }
-                _ => eval_element_with_input(
-                    engine_state,
-                    stack,
-                    &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
-                    input,
-                    redirect_stdout,
-                    redirect_stderr,
-                )
-                .map(|x| x.0)?,
+                _ => {
+                    // we need to redirect output, so the result can be saved and pass to `save` command.
+                    eval_element_with_input(
+                        engine_state,
+                        stack,
+                        &PipelineElement::Expression(*cmd_span, cmd_exp.clone()),
+                        input,
+                        true,
+                        redirect_stderr,
+                    )
+                    .map(|x| x.0)?
+                }
             };
             eval_element_with_input(
                 engine_state,
@@ -1157,4 +1107,50 @@ pub fn eval_variable(
 
 fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
+}
+
+fn gen_save_call(
+    save_decl_id: DeclId,
+    out_info: (Span, Expression),
+    err_info: Option<(Span, Expression)>,
+) -> Call {
+    let (out_span, out_expr) = out_info;
+    let mut args = vec![
+        Argument::Positional(out_expr),
+        Argument::Named((
+            Spanned {
+                item: "raw".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+        Argument::Named((
+            Spanned {
+                item: "force".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+    ];
+    if let Some((err_span, err_expr)) = err_info {
+        args.push(Argument::Named((
+            Spanned {
+                item: "stderr".into(),
+                span: err_span,
+            },
+            None,
+            Some(err_expr),
+        )))
+    }
+
+    Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: args,
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    }
 }

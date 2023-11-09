@@ -8,7 +8,7 @@ pub fn get_columns(input: &[Value]) -> Vec<String> {
             return vec![];
         };
 
-        for col in &val.cols {
+        for col in val.columns() {
             if !columns.contains(col) {
                 columns.push(col.to_string());
             }
@@ -19,8 +19,11 @@ pub fn get_columns(input: &[Value]) -> Vec<String> {
 }
 
 // If a column doesn't exist in the input, return it.
-pub fn nonexistent_column(inputs: &[String], columns: &[String]) -> Option<String> {
-    let set: HashSet<String> = HashSet::from_iter(columns.iter().cloned());
+pub fn nonexistent_column<'a, I>(inputs: &[String], columns: I) -> Option<String>
+where
+    I: IntoIterator<Item = &'a String>,
+{
+    let set: HashSet<&String> = HashSet::from_iter(columns);
 
     for input in inputs {
         if set.contains(input) {

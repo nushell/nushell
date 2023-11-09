@@ -10,6 +10,8 @@ impl Plugin for Example {
         vec![
             PluginSignature::build("nu-example-1")
                 .usage("PluginSignature test 1 for plugin. Returns Value::Nothing")
+                .extra_usage("Extra usage for nu-example-1")
+                .search_terms(vec!["example".into()])
                 .required("a", SyntaxShape::Int, "required integer value")
                 .required("b", SyntaxShape::String, "required string value")
                 .switch("flag", "a flag for the signature", Some('f'))

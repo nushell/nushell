@@ -1,6 +1,6 @@
 use nu_protocol::{
     ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
+    engine::{Closure, Command, EngineState, Stack, StateWorkingSet},
     record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
     ShellError, Signature, Type, Value,
 };
@@ -328,7 +328,11 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Block { val, .. } | Value::Closure { val, .. } => {
+        Value::Block { val, .. }
+        | Value::Closure {
+            val: Closure { block_id: val, .. },
+            ..
+        } => {
             let block = engine_state.map(|engine_state| engine_state.get_block(val));
 
             if let Some(block) = block {
@@ -397,6 +401,7 @@ fn describe_value(
                             describe_value(val.vals[i].clone(), head, engine_state, call)?,
                         );
                     }
+                    record.push("columns", Value::record(record_cols, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));
@@ -406,7 +411,7 @@ fn describe_value(
                 record.push("length", Value::int(cols.len() as i64, head));
             }
 
-            Value::record(record!(), head)
+            Value::record(record, head)
         }
     })
 }

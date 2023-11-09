@@ -198,9 +198,9 @@ impl<'e, 's> ScopeData<'e, 's> {
 
         // input
         sig_records.push(Value::record(
-            Record {
-                cols: sig_cols.clone(),
-                vals: vec![
+            Record::from_raw_cols_vals(
+                sig_cols.clone(),
+                vec![
                     Value::nothing(span),
                     Value::string("input", span),
                     Value::string(input_type.to_shape().to_string(), span),
@@ -210,7 +210,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     Value::nothing(span),
                     Value::nothing(span),
                 ],
-            },
+            ),
             span,
         ));
 
@@ -231,10 +231,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record {
-                    cols: sig_cols.clone(),
-                    vals: sig_vals,
-                },
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -260,10 +257,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record {
-                    cols: sig_cols.clone(),
-                    vals: sig_vals,
-                },
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -285,10 +279,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record {
-                    cols: sig_cols.clone(),
-                    vals: sig_vals,
-                },
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
@@ -335,19 +326,16 @@ impl<'e, 's> ScopeData<'e, 's> {
             ];
 
             sig_records.push(Value::record(
-                Record {
-                    cols: sig_cols.clone(),
-                    vals: sig_vals,
-                },
+                Record::from_raw_cols_vals(sig_cols.clone(), sig_vals),
                 span,
             ));
         }
 
         // output
         sig_records.push(Value::record(
-            Record {
-                cols: sig_cols,
-                vals: vec![
+            Record::from_raw_cols_vals(
+                sig_cols,
+                vec![
                     Value::nothing(span),
                     Value::string("output", span),
                     Value::string(output_type.to_shape().to_string(), span),
@@ -357,7 +345,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     Value::nothing(span),
                     Value::nothing(span),
                 ],
-            },
+            ),
             span,
         ));
 
@@ -587,7 +575,7 @@ fn sort_rows(decls: &mut [Value]) {
         (Value::Record { val: rec_a, .. }, Value::Record { val: rec_b, .. }) => {
             // Comparing the first value from the record
             // It is expected that the first value is the name of the entry (command, module, alias, etc.)
-            match (rec_a.vals.get(0), rec_b.vals.get(0)) {
+            match (rec_a.values().next(), rec_b.values().next()) {
                 (Some(val_a), Some(val_b)) => match (val_a, val_b) {
                     (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {
                         str_a.cmp(str_b)

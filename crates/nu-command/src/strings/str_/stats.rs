@@ -2,7 +2,7 @@ use fancy_regex::Regex;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::collections::BTreeMap;
 use std::{fmt, str};
@@ -48,61 +48,34 @@ impl Command for SubCommand {
             Example {
                 description: "Count the number of words in a string",
                 example: r#""There are seven words in this sentence" | str stats"#,
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "lines".into(),
-                        "words".into(),
-                        "bytes".into(),
-                        "chars".into(),
-                        "graphemes".into(),
-                    ],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(7),
-                        Value::test_int(38),
-                        Value::test_int(38),
-                        Value::test_int(38),
-                    ],
+                result: Some(Value::test_record(record! {
+                        "lines" =>     Value::test_int(1),
+                        "words" =>     Value::test_int(7),
+                        "bytes" =>     Value::test_int(38),
+                        "chars" =>     Value::test_int(38),
+                        "graphemes" => Value::test_int(38),
                 })),
             },
             Example {
                 description: "Counts unicode characters",
                 example: r#"'今天天气真好' | str stats "#,
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "lines".into(),
-                        "words".into(),
-                        "bytes".into(),
-                        "chars".into(),
-                        "graphemes".into(),
-                    ],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(6),
-                        Value::test_int(18),
-                        Value::test_int(6),
-                        Value::test_int(6),
-                    ],
+                result: Some(Value::test_record(record! {
+                        "lines" =>     Value::test_int(1),
+                        "words" =>     Value::test_int(6),
+                        "bytes" =>     Value::test_int(18),
+                        "chars" =>     Value::test_int(6),
+                        "graphemes" => Value::test_int(6),
                 })),
             },
             Example {
                 description: "Counts Unicode characters correctly in a string",
                 example: r#""Amélie Amelie" | str stats"#,
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "lines".into(),
-                        "words".into(),
-                        "bytes".into(),
-                        "chars".into(),
-                        "graphemes".into(),
-                    ],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(15),
-                        Value::test_int(14),
-                        Value::test_int(13),
-                    ],
+                result: Some(Value::test_record(record! {
+                        "lines" =>     Value::test_int(1),
+                        "words" =>     Value::test_int(2),
+                        "bytes" =>     Value::test_int(15),
+                        "chars" =>     Value::test_int(14),
+                        "graphemes" => Value::test_int(13),
                 })),
             },
         ]

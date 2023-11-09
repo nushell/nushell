@@ -597,8 +597,8 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the record to ensure you aren't reusing the same field name
-    #[error("Record field used twice")]
-    #[diagnostic(code(nu::shell::not_a_list))]
+    #[error("Record field or table column used twice")]
+    #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
         #[label = "field redefined here"]
         second_use: Span,
@@ -627,12 +627,14 @@ pub enum ShellError {
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input))]
-    UnsupportedInput(
-        String,
-        String,
-        #[label("{0}")] Span, // call head (the name of the command itself)
-        #[label("input type: {1}")] Span,
-    ),
+    UnsupportedInput {
+        msg: String,
+        input: String,
+        #[label("{msg}")]
+        msg_span: Span,
+        #[label("{input}")]
+        input_span: Span,
+    },
 
     /// Failed to parse an input into a datetime value.
     ///
@@ -648,7 +650,7 @@ pub enum ShellError {
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime: [{0}].")]
+    #[error("Unable to parse datetime: [{msg}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         help(
@@ -661,7 +663,11 @@ pub enum ShellError {
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
+    DatetimeParseError {
+        msg: String,
+        #[label("datetime parsing failed")]
+        span: Span,
+    },
 
     /// A network operation failed.
     ///

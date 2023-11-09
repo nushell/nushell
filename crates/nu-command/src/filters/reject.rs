@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 use std::cmp::Reverse;
@@ -152,42 +152,36 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["b".to_string()],
-                        vals: vec![Value::test_int(2)],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "b" => Value::test_int(2),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Reject the specified field in a record",
                 example: "{a: 1, b: 2} | reject a",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["b".into()],
-                    vals: vec![Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "b" => Value::test_int(2),
                 })),
             },
             Example {
                 description: "Reject a nested field in a record",
                 example: "{a: {b: 3, c: 5}} | reject a.b",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".into()],
-                    vals: vec![Value::test_record(Record {
-                        cols: vec!["c".into()],
-                        vals: vec![Value::test_int(5)],
-                    })],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_record(record! {
+                        "c" => Value::test_int(5),
+                    }),
                 })),
             },
             Example {

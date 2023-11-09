@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError,
-    Signature, Span, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Type, Value,
 };
 
 #[derive(Clone)]
@@ -31,23 +31,20 @@ impl Command for Enumerate {
         vec![Example {
             description: "Add an index to each element of a list",
             example: r#"[a, b, c] | enumerate "#,
-            result: Some(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "item".into()],
-                        vals: vec![Value::test_int(0), Value::test_string("a")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "item".into()],
-                        vals: vec![Value::test_int(1), Value::test_string("b")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "item".into()],
-                        vals: vec![Value::test_int(2), Value::test_string("c")],
-                    }),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![
+                Value::test_record(record! {
+                    "index" =>  Value::test_int(0),
+                    "item" =>   Value::test_string("a"),
+                }),
+                Value::test_record(record! {
+                    "index" =>  Value::test_int(1),
+                    "item" =>   Value::test_string("b"),
+                }),
+                Value::test_record(record! {
+                    "index" =>  Value::test_int(2),
+                    "item" =>   Value::test_string("c"),
+                }),
+            ])),
         }]
     }
 

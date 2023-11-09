@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
 };
 
@@ -87,41 +87,26 @@ impl Command for BytesReplace {
             Example {
                 description: "Find and replace contents",
                 example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
-                result: Some(Value::binary (
+                result: Some(Value::test_binary (
                     vec![0xFF, 0xFF, 0xAA, 0xFF],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary",
                 example: "0x[10 AA 10 BB 10] | bytes replace --all 0x[10] 0x[A0]",
-                result: Some(Value::binary (
+                result: Some(Value::test_binary (
                     vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace --all 0x[11] 0x[13] ColA ColC",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
-                        vals: vec![
-                            Value::binary (
-                                vec![0x13, 0x12, 0x13],
-                                Span::test_data(),
-                            ),
-                            Value::binary (
-                                vec![0x14, 0x15, 0x16],
-                                Span::test_data(),
-                            ),
-                            Value::binary (
-                                 vec![0x17, 0x18, 0x19],
-                                 Span::test_data(),
-                            ),
-                        ],
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" => Value::test_binary(vec![0x13, 0x12, 0x13]),
+                        "ColB" => Value::test_binary(vec![0x14, 0x15, 0x16]),
+                        "ColC" => Value::test_binary(vec![0x17, 0x18, 0x19]),
                     })],
-                    Span::test_data(),
                 )),
             },
         ]

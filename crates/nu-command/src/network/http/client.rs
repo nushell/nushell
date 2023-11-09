@@ -56,13 +56,8 @@ pub fn http_parse_url(
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                format!("value: '{requested_url:?}'"),
-                call.head,
-                span,
-            ));
+            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
         }
     };
 
@@ -607,9 +602,12 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { val, .. } = val {
-                if let Some(Value::String {
-                    val: header_name, ..
-                }) = val.vals.get(0)
+                if let Some((
+                    _col,
+                    Value::String {
+                        val: header_name, ..
+                    },
+                )) = val.get_index(0)
                 {
                     return name == header_name;
                 }

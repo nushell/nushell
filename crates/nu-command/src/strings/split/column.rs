@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    record, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 use regex::Regex;
 
@@ -63,74 +63,48 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec![
-                            "column1".to_string(),
-                            "column2".to_string(),
-                            "column3".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column1" => Value::test_string("a"),
+                        "column2" => Value::test_string("b"),
+                        "column3" => Value::test_string("c"),
+                })])),
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column --collapse-empty ''",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec![
-                            "column1".to_string(),
-                            "column2".to_string(),
-                            "column3".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column1" => Value::test_string("a"),
+                        "column2" => Value::test_string("b"),
+                        "column3" => Value::test_string("c"),
+                })])),
             },
             Example {
                 description: "Split a list of strings into a table",
                 example: "['a-b' 'c-d'] | split column -",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_string("b")],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("c"), Value::test_string("d")],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("a"),
+                        "column2" => Value::test_string("b"),
+                    }),
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("c"),
+                        "column2" => Value::test_string("d"),
+                    }),
+                ])),
             },
             Example {
                 description: "Split a list of strings into a table, ignoring padding",
                 example: r"['a -  b' 'c  -    d'] | split column --regex '\s*-\s*'",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_string("b")],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("c"), Value::test_string("d")],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("a"),
+                        "column2" => Value::test_string("b"),
+                    }),
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("c"),
+                        "column2" => Value::test_string("d"),
+                    }),
+                ])),
             },
         ]
     }

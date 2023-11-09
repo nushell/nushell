@@ -1,9 +1,10 @@
 use nu_engine::CallExt;
+use nu_protocol::IntoPipelineData;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -38,142 +39,104 @@ impl Command for Rotate {
             Example {
                 description: "Rotate a record clockwise, producing a table (like `transpose` but with column order reversed)",
                 example: "{a:1, b:2} | rotate",
-                result: Some(Value::list(vec![
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_string("a")],
+                result: Some(Value::test_list(vec![
+                        Value::test_record(record! {
+                            "column0" => Value::test_int(1),
+                            "column1" => Value::test_string("a"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_string("b")],
+                        Value::test_record(record! {
+                            "column0" => Value::test_int(2),
+                            "column1" => Value::test_string("b"),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Rotate 2x3 table clockwise",
                 example: "[[a b]; [1 2] [3 4] [5 6]] | rotate",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec![
-                                "column0".to_string(),
-                                "column1".to_string(),
-                                "column2".to_string(),
-                                "column3".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_int(5),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_string("a"),
-                            ],
+                        Value::test_record(record! {
+                            "column0" => Value::test_int(5),
+                            "column1" => Value::test_int(3),
+                            "column2" => Value::test_int(1),
+                            "column3" => Value::test_string("a"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec![
-                                "column0".to_string(),
-                                "column1".to_string(),
-                                "column2".to_string(),
-                                "column3".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_int(6),
-                                Value::test_int(4),
-                                Value::test_int(2),
-                                Value::test_string("b"),
-                            ],
+                        Value::test_record(record! {
+                            "column0" => Value::test_int(6),
+                            "column1" => Value::test_int(4),
+                            "column2" => Value::test_int(2),
+                            "column3" => Value::test_string("b"),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Rotate table clockwise and change columns names",
                 example: "[[a b]; [1 2]] | rotate col_a col_b",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_int(1), Value::test_string("a")],
+                        Value::test_record(record! {
+                            "col_a" => Value::test_int(1),
+                            "col_b" => Value::test_string("a"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_int(2), Value::test_string("b")],
+                        Value::test_record(record! {
+                            "col_a" => Value::test_int(2),
+                            "col_b" => Value::test_string("b"),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Rotate table counter clockwise",
                 example: "[[a b]; [1 2]] | rotate --ccw",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("b"),
+                            "column1" => Value::test_int(2),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["column0".to_string(), "column1".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("a"),
+                            "column1" => Value::test_int(1),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Rotate table counter-clockwise",
                 example: "[[a b]; [1 2] [3 4] [5 6]] | rotate --ccw",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec![
-                                "column0".to_string(),
-                                "column1".to_string(),
-                                "column2".to_string(),
-                                "column3".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("b"),
-                                Value::test_int(2),
-                                Value::test_int(4),
-                                Value::test_int(6),
-                            ],
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("b"),
+                            "column1" => Value::test_int(2),
+                            "column2" => Value::test_int(4),
+                            "column3" => Value::test_int(6),
                         }),
-                        Value::test_record(Record {
-                            cols: vec![
-                                "column0".to_string(),
-                                "column1".to_string(),
-                                "column2".to_string(),
-                                "column3".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("a"),
-                                Value::test_int(1),
-                                Value::test_int(3),
-                                Value::test_int(5),
-                            ],
+                        Value::test_record(record! {
+                            "column0" => Value::test_string("a"),
+                            "column1" => Value::test_int(1),
+                            "column2" => Value::test_int(3),
+                            "column3" => Value::test_int(5),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Rotate table counter-clockwise and change columns names",
                 example: "[[a b]; [1 2]] | rotate --ccw col_a col_b",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                        Value::test_record(record! {
+                            "col_a" => Value::test_string("b"),
+                            "col_b" => Value::test_int(2),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["col_a".to_string(), "col_b".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                        Value::test_record(record! {
+                            "col_a" => Value::test_string("a"),
+                            "col_b" => Value::test_int(1),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
         ]
@@ -237,13 +200,12 @@ pub fn rotate(
             }
         }
     } else {
-        return Err(ShellError::UnsupportedInput(
-            "list input is empty".to_string(),
-            "value originates from here".into(),
-            call.head,
-            // TODO: Maybe make all Pipelines have spans, so that this doesn't need to be unwrapped.
-            span.unwrap_or(call.head),
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "list input is empty".to_string(),
+            input: "value originates from here".into(),
+            msg_span: call.head,
+            input_span: span.unwrap_or(call.head),
+        });
     }
 
     let total_columns = &old_column_names.len();

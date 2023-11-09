@@ -321,6 +321,7 @@ fn quotes_trimmed_when_shelling_out() {
     assert_eq!(actual.out, "foo");
 }
 
+#[cfg(not(windows))]
 #[test]
 fn redirect_combine() {
     Playground::setup("redirect_combine", |dirs, _| {

@@ -104,12 +104,12 @@ impl Command for SubCommand {
                         url_components?.to_url(span)
                     }
                     Value::Error { error, .. } => Err(*error),
-                    other => Err(ShellError::UnsupportedInput(
-                        "Expected a record from pipeline".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        other.span(),
-                    )),
+                    other => Err(ShellError::UnsupportedInput {
+                        msg: "Expected a record from pipeline".to_string(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: other.span(),
+                    }),
                 }
             })
             .collect();
