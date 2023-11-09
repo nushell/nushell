@@ -1,5 +1,5 @@
 pub mod scatter;
-use crate::dataframe::plotting::scatter::Scatter;
+use crate::dataframe::plotting::scatter::ScatterPlot;
 use nu_protocol::engine::StateWorkingSet;
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
@@ -13,5 +13,5 @@ pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Dataframe commands
-    bind_command!(Scatter);
+    bind_command!(ScatterPlot);
 }

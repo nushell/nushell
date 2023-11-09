@@ -24,19 +24,13 @@ impl Command for ScatterPlot {
         Signature::build(self.name())
             .input_output_type(Type::Custom("dataframe".into()), Type::Any)
             .category(Category::Custom("dataframe".into()))
-            .named(
-                "file",
-                SyntaxShape::Filepath,
-                "file path to save plot",
-                Some('f'),
-            )
-            .named(
+            .required(
                 "xvar",
                 SyntaxShape::String,
                 "variable to plot on the abscissa",
                 Some('x'),
             )
-            .named(
+            .required(
                 "yvar",
                 SyntaxShape::String,
                 "variable to plot on the ordinate",
@@ -67,18 +61,16 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<_, ShellError> {
-    let file_name: Spanned<PathBuf> = call.get_flag(engine_state, stack, "file")?;
-
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     pdf = df.into_polars();
 
-    let x: Option<Spanned<String>> = call.get_flag(engine_state, stack, "xvar")?;
-    let y: Option<Spanned<String>> = call.get_flag(engine_state, stack, "yvar")?;
+    let x: Option<Spanned<String>> = call.req(engine_state, stack, "xvar")?;
+    let y: Option<Spanned<String>> = call.req(engine_state, stack, "yvar")?;
 
     let trace1 = Scatter::new(
-        pdf.select(x).into_iter().collect(),
-        pdf.select(y).into_iter().collect(),
+        pdf.select(&x.item).into_iter().collect(),
+        pdf.select(&y.item).into_iter().collect(),
     )
     .name("trace1")
     .mode(Mode::Markers);
