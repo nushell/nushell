@@ -963,15 +963,29 @@ fn extern_complete_flags(mut extern_completer: NuCompleter) {
 
 #[rstest]
 fn custom_completer_triggers_cursor_before_word(mut custom_completer: NuCompleter) {
-    let suggestions = custom_completer.complete("cmd foo  bar", 9);
+    let suggestions = custom_completer.complete("cmd foo  bar", 8);
     let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
     match_suggestions(expected, suggestions);
 }
 
 #[rstest]
-fn custom_completer_triggers_cursor_on_word(mut custom_completer: NuCompleter) {
-    let suggestions = custom_completer.complete("cmd foo bar", 9);
+fn custom_completer_triggers_cursor_on_word_left_boundary(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_next_to_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 11);
     let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar ", 12);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into(), "".into()];
     match_suggestions(expected, suggestions);
 }
 
