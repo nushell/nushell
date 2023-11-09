@@ -107,98 +107,69 @@ fn gather_env_vars(
         {
             let contents = engine_state.get_span_contents(full_span);
             let (parts, _) = lex(contents, full_span.start, &[], &[b'='], true);
+            let env_str = String::from_utf8_lossy(contents);
 
-            let name = if let Some(Token {
-                contents: TokenContents::Item,
-                span,
-            }) = parts.get(0)
-            {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let bytes = working_set.get_span_contents(*span);
-
-                if bytes.len() < 2 {
-                    report_capture_error(
-                        engine_state,
-                        &String::from_utf8_lossy(contents),
-                        "Got empty name.",
-                    );
-
+            let name = match try_parse_token(&parts, engine_state, TokenPosition::Name) {
+                Ok((name, _)) => name,
+                Err(err) => {
+                    report_capture_error(&engine_state, &env_str, &err);
                     continue;
                 }
-
-                let (bytes, err) = unescape_unquote_string(bytes, *span);
-                if let Some(err) = err {
-                    working_set.error(err);
-                }
-
-                if working_set.parse_errors.first().is_some() {
-                    report_capture_error(
-                        engine_state,
-                        &String::from_utf8_lossy(contents),
-                        "Got unparsable name.",
-                    );
-
-                    continue;
-                }
-
-                bytes
-            } else {
-                report_capture_error(
-                    engine_state,
-                    &String::from_utf8_lossy(contents),
-                    "Got empty name.",
-                );
-
-                continue;
             };
 
-            let value = if let Some(Token {
-                contents: TokenContents::Item,
-                span,
-            }) = parts.get(2)
-            {
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let bytes = working_set.get_span_contents(*span);
-
-                if bytes.len() < 2 {
-                    report_capture_error(
-                        engine_state,
-                        &String::from_utf8_lossy(contents),
-                        "Got empty value.",
-                    );
-
+            let value = match try_parse_token(&parts, engine_state, TokenPosition::Value) {
+                Ok((value, span)) => Value::string(value, span),
+                Err(err) => {
+                    report_capture_error(&engine_state, &env_str, &err);
                     continue;
                 }
-
-                let (bytes, err) = unescape_unquote_string(bytes, *span);
-                if let Some(err) = err {
-                    working_set.error(err);
-                }
-
-                if working_set.parse_errors.first().is_some() {
-                    report_capture_error(
-                        engine_state,
-                        &String::from_utf8_lossy(contents),
-                        "Got unparsable value.",
-                    );
-
-                    continue;
-                }
-
-                Value::string(bytes, *span)
-            } else {
-                report_capture_error(
-                    engine_state,
-                    &String::from_utf8_lossy(contents),
-                    "Got empty value.",
-                );
-
-                continue;
             };
 
             // stack.add_env_var(name, value);
             engine_state.add_env_var(name, value);
         }
+    }
+}
+
+enum TokenPosition {
+    Name = 0,
+    Value = 2,
+}
+
+fn try_parse_token(
+    parts: &[Token],
+    engine_state: &EngineState,
+    token: TokenPosition,
+) -> Result<(String, Span), String> {
+    let token_str = match token {
+        TokenPosition::Name => "name",
+        TokenPosition::Value => "value",
+    };
+
+    if let Some(&Token {
+        contents: TokenContents::Item,
+        span,
+    }) = parts.get(token as usize)
+    {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let bytes = working_set.get_span_contents(span);
+
+        if bytes.len() < 2 {
+            return Err(format!("Got empty {token_str}."));
+        }
+
+        let (bytes, err) = unescape_unquote_string(bytes, span);
+        if let Some(err) = err {
+            working_set.error(err);
+        }
+
+        if working_set.parse_errors.first().is_some() {
+            return Err(format!("Got unparsable {token_str}."));
+        }
+
+        Ok((bytes, span))
+    } else {
+        Err(format!("Got empty {token_str}."))
     }
 }
 
