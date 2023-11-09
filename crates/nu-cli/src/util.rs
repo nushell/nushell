@@ -112,7 +112,7 @@ fn gather_env_vars(
             let name = match try_parse_token(&parts, engine_state, TokenPosition::Name) {
                 Ok((name, _)) => name,
                 Err(err) => {
-                    report_capture_error(&engine_state, &env_str, &err);
+                    report_capture_error(engine_state, &env_str, &err);
                     continue;
                 }
             };
@@ -120,7 +120,7 @@ fn gather_env_vars(
             let value = match try_parse_token(&parts, engine_state, TokenPosition::Value) {
                 Ok((value, span)) => Value::string(value, span),
                 Err(err) => {
-                    report_capture_error(&engine_state, &env_str, &err);
+                    report_capture_error(engine_state, &env_str, &err);
                     continue;
                 }
             };
