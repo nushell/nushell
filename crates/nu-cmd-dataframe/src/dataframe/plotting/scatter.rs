@@ -1,7 +1,7 @@
 use plotly::common::Mode;
 use plotly::{Layout, Plot, Scatter};
 
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
+use crate::dataframe::values::NuLazyFrame;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -67,13 +67,47 @@ fn command(
     let x: Value = call.req(engine_state, stack, 0)?;
     let y: Value = call.req(engine_state, stack, 1)?;
 
-    let x = NuExpression::extract_exprs(x)?;
-    let y = NuExpression::extract_exprs(y)?;
+    let bind = lazy.clone().collect().map_err(|e| {
+        ShellError::GenericError(
+            "Error collecting column as series".into(),
+            e.to_string(),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
+    })?;
+    let x_ser = bind.column(&x.as_string().unwrap()).unwrap();
+    let y_ser = bind.column(&y.as_string().unwrap()).unwrap();
 
-    let x_vec = lazy.clone().select(x).collect().unwrap();
-    let y_vec = lazy.select(y).collect().unwrap();
+    let x_as_vec: Vec<i64> = x_ser
+        .i64()
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Error converting series to vector".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?
+        .into_no_null_iter()
+        .collect::<Vec<i64>>();
 
-    let trace1 = Scatter::new(x_vec.into(), y_vec.into())
+    let y_as_vec: Vec<i64> = y_ser
+        .i64()
+        .map_err(|e| {
+            ShellError::GenericError(
+                "Error converting series to vector".into(),
+                e.to_string(),
+                Some(call.head),
+                None,
+                Vec::new(),
+            )
+        })?
+        .into_no_null_iter()
+        .collect::<Vec<i64>>();
+
+    let trace1 = Scatter::new(x_as_vec, y_as_vec)
         .name("trace1")
         .mode(Mode::Markers);
 
