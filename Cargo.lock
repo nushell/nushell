@@ -2912,6 +2912,7 @@ dependencies = [
  "sha2",
  "sysinfo",
  "tabled",
+ "tar",
  "terminal_size 0.3.0",
  "titlecase",
  "toml 0.8.1",
@@ -5196,6 +5197,17 @@ dependencies = [
  "ansitok",
  "papergrid",
  "unicode-width",
+]
+
+[[package]]
+name = "tar"
+version = "0.4.40"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b16afcea1f22891c49a00c751c7b63b2233284064f11a200fc624137c51e2ddb"
+dependencies = [
+ "filetime",
+ "libc",
+ "xattr",
 ]
 
 [[package]]
