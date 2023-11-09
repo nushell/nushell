@@ -160,7 +160,7 @@ pub fn transpose(
 
     let descs = get_columns(&input);
 
-    let mut headers: Vec<String> = Vec::with_capacity(input.len());
+    let mut headers: Vec<String> = vec![];
 
     if !args.rest.is_empty() && args.header_row {
         return Err(ShellError::GenericError(
