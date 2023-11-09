@@ -37,6 +37,7 @@ pub enum FlatShape {
     Record,
     Redirection,
     Signature,
+    Spread,
     String,
     StringInterpolation,
     Table,
@@ -76,6 +77,7 @@ impl Display for FlatShape {
             FlatShape::Record => write!(f, "shape_record"),
             FlatShape::Redirection => write!(f, "shape_redirection"),
             FlatShape::Signature => write!(f, "shape_signature"),
+            FlatShape::Spread => write!(f, "shape_spread"),
             FlatShape::String => write!(f, "shape_string"),
             FlatShape::StringInterpolation => write!(f, "shape_string_interpolation"),
             FlatShape::Table => write!(f, "shape_table"),
@@ -499,6 +501,15 @@ pub fn flatten_expression(
         }
         Expr::VarDecl(var_id) => {
             vec![(expr.span, FlatShape::VarDecl(*var_id))]
+        }
+
+        Expr::Spread(inner_expr) => {
+            let mut output = vec![(
+                Span::new(expr.span.start, expr.span.start + 3),
+                FlatShape::Operator,
+            )];
+            output.extend(flatten_expression(working_set, inner_expr));
+            output
         }
     }
 }

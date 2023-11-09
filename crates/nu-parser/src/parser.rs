@@ -5834,6 +5834,9 @@ pub fn discover_captures_in_expr(
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
         }
+        Expr::Spread(expr) => {
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        }
     }
     Ok(())
 }
