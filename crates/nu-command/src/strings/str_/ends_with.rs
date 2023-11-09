@@ -5,6 +5,7 @@ use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
     substring: String,
@@ -98,7 +99,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {
-                s.to_lowercase().ends_with(&args.substring.to_lowercase())
+                s.to_folded_case()
+                    .ends_with(&args.substring.to_folded_case())
             } else {
                 s.ends_with(&args.substring)
             };

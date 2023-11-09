@@ -116,13 +116,13 @@ fn into_bool(
 }
 
 fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
-    match s.trim().to_lowercase().as_str() {
+    match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
         o => {
             let val = o.parse::<f64>();
             match val {
-                Ok(f) => Ok(f.abs() >= f64::EPSILON),
+                Ok(f) => Ok(f != 0.0),
                 Err(_) => Err(ShellError::CantConvert {
                     to_type: "boolean".to_string(),
                     from_type: "string".to_string(),

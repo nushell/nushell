@@ -75,14 +75,17 @@ fn table_to_delimited(
             .expect("can not write.");
 
         for l in vals {
-            let mut row = vec![];
-            for desc in &merged_descriptors {
-                row.push(match l.to_owned().get_data_by_key(desc) {
-                    Some(s) => to_string_tagged_value(&s, config, head, span)?,
-                    None => String::new(),
-                });
+            // should always be true because of `find_non_record` above
+            if let Value::Record { val: l, .. } = l {
+                let mut row = vec![];
+                for desc in &merged_descriptors {
+                    row.push(match l.get(desc) {
+                        Some(s) => to_string_tagged_value(s, config, head, span)?,
+                        None => String::new(),
+                    });
+                }
+                wtr.write_record(&row).expect("can not write");
             }
-            wtr.write_record(&row).expect("can not write");
         }
     }
     writer_to_string(wtr).map_err(|_| make_conversion_error("table", span))
@@ -126,12 +129,12 @@ fn to_string_tagged_value(
 }
 
 fn make_unsupported_input_error(value: &Value, head: Span, span: Span) -> ShellError {
-    ShellError::UnsupportedInput(
-        "Unexpected type".to_string(),
-        format!("input type: {:?}", value.get_type()),
-        head,
-        span,
-    )
+    ShellError::UnsupportedInput {
+        msg: "Unexpected type".to_string(),
+        input: format!("input type: {:?}", value.get_type()),
+        msg_span: head,
+        input_span: span,
+    }
 }
 
 pub fn find_non_record(values: &[Value]) -> Option<&Value> {

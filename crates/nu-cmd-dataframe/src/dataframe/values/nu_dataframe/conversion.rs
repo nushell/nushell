@@ -850,7 +850,6 @@ fn series_to_values(
             }
             .map(|v| match v {
                 Some(a) => {
-                    // elapsed time in day since 1970-01-01
                     let nanos = nanos_per_day(a);
                     let datetime = datetime_from_epoch_nanos(nanos, &None, span)?;
                     Ok(Value::date(datetime, span))

@@ -31,7 +31,7 @@ export def --env add [
             let exp = ($p | path expand)
             if ($exp | path type) != 'dir' {
                 let span = (metadata $p).span
-                error make {msg: "not a directory", label: {text: "not a directory", start: $span.start, end: $span.end } }
+                error make {msg: "not a directory", label: {text: "not a directory", span: $span } }
             }
             $abspaths = ($abspaths | append $exp)
         }
@@ -106,8 +106,7 @@ export def --env goto [shell?: int] {
             msg: $"(ansi red_bold)invalid_shell_index(ansi reset)"
             label: {
                 text: $"`shell` should be between 0 and (($env.DIRS_LIST | length) - 1)"
-                start: $span.start
-                end: $span.end
+                span: $span
             }
         }
     }

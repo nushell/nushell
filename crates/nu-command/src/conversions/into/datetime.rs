@@ -46,7 +46,7 @@ impl Zone {
         }
     }
     fn from_string(s: String) -> Self {
-        match s.to_lowercase().as_str() {
+        match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
             "local" | "l" => Self::Local,
             _ => Self::Error,
@@ -288,7 +288,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             Value::date(dt, *span)
                         }
                         None => Value::error(
-                            ShellError::DatetimeParseError(input.debug_value(), *span),
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
                             *span,
                         ),
                     },
@@ -298,7 +301,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             Value::date(dt, *span)
                         }
                         None => Value::error(
-                            ShellError::DatetimeParseError(input.debug_value(), *span),
+                            ShellError::DatetimeParseError {
+                                msg: input.debug_value(),
+                                span: *span,
+                            },
                             *span,
                         ),
                     },

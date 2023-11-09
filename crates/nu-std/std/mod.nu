@@ -45,8 +45,7 @@ export def --env "path add" [
     if ($paths | is-empty) or ($paths | length) == 0 {
         error make {msg: "Empty input", label: {
             text: "Provide at least one string or a record",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
@@ -64,8 +63,7 @@ export def --env "path add" [
     if null in $paths or ($paths | is-empty) {
         error make {msg: "Empty input", label: {
             text: $"Received a record, that does not contain a ($nu.os-info.name) key",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
@@ -326,8 +324,7 @@ export def repeat [
             msg: $"(ansi red_bold)invalid_argument(ansi reset)"
             label: {
                 text: $"n should be a positive integer, found ($n)"
-                start: $span.start
-                end: $span.end
+            	span: $span
             }
         }
     }

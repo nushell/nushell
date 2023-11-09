@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::ast::{CellPath, MatchPattern, PathMember};
@@ -496,7 +495,7 @@ impl FromValue for Closure {
             Value::Closure { val, .. } => Ok(val),
             Value::Block { val, .. } => Ok(Closure {
                 block_id: val,
-                captures: HashMap::new(),
+                captures: Vec::new(),
             }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),

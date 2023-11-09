@@ -59,7 +59,7 @@ not supported."#
         let span = call.head;
 
         let metadata = input.metadata();
-        let mut stack = stack.captures_to_stack(&closure.captures);
+        let mut stack = stack.captures_to_stack(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
 
         let orig_env_vars = stack.env_vars.clone();
