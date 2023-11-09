@@ -144,7 +144,7 @@ pub fn transpose(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-    let transpose_args = TransposeArgs {
+    let args = TransposeArgs {
         header_row: call.has_flag("header-row"),
         ignore_titles: call.has_flag("ignore-titles"),
         as_record: call.has_flag("as-record"),
@@ -152,15 +152,6 @@ pub fn transpose(
         keep_all: call.has_flag("keep-all"),
         rest: call.rest(engine_state, stack, 0)?,
     };
-
-    let ctrlc = engine_state.ctrlc.clone();
-    let metadata = input.metadata();
-    let input: Vec<_> = input.into_iter().collect();
-    let args = transpose_args;
-
-    let descs = get_columns(&input);
-
-    let mut headers: Vec<String> = vec![];
 
     if !args.rest.is_empty() && args.header_row {
         return Err(ShellError::GenericError(
@@ -171,6 +162,14 @@ pub fn transpose(
             Vec::new(),
         ));
     }
+
+    let ctrlc = engine_state.ctrlc.clone();
+    let metadata = input.metadata();
+    let input: Vec<_> = input.into_iter().collect();
+
+    let descs = get_columns(&input);
+
+    let mut headers: Vec<String> = vec![];
 
     if args.header_row {
         for i in input.iter() {
