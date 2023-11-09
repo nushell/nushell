@@ -75,12 +75,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                                 row_vec.push((k.clone(), s.to_string()));
                             }
                             _ => {
-                                return Err(ShellError::UnsupportedInput(
-                                    "Expected a record with string values".to_string(),
-                                    "value originates from here".into(),
-                                    head,
-                                    span,
-                                ));
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "Expected a record with string values".to_string(),
+                                    input: "value originates from here".into(),
+                                    msg_span: head,
+                                    input_span: span,
+                                });
                             }
                         }
                     }
@@ -97,12 +97,12 @@ fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
                 }
                 // Propagate existing errors
                 Value::Error { error, .. } => Err(*error),
-                other => Err(ShellError::UnsupportedInput(
-                    "Expected a table from pipeline".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    other.span(),
-                )),
+                other => Err(ShellError::UnsupportedInput {
+                    msg: "Expected a table from pipeline".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: other.span(),
+                }),
             }
         })
         .collect();

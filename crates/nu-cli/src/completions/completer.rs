@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
 };
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
@@ -39,14 +39,11 @@ impl NuCompleter {
     ) -> Vec<Suggestion> {
         let config = self.engine_state.get_config();
 
-        let mut options = CompletionOptions {
+        let options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
+            match_algorithm: config.completion_algorithm.into(),
             ..Default::default()
         };
-
-        if config.completion_algorithm == "fuzzy" {
-            options.match_algorithm = MatchAlgorithm::Fuzzy;
-        }
 
         // Fetch
         let mut suggestions =
@@ -349,7 +346,9 @@ impl NuCompleter {
                                             if let Some(external_result) = self.external_completion(
                                                 block_id, &spans, offset, new_span,
                                             ) {
-                                                return external_result;
+                                                if !external_result.is_empty() {
+                                                    return external_result;
+                                                }
                                             }
                                         }
 

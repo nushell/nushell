@@ -427,11 +427,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         }
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
-        Expr::Selector(_) => Err(ShellError::UnsupportedInput(
-            "Expressions of type Selector to Nu Values is not yet supported".to_string(),
-            format!("Expression is {expr:?}"),
-            span,
-            Span::unknown(),
-        )),
+        Expr::Selector(_) => Err(ShellError::UnsupportedInput {
+            msg: "Expressions of type Selector to Nu Values is not yet supported".to_string(),
+            input: format!("Expression is {expr:?}"),
+            msg_span: span,
+            input_span: Span::unknown(),
+        }),
     }
 }

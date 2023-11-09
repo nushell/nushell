@@ -111,7 +111,7 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 mod tests {
     use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
-    use nu_protocol::{Record, Span, Spanned, Value};
+    use nu_protocol::{record, Span, Spanned, Value};
 
     #[test]
     fn position_function_in_predicate() {
@@ -133,9 +133,8 @@ mod tests {
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
-            vec![Value::test_record(Record {
-                cols: vec!["count(//a/*[posit...".to_string()],
-                vals: vec![Value::test_float(1.0)],
+            vec![Value::test_record(record! {
+                "count(//a/*[posit..." => Value::test_float(1.0),
             })],
             Span::test_data(),
         );
@@ -163,9 +162,8 @@ mod tests {
 
         let actual = query("", &call, &text, Some(spanned_str)).expect("test should not fail");
         let expected = Value::list(
-            vec![Value::test_record(Record {
-                cols: vec!["count(//*[contain...".to_string()],
-                vals: vec![Value::test_float(1.0)],
+            vec![Value::test_record(record! {
+                "count(//*[contain..." => Value::test_float(1.0),
             })],
             Span::test_data(),
         );

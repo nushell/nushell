@@ -44,20 +44,15 @@ impl Command for ErrorMake {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
         let arg: Value = call.req(engine_state, stack, 0)?;
-        let unspanned = call.has_flag("unspanned");
 
-        let throw_error = if unspanned { None } else { Some(span) };
-        Err(make_error(&arg, throw_error).unwrap_or_else(|| {
-            ShellError::GenericError(
-                "Creating error value not supported.".into(),
-                "unsupported error format".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        }))
+        let throw_span = if call.has_flag("unspanned") {
+            None
+        } else {
+            Some(call.head)
+        };
+
+        Err(make_other_error(&arg, throw_span))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -82,16 +77,21 @@ impl Command for ErrorMake {
         msg: "my custom error message"
         label: {
             text: "my custom label text"  # not mandatory unless $.label exists
-            start: 123  # not mandatory unless $.label.end is set
-            end: 456  # not mandatory unless $.label.start is set
+            # optional
+            span: {
+                # if $.label.span exists, both start and end must be present
+                start: 123
+                end: 456
+            }
         }
+        help: "A help string, suggesting a fix to the user"  # optional
     }"#,
                 result: Some(Value::error(
                     ShellError::GenericError(
                         "my custom error message".to_string(),
                         "my custom label text".to_string(),
                         Some(Span::new(123, 456)),
-                        None,
+                        Some("A help string, suggesting a fix to the user".to_string()),
                         Vec::new(),
                     ),
                     Span::unknown(),
@@ -101,13 +101,11 @@ impl Command for ErrorMake {
                 description:
                     "Create a custom error for a custom command that shows the span of the argument",
                 example: r#"def foo [x] {
-        let span = (metadata $x).span;
         error make {
             msg: "this is fishy"
             label: {
                 text: "fish right here"
-                start: $span.start
-                end: $span.end
+                span: (metadata $x).span
             }
         }
     }"#,
@@ -117,100 +115,156 @@ impl Command for ErrorMake {
     }
 }
 
-fn make_error(value: &Value, throw_span: Option<Span>) -> Option<ShellError> {
-    let span = value.span();
-    if let Value::Record { .. } = &value {
-        let msg = value.get_data_by_key("msg");
-        let label = value.get_data_by_key("label");
+const UNABLE_TO_PARSE: &str = "Unable to parse error format.";
 
-        match (msg, &label) {
-            (Some(Value::String { val: message, .. }), Some(label)) => {
-                let label_start = label.get_data_by_key("start");
-                let label_end = label.get_data_by_key("end");
-                let label_text = label.get_data_by_key("text");
-
-                let label_span = Some(label.span());
-
-                match (label_start, label_end, label_text) {
-                    (
-                        Some(Value::Int { val: start, .. }),
-                        Some(Value::Int { val: end, .. }),
-                        Some(Value::String {
-                            val: label_text, ..
-                        }),
-                    ) => {
-                        if start > end {
-                            Some(ShellError::GenericError(
-                                "invalid error format.".into(),
-                                "`$.label.start` should be smaller than `$.label.end`".into(),
-                                label_span,
-                                Some(format!("{} > {}", start, end)),
-                                Vec::new(),
-                            ))
-                        } else {
-                            Some(ShellError::GenericError(
-                                message,
-                                label_text,
-                                Some(Span::new(start as usize, end as usize)),
-                                None,
-                                Vec::new(),
-                            ))
-                        }
-                    }
-                    (
-                        None,
-                        None,
-                        Some(Value::String {
-                            val: label_text, ..
-                        }),
-                    ) => Some(ShellError::GenericError(
-                        message,
-                        label_text,
-                        throw_span,
-                        None,
-                        Vec::new(),
-                    )),
-                    (_, _, None) => Some(ShellError::GenericError(
-                        "Unable to parse error format.".into(),
-                        "missing required member `$.label.text`".into(),
-                        label_span,
-                        None,
-                        Vec::new(),
-                    )),
-                    (Some(Value::Int { .. }), None, _) => Some(ShellError::GenericError(
-                        "Unable to parse error format.".into(),
-                        "missing required member `$.label.end`".into(),
-                        label_span,
-                        Some("required because `$.label.start` is set".to_string()),
-                        Vec::new(),
-                    )),
-                    (None, Some(Value::Int { .. }), _) => Some(ShellError::GenericError(
-                        "Unable to parse error format.".into(),
-                        "missing required member `$.label.start`".into(),
-                        label_span,
-                        Some("required because `$.label.end` is set".to_string()),
-                        Vec::new(),
-                    )),
-                    _ => None,
-                }
-            }
-            (Some(Value::String { val: message, .. }), None) => Some(ShellError::GenericError(
-                message,
-                "originates from here".to_string(),
+fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
+    let value = match value {
+        Value::Record { .. } => value,
+        _ => {
+            return ShellError::GenericError(
+                "Creating error value not supported.".into(),
+                "unsupported error format, must be a record".into(),
                 throw_span,
                 None,
                 Vec::new(),
-            )),
-            (None, _) => Some(ShellError::GenericError(
-                "Unable to parse error format.".into(),
-                "missing required member `$.msg`".into(),
-                Some(span),
+            )
+        }
+    };
+
+    let msg = match value.get_data_by_key("msg") {
+        Some(Value::String { val, .. }) => val,
+        Some(_) => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "`$.msg` has wrong type, must be string".into(),
+                Some(value.span()),
                 None,
                 Vec::new(),
-            )),
-            _ => None,
+            )
         }
-    } else {
-        None
+        None => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "missing required member `$.msg`".into(),
+                Some(value.span()),
+                None,
+                Vec::new(),
+            )
+        }
+    };
+
+    let help = match value.get_data_by_key("help") {
+        Some(Value::String { val, .. }) => Some(val),
+        _ => None,
+    };
+
+    let label = match value.get_data_by_key("label") {
+        Some(value) => value,
+        // correct return: no label
+        None => {
+            return ShellError::GenericError(
+                msg,
+                "originates from here".to_string(),
+                throw_span,
+                help,
+                Vec::new(),
+            )
+        }
+    };
+
+    // remove after a few versions
+    if label.get_data_by_key("start").is_some() || label.get_data_by_key("end").is_some() {
+        return ShellError::GenericError(
+            UNABLE_TO_PARSE.into(),
+            "`start` and `end` are deprecated".into(),
+            Some(value.span()),
+            Some("Use `$.label.span` instead".into()),
+            Vec::new(),
+        );
+    }
+
+    let text = match label.get_data_by_key("text") {
+        Some(Value::String { val, .. }) => val,
+        Some(_) => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "`$.label.text` has wrong type, must be string".into(),
+                Some(label.span()),
+                None,
+                Vec::new(),
+            )
+        }
+        None => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "missing required member `$.label.text`".into(),
+                Some(label.span()),
+                None,
+                Vec::new(),
+            )
+        }
+    };
+
+    let span = match label.get_data_by_key("span") {
+        Some(val @ Value::Record { .. }) => val,
+        Some(value) => {
+            return ShellError::GenericError(
+                UNABLE_TO_PARSE.into(),
+                "`$.label.span` has wrong type, must be record".into(),
+                Some(value.span()),
+                None,
+                Vec::new(),
+            )
+        }
+        // correct return: label, no span
+        None => return ShellError::GenericError(msg, text, throw_span, help, Vec::new()),
+    };
+
+    let span_start = match get_span_sides(&span, "start") {
+        Ok(val) => val,
+        Err(err) => return err,
+    };
+    let span_end = match get_span_sides(&span, "end") {
+        Ok(val) => val,
+        Err(err) => return err,
+    };
+
+    if span_start > span_end {
+        return ShellError::GenericError(
+            "invalid error format.".into(),
+            "`$.label.start` should be smaller than `$.label.end`".into(),
+            Some(label.span()),
+            Some(format!("{} > {}", span_start, span_end)),
+            Vec::new(),
+        );
+    }
+
+    // correct return: everything present
+    ShellError::GenericError(
+        msg,
+        text,
+        Some(Span::new(span_start as usize, span_end as usize)),
+        help,
+        Vec::new(),
+    )
+}
+
+fn get_span_sides(span: &Value, side: &str) -> Result<i64, ShellError> {
+    match span.get_data_by_key(side) {
+        Some(Value::Int { val, .. }) => Ok(val),
+        Some(_) => Err(ShellError::GenericError(
+            UNABLE_TO_PARSE.into(),
+            format!("`$.span.{side}` must be int"),
+            Some(span.span()),
+            None,
+            Vec::new(),
+        )),
+        None => Err(ShellError::GenericError(
+            UNABLE_TO_PARSE.into(),
+            format!("`$.span.{side}` must be present, if span is specified."),
+            Some(span.span()),
+            None,
+            Vec::new(),
+        )),
     }
 }

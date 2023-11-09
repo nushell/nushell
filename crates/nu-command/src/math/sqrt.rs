@@ -93,12 +93,12 @@ fn operate(value: Value, head: Span) -> Value {
 
 fn error_negative_sqrt(head: Span, span: Span) -> Value {
     Value::error(
-        ShellError::UnsupportedInput(
-            String::from("Can't square root a negative number"),
-            "value originates from here".into(),
-            head,
-            span,
-        ),
+        ShellError::UnsupportedInput {
+            msg: String::from("Can't square root a negative number"),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        },
         span,
     )
 }

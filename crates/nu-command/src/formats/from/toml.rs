@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
 
@@ -28,24 +28,19 @@ impl Command for FromToml {
             Example {
                 example: "'a = 1' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string()],
-                    vals: vec![Value::test_int(1)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: "'a = 1
 b = [1, 2]' | from toml",
                 description: "Converts toml formatted string to record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![
+                result: Some(Value::test_record(record! {
+                    "a" =>  Value::test_int(1),
+                    "b" =>  Value::test_list(vec![
                         Value::test_int(1),
-                        Value::list(
-                            vec![Value::test_int(1), Value::test_int(2)],
-                            Span::test_data(),
-                        ),
-                    ],
+                        Value::test_int(2)],),
                 })),
             },
         ]

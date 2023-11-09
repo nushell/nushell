@@ -1,4 +1,7 @@
-use crate::completions::{completion_common::complete_item, Completer, CompletionOptions, SortBy};
+use crate::completions::{
+    completion_common::{adjust_if_intermediate, complete_item, AdjustView},
+    Completer, CompletionOptions, SortBy,
+};
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     levenshtein_distance, Span,
@@ -21,15 +24,21 @@ impl FileCompletion {
 impl Completer for FileCompletion {
     fn fetch(
         &mut self,
-        _: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         prefix: Vec<u8>,
         span: Span,
         offset: usize,
         _: usize,
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
-        let prefix = String::from_utf8_lossy(&prefix).to_string();
-        let output: Vec<_> = file_path_completion(
+        let AdjustView {
+            prefix,
+            span,
+            readjusted,
+        } = adjust_if_intermediate(&prefix, working_set, span);
+
+        let output: Vec<_> = complete_item(
+            readjusted,
             span,
             &prefix,
             &self.engine_state.current_work_dir(),

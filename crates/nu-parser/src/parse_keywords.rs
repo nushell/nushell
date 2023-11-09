@@ -1005,7 +1005,28 @@ pub fn parse_alias(
             working_set.add_decl(Box::new(decl));
         }
 
-        if spans.len() < 4 {
+        // special case for `alias foo=bar`
+        if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
+
+            // split at '='.  Note that the output must never be None, the
+            // `unwrap` is just to avoid the possibility of panic, if the
+            // invariant is broken.
+            let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
+
+            let name = if name.is_empty() { "{name}" } else { name };
+            let initial_value = if initial_value.is_empty() {
+                "{initial_value}"
+            } else {
+                initial_value
+            };
+
+            working_set.error(ParseError::IncorrectValue(
+                "alias argument".into(),
+                spans[1],
+                format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
+            ))
+        } else if spans.len() < 4 {
             working_set.error(ParseError::IncorrectValue(
                 "Incomplete alias".into(),
                 span(&spans[..split_id]),

@@ -1,8 +1,8 @@
 use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError, Signature, Span,
-    Type, Unit, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
+    Signature, Span, Type, Unit, Value,
 };
 #[derive(Clone)]
 pub struct FromNuon;
@@ -27,23 +27,16 @@ impl Command for FromNuon {
             Example {
                 example: "'{ a:1 }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string()],
-                    vals: vec![Value::test_int(1)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: "'{ a:1, b: [1, 2] }' | from nuon",
                 description: "Converts nuon formatted string to table",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![
-                        Value::test_int(1),
-                        Value::list(
-                            vec![Value::test_int(1), Value::test_int(2)],
-                            Span::test_data(),
-                        ),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                 })),
             },
         ]
@@ -368,13 +361,13 @@ fn convert_to_value(
             "subexpressions not supported in nuon".into(),
             expr.span,
         )),
-        Expr::Table(headers, cells) => {
+        Expr::Table(mut headers, cells) => {
             let mut cols = vec![];
 
             let mut output = vec![];
 
-            for key in headers {
-                let key_str = match key.expr {
+            for key in headers.iter_mut() {
+                let key_str = match &mut key.expr {
                     Expr::String(key_str) => key_str,
                     _ => {
                         return Err(ShellError::OutsideSpannedLabeledError(
@@ -386,7 +379,14 @@ fn convert_to_value(
                     }
                 };
 
-                cols.push(key_str);
+                if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: key.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    cols.push(std::mem::take(key_str));
+                }
             }
 
             for row in cells {

@@ -210,7 +210,7 @@ pub fn group_by(values: PipelineData, head: Span, config: &Config) -> (PipelineD
         } = val
         {
             lists
-                .entry(record.cols.concat())
+                .entry(record.columns().map(|c| c.as_str()).collect::<String>())
                 .and_modify(|v: &mut Vec<Value>| v.push(val.clone()))
                 .or_insert_with(|| vec![val.clone()]);
         } else {
@@ -320,7 +320,7 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::{Config, IntoPipelineData, Record, Span, Value};
+    use nu_protocol::{record, Config, IntoPipelineData, Value};
 
     fn one(string: &str) -> String {
         string
@@ -342,9 +342,8 @@ mod tests {
 
     #[test]
     fn render_h1() {
-        let value = Value::test_record(Record {
-            cols: vec!["H1".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+        let value = Value::test_record(record! {
+            "H1" => Value::test_string("Ecuador"),
         });
 
         assert_eq!(fragment(value, false, &Config::default()), "# Ecuador\n");
@@ -352,9 +351,8 @@ mod tests {
 
     #[test]
     fn render_h2() {
-        let value = Value::test_record(Record {
-            cols: vec!["H2".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+        let value = Value::test_record(record! {
+            "H2" => Value::test_string("Ecuador"),
         });
 
         assert_eq!(fragment(value, false, &Config::default()), "## Ecuador\n");
@@ -362,9 +360,8 @@ mod tests {
 
     #[test]
     fn render_h3() {
-        let value = Value::test_record(Record {
-            cols: vec!["H3".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+        let value = Value::test_record(record! {
+            "H3" => Value::test_string("Ecuador"),
         });
 
         assert_eq!(fragment(value, false, &Config::default()), "### Ecuador\n");
@@ -372,9 +369,8 @@ mod tests {
 
     #[test]
     fn render_blockquote() {
-        let value = Value::test_record(Record {
-            cols: vec!["BLOCKQUOTE".to_string()],
-            vals: vec![Value::test_string("Ecuador")],
+        let value = Value::test_record(record! {
+            "BLOCKQUOTE" => Value::test_string("Ecuador"),
         });
 
         assert_eq!(fragment(value, false, &Config::default()), "> Ecuador\n");
@@ -382,23 +378,17 @@ mod tests {
 
     #[test]
     fn render_table() {
-        let value = Value::list(
-            vec![
-                Value::test_record(Record {
-                    cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("Ecuador")],
-                }),
-                Value::test_record(Record {
-                    cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("New Zealand")],
-                }),
-                Value::test_record(Record {
-                    cols: vec!["country".to_string()],
-                    vals: vec![Value::test_string("USA")],
-                }),
-            ],
-            Span::test_data(),
-        );
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "country" => Value::test_string("Ecuador"),
+            }),
+            Value::test_record(record! {
+                "country" => Value::test_string("New Zealand"),
+            }),
+            Value::test_record(record! {
+                "country" => Value::test_string("USA"),
+            }),
+        ]);
 
         assert_eq!(
             table(

@@ -2,7 +2,7 @@ use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::cmp::Ordering;
 use std::collections::HashMap;
@@ -82,23 +82,20 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the mode(s) of a list of numbers",
                 example: "[3 3 9 12 12 15] | math mode",
-                result: Some(Value::list(
-                    vec![Value::test_int(3), Value::test_int(12)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(3),
+                    Value::test_int(12),
+                ])),
             },
             Example {
                 description: "Compute the mode(s) of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![
-                        Value::list(vec![Value::test_int(1)], Span::test_data()),
-                        Value::list(
+                result: Some(Value::test_record(record! {
+                        "a" => Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        "b" => Value::list(
                             vec![Value::test_int(-1), Value::test_int(3), Value::test_int(5)],
                             Span::test_data(),
                         ),
-                    ],
                 })),
             },
         ]
@@ -141,12 +138,12 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
                 Ok(HashableType::new(val.to_ne_bytes(), NumberTypes::Filesize))
             }
             Value::Error { error, .. } => Err(*error.clone()),
-            other => Err(ShellError::UnsupportedInput(
-                "Unable to give a result with this input".to_string(),
-                "value originates from here".into(),
-                head,
-                other.span(),
-            )),
+            other => Err(ShellError::UnsupportedInput {
+                msg: "Unable to give a result with this input".to_string(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: other.span(),
+            }),
         })
         .collect::<Result<Vec<HashableType>, ShellError>>()?;
 

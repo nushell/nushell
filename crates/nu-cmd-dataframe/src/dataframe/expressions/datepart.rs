@@ -124,12 +124,12 @@ impl Command for ExprDatePart {
             "microsecond" => expr_dt.microsecond(),
             "nanosecond" => expr_dt.nanosecond(),
             _ => {
-                return Err(ShellError::UnsupportedInput(
-                    format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
-                    "value originates from here".to_string(),
-                    call.head,
-                    part.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
+                    input: "value originates from here".to_string(),
+                    msg_span: call.head,
+                    input_span: part.span,
+                });
             }
         }.into();
 

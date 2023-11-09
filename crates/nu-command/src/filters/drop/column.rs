@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -66,14 +66,8 @@ impl Command for DropColumn {
             example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column",
             result: Some(Value::list(
                 vec![
-                    Value::test_record(Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-lib")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["lib".into()],
-                        vals: vec![Value::test_string("nu-core")],
-                    }),
+                    Value::test_record(record!("lib" =>Value::test_string("nu-lib"))),
+                    Value::test_record(record!("lib" =>Value::test_string("nu-core"))),
                 ],
                 Span::test_data(),
             )),
@@ -163,7 +157,7 @@ fn get_cellpath_columns(keep_cols: Vec<String>, span: Span) -> Vec<CellPath> {
     let mut output = vec![];
     for keep_col in keep_cols {
         let val = Value::string(keep_col, span);
-        let cell_path = match CellPath::from_value(&val) {
+        let cell_path = match CellPath::from_value(val) {
             Ok(v) => v,
             Err(_) => return vec![],
         };

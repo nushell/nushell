@@ -107,9 +107,18 @@ export def datetime-diff [
         earlier: datetime  # earlier (starting) datetime
     ] {
     if $earlier > $later {
-        let start = (metadata $later).span.start 
+        let start = (metadata $later).span.start
         let end = (metadata $earlier).span.end
-        error make {msg: "Incompatible arguments", label: {start:$start, end:$end, text:$"First datetime must be >= second, but was actually ($later - $earlier) less than it."}}
+        error make {
+            msg: "Incompatible arguments",
+            label: {
+                span: {
+                    start: $start
+                    end: $end
+                }
+                text: $"First datetime must be >= second, but was actually ($later - $earlier) less than it."
+            }
+        }
     }
     let from_expanded = ($later | date to-timezone utc | date to-record)
     let to_expanded = ($earlier | date to-timezone utc | date to-record)

@@ -5,11 +5,12 @@ use nu_protocol::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
         Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
-    engine::{EngineState, Stack},
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record, ShellError, Span,
-    Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    engine::{Closure, EngineState, Stack},
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
+    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
+use std::thread::{self, JoinHandle};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -524,13 +525,15 @@ pub fn eval_expression(
             )
         }
         Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-            let mut captures = HashMap::new();
-            let block = engine_state.get_block(*block_id);
+            let block_id = *block_id;
+            let captures = engine_state
+                .get_block(block_id)
+                .captures
+                .iter()
+                .map(|&id| stack.get_var(id, expr.span).map(|var| (id, var)))
+                .collect::<Result<_, _>>()?;
 
-            for var_id in &block.captures {
-                captures.insert(*var_id, stack.get_var(*var_id, expr.span)?);
-            }
-            Ok(Value::closure(*block_id, captures, expr.span))
+            Ok(Value::closure(Closure { block_id, captures }, expr.span))
         }
         Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
         Expr::List(x) => {
@@ -546,7 +549,7 @@ pub fn eval_expression(
             for (col, val) in fields {
                 // avoid duplicate cols.
                 let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = record.cols.iter().position(|c| c == &col_name);
+                let pos = record.index_of(&col_name);
                 match pos {
                     Some(index) => {
                         return Err(ShellError::ColumnDefinedTwice {
@@ -565,7 +568,18 @@ pub fn eval_expression(
         Expr::Table(headers, vals) => {
             let mut output_headers = vec![];
             for expr in headers {
-                output_headers.push(eval_expression(engine_state, stack, expr)?.as_string()?);
+                let header = eval_expression(engine_state, stack, expr)?.as_string()?;
+                if let Some(idx) = output_headers
+                    .iter()
+                    .position(|existing| existing == &header)
+                {
+                    return Err(ShellError::ColumnDefinedTwice {
+                        second_use: expr.span,
+                        first_use: headers[idx].span,
+                    });
+                } else {
+                    output_headers.push(header);
+                }
             }
 
             let mut output_rows = vec![];
@@ -575,10 +589,7 @@ pub fn eval_expression(
                     row.push(eval_expression(engine_state, stack, expr)?);
                 }
                 output_rows.push(Value::record(
-                    Record {
-                        cols: output_headers.clone(),
-                        vals: row,
-                    },
+                    Record::from_raw_cols_vals(output_headers.clone(), row),
                     expr.span,
                 ));
             }
@@ -725,6 +736,7 @@ fn eval_element_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    stderr_writer_jobs: &mut Vec<DataSaveJob>,
 ) -> Result<(PipelineData, bool), ShellError> {
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
@@ -735,105 +747,102 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(span, redirection, expr, is_append_mode) => match &expr.expr {
-            Expr::String(_)
-            | Expr::FullCellPath(_)
-            | Expr::StringInterpolation(_)
-            | Expr::Filepath(_) => {
-                let exit_code = match &mut input {
-                    PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
-                    _ => None,
-                };
-                let input = match (redirection, input) {
-                    (
-                        Redirection::Stderr,
-                        PipelineData::ExternalStream {
-                            stderr,
-                            exit_code,
-                            span,
-                            metadata,
-                            trim_end_newline,
-                            ..
-                        },
-                    ) => PipelineData::ExternalStream {
-                        stdout: stderr,
-                        stderr: None,
-                        exit_code,
-                        span,
-                        metadata,
-                        trim_end_newline,
-                    },
-                    (_, input) => input,
-                };
-
-                if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                    let mut args = vec![
-                        Argument::Positional(expr.clone()),
-                        Argument::Named((
-                            Spanned {
-                                item: "raw".into(),
-                                span: *span,
-                            },
-                            None,
-                            None,
-                        )),
-                        Argument::Named((
-                            Spanned {
-                                item: "force".into(),
-                                span: *span,
-                            },
-                            None,
-                            None,
-                        )),
-                    ];
-                    if *is_append_mode {
-                        args.push(Argument::Named((
-                            Spanned {
-                                item: "append".into(),
-                                span: *span,
-                            },
-                            None,
-                            None,
-                        )))
-                    }
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *span,
-                            arguments: args,
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
-                        // save is internal command, normally it exists with non-ExternalStream
-                        // but here in redirection context, we make it returns ExternalStream
-                        // So nu handles exit_code correctly
+        PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
+            match &expr.expr {
+                Expr::String(_)
+                | Expr::FullCellPath(_)
+                | Expr::StringInterpolation(_)
+                | Expr::Filepath(_) => {
+                    let exit_code = match &mut input {
+                        PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
+                        _ => None,
+                    };
+                    let (input, out_stream) = match (redirection, input) {
                         (
+                            Redirection::Stderr,
                             PipelineData::ExternalStream {
-                                stdout: None,
+                                stdout,
+                                stderr,
+                                exit_code,
+                                span,
+                                metadata,
+                                trim_end_newline,
+                            },
+                        ) => (
+                            PipelineData::ExternalStream {
+                                stdout: stderr,
                                 stderr: None,
                                 exit_code,
-                                span: *span,
-                                metadata: None,
-                                trim_end_newline: false,
+                                span,
+                                metadata,
+                                trim_end_newline,
                             },
-                            false,
-                        )
-                    })
-                } else {
-                    Err(ShellError::CommandNotFound(*span))
+                            Some(stdout),
+                        ),
+                        (_, input) => (input, None),
+                    };
+
+                    if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
+                        let save_call = gen_save_call(
+                            save_command,
+                            (*span, expr.clone(), *is_append_mode),
+                            None,
+                        );
+                        match out_stream {
+                            None => {
+                                eval_call(engine_state, stack, &save_call, input).map(|_| {
+                                    // save is internal command, normally it exists with non-ExternalStream
+                                    // but here in redirection context, we make it returns ExternalStream
+                                    // So nu handles exit_code correctly
+                                    (
+                                        PipelineData::ExternalStream {
+                                            stdout: None,
+                                            stderr: None,
+                                            exit_code,
+                                            span: *span,
+                                            metadata: None,
+                                            trim_end_newline: false,
+                                        },
+                                        false,
+                                    )
+                                })
+                            }
+                            Some(out_stream) => {
+                                // delegate to a different thread
+                                // so nushell won't hang if external command generates both too much
+                                // stderr and stdout message
+                                let stderr_stack = stack.clone();
+                                let engine_state_clone = engine_state.clone();
+                                stderr_writer_jobs.push(DataSaveJob::spawn(
+                                    engine_state_clone,
+                                    stderr_stack,
+                                    save_call,
+                                    input,
+                                ));
+
+                                Ok((
+                                    PipelineData::ExternalStream {
+                                        stdout: out_stream,
+                                        stderr: None,
+                                        exit_code,
+                                        span: *span,
+                                        metadata: None,
+                                        trim_end_newline: false,
+                                    },
+                                    false,
+                                ))
+                            }
+                        }
+                    } else {
+                        Err(ShellError::CommandNotFound(*span))
+                    }
                 }
+                _ => Err(ShellError::CommandNotFound(*span)),
             }
-            _ => Err(ShellError::CommandNotFound(*span)),
-        },
+        }
         PipelineElement::SeparateRedirection {
             out: (out_span, out_expr, out_append_mode),
-            err: (err_span, err_expr, _),
+            err: (err_span, err_expr, err_append_mode),
         } => match (&out_expr.expr, &err_expr.expr) {
             (
                 Expr::String(_)
@@ -852,57 +861,13 @@ fn eval_element_with_input(
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
-                    let mut args = vec![
-                        Argument::Positional(out_expr.clone()),
-                        Argument::Named((
-                            Spanned {
-                                item: "stderr".into(),
-                                span: *err_span,
-                            },
-                            None,
-                            Some(err_expr.clone()),
-                        )),
-                        Argument::Named((
-                            Spanned {
-                                item: "raw".into(),
-                                span: *out_span,
-                            },
-                            None,
-                            None,
-                        )),
-                        Argument::Named((
-                            Spanned {
-                                item: "force".into(),
-                                span: *out_span,
-                            },
-                            None,
-                            None,
-                        )),
-                    ];
-                    if *out_append_mode {
-                        args.push(Argument::Named((
-                            Spanned {
-                                item: "append".into(),
-                                span: *out_span,
-                            },
-                            None,
-                            None,
-                        )))
-                    }
-                    eval_call(
-                        engine_state,
-                        stack,
-                        &Call {
-                            decl_id: save_command,
-                            head: *out_span,
-                            arguments: args,
-                            redirect_stdout: false,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        },
-                        input,
-                    )
-                    .map(|_| {
+                    let save_call = gen_save_call(
+                        save_command,
+                        (*out_span, out_expr.clone(), *out_append_mode),
+                        Some((*err_span, err_expr.clone(), *err_append_mode)),
+                    );
+
+                    eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -958,6 +923,7 @@ fn eval_element_with_input(
                         input,
                         true,
                         redirect_stderr,
+                        stderr_writer_jobs,
                     )
                     .map(|x| x.0)?
                 }
@@ -974,6 +940,7 @@ fn eval_element_with_input(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                stderr_writer_jobs,
             )
         }
         PipelineElement::And(_, expr) => eval_expression_with_input(
@@ -1044,6 +1011,7 @@ pub fn eval_block(
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
         let mut elements_iter = pipeline.elements.iter().peekable();
+        let mut stderr_writer_jobs = vec![];
         while let Some(element) = elements_iter.next() {
             let redirect_stderr = redirect_stderr
                 || (elements_iter.peek().map_or(false, |next_element| {
@@ -1055,16 +1023,7 @@ pub fn eval_block(
                     )
                 }));
 
-            let redirect_stdout = redirect_stdout
-                || (elements_iter.peek().map_or(false, |next_element| {
-                    matches!(
-                        next_element,
-                        PipelineElement::Redirection(_, Redirection::Stdout, _, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
-                            | PipelineElement::Expression(..)
-                            | PipelineElement::SeparateRedirection { .. }
-                    )
-                }));
+            let redirect_stdout = redirect_stdout || elements_iter.peek().is_some();
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
@@ -1074,15 +1033,12 @@ pub fn eval_block(
                 input,
                 redirect_stdout,
                 redirect_stderr,
+                &mut stderr_writer_jobs,
             );
 
             match (eval_result, redirect_stderr) {
                 (Ok((pipeline_data, _)), true) => {
                     input = pipeline_data;
-
-                    // external command may runs to failed
-                    // make early return so remaining commands will not be executed.
-                    // don't return `Err(ShellError)`, so nushell wouldn't show extra error message.
                 }
                 (Err(error), true) => {
                     input = PipelineData::Value(
@@ -1106,6 +1062,12 @@ pub fn eval_block(
             }
         }
 
+        // `eval_element_with_input` may creates some threads
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
+        for h in stderr_writer_jobs {
+            let _ = h.join();
+        }
         if pipeline_idx < (num_pipelines) - 1 {
             match input {
                 PipelineData::Value(Value::Nothing { .. }, ..) => {}
@@ -1141,8 +1103,24 @@ pub fn eval_subexpression(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     for pipeline in block.pipelines.iter() {
+        let mut stderr_writer_jobs = vec![];
         for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(engine_state, stack, expr, input, true, false)?.0
+            input = eval_element_with_input(
+                engine_state,
+                stack,
+                expr,
+                input,
+                true,
+                false,
+                &mut stderr_writer_jobs,
+            )?
+            .0
+        }
+        // `eval_element_with_input` may creates some threads
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
+        for h in stderr_writer_jobs {
+            let _ = h.join();
         }
     }
 
@@ -1185,4 +1163,90 @@ pub fn eval_variable(
 
 fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
     unit.to_value(size, span)
+}
+
+fn gen_save_call(
+    save_decl_id: DeclId,
+    out_info: (Span, Expression, bool),
+    err_info: Option<(Span, Expression, bool)>,
+) -> Call {
+    let (out_span, out_expr, out_append_mode) = out_info;
+    let mut args = vec![
+        Argument::Positional(out_expr),
+        Argument::Named((
+            Spanned {
+                item: "raw".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+        Argument::Named((
+            Spanned {
+                item: "force".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )),
+    ];
+    if out_append_mode {
+        args.push(Argument::Named((
+            Spanned {
+                item: "append".into(),
+                span: out_span,
+            },
+            None,
+            None,
+        )))
+    }
+    if let Some((err_span, err_expr, _)) = err_info {
+        args.push(Argument::Named((
+            Spanned {
+                item: "stderr".into(),
+                span: err_span,
+            },
+            None,
+            Some(err_expr),
+        )))
+    }
+
+    Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: args,
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    }
+}
+
+/// A job which saves `PipelineData` to a file in a child thread.
+struct DataSaveJob {
+    inner: JoinHandle<()>,
+}
+
+impl DataSaveJob {
+    pub fn spawn(
+        engine_state: EngineState,
+        mut stack: Stack,
+        save_call: Call,
+        input: PipelineData,
+    ) -> Self {
+        Self {
+            inner: thread::Builder::new()
+                .name("stderr saver".to_string())
+                .spawn(move || {
+                    let result = eval_call(&engine_state, &mut stack, &save_call, input);
+                    if let Err(err) = result {
+                        eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
+                    }
+                })
+                .expect("Failed to create thread"),
+        }
+    }
+
+    pub fn join(self) -> thread::Result<()> {
+        self.inner.join()
+    }
 }
