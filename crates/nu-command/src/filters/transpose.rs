@@ -239,7 +239,7 @@ pub fn transpose(
                 column_num += 1
             }
 
-            for i in input.clone() {
+            for i in input.iter() {
                 let x = i
                     .get_data_by_key(&desc)
                     .unwrap_or_else(|| Value::nothing(name));
