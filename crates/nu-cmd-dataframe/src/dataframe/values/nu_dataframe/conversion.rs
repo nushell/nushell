@@ -1,6 +1,7 @@
 use std::ops::{Deref, DerefMut};
 
-use chrono::{DateTime, Duration, FixedOffset, NaiveDateTime, NaiveTime, Utc};
+use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
+use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
 use polars::chunked_array::builder::AnonymousOwnedListBuilder;
 use polars::chunked_array::object::builder::ObjectChunkedBuilder;
@@ -22,7 +23,7 @@ use nu_protocol::{Record, ShellError, Span, Value};
 
 use super::{DataFrameValue, NuDataFrame};
 
-const SECS_PER_DAY: i64 = 86_400;
+const NANOS_PER_DAY: i64 = 86_400_000_000_000;
 
 // The values capacity is for the size of an  vec.
 // Since this is impossible to determine without traversing every value
@@ -850,8 +851,8 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     // elapsed time in day since 1970-01-01
-                    let seconds = seconds_per_day(a);
-                    let datetime = datetime_from_epoch_seconds(seconds, 0, span)?;
+                    let nanos = nanos_per_day(a);
+                    let datetime = datetime_from_epoch_nanos(nanos, &None, span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -859,7 +860,7 @@ fn series_to_values(
             .collect::<Result<Vec<Value>, ShellError>>()?;
             Ok(values)
         }
-        DataType::Datetime(time_unit, _) => {
+        DataType::Datetime(time_unit, tz) => {
             let casted = series.datetime().map_err(|e| {
                 ShellError::GenericError(
                     "Error casting column to datetime".into(),
@@ -879,8 +880,8 @@ fn series_to_values(
             .map(|v| match v {
                 Some(a) => {
                     // elapsed time in nano/micro/milliseconds since 1970-01-01
-                    let (seconds, nanos) = seconds_and_nanos_from_timeunit(a, *time_unit);
-                    let datetime = datetime_from_epoch_seconds(seconds, nanos, span)?;
+                    let nanos = nanos_from_timeunit(a, *time_unit);
+                    let datetime = datetime_from_epoch_nanos(nanos, tz, span)?;
                     Ok(Value::date(datetime, span))
                 }
                 None => Ok(Value::nothing(span)),
@@ -971,14 +972,13 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::Float32(f) => Ok(Value::float(*f as f64, span)),
         AnyValue::Float64(f) => Ok(Value::float(*f, span)),
         AnyValue::Date(d) => {
-            let seconds = seconds_per_day(*d);
-            datetime_from_epoch_seconds(seconds, 0, span)
+            let nanos = nanos_per_day(*d);
+            datetime_from_epoch_nanos(nanos, &None, span)
                 .map(|datetime| Value::date(datetime, span))
         }
-        AnyValue::Datetime(a, time_unit, _) => {
-            let (seconds, nanos) = seconds_and_nanos_from_timeunit(*a, *time_unit);
-            datetime_from_epoch_seconds(seconds, nanos, span)
-                .map(|datetime| Value::date(datetime, span))
+        AnyValue::Datetime(a, time_unit, tz) => {
+            let nanos = nanos_from_timeunit(*a, *time_unit);
+            datetime_from_epoch_nanos(nanos, tz, span).map(|datetime| Value::date(datetime, span))
         }
         AnyValue::Duration(a, time_unit) => {
             let nanos = match time_unit {
@@ -1000,7 +1000,11 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
             let vals: Result<Vec<Value>, ShellError> = struct_array
                 .values()
                 .iter()
-                .map(|v| arr_to_value(&**v, *idx, span))
+                .enumerate()
+                .map(|(pos, v)| {
+                    let f = &s_fields[pos];
+                    arr_to_value(&f.dtype, &**v, *idx, span)
+                })
                 .collect();
             let record = Record { cols, vals: vals? };
             Ok(Value::record(record, span))
@@ -1038,7 +1042,12 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
 }
 
 #[inline]
-fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellError> {
+fn arr_to_value(
+    dt: &DataType,
+    arr: &dyn Array,
+    idx: usize,
+    span: Span,
+) -> Result<Value, ShellError> {
     macro_rules! downcast {
         ($casttype:ident) => {{
             let arr = &*(arr as *const dyn Array as *const $casttype);
@@ -1046,7 +1055,6 @@ fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellE
         }};
     }
 
-    let dt = arr.data_type().into();
     // Not loving the unsafe here, however this largely based off the one
     // example I found for converting Array values in:
     // polars_core::chunked_array::ops::any_value::arr_to_any_value
@@ -1068,13 +1076,13 @@ fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellE
             DataType::Binary => Ok(Value::binary(downcast!(LargeBinaryArray).to_owned(), span)),
             DataType::Date => {
                 let date = downcast!(Int32Array);
-                datetime_from_epoch_seconds(date as i64, 0, span)
+                let nanos = nanos_per_day(date);
+                datetime_from_epoch_nanos(nanos, &None, span)
                     .map(|datetime| Value::date(datetime, span))
             }
-            DataType::Datetime(time_unit, _tz) => {
-                let (seconds, nanos) =
-                    seconds_and_nanos_from_timeunit(downcast!(Int64Array), time_unit);
-                datetime_from_epoch_seconds(seconds, nanos, span)
+            DataType::Datetime(time_unit, tz) => {
+                let nanos = nanos_from_timeunit(downcast!(Int64Array), *time_unit);
+                datetime_from_epoch_nanos(nanos, tz, span)
                     .map(|datetime| Value::date(datetime, span))
             }
             // DataType::Duration(_) => {}
@@ -1085,11 +1093,11 @@ fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellE
             DataType::List(dt) => {
                 let v: ArrayRef = downcast!(LargeListArray);
                 let values_result = if dt.is_primitive() {
-                    let s = Series::from_chunks_and_dtype_unchecked("", vec![v], &dt);
+                    let s = Series::from_chunks_and_dtype_unchecked("", vec![v], dt);
                     series_to_values(&s, None, None, span)
                 } else {
                     let s = Series::from_chunks_and_dtype_unchecked("", vec![v], &dt.to_physical())
-                        .cast_unchecked(&dt)
+                        .cast_unchecked(dt)
                         .unwrap();
                     series_to_values(&s, None, None, span)
                 };
@@ -1101,7 +1109,11 @@ fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellE
                 let vals: Result<Vec<Value>, ShellError> = arr
                     .values()
                     .iter()
-                    .map(|v| arr_to_value(&**v, 0, span))
+                    .enumerate()
+                    .map(|(pos, v)| {
+                        let f = &fields[pos];
+                        arr_to_value(&f.dtype, &**v, 0, span)
+                    })
                     .collect();
                 let cols = fields.iter().map(|f| f.name().to_string()).collect();
                 Ok(Value::record(Record { cols, vals: vals? }, span))
@@ -1120,66 +1132,38 @@ fn arr_to_value(arr: &dyn Array, idx: usize, span: Span) -> Result<Value, ShellE
     }
 }
 
-fn seconds_per_day(days: i32) -> i64 {
-    days as i64 * SECS_PER_DAY
+fn nanos_per_day(days: i32) -> i64 {
+    days as i64 * NANOS_PER_DAY
 }
 
-fn seconds_and_nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> (i64, u32) {
-    // Calculate the divisor for the other units
-    let unit_divisor = match time_unit {
-        TimeUnit::Nanoseconds => 1_000_000_000,
-        TimeUnit::Microseconds => 1_000_000,
-        TimeUnit::Milliseconds => 1_000,
-    };
-    // Calculate seconds and remaining nanoseconds for smaller units
-    let seconds = a / unit_divisor;
-    let remaining_nanos = a % unit_divisor
-        * match time_unit {
-            TimeUnit::Microseconds => 1_000, // Convert microseconds to nanoseconds
-            TimeUnit::Milliseconds => 1_000_000, // Convert milliseconds to nanoseconds
-            TimeUnit::Nanoseconds => 1,      // Already in nanoseconds
-        };
-
-    // remaining nanos should fit within u32, and this is the type chrono expects
-    (seconds, remaining_nanos as u32)
+fn nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> i64 {
+    a * match time_unit {
+        TimeUnit::Microseconds => 1_000, // Convert microseconds to nanoseconds
+        TimeUnit::Milliseconds => 1_000_000, // Convert milliseconds to nanoseconds
+        TimeUnit::Nanoseconds => 1,      // Already in nanoseconds
+    }
 }
 
-fn datetime_from_epoch_seconds(
-    seconds: i64,
-    nanos: u32,
+fn datetime_from_epoch_nanos(
+    nanos: i64,
+    timezone: &Option<String>,
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
-    // elapsed time in day since 1970-01-01
-    let naive_datetime = match NaiveDateTime::from_timestamp_opt(seconds, nanos) {
-        Some(val) => val,
-        None => {
-            return Err(ShellError::GenericError(
-                format!("The given local datetime representation is invalid: seconds: {seconds}, nanos: {nanos}"),
+    let tz: Tz = if let Some(polars_tz) = timezone {
+        polars_tz.parse::<Tz>().map_err(|_| {
+            ShellError::GenericError(
+                format!("Could not parse polars timezone: {polars_tz}"),
                 "".to_string(),
                 Some(span),
                 None,
                 vec![],
-            ));
-        }
+            )
+        })?
+    } else {
+        Tz::UTC
     };
-    // Zero length offset
-    let offset = match FixedOffset::east_opt(0) {
-        Some(val) => val,
-        None => {
-            // should not happen
-            return Err(ShellError::GenericError(
-                "Invalid offset: east_opt(0)".to_string(),
-                "".to_string(),
-                Some(span),
-                None,
-                vec![],
-            ));
-        }
-    };
-    Ok(DateTime::<FixedOffset>::from_naive_utc_and_offset(
-        naive_datetime,
-        offset,
-    ))
+
+    Ok(tz.timestamp_nanos(nanos).fixed_offset())
 }
 
 fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
@@ -1204,9 +1188,10 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
     use indexmap::indexmap;
-    use polars::{export::arrow::array::PrimitiveArray, prelude::Field};
+    use polars::export::arrow::array::{ListArray, NullArray, PrimitiveArray};
+    use polars::export::arrow::buffer::Buffer;
+    use polars::prelude::Field;
 
     use super::*;
 
@@ -1419,6 +1404,197 @@ mod tests {
                 span
             )?,
             comparison_owned_record
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_arr_to_value() -> Result<(), Box<dyn std::error::Error>> {
+        let test_bool_arr = BooleanArray::from([Some(true)]);
+        assert_eq!(
+            arr_to_value(&DataType::Boolean, &test_bool_arr, 0, Span::test_data())?,
+            Value::bool(true, Span::test_data())
+        );
+
+        let test_uint8_arr = PrimitiveArray::from([Some(9_u8)]);
+        assert_eq!(
+            arr_to_value(&DataType::UInt8, &test_uint8_arr, 0, Span::test_data())?,
+            Value::int(9, Span::test_data())
+        );
+
+        let test_uint16_arr = PrimitiveArray::from([Some(3223_u16)]);
+        assert_eq!(
+            arr_to_value(&DataType::UInt16, &test_uint16_arr, 0, Span::test_data())?,
+            Value::int(3223, Span::test_data())
+        );
+
+        let test_uint32_arr = PrimitiveArray::from([Some(33_u32)]);
+        assert_eq!(
+            arr_to_value(&DataType::UInt32, &test_uint32_arr, 0, Span::test_data())?,
+            Value::int(33, Span::test_data())
+        );
+
+        let test_uint64_arr = PrimitiveArray::from([Some(33_3232_u64)]);
+        assert_eq!(
+            arr_to_value(&DataType::UInt64, &test_uint64_arr, 0, Span::test_data())?,
+            Value::int(33_3232, Span::test_data())
+        );
+
+        let test_int8_arr = PrimitiveArray::from([Some(9_i8)]);
+        assert_eq!(
+            arr_to_value(&DataType::Int8, &test_int8_arr, 0, Span::test_data())?,
+            Value::int(9, Span::test_data())
+        );
+
+        let test_int16_arr = PrimitiveArray::from([Some(3223_i16)]);
+        assert_eq!(
+            arr_to_value(&DataType::Int16, &test_int16_arr, 0, Span::test_data())?,
+            Value::int(3223, Span::test_data())
+        );
+
+        let test_int32_arr = PrimitiveArray::from([Some(33_i32)]);
+        assert_eq!(
+            arr_to_value(&DataType::Int32, &test_int32_arr, 0, Span::test_data())?,
+            Value::int(33, Span::test_data())
+        );
+
+        let test_int64_arr = PrimitiveArray::from([Some(33_3232_i64)]);
+        assert_eq!(
+            arr_to_value(&DataType::Int64, &test_int64_arr, 0, Span::test_data())?,
+            Value::int(33_3232, Span::test_data())
+        );
+
+        let test_float32_arr = PrimitiveArray::from([Some(33.32_f32)]);
+        assert_eq!(
+            arr_to_value(&DataType::Float32, &test_float32_arr, 0, Span::test_data())?,
+            Value::float(33.32_f32 as f64, Span::test_data())
+        );
+
+        let test_float64_arr = PrimitiveArray::from([Some(33_3232.999_f64)]);
+        assert_eq!(
+            arr_to_value(&DataType::Float64, &test_float64_arr, 0, Span::test_data())?,
+            Value::float(33_3232.999, Span::test_data())
+        );
+
+        let test_str = "hello world";
+        let test_str_arr = LargeStringArray::from(vec![Some(test_str.to_string())]);
+        assert_eq!(
+            arr_to_value(&DataType::Utf8, &test_str_arr, 0, Span::test_data())?,
+            Value::string(test_str.to_string(), Span::test_data())
+        );
+
+        let test_bin = b"asdlfkjadsf";
+        let test_bin_arr = LargeBinaryArray::from(vec![Some(test_bin.to_vec())]);
+        assert_eq!(
+            arr_to_value(&DataType::Binary, &test_bin_arr, 0, Span::test_data())?,
+            Value::binary(test_bin.to_vec(), Span::test_data())
+        );
+
+        let test_days = 10_957_i32;
+        let comparison_date = Utc
+            .with_ymd_and_hms(2000, 1, 1, 0, 0, 0)
+            .unwrap()
+            .fixed_offset();
+        let test_date_arr = PrimitiveArray::from([Some(test_days)]);
+        assert_eq!(
+            arr_to_value(&DataType::Date, &test_date_arr, 0, Span::test_data())?,
+            Value::date(comparison_date, Span::test_data())
+        );
+
+        let test_dt_nanos = 1_357_488_900_000_000_000_i64;
+        let test_dt_arr = PrimitiveArray::from([Some(test_dt_nanos)]);
+        let test_dt = Utc.timestamp_nanos(test_dt_nanos).fixed_offset();
+        assert_eq!(
+            arr_to_value(
+                &DataType::Datetime(TimeUnit::Nanoseconds, Some("UTC".to_owned())),
+                &test_dt_arr,
+                0,
+                Span::test_data()
+            )?,
+            Value::date(test_dt, Span::test_data())
+        );
+
+        let test_time_nanos = 54_000_000_000_000_i64;
+        let test_dt_arr = PrimitiveArray::from([Some(test_time_nanos)]);
+        let test_time = DateTime::<FixedOffset>::from_naive_utc_and_offset(
+            Utc::now()
+                .date_naive()
+                .and_time(NaiveTime::from_hms_opt(15, 00, 00).unwrap()),
+            FixedOffset::east_opt(0).unwrap(),
+        );
+        assert_eq!(
+            arr_to_value(&DataType::Time, &test_dt_arr, 0, Span::test_data())?,
+            Value::date(test_time, Span::test_data())
+        );
+
+        let values = Buffer::from(vec![1, 2, 3]);
+        let values = PrimitiveArray::<i64>::new(DataType::Int64.to_arrow(), values, None);
+        let data_type = ListArray::<i64>::default_datatype(DataType::Int64.to_arrow());
+        let array = ListArray::<i64>::new(
+            data_type,
+            vec![0, 3].try_into().unwrap(),
+            Box::new(values),
+            None,
+        );
+        let comparison_list_series = Value::list(
+            vec![
+                Value::int(1, Span::test_data()),
+                Value::int(2, Span::test_data()),
+                Value::int(3, Span::test_data()),
+            ],
+            Span::test_data(),
+        );
+        assert_eq!(
+            arr_to_value(
+                &DataType::List(Box::new(DataType::Int64)),
+                &array,
+                0,
+                Span::test_data()
+            )?,
+            comparison_list_series
+        );
+
+        let field_name_0 = "num_field";
+        let field_name_1 = "bool_field";
+        let fields = vec![
+            Field::new(field_name_0, DataType::Int32),
+            Field::new(field_name_1, DataType::Boolean),
+        ];
+        let test_int_arr = PrimitiveArray::from([Some(1_i32)]);
+        let test_struct_arr = StructArray::new(
+            DataType::Struct(fields.clone()).to_arrow(),
+            vec![Box::new(test_int_arr), Box::new(test_bool_arr)],
+            None,
+        );
+        let comparison_owned_record = Value::record(
+            Record {
+                cols: vec![field_name_0.to_owned(), field_name_1.to_owned()],
+                vals: vec![
+                    Value::int(1, Span::test_data()),
+                    Value::bool(true, Span::test_data()),
+                ],
+            },
+            Span::test_data(),
+        );
+        assert_eq!(
+            arr_to_value(
+                &DataType::Struct(fields),
+                &test_struct_arr,
+                0,
+                Span::test_data(),
+            )?,
+            comparison_owned_record
+        );
+
+        assert_eq!(
+            arr_to_value(
+                &DataType::Null,
+                &NullArray::new(DataType::Null.to_arrow(), 0),
+                0,
+                Span::test_data()
+            )?,
+            Value::nothing(Span::test_data())
         );
 
         Ok(())
