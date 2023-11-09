@@ -145,10 +145,14 @@ impl NuCompleter {
 
                             // Skip the last 'a' as span item
                             if is_last_span {
-                                let mut chars = current_span_str.chars();
-                                chars.next_back();
-                                let current_span_str = chars.as_str().to_owned();
-                                spans.push(current_span_str.to_string());
+                                let offset = pos - flat.0.start;
+                                if offset == 0 {
+                                    spans.push(String::new())
+                                } else {
+                                    let mut current_span_str = current_span_str.to_string();
+                                    current_span_str.remove(offset);
+                                    spans.push(current_span_str);
+                                }
                             } else {
                                 spans.push(current_span_str.to_string());
                             }
