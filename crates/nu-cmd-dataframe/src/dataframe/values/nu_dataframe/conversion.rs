@@ -1293,7 +1293,7 @@ mod tests {
         let tests_float64 = 9064251358973882322333.64233533232;
         assert_eq!(
             any_value_to_value(&AnyValue::Float64(tests_float64), span)?,
-            Value::float(tests_float64 as f64, span)
+            Value::float(tests_float64, span)
         );
 
         let test_days = 10_957;
