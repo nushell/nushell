@@ -1,6 +1,7 @@
 use crate::*;
 use std::{
     fmt::Debug,
+    io::ErrorKind,
     sync::{atomic::AtomicBool, Arc},
 };
 
@@ -172,6 +173,36 @@ impl Iterator for RawStream {
                 None
             }
         }
+    }
+}
+impl std::io::Read for RawStream {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
+
+        while self.leftover.len() < buf.len() {
+            let chunk = match self.next() {
+                Some(Ok(chunk)) => chunk,
+                Some(Err(e)) => return Err(std::io::Error::new(ErrorKind::Interrupted, e)),
+                None => break,
+            };
+
+            let chunk = match chunk.as_binary() {
+                Ok(chunk) => chunk,
+                Err(e) => {
+                    return Err(std::io::Error::new(ErrorKind::InvalidData, e));
+                }
+            };
+
+            self.leftover.extend_from_slice(chunk);
+        }
+
+        let len = core::cmp::min(buf.len(), self.leftover.len());
+
+        (buf[..len]).copy_from_slice(self.leftover.drain(..len).as_slice());
+
+        Ok(len)
     }
 }
 
