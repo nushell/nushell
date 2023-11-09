@@ -1097,7 +1097,15 @@ fn arr_to_value(
                 } else {
                     let s = Series::from_chunks_and_dtype_unchecked("", vec![v], &dt.to_physical())
                         .cast_unchecked(dt)
-                        .unwrap();
+                        .map_err(|e| {
+                            ShellError::GenericError(
+                                "Error creating Value from polars LargeListArray".into(),
+                                e.to_string(),
+                                Some(span),
+                                None,
+                                Vec::new(),
+                            )
+                        })?;
                     series_to_values(&s, None, None, span)
                 };
                 values_result.map(|values| Value::list(values, span))
