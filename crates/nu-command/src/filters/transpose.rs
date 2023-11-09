@@ -219,14 +219,11 @@ pub fn transpose(
         }
     }
 
-    let descs: Vec<_> = if args.header_row {
-        descs.into_iter().skip(1).collect()
-    } else {
-        descs
-    };
-
+    let mut descs = descs.into_iter();
+    if args.header_row {
+        descs.next();
+    }
     let mut result_data = descs
-        .into_iter()
         .map(|desc| {
             let mut column_num: usize = 0;
             let mut record = Record::new();
