@@ -173,7 +173,7 @@ pub fn transpose(
     }
 
     if args.header_row {
-        for i in input.clone() {
+        for i in input.iter() {
             if let Some(desc) = descs.get(0) {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
