@@ -1,12 +1,12 @@
 use plotly::common::Mode;
 use plotly::{Layout, Plot, Scatter};
 
-use crate::dataframe::values::{Column, NuDataFrame};
-
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -18,7 +18,7 @@ impl Command for ScatterPlot {
     }
 
     fn usage(&self) -> &str {
-        "Create and save a scatter plot from dataframe columns."
+        "Create and display a scatter plot from dataframe columns."
     }
     fn signature(&self) -> Signature {
         Signature::build(self.name())
@@ -28,13 +28,11 @@ impl Command for ScatterPlot {
                 "xvar",
                 SyntaxShape::String,
                 "variable to plot on the abscissa",
-                Some('x'),
             )
             .required(
                 "yvar",
                 SyntaxShape::String,
                 "variable to plot on the ordinate",
-                Some('y'),
             )
     }
     fn examples(&self) -> Vec<Example> {
@@ -60,20 +58,24 @@ fn command(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
-) -> Result<_, ShellError> {
-    let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
+) -> Result<PipelineData, ShellError> {
+    let value = input.into_value(call.head);
+    let lazy = NuLazyFrame::try_from_value(value)?;
 
-    pdf = df.into_polars();
+    let lazy = lazy.into_polars();
 
-    let x: Option<Spanned<String>> = call.req(engine_state, stack, "xvar")?;
-    let y: Option<Spanned<String>> = call.req(engine_state, stack, "yvar")?;
+    let x: Value = call.req(engine_state, stack, 0)?;
+    let y: Value = call.req(engine_state, stack, 1)?;
 
-    let trace1 = Scatter::new(
-        pdf.select(&x.item).into_iter().collect(),
-        pdf.select(&y.item).into_iter().collect(),
-    )
-    .name("trace1")
-    .mode(Mode::Markers);
+    let x = NuExpression::extract_exprs(x)?;
+    let y = NuExpression::extract_exprs(y)?;
+
+    let x_vec = lazy.clone().select(x).collect().unwrap();
+    let y_vec = lazy.select(y).collect().unwrap();
+
+    let trace1 = Scatter::new(x_vec.into(), y_vec.into())
+        .name("trace1")
+        .mode(Mode::Markers);
 
     let mut plot = Plot::new();
     plot.add_trace(trace1);
@@ -83,7 +85,12 @@ fn command(
 
     plot.show();
 
-    Ok(())
+    Ok(PipelineData::Value(
+        Value::Nothing {
+            internal_span: call.head,
+        },
+        None,
+    ))
 }
 #[cfg(test)]
 mod test {
