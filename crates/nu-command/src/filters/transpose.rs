@@ -227,7 +227,7 @@ pub fn transpose(
 
     let mut result_data = descs
         .into_iter()
-        .map(move |desc| {
+        .map(|desc| {
             let mut column_num: usize = 0;
             let mut record = Record::new();
 
