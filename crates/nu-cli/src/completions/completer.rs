@@ -141,8 +141,10 @@ impl NuCompleter {
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
 
+                            let is_last_span = pos >= flat.0.start && pos < flat.0.end;
+
                             // Skip the last 'a' as span item
-                            if flat_idx == flattened.len() - 1 {
+                            if is_last_span {
                                 let mut chars = current_span_str.chars();
                                 chars.next_back();
                                 let current_span_str = chars.as_str().to_owned();
@@ -152,7 +154,7 @@ impl NuCompleter {
                             }
 
                             // Complete based on the last span
-                            if pos >= flat.0.start && pos < flat.0.end {
+                            if is_last_span {
                                 // Context variables
                                 let most_left_var =
                                     most_left_variable(flat_idx, &working_set, flattened.clone());
