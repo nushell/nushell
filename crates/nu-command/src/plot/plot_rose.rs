@@ -58,7 +58,7 @@ fn command(
     let label_values: Vec<String> = labels.iter().map(|x| x.as_string().unwrap()).collect();
     let values_values: Vec<i32> = values
         .iter()
-        .map(|x| i32::try_from(x.as_filesize().unwrap()).unwrap())
+        .map(|x| i32::try_from(x.as_i64().unwrap()).unwrap())
         .collect();
 
     create_plot(label_values, values_values);
