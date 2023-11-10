@@ -913,15 +913,18 @@ impl Value {
                 } => {
                     // Treat a numeric path member as `select <val>`
                     match &mut current {
-                        Value::List { vals: val, .. } => {
-                            if let Some(item) = val.get(*count) {
+                        Value::List { vals, .. } => {
+                            if let Some(item) = vals.get(*count) {
                                 current = item.clone();
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
+                            } else if vals.is_empty() {
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
                             } else {
-                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
+                                return Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *origin_span,
+                                });
                             }
                         }
                         Value::Binary { val, .. } => {
@@ -930,9 +933,12 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
                             } else {
-                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
+                                return Err(ShellError::AccessBeyondEnd {
+                                    max_idx: val.len() - 1,
+                                    span: *origin_span,
+                                });
                             }
                         }
                         Value::Range { val, .. } => {
@@ -942,7 +948,7 @@ impl Value {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream {
-                                    span: *origin_span
+                                    span: *origin_span,
                                 });
                             }
                         }
@@ -968,11 +974,14 @@ impl Value {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
-                            })
+                            });
                         }
                         Value::Error { error, .. } => return Err(*error.to_owned()),
                         x => {
-                            return Err(ShellError::IncompatiblePathAccess { type_name:format!("{}",x.get_type()), span: *origin_span })
+                            return Err(ShellError::IncompatiblePathAccess {
+                                type_name: format!("{}", x.get_type()),
+                                span: *origin_span,
+                            });
                         }
                     }
                 }
@@ -1074,7 +1083,7 @@ impl Value {
                             return Err(ShellError::IncompatiblePathAccess {
                                 type_name: format!("{}", x.get_type()),
                                 span: *origin_span,
-                            })
+                            });
                         }
                     }
                 }
@@ -1128,7 +1137,7 @@ impl Value {
                                             val.upsert_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
-                                            )?
+                                            )?;
                                         }
                                     }
                                     if !found {
@@ -1153,7 +1162,7 @@ impl Value {
                                         col_name: col_name.to_string(),
                                         span: *span,
                                         src_span: v.span(),
-                                    })
+                                    });
                                 }
                             }
                         }
@@ -1164,7 +1173,7 @@ impl Value {
                         for (col, val) in record.iter_mut() {
                             if col == col_name {
                                 found = true;
-                                val.upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                                val.upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?;
                             }
                         }
                         if !found {
@@ -1183,7 +1192,7 @@ impl Value {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.upsert_data_at_cell_path(cell_path, new_val)?;
-                        *self = record
+                        *self = record;
                     }
                     Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
@@ -1191,7 +1200,7 @@ impl Value {
                             col_name: col_name.to_string(),
                             span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1199,7 +1208,7 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
                         } else if vals.len() == *row_num && cell_path.len() == 1 {
                             // If the upsert is at 1 + the end of the list, it's OK.
                             // Otherwise, it's prohibited.
@@ -1216,7 +1225,7 @@ impl Value {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
             },
@@ -1239,7 +1248,6 @@ impl Value {
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
-
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1270,7 +1278,7 @@ impl Value {
                                             val.update_data_at_cell_path(
                                                 &cell_path[1..],
                                                 new_val.clone(),
-                                            )?
+                                            )?;
                                         }
                                     }
                                     if !found {
@@ -1287,7 +1295,7 @@ impl Value {
                                         col_name: col_name.to_string(),
                                         span: *span,
                                         src_span: v.span(),
-                                    })
+                                    });
                                 }
                             }
                         }
@@ -1298,7 +1306,7 @@ impl Value {
                         for (col, val) in record.iter_mut() {
                             if col == col_name {
                                 found = true;
-                                val.update_data_at_cell_path(&cell_path[1..], new_val.clone())?
+                                val.update_data_at_cell_path(&cell_path[1..], new_val.clone())?;
                             }
                         }
                         if !found {
@@ -1313,7 +1321,7 @@ impl Value {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.update_data_at_cell_path(cell_path, new_val)?;
-                        *self = record
+                        *self = record;
                     }
                     Value::Error { error, .. } => return Err(*error.to_owned()),
                     v => {
@@ -1321,7 +1329,7 @@ impl Value {
                             col_name: col_name.to_string(),
                             span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1329,7 +1337,7 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.update_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.update_data_at_cell_path(&cell_path[1..], new_val)?;
                         } else if vals.is_empty() {
                             return Err(ShellError::AccessEmptyContent { span: *span });
                         } else {
@@ -1344,7 +1352,7 @@ impl Value {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
             },
@@ -1386,7 +1394,7 @@ impl Value {
                                             col_name: col_name.to_string(),
                                             span: *span,
                                             src_span: v.span(),
-                                        })
+                                        });
                                     }
                                 }
                             }
@@ -1460,7 +1468,7 @@ impl Value {
                                         for (col, val) in record.iter_mut() {
                                             if col == col_name {
                                                 found = true;
-                                                val.remove_data_at_cell_path(&cell_path[1..])?
+                                                val.remove_data_at_cell_path(&cell_path[1..])?;
                                             }
                                         }
                                         if !found && !optional {
@@ -1476,7 +1484,7 @@ impl Value {
                                             col_name: col_name.to_string(),
                                             span: *span,
                                             src_span: v.span(),
-                                        })
+                                        });
                                     }
                                 }
                             }
@@ -1488,7 +1496,7 @@ impl Value {
                             for (col, val) in record.iter_mut() {
                                 if col == col_name {
                                     found = true;
-                                    val.remove_data_at_cell_path(&cell_path[1..])?
+                                    val.remove_data_at_cell_path(&cell_path[1..])?;
                                 }
                             }
                             if !found && !optional {
@@ -1589,7 +1597,7 @@ impl Value {
                                         input: format!("input type: {:?}", val.get_type()),
                                         msg_span: head_span,
                                         input_span: *span,
-                                    })
+                                    });
                                 }
                             }
                         }
@@ -1619,7 +1627,7 @@ impl Value {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.insert_data_at_cell_path(cell_path, new_val, v_span)?;
-                        *self = record
+                        *self = record;
                     }
                     other => {
                         return Err(ShellError::UnsupportedInput {
@@ -1627,7 +1635,7 @@ impl Value {
                             input: format!("input type: {:?}", other.get_type()),
                             msg_span: head_span,
                             input_span: *span,
-                        })
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1635,7 +1643,7 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?
+                            v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?;
                         } else if vals.len() == *row_num && cell_path.len() == 1 {
                             // If the insert is at 1 + the end of the list, it's OK.
                             // Otherwise, it's prohibited.
@@ -1651,7 +1659,7 @@ impl Value {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
             },
