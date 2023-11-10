@@ -1,3 +1,4 @@
+use super::utils::show_plot;
 use charming::{
     component::Legend,
     element::ItemStyle,
@@ -19,5 +20,6 @@ pub fn create_plot(labels: Vec<String>, values: Vec<i32>) {
     );
 
     let renderer = HtmlRenderer::new("chart", 1000, 800);
-    let _html_str = renderer.render(&chart).unwrap();
+    let html_str = renderer.render(&chart).unwrap();
+    show_plot(html_str)
 }
