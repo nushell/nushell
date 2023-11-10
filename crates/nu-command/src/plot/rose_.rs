@@ -7,7 +7,7 @@ use charming::{
 };
 use std::iter::zip;
 
-pub fn create_plot(labels: Vec<String>, values: Vec<i32>) {
+pub fn create_plot(labels: Vec<String>, values: Vec<f64>) {
     let data = zip(values, labels).collect();
     let chart = Chart::new().legend(Legend::new().top("bottom")).series(
         Pie::new()

@@ -260,6 +260,7 @@ impl Value {
         match self {
             Value::Float { val, .. } => Ok(*val),
             Value::Int { val, .. } => Ok(*val as f64),
+            Value::Filesize { val, .. } => Ok(*val as f64),
             x => Err(ShellError::CantConvert {
                 to_type: "float".into(),
                 from_type: x.get_type().to_string(),

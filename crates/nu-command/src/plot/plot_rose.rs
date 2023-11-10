@@ -56,10 +56,7 @@ fn command(
     let values: Vec<Value> = call.req(engine_state, stack, 1)?;
 
     let label_values: Vec<String> = labels.iter().map(|x| x.as_string().unwrap()).collect();
-    let values_values: Vec<i32> = values
-        .iter()
-        .map(|x| i32::try_from(x.as_i64().unwrap()).unwrap())
-        .collect();
+    let values_values: Vec<f64> = values.iter().map(|x| x.as_float().unwrap()).collect();
 
     create_plot(label_values, values_values);
 
