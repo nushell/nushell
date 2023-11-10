@@ -894,26 +894,6 @@ impl Value {
         }
     }
 
-    /// Check if the content is empty
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Value::String { val, .. } => val.is_empty(),
-            Value::List { vals, .. } => vals.is_empty(),
-            Value::Record { val, .. } => val.is_empty(),
-            Value::Binary { val, .. } => val.is_empty(),
-            Value::Nothing { .. } => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_nothing(&self) -> bool {
-        matches!(self, Value::Nothing { .. })
-    }
-
-    pub fn is_error(&self) -> bool {
-        matches!(self, Value::Error { .. })
-    }
-
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path(
         self,
@@ -1680,6 +1660,26 @@ impl Value {
             }
         }
         Ok(())
+    }
+
+    /// Check if the content is empty
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Value::String { val, .. } => val.is_empty(),
+            Value::List { vals, .. } => vals.is_empty(),
+            Value::Record { val, .. } => val.is_empty(),
+            Value::Binary { val, .. } => val.is_empty(),
+            Value::Nothing { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_nothing(&self) -> bool {
+        matches!(self, Value::Nothing { .. })
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Value::Error { .. })
     }
 
     pub fn is_true(&self) -> bool {
