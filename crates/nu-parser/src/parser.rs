@@ -3081,7 +3081,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
         AfterCommaArgMode,
         TypeMode,
         DefaultValueMode,
-        RestParamMode
+        RestParamMode,
     }
 
     #[derive(Debug)]
