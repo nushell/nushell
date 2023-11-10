@@ -1,3 +1,5 @@
+use std::process::Command;
+
 use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 // cargo version prints a string of the form:
@@ -107,7 +109,8 @@ fn known_external_misc_values() -> TestResult {
 /// GitHub issue #7822
 #[test]
 fn known_external_subcommand_from_module() -> TestResult {
-    run_test_contains(
+    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    run_test(
         r#"
             module cargo {
                 export extern check []
@@ -115,14 +118,15 @@ fn known_external_subcommand_from_module() -> TestResult {
             use cargo;
             cargo check -h
         "#,
-        "cargo check",
+        String::from_utf8(output.stdout)?.trim(),
     )
 }
 
 /// GitHub issue #7822
 #[test]
 fn known_external_aliased_subcommand_from_module() -> TestResult {
-    run_test_contains(
+    let output = Command::new("cargo").arg("check").arg("-h").output()?;
+    run_test(
         r#"
             module cargo {
                 export extern check []
@@ -131,6 +135,6 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
             alias cc = cargo check;
             cc -h
         "#,
-        "cargo check",
+        String::from_utf8(output.stdout)?.trim(),
     )
 }
