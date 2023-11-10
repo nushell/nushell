@@ -276,12 +276,30 @@ fn describe_value(
         | Value::Filesize { .. }
         | Value::Duration { .. }
         | Value::Date { .. }
-        | Value::Range { .. }
         | Value::String { .. }
         | Value::MatchPattern { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
                 "type" => Value::string(value.get_type().to_string(), head),
+            ),
+            head,
+        ),
+        Value::Range { val, .. } => Value::record(
+            record!(
+                "type" => Value::string("range", head),
+                "from" => val.from,
+                "to" => val.to,
+                "increment" => val.incr,
+                "inclusion" => Value::record(record!(
+                    "left" => Value::bool(match val.inclusion {
+                        nu_protocol::ast::RangeInclusion::Inclusive => true,
+                        nu_protocol::ast::RangeInclusion::RightExclusive => true,
+                    }, head),
+                    "right" => Value::bool(match val.inclusion {
+                        nu_protocol::ast::RangeInclusion::Inclusive => true,
+                        nu_protocol::ast::RangeInclusion::RightExclusive => false,
+                    }, head),
+                ), head)
             ),
             head,
         ),
@@ -314,7 +332,48 @@ fn describe_value(
                     Value::record(
                         record!(
                             "name" => Value::string(block.signature.name.clone(), head),
+                            "usage" => Value::string(block.signature.usage.clone(), head),
                             "category" => Value::string(block.signature.category.to_string(), head),
+                            "required_positionals" => Value::list(block.signature.required_positional.iter().map(|x| 
+                                Value::record(record!(
+                                    "name" => Value::string(x.name.clone(), head),
+                                    "type" => Value::string(x.shape.to_string(), head),
+                                    "default_value" => x.default_value.clone().unwrap_or(Value::nothing(head)),
+                                ), head)
+                             ).collect::<Vec<_>>(), head),
+                             "optional_positionals" => Value::list(block.signature.optional_positional.iter().map(|x| 
+                                Value::record(record!(
+                                    "name" => Value::string(x.name.clone(), head),
+                                    "type" => Value::string(x.shape.to_string(), head),
+                                    "default_value" => x.default_value.clone().unwrap_or(Value::nothing(head)),
+                                ), head)
+                             ).collect::<Vec<_>>(), head),
+                             "rest_positional" => block.signature.rest_positional.as_ref().map(|x| 
+                                Value::record(record!(
+                                    "name" => Value::string(x.name.clone(), head),
+                                    "type" => Value::string(x.shape.to_string(), head),
+                                    "default_value" => x.default_value.clone().unwrap_or(Value::nothing(head)),
+                                ), head)
+                             ).unwrap_or(Value::nothing(head)),
+                             "named" => Value::list(block.signature.named.iter().map(|x| 
+                                Value::record(record!(
+                                    "long" => Value::string(x.long.clone(), head),
+                                    "short" => x.short.as_ref().map(|x| Value::string(x.to_string(), head)).unwrap_or(Value::nothing(head)),
+                                    "arg" => x.arg.as_ref().map(|x| Value::string(x.to_string(), head)).unwrap_or(Value::nothing(head)),
+                                    "required" => Value::bool(x.required, head),
+                                    "desc" => Value::string(x.desc.clone(), head),
+                                    "default_value" => x.default_value.clone().unwrap_or(Value::nothing(head)),
+                                ), head)
+                             ).collect::<Vec<_>>(), head),
+                             "input_output_types" => Value::list(block.signature.input_output_types.iter().map(|x| 
+                                Value::record(record!(
+                                    "input" => Value::string(x.0.to_string(), head),
+                                    "output" => Value::string(x.1.to_string(), head),
+                                ), head)
+                             ).collect::<Vec<_>>(), head),
+                             "is_filter" => Value::bool(block.signature.is_filter, head),
+                             "creates_scope" => Value::bool(block.signature.creates_scope, head),
+                             "allows_unknown_args" => Value::bool(block.signature.allows_unknown_args, head),
                         ),
                         head,
                     ),
@@ -329,11 +388,10 @@ fn describe_value(
                 )
             }
         }
-
         Value::Error { error, .. } => Value::record(
             record!(
                 "type" => Value::string("error", head),
-                "subtype" => Value::string(error.to_string(), head),
+                "subtype" => Value::string(error.as_ref().as_ref(), head),
             ),
             head,
         ),
@@ -347,7 +405,18 @@ fn describe_value(
         Value::CellPath { val, .. } => Value::record(
             record!(
                 "type" => Value::string("cellpath", head),
-                "length" => Value::int(val.members.len() as i64, head),
+                "members" => Value::list(val.members.iter().map(|x|
+                    match x {
+                        nu_protocol::ast::PathMember::Int {val, ..} => Value::record(record!(
+                            "type" => Value::string("int", head),
+                            "value" => Value::int(*val as i64, head),
+                        ), head),
+                        nu_protocol::ast::PathMember::String {val, ..} => Value::record(record!(
+                            "type" => Value::string("string", head),
+                            "value" => Value::string(val.clone(), head),
+                        ), head),
+                    }
+                ).collect::<Vec<_>>(), head),
             ),
             head,
         ),
