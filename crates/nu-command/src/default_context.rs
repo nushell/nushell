@@ -120,6 +120,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Sys,
         };
 
+        // Plotting
+        bind_command!(RosePlot,);
+
         // Help
         bind_command! {
             Help,

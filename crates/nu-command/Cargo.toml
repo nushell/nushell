@@ -95,6 +95,7 @@ wax = { version = "0.6" }
 which = { version = "5.0", optional = true }
 bracoxide = "0.1.2"
 chardetng = "0.1.17"
+charming = { version = "0.2.5", features = ["ssr"]}
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.51"
