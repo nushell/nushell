@@ -285,36 +285,7 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Record { val, .. } => {
-            let mut record = Record::new();
-            for i in 0..val.len() {
-                let k = val.cols[i].clone();
-                let v = val.vals[i].clone();
-
-                record.push(k, {
-                    if let Value::Record { val, .. } =
-                        describe_value(v.clone(), head, engine_state, call)?
-                    {
-                        if let [Value::String { val: k, .. }] = val.vals.as_slice() {
-                            Value::string(k, head)
-                        } else {
-                            Value::record(val, head)
-                        }
-                    } else {
-                        describe_value(v, head, engine_state, call)?
-                    }
-                });
-            }
-
-            Value::record(
-                record!(
-                    "type" => Value::string("record", head),
-                    "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(record, head),
-                ),
-                head,
-            )
-        }
+        Value::Record { val, .. } => describe_record(val, head, engine_state, call, false)?,
         Value::List { vals, .. } => Value::record(
             record!(
                 "type" => Value::string("list", head),
@@ -382,38 +353,66 @@ fn describe_value(
         ),
         Value::LazyRecord { val, .. } => {
             let collect_lazyrecords: bool = call.has_flag("collect-lazyrecords");
-            let mut record = Record::new();
-
-            record.push("type", Value::string("record", head));
-            record.push("lazy", Value::bool(true, head));
 
             if collect_lazyrecords {
                 let collected = val.collect()?;
-                if let Value::Record { val, .. } =
-                    describe_value(collected, head, engine_state, call)?
-                {
-                    let mut record_cols = Record::new();
-                    record.push("length", Value::int(val.len() as i64, head));
-
-                    for i in 0..val.len() {
-                        record_cols.push(
-                            val.cols[i].clone(),
-                            describe_value(val.vals[i].clone(), head, engine_state, call)?,
-                        );
-                    }
-                    record.push("columns", Value::record(record_cols, head));
+                if let Value::Record { val, .. } = collected {
+                    describe_record(val, head, engine_state, call, true)?
                 } else {
-                    let cols = val.column_names();
-                    record.push("length", Value::int(cols.len() as i64, head));
+                    return Err(ShellError::CantConvert {
+                        from_type: collected.get_type().to_string(),
+                        to_type: "record".to_string(),
+                        span: head,
+                        help: None,
+                    });
                 }
             } else {
-                let cols = val.column_names();
-                record.push("length", Value::int(cols.len() as i64, head));
+                Value::record(
+                    record!(
+                        "type" => Value::string("record", head),
+                        "lazy" => Value::bool(true, head),
+                        "length" => Value::int(val.column_names().len() as i64, head)
+                    ),
+                    head,
+                )
             }
-
-            Value::record(record, head)
         }
     })
+}
+
+fn describe_record(
+    val: Record,
+    head: nu_protocol::Span,
+    engine_state: Option<&EngineState>,
+    call: &Call,
+    is_lazy: bool,
+) -> Result<Value, ShellError> {
+    let mut record = Record::new();
+    for i in 0..val.len() {
+        let k = val.cols[i].clone();
+        let v = val.vals[i].clone();
+
+        record.push(k, {
+            if let Value::Record { val, .. } = describe_value(v.clone(), head, engine_state, call)?
+            {
+                if let [Value::String { val: k, .. }] = val.vals.as_slice() {
+                    Value::string(k, head)
+                } else {
+                    Value::record(val, head)
+                }
+            } else {
+                describe_value(v, head, engine_state, call)?
+            }
+        });
+    }
+    Ok(Value::record(
+        record!(
+            "type" => Value::string("record", head),
+            "lazy" => Value::bool(is_lazy, head),
+            "columns" => Value::record(record, head),
+        ),
+        head,
+    ))
 }
 
 fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol::Span) -> Value {
