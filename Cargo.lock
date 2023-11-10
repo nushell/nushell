@@ -2764,6 +2764,7 @@ name = "nu-cmd-dataframe"
 version = "0.86.1"
 dependencies = [
  "chrono",
+ "chrono-tz",
  "fancy-regex",
  "indexmap 2.1.0",
  "nu-cmd-lang",
