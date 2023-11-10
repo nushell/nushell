@@ -469,6 +469,16 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
+        } else if c == b'.'
+            && input.get(curr_offset + 1).is_some_and(|c| *c == b'.')
+            && input.get(curr_offset + 2).is_some_and(|c| *c == b'.')
+        {
+            let start = curr_offset;
+            curr_offset += 3;
+            output.push(Token::new(
+                TokenContents::Item,
+                Span::new(span_offset + start, span_offset + curr_offset),
+            ));
         } else {
             // Otherwise, try to consume an unclassified token.
 
