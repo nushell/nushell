@@ -1144,15 +1144,17 @@ impl Value {
                                 Value::Record { val: record, .. } => {
                                     if let Some(val) = record.get_mut(col_name) {
                                         val.upsert_data_at_cell_path(path, new_val.clone())?;
-                                    } else if path.is_empty() {
-                                        record.push(col_name, new_val);
-                                        break;
                                     } else {
-                                        let mut new_col =
-                                            Value::record(Record::new(), new_val.span());
-                                        new_col.upsert_data_at_cell_path(path, new_val)?;
-                                        vals.push(new_col);
-                                        break;
+                                        let new_col = if path.is_empty() {
+                                            new_val.clone()
+                                        } else {
+                                            let mut new_col =
+                                                Value::record(Record::new(), new_val.span());
+                                            new_col
+                                                .upsert_data_at_cell_path(path, new_val.clone())?;
+                                            new_col
+                                        };
+                                        record.push(col_name, new_col);
                                     }
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
@@ -1177,7 +1179,6 @@ impl Value {
                                 new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-
                             record.push(col_name, new_col);
                         }
                     }
