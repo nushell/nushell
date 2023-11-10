@@ -903,8 +903,6 @@ impl Value {
         let mut current = self;
 
         for member in cell_path {
-            // FIXME: this uses a few extra clones for simplicity, but there may be a way
-            // to traverse the path without them
             match member {
                 PathMember::Int {
                     val: count,
@@ -912,10 +910,13 @@ impl Value {
                     optional,
                 } => {
                     // Treat a numeric path member as `select <val>`
-                    match &mut current {
-                        Value::List { vals, .. } => {
-                            if let Some(item) = vals.get(*count) {
-                                current = item.clone();
+                    match current {
+                        Value::List { mut vals, .. } => {
+                            if *count < vals.len() {
+                                // `vals` is owned and will be dropped right after this,
+                                // so we can `swap_remove` the value at index `count`
+                                // without worrying about preserving order.
+                                current = vals.swap_remove(*count);
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if vals.is_empty() {
@@ -942,8 +943,8 @@ impl Value {
                             }
                         }
                         Value::Range { val, .. } => {
-                            if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
-                                current = item.clone();
+                            if let Some(item) = val.into_range_iter(None)?.nth(*count) {
+                                current = item;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
@@ -992,7 +993,7 @@ impl Value {
                 } => {
                     let span = current.span();
 
-                    match &mut current {
+                    match current {
                         Value::Record { val, .. } => {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
@@ -1002,7 +1003,7 @@ impl Value {
                                     x.0 == column_name
                                 }
                             }) {
-                                current = found.1.clone();
+                                current = found.1.clone(); // TODO: avoid clone here
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) =
@@ -1020,8 +1021,14 @@ impl Value {
                         Value::LazyRecord { val, .. } => {
                             let columns = val.column_names();
 
-                            if columns.contains(&column_name.as_str()) {
-                                current = val.get_column_value(column_name)?;
+                            if let Some(col) = columns.iter().rev().find(|&col| {
+                                if insensitive {
+                                    col.eq_ignore_case(column_name)
+                                } else {
+                                    col == column_name
+                                }
+                            }) {
+                                current = val.get_column_value(col)?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
@@ -1038,39 +1045,44 @@ impl Value {
                         // Create a List which contains each matching value for contained
                         // records in the source list.
                         Value::List { vals, .. } => {
-                            // TODO: this should stream instead of collecting
-                            let mut output = vec![];
-                            for val in vals {
-                                // only look in records; this avoids unintentionally recursing into deeply nested tables
-                                if matches!(val, Value::Record { .. }) {
-                                    if let Ok(result) = val.clone().follow_cell_path(
-                                        &[PathMember::String {
-                                            val: column_name.clone(),
-                                            span: *origin_span,
-                                            optional: *optional,
-                                        }],
-                                        insensitive,
-                                    ) {
-                                        output.push(result);
-                                    } else {
-                                        return Err(ShellError::CantFindColumn {
+                            let list = vals
+                                .into_iter()
+                                .map(|val| {
+                                    let val_span = val.span();
+                                    // only look in records; this avoids unintentionally recursing into deeply nested tables
+                                    match val {
+                                        Value::Record { val, .. } => {
+                                            if let Some(found) = val.iter().rev().find(|x| {
+                                                if insensitive {
+                                                    x.0.eq_ignore_case(column_name)
+                                                } else {
+                                                    x.0 == column_name
+                                                }
+                                            }) {
+                                                Ok(found.1.clone()) // TODO: avoid clone here
+                                            } else if *optional {
+                                                Ok(Value::nothing(*origin_span))
+                                            } else {
+                                                Err(ShellError::CantFindColumn {
+                                                    col_name: column_name.clone(),
+                                                    span: *origin_span,
+                                                    src_span: val_span,
+                                                })
+                                            }
+                                        }
+                                        Value::Nothing { .. } if *optional => {
+                                            Ok(Value::nothing(*origin_span))
+                                        }
+                                        _ => Err(ShellError::CantFindColumn {
                                             col_name: column_name.clone(),
                                             span: *origin_span,
-                                            src_span: val.span(),
-                                        });
+                                            src_span: val_span,
+                                        }),
                                     }
-                                } else if *optional && matches!(val, Value::Nothing { .. }) {
-                                    output.push(Value::nothing(*origin_span));
-                                } else {
-                                    return Err(ShellError::CantFindColumn {
-                                        col_name: column_name.clone(),
-                                        span: *origin_span,
-                                        src_span: val.span(),
-                                    });
-                                }
-                            }
+                                })
+                                .collect::<Result<_, _>>()?;
 
-                            current = Value::list(output, span);
+                            current = Value::list(list, span);
                         }
                         Value::CustomValue { val, .. } => {
                             current = val.follow_path_string(column_name.clone(), *origin_span)?;
