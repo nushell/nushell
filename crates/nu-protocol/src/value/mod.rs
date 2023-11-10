@@ -1540,13 +1540,27 @@ impl Value {
                                                 src_span: v_span,
                                             });
                                         } else {
-                                            return val.insert_data_at_cell_path(
-                                                path, new_val, head_span,
-                                            );
+                                            val.insert_data_at_cell_path(
+                                                path,
+                                                new_val.clone(),
+                                                head_span,
+                                            )?;
                                         }
+                                    } else {
+                                        let new_col = if path.is_empty() {
+                                            new_val.clone()
+                                        } else {
+                                            let mut new_col =
+                                                Value::record(Record::new(), new_val.span());
+                                            new_col.insert_data_at_cell_path(
+                                                path,
+                                                new_val.clone(),
+                                                head_span,
+                                            )?;
+                                            new_col
+                                        };
+                                        record.push(col_name, new_col);
                                     }
-
-                                    record.push(col_name, new_val.clone());
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 _ => {
@@ -1569,11 +1583,22 @@ impl Value {
                                     src_span: v_span,
                                 });
                             } else {
-                                return val.insert_data_at_cell_path(path, new_val, head_span);
+                                val.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
+                        } else {
+                            let new_col = if path.is_empty() {
+                                new_val.clone()
+                            } else {
+                                let mut new_col = Value::record(Record::new(), new_val.span());
+                                new_col.insert_data_at_cell_path(
+                                    path,
+                                    new_val.clone(),
+                                    head_span,
+                                )?;
+                                new_col
+                            };
+                            record.push(col_name, new_col);
                         }
-
-                        record.push(col_name, new_val);
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
