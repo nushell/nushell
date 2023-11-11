@@ -653,6 +653,8 @@ fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -
     let proxy_value: Option<Value> = stack
         .get_env_var(engine_state, "http_proxy")
         .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
+        .or(stack.get_env_var(engine_state, "https_proxy"))
+        .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
         .or(stack.get_env_var(engine_state, "ALL_PROXY"));
     match proxy_value {
         Some(value) => match value.as_string() {
