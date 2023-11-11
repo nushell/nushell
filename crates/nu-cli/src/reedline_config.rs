@@ -616,7 +616,7 @@ fn add_parsed_keybinding(
     let modifier = match keybinding
         .modifier
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "control" => KeyModifiers::CONTROL,
@@ -641,7 +641,7 @@ fn add_parsed_keybinding(
     let keycode = match keybinding
         .keycode
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "backspace" => KeyCode::Backspace,
@@ -728,7 +728,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
     match value {
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
-                value.into_string("", config).to_lowercase().as_str(),
+                value.into_string("", config).to_ascii_lowercase().as_str(),
                 record,
                 config,
                 span,
@@ -736,7 +736,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             .map(Some),
             EventType::Edit(value) => {
                 let edit = edit_from_record(
-                    value.into_string("", config).to_lowercase().as_str(),
+                    value.into_string("", config).to_ascii_lowercase().as_str(),
                     record,
                     config,
                     span,

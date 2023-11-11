@@ -99,7 +99,7 @@ impl Iterator for UpdateCellIterator {
         match self.input.next() {
             Some(val) => {
                 if let Some(ref cols) = self.columns {
-                    if !val.columns().iter().any(|c| cols.contains(c)) {
+                    if !val.columns().any(|c| cols.contains(c)) {
                         return Some(val);
                     }
                 }

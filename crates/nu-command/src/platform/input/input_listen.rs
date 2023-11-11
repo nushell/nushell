@@ -345,9 +345,9 @@ fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
     let (typ, code) = match code {
         KeyCode::F(n) => ("f", n.to_string()),
         KeyCode::Char(c) => ("char", c.to_string()),
-        KeyCode::Media(m) => ("media", format!("{m:?}").to_lowercase()),
-        KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_lowercase()),
-        _ => ("other", format!("{code:?}").to_lowercase()),
+        KeyCode::Media(m) => ("media", format!("{m:?}").to_ascii_lowercase()),
+        KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_ascii_lowercase()),
+        _ => ("other", format!("{code:?}").to_ascii_lowercase()),
     };
     (Value::string(typ, head), Value::string(code, head))
 }
@@ -365,7 +365,7 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
     let parsed_modifiers = ALL_MODIFIERS
         .iter()
         .filter(|m| modifiers.contains(**m))
-        .map(|m| format!("{m:?}").to_lowercase())
+        .map(|m| format!("{m:?}").to_ascii_lowercase())
         .map(|string| Value::string(string, head))
         .collect();
 

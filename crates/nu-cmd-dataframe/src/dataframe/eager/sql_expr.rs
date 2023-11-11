@@ -152,7 +152,7 @@ fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Exp
 fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
     use sqlparser::ast::{FunctionArg, FunctionArgExpr};
     // Function name mostly do not have name space, so it mostly take the first args
-    let function_name = sql_function.name.0[0].value.to_lowercase();
+    let function_name = sql_function.name.0[0].value.to_ascii_lowercase();
     let args = sql_function
         .args
         .iter()

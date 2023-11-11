@@ -7,6 +7,7 @@ use nu_protocol::record;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -153,11 +154,11 @@ fn action(
             match case_insensitive {
                 true => {
                     if *not_contain {
-                        !val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
+                        !val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
                     } else {
-                        val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
+                        val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
                     }
                 }
                 false => {

@@ -170,7 +170,7 @@ impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
         match v {
-            Value::CellPath { val, .. } => Ok(val.into_string()),
+            Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
@@ -187,7 +187,7 @@ impl FromValue for Spanned<String> {
         let span = v.span();
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => val.into_string(),
+                Value::CellPath { val, .. } => val.to_string(),
                 Value::String { val, .. } => val,
                 v => {
                     return Err(ShellError::CantConvert {
