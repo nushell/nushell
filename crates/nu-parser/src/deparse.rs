@@ -36,7 +36,7 @@ pub fn escape_for_script_arg(input: &str) -> String {
         }
     }
 
-    if input.contains(' ') {
+    if input.contains(' ') || (!input.starts_with('$') && input.contains('(')) {
         format!("`{input}`")
     } else if input.contains('"') || input.contains('\\') {
         escape_quote_string(input)
@@ -94,5 +94,19 @@ mod test {
         // check for input arg like this:
         // nu b.nu '"'
         assert_eq!(escape_for_script_arg(r#"""#), r#""\"""#.to_string());
+    }
+
+    #[test]
+    fn test_values_with_brackets() {
+        // check for input arg like this:
+        // nu b.nu test_ver some(thing) $something(else)
+        assert_eq!(
+            escape_for_script_arg("some(thing)"),
+            "`some(thing)`".to_string()
+        );
+        assert_eq!(
+            escape_for_script_arg("$something(else)"),
+            "$something(else)".to_string()
+        );
     }
 }
