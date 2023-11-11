@@ -459,7 +459,7 @@ pub fn evaluate_repl(
                             c
                         })
                         .into_diagnostic()
-                        .unwrap_or_else(|e| report_error_new(&engine_state, e.as_ref()));
+                        .unwrap_or_else(|e| report_error_new(engine_state, e.as_ref()));
                 }
 
                 // Right before we start running the code the user gave us, fire the `pre_execution`
@@ -608,7 +608,7 @@ pub fn evaluate_repl(
                             c
                         })
                         .into_diagnostic()
-                        .unwrap_or_else(|e| report_error_new(&engine_state, e.as_ref()));
+                        .unwrap_or_else(|e| report_error_new(engine_state, e.as_ref()));
                 }
 
                 if shell_integration {
@@ -752,7 +752,7 @@ fn update_line_editor_history(
             line_editor
         }
         Err(e) => {
-            report_error_new(&engine_state, e.as_ref());
+            report_error_new(engine_state, e.as_ref());
             line_editor
         }
     }
