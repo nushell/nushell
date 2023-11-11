@@ -70,7 +70,7 @@ impl Command for Describe {
             Example {
                 description: "Describe the type of a record in a detailed way",
                 example:
-                    "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
+                    "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec), my_range: 12..<2000} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
                     "lazy" => Value::test_bool(false),
@@ -102,11 +102,36 @@ impl Command for Describe {
                             "type" => Value::test_string("closure"),
                             "signature" => Value::test_record(record!(
                                 "name" => Value::test_string(""),
+                                "usage" => Value::test_string(""),
+                                "required_positionals" => Value::test_list(vec![
+                                    Value::test_record(record!(
+                                        "name" => Value::test_string("x"),
+                                        "type" => Value::test_string("any"),
+                                        "default_value" => Value::test_nothing(),
+                                    ))
+                                ]),
+                                "optional_positionals" => Value::test_list(vec![]),
+                                "rest_positional" => Value::test_nothing(),
+                                "named" => Value::test_list(vec![]),
+                                "input_output_types" => Value::test_list(vec![]),
+                                "is_filter" => Value::test_bool(false),
+                                "creates_scope" => Value::test_bool(false),
+                                "allows_unknown_args" => Value::test_bool(false),
                                 "category" => Value::test_string("default"),
                             )),
                         )),
                         "first_commit" => Value::test_string("date"),
                         "my_duration" => Value::test_string("duration"),
+                        "my_range" => Value::test_record(record!(
+                            "type" => Value::test_string("range"),
+                            "from" => Value::test_int(12),
+                            "to" => Value::test_int(2000),
+                            "increment" => Value::test_int(1),
+                            "inclusion" => Value::test_record(record!(
+                                "left" => Value::test_bool(true),
+                                "right" => Value::test_bool(false),
+                            )),
+                        ))
                     )),
                 ))),
             },
@@ -498,10 +523,135 @@ fn metadata_to_value(metadata: Option<Box<PipelineMetadata>>, head: nu_protocol:
 
 #[cfg(test)]
 mod test {
+    use std::collections::HashMap;
+
+    use nu_protocol::{ast::Call, record, LazyRecord, Record, Span, Spanned, Value};
+
+    use rand::{
+        distributions::{Distribution, Standard},
+        Rng,
+    };
+
     #[test]
     fn test_examples() {
         use super::Describe;
         use crate::test_examples;
         test_examples(Describe {})
+    }
+
+    #[derive(Debug, Clone)]
+    struct TestLazyRecord(HashMap<String, Value>);
+
+    impl LazyRecord<'_> for TestLazyRecord {
+        fn column_names(&'_ self) -> Vec<&'_ str> {
+            self.0.keys().map(|x| x.as_str()).collect()
+        }
+
+        fn get_column_value(&self, column: &str) -> Result<Value, nu_protocol::ShellError> {
+            self.0
+                .get(column)
+                .cloned()
+                .ok_or_else(|| nu_protocol::ShellError::CantFindColumn {
+                    col_name: column.to_string(),
+                    span: self.span(),
+                    src_span: self.span(),
+                })
+        }
+
+        fn span(&self) -> nu_protocol::Span {
+            Span::test_data()
+        }
+
+        fn clone_value(&self, span: nu_protocol::Span) -> Value {
+            Value::LazyRecord {
+                val: Box::new(self.clone()),
+                internal_span: span,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone)]
+    enum ValueType {
+        String,
+        Int,
+        Bool,
+    }
+
+    impl Distribution<ValueType> for Standard {
+        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> ValueType {
+            match rng.gen_range(0..=2) {
+                0 => ValueType::String,
+                1 => ValueType::Int,
+                _ => ValueType::Bool,
+            }
+        }
+    }
+
+    fn create_hashmap(size: usize) -> HashMap<String, Value> {
+        let mut map = HashMap::new();
+
+        for i in 0..size {
+            map.insert(
+                format!("column-{}", i),
+                match rand::random() {
+                    ValueType::String => Value::string(format!("string-{}", i), Span::test_data()),
+                    ValueType::Int => Value::int(i as i64, Span::test_data()),
+                    ValueType::Bool => Value::bool(i % 2 == 0, Span::test_data()),
+                },
+            );
+        }
+        map
+    }
+
+    fn create_expected_record(hashmap: HashMap<String, Value>) -> Value {
+        Value::record(
+            Record::from_raw_cols_vals(
+                hashmap.keys().map(|x| x.to_string()).collect(),
+                hashmap
+                    .values()
+                    .map(|x| Value::string(x.get_type().to_string(), Span::test_data()))
+                    .collect(),
+            ),
+            Span::test_data(),
+        )
+    }
+
+    #[test]
+    fn test_lazy_record() {
+        let hashmap = create_hashmap(128);
+        let record = TestLazyRecord(hashmap.clone());
+
+        let mut call = Call::new(Span::test_data());
+        call.add_named((
+            Spanned {
+                item: "collect-lazyrecords".to_string(),
+                span: Span::test_data(),
+            },
+            None,
+            None,
+        ));
+
+        let described = super::describe_value(
+            Value::LazyRecord {
+                val: Box::new(record),
+                internal_span: Span::test_data(),
+            },
+            Span::test_data(),
+            None,
+            &call,
+        )
+        .unwrap();
+
+        assert_eq!(
+            described,
+            Value::record(
+                record!(
+                    "type" => Value::string("record", Span::test_data()),
+                    "lazy" => Value::bool(true, Span::test_data()),
+                    "columns" => create_expected_record(hashmap),
+                ),
+                Span::test_data(),
+            )
+        );
     }
 }
