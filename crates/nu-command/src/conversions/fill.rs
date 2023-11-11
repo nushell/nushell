@@ -143,7 +143,7 @@ fn fill(
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
     let alignment = if let Some(arg) = alignment_arg {
-        match arg.to_lowercase().as_str() {
+        match arg.to_ascii_lowercase().as_str() {
             "l" | "left" => FillAlignment::Left,
             "r" | "right" => FillAlignment::Right,
             "c" | "center" | "m" | "middle" => FillAlignment::Middle,

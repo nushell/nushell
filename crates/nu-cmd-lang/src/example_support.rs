@@ -270,7 +270,7 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 write!(f, "Binary({:?})", val)
             }
             Value::CellPath { val, .. } => {
-                write!(f, "CellPath({:?})", val.into_string())
+                write!(f, "CellPath({:?})", val.to_string())
             }
             Value::CustomValue { val, .. } => {
                 write!(f, "CustomValue({:?})", val)

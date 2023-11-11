@@ -20,8 +20,8 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::get_system_locale;
 use nu_utils::locale::get_system_locale_string;
+use nu_utils::{get_system_locale, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -628,21 +628,17 @@ impl Value {
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
-            Value::Record { val, .. } => val
-                .iter()
-                .find(|(col, _)| col == &name)
-                .map(|(_, val)| val.clone()),
+            Value::Record { val, .. } => val.get(name).cloned(),
             Value::List { vals, .. } => {
-                let mut out = vec![];
-                for item in vals {
-                    match item {
-                        Value::Record { .. } => match item.get_data_by_key(name) {
-                            Some(v) => out.push(v),
-                            None => out.push(Value::nothing(span)),
-                        },
-                        _ => out.push(Value::nothing(span)),
-                    }
-                }
+                let out = vals
+                    .iter()
+                    .map(|item| {
+                        item.as_record()
+                            .ok()
+                            .and_then(|val| val.get(name).cloned())
+                            .unwrap_or(Value::nothing(span))
+                    })
+                    .collect::<Vec<_>>();
 
                 if !out.is_empty() {
                     Some(Value::list(out, span))
@@ -729,7 +725,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern: {:?}>", val),
         }
@@ -784,7 +780,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
         }
@@ -892,7 +888,7 @@ impl Value {
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern {:?}>", val),
         }
@@ -923,23 +919,6 @@ impl Value {
         self,
         cell_path: &[PathMember],
         insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, true)
-    }
-
-    pub fn follow_cell_path_not_from_user_input(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, false)
-    }
-
-    fn follow_cell_path_helper(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-        from_user_input: bool,
     ) -> Result<Value, ShellError> {
         let mut current = self;
 
@@ -1029,7 +1008,7 @@ impl Value {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
                                 if insensitive {
-                                    x.0.to_lowercase() == column_name.to_lowercase()
+                                    x.0.eq_ignore_case(column_name)
                                 } else {
                                     x.0 == column_name
                                 }
@@ -1037,15 +1016,11 @@ impl Value {
                                 current = found.1.clone();
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) =
+                                did_you_mean(val.columns(), column_name)
+                            {
+                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) = did_you_mean(&val.cols, column_name) {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
                                     span: *origin_span,
@@ -1060,15 +1035,9 @@ impl Value {
                                 current = val.get_column_value(column_name)?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.to_string(),
                                     span: *origin_span,
@@ -1424,19 +1393,7 @@ impl Value {
 
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let mut found = false;
-                                        let mut index = 0;
-                                        record.cols.retain_mut(|col| {
-                                            if col == col_name {
-                                                found = true;
-                                                record.vals.remove(index);
-                                                false
-                                            } else {
-                                                index += 1;
-                                                true
-                                            }
-                                        });
-                                        if !found && !optional {
+                                        if record.remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
                                                 col_name: col_name.to_string(),
                                                 span: *span,
@@ -1456,19 +1413,7 @@ impl Value {
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            let mut found = false;
-                            let mut index = 0;
-                            record.cols.retain_mut(|col| {
-                                if col == col_name {
-                                    found = true;
-                                    record.vals.remove(index);
-                                    false
-                                } else {
-                                    index += 1;
-                                    true
-                                }
-                            });
-                            if !found && !optional {
+                            if record.remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: col_name.to_string(),
                                     span: *span,
@@ -1745,11 +1690,13 @@ impl Value {
         matches!(self, Value::Bool { val: false, .. })
     }
 
-    pub fn columns(&self) -> &[String] {
-        match self {
-            Value::Record { val, .. } => &val.cols,
-            _ => &[],
-        }
+    pub fn columns(&self) -> impl Iterator<Item = &String> {
+        let opt = match self {
+            Value::Record { val, .. } => Some(val.columns()),
+            _ => None,
+        };
+
+        opt.into_iter().flatten()
     }
 
     pub fn bool(val: bool, span: Span) -> Value {

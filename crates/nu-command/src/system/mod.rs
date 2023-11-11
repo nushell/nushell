@@ -1,5 +1,4 @@
 mod complete;
-#[cfg(unix)]
 mod exec;
 mod nu_check;
 #[cfg(any(
@@ -16,7 +15,6 @@ mod sys;
 mod which_;
 
 pub use complete::Complete;
-#[cfg(unix)]
 pub use exec::Exec;
 pub use nu_check::NuCheck;
 #[cfg(any(
