@@ -698,16 +698,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "color-backtrace"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "150fd80a270c0671379f388c8204deb6a746bb4eac8a6c03fe2460b2c0127ea0"
-dependencies = [
- "backtrace",
- "termcolor",
-]
-
-[[package]]
 name = "colorchoice"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2658,7 +2648,6 @@ name = "nu"
 version = "0.86.1"
 dependencies = [
  "assert_cmd",
- "color-backtrace",
  "criterion",
  "crossterm 0.27.0",
  "ctrlc",
