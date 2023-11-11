@@ -3707,7 +3707,10 @@ pub fn parse_list_expression(
                                 working_set,
                                 &command.parts,
                                 &mut spans_idx,
-                                &SyntaxShape::List(Box::new(element_shape.clone())),
+                                &SyntaxShape::OneOf(vec![
+                                    SyntaxShape::List(Box::new(element_shape.clone())),
+                                    SyntaxShape::String,
+                                ]),
                             );
                             let elem_ty = match &spread_arg.ty {
                                 Type::List(elem_ty) => *elem_ty.clone(),
