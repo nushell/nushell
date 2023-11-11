@@ -3697,19 +3697,57 @@ pub fn parse_list_expression(
 
             if let LiteElement::Command(_, command) = arg {
                 while spans_idx < command.parts.len() {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &command.parts,
-                        &mut spans_idx,
-                        element_shape,
-                    );
+                    let curr_span = command.parts[spans_idx];
+                    let curr_tok = working_set.get_span_contents(curr_span);
+                    let (arg, ty) = if curr_tok == b"..." {
+                        // Parse the spread operator
+                        spans_idx += 1;
+                        if spans_idx < command.parts.len() {
+                            let spread_arg = parse_multispan_value(
+                                working_set,
+                                &command.parts,
+                                &mut spans_idx,
+                                &SyntaxShape::List(Box::new(element_shape.clone())),
+                            );
+                            let elem_ty = match &spread_arg.ty {
+                                Type::List(elem_ty) => *elem_ty.clone(),
+                                Type::String => Type::String,
+                                _ => Type::Any,
+                            };
+                            let span = Span::new(curr_span.start, spread_arg.span.end);
+                            // TODO should this be None?
+                            let custom_completion = spread_arg.custom_completion;
+                            let spread_expr = Expression {
+                                expr: Expr::Spread(Box::new(spread_arg)),
+                                span,
+                                ty: Type::List(Box::new(elem_ty.clone())),
+                                custom_completion,
+                            };
+                            (spread_expr, elem_ty)
+                        } else {
+                            working_set.error(ParseError::Expected(
+                                "expression after spread operator",
+                                Span::new(end, end),
+                            ));
+                            break;
+                        }
+                    } else {
+                        let arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            element_shape,
+                        );
+                        let ty = arg.ty.clone();
+                        (arg, ty)
+                    };
 
                     if let Some(ref ctype) = contained_type {
-                        if *ctype != arg.ty {
+                        if *ctype != ty {
                             contained_type = Some(Type::Any);
                         }
                     } else {
-                        contained_type = Some(arg.ty.clone());
+                        contained_type = Some(ty);
                     }
 
                     args.push(arg);
