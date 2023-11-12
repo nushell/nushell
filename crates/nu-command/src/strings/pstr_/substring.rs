@@ -65,7 +65,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get part of a string, indexing by \"print positions\". Note that the start is included but the end is excluded."
+        "Get part of a string, indexing by \"screen positions\". Note that the start is included but the end is excluded."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -100,7 +100,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Extract substring from colorized string, counting just print positions (skips ANSI control sequences)",
+                description: "Extract substring from colorized string, counting just screen positions (skips ANSI control sequences)",
                 example: r#"let s = ($"plain(ansi cyan)cyan(ansi red)red(ansi reset)")
     [ $s,
       ($s | pstr substring 5..12)
@@ -110,7 +110,7 @@ impl Command for SubCommand {
                 )
             },
             Example {
-                description: "Extract substring from UTF-8 string containing multibyte characters (counts extended grapheme cluster as 1 print position)",
+                description: "Extract substring from UTF-8 string containing multibyte characters (counts extended grapheme cluster as 1 screen position)",
                 example: " 'こんにちは世界' | pstr substring 5..7",
                 result: Some(Value::test_string("世界")),
             },

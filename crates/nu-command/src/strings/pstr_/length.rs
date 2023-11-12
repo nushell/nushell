@@ -43,7 +43,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Output the rendered length of a string, counting extended grapheme cluster as one \"print position\" and skipping ANSI control sequences."
+        "Output the rendered length of a string, counting extended grapheme cluster as one \"screen position\" and skipping ANSI control sequences."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -78,7 +78,7 @@ impl Command for SubCommand {
                 result: Some(Value::test_int(9)),
             },
             Example {
-                description: "Return the rendered length of a string counting a grapheme cluster as one \"print position\"",
+                description: "Return the rendered length of a string counting a grapheme cluster as one \"screen position\"",
                 example: "'こんにちは世界' | pstr length",
                 result: Some(Value::test_int(7)),
             },
