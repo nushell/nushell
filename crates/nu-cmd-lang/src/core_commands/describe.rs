@@ -311,7 +311,7 @@ fn describe_value(
         ),
         Value::Range { val, .. } => Value::record(
             record!(
-                "type" => Value::string("range", head),
+                "type" => Value::string(Type::Range.to_string(), head),
                 "from" => val.from,
                 "to" => val.to,
                 "increment" => val.incr,
@@ -331,7 +331,7 @@ fn describe_value(
         Value::Record { val, .. } => describe_record(val, head, engine_state, call, false)?,
         Value::List { vals, .. } => Value::record(
             record!(
-                "type" => Value::string("list", head),
+                "type" => Value::string(Type::List(Box::new(Type::Nothing)).get_non_specified_string(), head),
                 "length" => Value::int(vals.len() as i64, head),
                 "values" => Value::list(vals.iter().map(|v|
                     match describe_value(v.clone(), head, engine_state, call) {
@@ -342,16 +342,17 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Block { val, .. }
+        Value::Block { val: block_id, .. }
         | Value::Closure {
-            val: Closure { block_id: val, .. },
+            val: Closure { block_id, .. },
             ..
         } => {
-            let block = engine_state.map(|engine_state| engine_state.get_block(val));
+            let block = engine_state.map(|engine_state| engine_state.get_block(block_id));
+
+            let mut record = Record::new();
+            record.push("type", Value::string(value.get_type().to_string(), head));
 
             if let Some(block) = block {
-                let mut record = Record::new();
-                record.push("type", Value::string(value.get_type().to_string(), head));
                 record.push(
                     "signature",
                     Value::record(
@@ -403,33 +404,26 @@ fn describe_value(
                         head,
                     ),
                 );
-                Value::record(record, head)
-            } else {
-                Value::record(
-                    record!(
-                        "type" => Value::string("closure", head),
-                    ),
-                    head,
-                )
             }
+            Value::record(record, head)
         }
         Value::Error { error, .. } => Value::record(
             record!(
-                "type" => Value::string("error", head),
-                "subtype" => Value::string(error.as_ref().as_ref(), head),
+                "type" => Value::string(Type::Error.to_string(), head),
+                "error_type" => Value::string(error.as_ref().as_ref(), head),
             ),
             head,
         ),
         Value::Binary { val, .. } => Value::record(
             record!(
-                "type" => Value::string("binary", head),
+                "type" => Value::string(Type::Binary.to_string(), head),
                 "length" => Value::int(val.len() as i64, head),
             ),
             head,
         ),
         Value::CellPath { val, .. } => Value::record(
             record!(
-                "type" => Value::string("cellpath", head),
+                "type" => Value::string(Type::CellPath.to_string(), head),
                 "members" => Value::list(val.members.iter().map(|x|
                     match x {
                         nu_protocol::ast::PathMember::Int {val, ..} => Value::record(record!(
@@ -463,7 +457,7 @@ fn describe_value(
             } else {
                 Value::record(
                     record!(
-                        "type" => Value::string("record", head),
+                        "type" => Value::string(Type::Record(vec![]).get_non_specified_string(), head),
                         "lazy" => Value::bool(true, head),
                         "length" => Value::int(val.column_names().len() as i64, head)
                     ),
@@ -501,7 +495,7 @@ fn describe_record(
     }
     Ok(Value::record(
         record!(
-            "type" => Value::string("record", head),
+            "type" => Value::string(Type::Record(vec![]).get_non_specified_string(), head),
             "lazy" => Value::bool(is_lazy, head),
             "columns" => Value::record(record, head),
         ),
