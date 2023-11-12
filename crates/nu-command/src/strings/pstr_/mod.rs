@@ -1,8 +1,10 @@
 mod length;
 mod substring;
+mod fill;
 
 pub use length::SubCommand as PstrLength;
 pub use substring::SubCommand as PstrSubstring;
+pub use fill::PstrFill;
 
 use nu_engine::get_full_help;
 use nu_protocol::{
