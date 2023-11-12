@@ -93,6 +93,9 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 };
                                 new_columns.push(cv.clone());
                             }
+                            Value::CellPath { val, .. } => {
+                                new_columns.push(val);
+                            }
                             y => {
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
@@ -178,6 +181,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                 description: "Select columns by a provided list of columns",
                 example: "let cols = [name type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select $cols",
                 result: None
+            },
+            Example {
+                description: "Select columns by a provided list of columns",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ["name", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")})],
+                ))
             },
             Example {
                 description: "Select rows by a provided list of rows",
