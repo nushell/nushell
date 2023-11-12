@@ -114,7 +114,6 @@ impl Command for PstrFill {
                 example: r#"$"(ansi cyan)cyan(ansi reset)" | pstr fill --alignment m --character '─' --width 8"#,
                 result: Some(Value::string("──\u{1b}[36mcyan\u{1b}[0m──", Span::test_data())),
             },
-            
             Example {
                 description:
                     "Convert number to decimal string, right aligned, pad to 5 characters with leading zeros",
