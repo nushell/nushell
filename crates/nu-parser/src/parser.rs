@@ -3134,7 +3134,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The = symbol separates a variable from its default value
                 else if contents == b"=" {
                     match parse_mode {
-                        ParseMode::ArgMode | ParseMode::TypeMode => {
+                        ParseMode::TypeMode => {
+                            arg_explicit_type = true;
+                            parse_mode = ParseMode::DefaultValueMode;
+                        }
+                        ParseMode::ArgMode => {
                             parse_mode = ParseMode::DefaultValueMode;
                         }
                         ParseMode::AfterCommaArgMode => {
@@ -3445,7 +3449,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         *arg = Some(syntax_shape);
                                     }
                                 }
-                                arg_explicit_type = true;
                             }
                             parse_mode = ParseMode::ArgMode;
                         }

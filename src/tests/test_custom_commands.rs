@@ -85,13 +85,27 @@ fn custom_switch2() -> TestResult {
 fn custom_switch3() -> TestResult {
     run_test(
         r#"def florb [
-            --age: int = 0,
+            --age: int = 0
             --name = "foobar"
         ] { 
             ($age | into string) + $name
-        };
+        }
         florb"#,
         "0foobar",
+    )
+}
+
+#[test]
+fn custom_switch4() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int
+            --name = "foobar"
+        ] {
+            ($age | into string) + $name
+        }
+        florb --age 3"#,
+        "3foobar",
     )
 }
 
