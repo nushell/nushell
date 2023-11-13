@@ -3564,6 +3564,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
+                            // after setting a default value, we'll go to new parameter
+                            // so `arg_explicit_type` should be false again.
+                            arg_explicit_type = false;
                             parse_mode = ParseMode::ArgMode;
                         }
                     }
