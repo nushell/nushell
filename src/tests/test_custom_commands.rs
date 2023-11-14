@@ -84,16 +84,29 @@ fn custom_switch2() -> TestResult {
 #[test]
 fn custom_switch3() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run=false"#,
-        "bar",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=false"#,
+        "false",
     )
 }
 
 #[test]
 fn custom_switch4() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run=true"#,
-        "foo",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=true"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_switch5() -> TestResult {
+    run_test(r#"def florb [ --dry-run ] { $dry_run }; florb"#, "false")
+}
+
+#[test]
+fn custom_switch6() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run"#,
+        "true",
     )
 }
 
