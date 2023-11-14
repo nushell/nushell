@@ -1,14 +1,18 @@
+// todo: (refactoring) limit get_config() usage to 1 call
+//        overall reduce the redundant calls to StyleComputer etc.
+//        the goal is to configure it once...
+
 use lscolors::{LsColors, Style};
 use nu_color_config::color_from_hex;
 use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
-use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
     PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_protocol::{record, TableMode};
 use nu_table::common::create_nu_table_config;
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
@@ -16,6 +20,7 @@ use nu_table::{
 };
 use nu_utils::get_ls_colors;
 use std::io::IsTerminal;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 use std::{path::PathBuf, sync::atomic::AtomicBool};
@@ -65,7 +70,12 @@ impl Command for Table {
                 "row number to start viewing from",
                 Some('n'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
+            .named(
+                "theme",
+                SyntaxShape::String,
+                "set a table mode/theme",
+                Some('t'),
+            )
             .named(
                 "width",
                 SyntaxShape::Int,
@@ -111,15 +121,8 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list_themes: bool = call.has_flag("list");
         let cfg = parse_table_config(call, engine_state, stack)?;
         let input = CmdInput::new(engine_state, stack, call, input);
-
-        // if list argument is present we just need to return a list of supported table themes
-        if list_themes {
-            let val = Value::list(supported_table_modes(), Span::test_data());
-            return Ok(val.into_pipeline_data());
-        }
 
         // reset vt processing, aka ansi because illbehaved externals can break it
         #[cfg(windows)]
@@ -188,6 +191,7 @@ struct TableConfig {
     row_offset: usize,
     table_view: TableView,
     term_width: usize,
+    theme: TableMode,
     abbreviation: Option<usize>,
 }
 
@@ -196,6 +200,7 @@ impl TableConfig {
         row_offset: usize,
         table_view: TableView,
         term_width: usize,
+        theme: TableMode,
         abbreviation: Option<usize>,
     ) -> Self {
         Self {
@@ -203,6 +208,7 @@ impl TableConfig {
             table_view,
             term_width,
             abbreviation,
+            theme,
         }
     }
 }
@@ -232,11 +238,29 @@ fn parse_table_config(
             flatten_separator,
         },
     };
+    let theme =
+        get_theme_flag(call, state, stack)?.unwrap_or_else(|| get_config(state, stack).table_mode);
 
     let term_width = get_width_param(width_param);
-    let cfg = TableConfig::new(row_offset, table_view, term_width, abbrivation);
+    let cfg = TableConfig::new(row_offset, table_view, term_width, theme, abbrivation);
 
     Ok(cfg)
+}
+
+fn get_theme_flag(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Option<TableMode>, ShellError> {
+    call.get_flag(state, stack, "theme")?
+        .map(|theme: String| TableMode::from_str(&theme))
+        .transpose()
+        .map_err(|err| ShellError::CantConvert {
+            to_type: String::from("theme"),
+            from_type: String::from("string"),
+            span: Span::unknown(),
+            help: Some(String::from(err)),
+        })
 }
 
 struct CmdInput<'a> {
@@ -366,7 +390,16 @@ fn handle_record(
     }
 
     let indent = (config.table_indent.left, config.table_indent.right);
-    let opts = TableOpts::new(&config, styles, ctrlc, span, 0, cfg.term_width, indent);
+    let opts = TableOpts::new(
+        &config,
+        styles,
+        ctrlc,
+        span,
+        0,
+        cfg.term_width,
+        indent,
+        cfg.theme,
+    );
     let result = build_table_kv(record, cfg.table_view, opts, span)?;
 
     let result = match result {
@@ -660,6 +693,7 @@ impl PagingTableCreator {
             self.cfg.row_offset,
             self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
+            self.cfg.theme,
         )
     }
 
@@ -858,7 +892,7 @@ fn create_empty_placeholder(
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_nu_table_config(&config, style_computer, &out, false);
+    let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::default());
 
     out.table
         .draw(config, termwidth)
@@ -908,26 +942,4 @@ where
     out.extend(tail.iter().cloned());
 
     out
-}
-
-fn supported_table_modes() -> Vec<Value> {
-    vec![
-        Value::test_string("basic"),
-        Value::test_string("compact"),
-        Value::test_string("compact_double"),
-        Value::test_string("default"),
-        Value::test_string("heavy"),
-        Value::test_string("light"),
-        Value::test_string("none"),
-        Value::test_string("reinforced"),
-        Value::test_string("rounded"),
-        Value::test_string("thin"),
-        Value::test_string("with_love"),
-        Value::test_string("psql"),
-        Value::test_string("markdown"),
-        Value::test_string("dots"),
-        Value::test_string("restructured"),
-        Value::test_string("ascii_rounded"),
-        Value::test_string("basic_compact"),
-    ]
 }

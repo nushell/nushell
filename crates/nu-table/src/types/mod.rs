@@ -8,7 +8,7 @@ pub use collapse::CollapsedTable;
 pub use expanded::ExpandedTable;
 pub use general::JustTable;
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Span};
+use nu_protocol::{Config, Span, TableMode};
 
 use crate::NuTable;
 
@@ -37,9 +37,11 @@ pub struct TableOpts<'a> {
     row_offset: usize,
     width: usize,
     indent: (usize, usize),
+    mode: TableMode,
 }
 
 impl<'a> TableOpts<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         config: &'a Config,
         style_computer: &'a StyleComputer<'a>,
@@ -48,6 +50,7 @@ impl<'a> TableOpts<'a> {
         row_offset: usize,
         width: usize,
         indent: (usize, usize),
+        mode: TableMode,
     ) -> Self {
         Self {
             ctrlc,
@@ -57,6 +60,7 @@ impl<'a> TableOpts<'a> {
             row_offset,
             indent,
             width,
+            mode,
         }
     }
 }

@@ -33,7 +33,7 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
             colorize_space(out.table.get_records_mut(), opts.style_computer);
 
             let table_config =
-                create_nu_table_config(opts.config, opts.style_computer, &out, false);
+                create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
             Ok(out.table.draw(table_config, opts.width))
         }
         None => Ok(None),
@@ -65,7 +65,8 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     let right = opts.config.table_indent.right;
     out.table.set_indent(left, right);
 
-    let table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
+    let table_config =
+        create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
     let table = out.table.draw(table_config, opts.width);
 
     Ok(table)

@@ -41,6 +41,7 @@ fn try_build_map(
         0,
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
+        config.table_mode,
     );
     let result = ExpandedTable::new(None, false, String::new()).build_map(&record, opts);
     match result {
@@ -66,6 +67,7 @@ fn try_build_list(
         0,
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
+        config.table_mode,
     );
     let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts);
     match result {
