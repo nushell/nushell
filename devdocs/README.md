@@ -5,3 +5,5 @@ This is intended to give some immediate guidance to how to navigate the codebase
 A complementary (currently stale) resource has been the [Nushell contributor book](https://www.nushell.sh/contributor-book/), which until further notice contains broader design guidance.
 
 ## Contents
+
+- [Platform support policy](PLATFORM_SUPPORT.md)

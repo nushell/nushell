@@ -19,6 +19,8 @@ Welcome to Nushell and thank you for considering contributing!
 
 More resources can be found in the nascent [developer documentation](devdocs/README.md) in this repo.
 
+- [Platform support policy](PLATFORM_SUPPORT.md)
+
 ## Proposing design changes
 
 First of all, before diving into the code, if you want to create a new feature, change something significantly, and especially if the change is user-facing, it is a good practice to first get an approval from the core team before starting to work on it.
