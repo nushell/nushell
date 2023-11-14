@@ -7,3 +7,4 @@ A complementary (currently stale) resource has been the [Nushell contributor boo
 ## Contents
 
 - [Platform support policy](PLATFORM_SUPPORT.md)
+- [Our Rust style](devdocs/rust_style.md)
