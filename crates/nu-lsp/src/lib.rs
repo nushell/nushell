@@ -74,11 +74,9 @@ impl LanguageServer {
         })
         .expect("Must be serializable");
 
-        // TODO: raise a PR to add ctrlc support otherwise it is impossible to use ctrl-c to quit
-        // the process in the initialization stage
         let _initialization_params = self
             .connection
-            .initialize(server_capabilities)
+            .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
             .into_diagnostic()?;
 
         while !ctrlc.load(Ordering::SeqCst) {
