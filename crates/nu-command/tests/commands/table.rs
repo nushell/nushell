@@ -2812,3 +2812,16 @@ fn table_abbreviation_by_config_override() {
     );
     assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
 }
+
+#[test]
+fn table_theme_arg() {
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light");
+    assert_eq!(actual.out, "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 ");
+
+    let actual = nu!(theme_cmd(
+        "basic",
+        false,
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light"
+    ));
+    assert_eq!(actual.out, "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 ");
+}
