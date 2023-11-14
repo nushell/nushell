@@ -11,7 +11,8 @@ license = "MIT"
 nu-cli = { path = "../nu-cli", version = "0.87.0" }
 nu-parser = { path = "../nu-parser", version = "0.87.0" }
 nu-protocol = { path = "../nu-protocol", version = "0.87.0" }
-reedline = { version = "0.25" }
+
+reedline = { version = "0.26" }
 
 lsp-types = "0.94.1"
 lsp-server = "0.7.4"
