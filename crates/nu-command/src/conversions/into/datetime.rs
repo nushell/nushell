@@ -443,7 +443,8 @@ fn list_human_readable_examples(span: Span) -> Value {
         .map(|s| {
             Value::record(
                 record! {
-                    "parseable human datetime examples" => Value::test_string(s.to_string())
+                    "parseable human datetime examples" => Value::test_string(s.to_string()),
+                    "result" => action(&Value::test_string(s.to_string()), &Arguments { zone_options: None, format_options: None, cell_paths: None }, span)
                 },
                 span,
             )
