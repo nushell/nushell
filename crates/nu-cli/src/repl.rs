@@ -108,16 +108,8 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    let config = engine_state.get_config();
-    if config.bracketed_paste {
-        // try to enable bracketed paste
-        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
-        #[cfg(not(target_os = "windows"))]
-        let _ = line_editor.enable_bracketed_paste();
-    }
-
     // Setup history_isolation aka "history per session"
-    let history_isolation = config.history_isolation;
+    let history_isolation = engine_state.get_config().history_isolation;
     let history_session_id = if history_isolation {
         Reedline::create_history_session_id()
     } else {
@@ -182,12 +174,8 @@ pub fn evaluate_repl(
         );
     }
 
-    if engine_state.get_config().use_kitty_protocol {
-        if line_editor.can_use_kitty_protocol() {
-            line_editor.enable_kitty_protocol();
-        } else {
-            warn!("Terminal doesn't support use_kitty_protocol config");
-        }
+    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
+        warn!("Terminal doesn't support use_kitty_protocol config");
     }
 
     loop {
@@ -261,6 +249,10 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
 
         line_editor = line_editor
+            .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
+            // try to enable bracketed paste
+            // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+            .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
                 config: config.clone(),
@@ -590,10 +582,6 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                         false,
                     );
-                    if engine_state.get_config().bracketed_paste {
-                        #[cfg(not(target_os = "windows"))]
-                        let _ = line_editor.enable_bracketed_paste();
-                    }
                 }
                 let cmd_duration = start_time.elapsed();
 
