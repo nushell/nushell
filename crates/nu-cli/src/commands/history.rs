@@ -54,6 +54,7 @@ impl Command for History {
 
             let mut history_path = config_path;
             history_path.push("nushell");
+            let history_dir = history_path.clone();
             match engine_state.config.history_file_format {
                 HistoryFileFormat::Sqlite => {
                     history_path.push("history.sqlite3");
@@ -64,9 +65,30 @@ impl Command for History {
             }
 
             if clear {
-                let _ = std::fs::remove_file(history_path);
-                // TODO: FIXME also clear the auxiliary files when using sqlite
-                Ok(PipelineData::empty())
+                let mut files_to_remove = Vec::from([history_path.clone()]);
+                if let HistoryFileFormat::Sqlite = engine_state.config.history_file_format {
+                    files_to_remove.extend_from_slice(&[
+                        history_dir.join("history.sqlite3-shm"),
+                        history_dir.join("history.sqlite3-wal"),
+                    ])
+                }
+                let (number_errors, message) = files_to_remove
+                    .iter()
+                    .filter_map(|file| std::fs::remove_file(file).err().map(|err| (file, err)))
+                    .fold(
+                        (0, String::default()),
+                        |(number_errors, message), (file, err)| {
+                            (
+                                number_errors + 1,
+                                format!("Failed to remove file {file:?}: {err}\n{message}"),
+                            )
+                        },
+                    );
+                if number_errors == 0 {
+                    Ok(PipelineData::empty())
+                } else {
+                    Err(ShellError::IOError(message.trim().to_string()))
+                }
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
                     match engine_state.config.history_file_format {
