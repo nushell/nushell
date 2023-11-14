@@ -265,9 +265,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             match parse_date_from_string(&input_val.item, input_val.span) {
                 Ok(date) => return Value::date(date, input_val.span),
                 Err(_) => {
-                    // Let's try human-date-parser second
-                    match from_human_time(&input_val.item) {
-                        Ok(date) => match date {
+                    if let Ok(date) = from_human_time(&input_val.item) {
+                        match date {
                             ParseResult::Date(date) => {
                                 let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
                                 let combined = date.and_time(time);
@@ -275,7 +274,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                     combined,
                                     *Local::now().offset(),
                                 );
-
                                 return Value::date(dt_fixed, input_val.span);
                             }
                             ParseResult::DateTime(date) => {
@@ -290,9 +288,6 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 );
                                 return Value::date(dt_fixed, input_val.span);
                             }
-                        },
-                        _ => {
-                            // Don't error out here so we can keep on trying other things below
                         }
                     }
                 }
