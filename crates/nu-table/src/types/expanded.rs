@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{Config, Record, ShellError, Span, Value};
 use tabled::grid::config::Position;
 
 use crate::{
@@ -12,7 +12,9 @@ use crate::{
         nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
         NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
     },
-    string_width, NuTable, NuTableCell, TableOpts, TableOutput,
+    string_width,
+    types::has_index,
+    NuTable, NuTableCell, TableOpts, TableOutput,
 };
 
 #[derive(Debug, Clone)]
@@ -82,11 +84,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
     let headers = get_columns(input);
 
-    let with_index = match cfg.opts.config.table_index_mode {
-        TableIndexMode::Always => true,
-        TableIndexMode::Never => false,
-        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
-    };
+    let with_index = has_index(&cfg.opts, &headers);
+    let row_offset = cfg.opts.index_offset;
 
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
@@ -114,7 +113,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Err(*error.clone());
             }
 
-            let index = row + cfg.opts.row_offset;
+            let index = row + row_offset;
             let text = item
                 .as_record()
                 .ok()

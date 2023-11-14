@@ -65,16 +65,16 @@ impl Command for Table {
             .input_output_types(vec![(Type::Any, Type::Any)])
             // TODO: make this more precise: what turns into string and what into raw stream
             .named(
-                "start-number",
-                SyntaxShape::Int,
-                "row number to start viewing from",
-                Some('n'),
-            )
-            .named(
                 "theme",
                 SyntaxShape::String,
                 "set a table mode/theme",
                 Some('t'),
+            )
+            .named(
+                "index",
+                SyntaxShape::Any,
+                "set or set off a index mode/theme",
+                Some('i'),
             )
             .named(
                 "width",
@@ -182,13 +182,33 @@ impl Command for Table {
                     }),
                 ])),
             },
+            Example {
+                description: "Change a theme",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
+                result: None,
+            },
+            Example {
+                description: "Force a show of an index",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i"#,
+                result: None,
+            },
+            Example {
+                description: "Set an index to start from a value",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
+                result: None,
+            },
+            Example {
+                description: "Remove an index",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
+                result: None,
+            },
         ]
     }
 }
 
 #[derive(Debug, Clone)]
 struct TableConfig {
-    row_offset: usize,
+    index: Option<usize>,
     table_view: TableView,
     term_width: usize,
     theme: TableMode,
@@ -197,14 +217,14 @@ struct TableConfig {
 
 impl TableConfig {
     fn new(
-        row_offset: usize,
         table_view: TableView,
         term_width: usize,
         theme: TableMode,
         abbreviation: Option<usize>,
+        index: Option<usize>,
     ) -> Self {
         Self {
-            row_offset,
+            index,
             table_view,
             term_width,
             abbreviation,
@@ -218,8 +238,6 @@ fn parse_table_config(
     state: &EngineState,
     stack: &mut Stack,
 ) -> Result<TableConfig, ShellError> {
-    let start_num: Option<i64> = call.get_flag(state, stack, "start-number")?;
-    let row_offset = start_num.unwrap_or_default() as usize;
     let width_param: Option<i64> = call.get_flag(state, stack, "width")?;
     let expand: bool = call.has_flag("expand");
     let expand_limit: Option<usize> = call.get_flag(state, stack, "expand-deep")?;
@@ -240,11 +258,53 @@ fn parse_table_config(
     };
     let theme =
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| get_config(state, stack).table_mode);
+    let index = get_index_flag(call, state, stack)?;
 
     let term_width = get_width_param(width_param);
-    let cfg = TableConfig::new(row_offset, table_view, term_width, theme, abbrivation);
+    let cfg = TableConfig::new(table_view, term_width, theme, abbrivation, index);
 
     Ok(cfg)
+}
+
+fn get_index_flag(
+    call: &Call,
+    state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Option<usize>, ShellError> {
+    let index: Option<Value> = call.get_flag(state, stack, "index")?;
+    let value = match index {
+        Some(value) => value,
+        None => return Ok(Some(0)),
+    };
+
+    match value {
+        Value::Bool { val, .. } => {
+            if val {
+                Ok(Some(0))
+            } else {
+                Ok(None)
+            }
+        }
+        Value::Int { val, internal_span } => {
+            if val < 0 {
+                Err(ShellError::UnsupportedInput {
+                    msg: String::from("got a negative integer"),
+                    input: val.to_string(),
+                    msg_span: Span::unknown(),
+                    input_span: internal_span,
+                })?
+            } else {
+                Ok(Some(val as usize))
+            }
+        }
+        Value::Nothing { .. } => Ok(Some(0)),
+        _ => Err(ShellError::CantConvert {
+            to_type: String::from("index"),
+            from_type: String::new(),
+            span: Span::unknown(),
+            help: Some(String::from("supported values: [bool, int, nothing]")),
+        })?,
+    }
 }
 
 fn get_theme_flag(
@@ -395,10 +455,11 @@ fn handle_record(
         styles,
         ctrlc,
         span,
-        0,
         cfg.term_width,
         indent,
         cfg.theme,
+        cfg.index.unwrap_or(0),
+        cfg.index.is_none(),
     );
     let result = build_table_kv(record, cfg.table_view, opts, span)?;
 
@@ -614,6 +675,7 @@ struct PagingTableCreator {
     elements_displayed: usize,
     reached_end: bool,
     cfg: TableConfig,
+    row_offset: usize,
 }
 
 impl PagingTableCreator {
@@ -634,6 +696,7 @@ impl PagingTableCreator {
             cfg,
             elements_displayed: 0,
             reached_end: false,
+            row_offset: 0,
         }
     }
 
@@ -690,10 +753,11 @@ impl PagingTableCreator {
             style_comp,
             self.ctrlc.clone(),
             self.head,
-            self.cfg.row_offset,
             self.cfg.term_width,
             (cfg.table_indent.left, cfg.table_indent.right),
             self.cfg.theme,
+            self.cfg.index.unwrap_or(0) + self.row_offset,
+            self.cfg.index.is_none(),
         )
     }
 
@@ -804,7 +868,7 @@ impl Iterator for PagingTableCreator {
 
         let table = self.build_table(batch);
 
-        self.cfg.row_offset += idx;
+        self.row_offset += idx;
 
         let config = get_config(&self.engine_state, &self.stack);
         convert_table_to_output(table, &config, &self.ctrlc, self.cfg.term_width)
