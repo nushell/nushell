@@ -3080,15 +3080,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
         ArgMode,
         AfterCommaArgMode,
         TypeMode,
-        AfterTypeMode,
         DefaultValueMode,
     }
 
     #[derive(Debug)]
     enum Arg {
-        Positional { arg: PositionalArg, required: bool }, // bool - required
+        Positional {
+            arg: PositionalArg,
+            required: bool,
+            type_annotated: bool,
+        },
         RestPositional(PositionalArg),
-        Flag { flag: Flag },
+        Flag {
+            flag: Flag,
+            type_annotated: bool,
+        },
     }
 
     let source = working_set.get_span_contents(span);
@@ -3106,7 +3112,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::ArgMode;
-    let mut arg_explicit_type = false;
 
     for token in &output {
         match token {
@@ -3126,9 +3131,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                         ParseMode::AfterCommaArgMode => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
-                        ParseMode::TypeMode
-                        | ParseMode::DefaultValueMode
-                        | ParseMode::AfterTypeMode => {
+                        ParseMode::TypeMode | ParseMode::DefaultValueMode => {
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
@@ -3138,10 +3141,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 else if contents == b"=" {
                     match parse_mode {
                         ParseMode::TypeMode | ParseMode::ArgMode => {
-                            parse_mode = ParseMode::DefaultValueMode;
-                        }
-                        ParseMode::AfterTypeMode => {
-                            arg_explicit_type = true;
                             parse_mode = ParseMode::DefaultValueMode;
                         }
                         ParseMode::AfterCommaArgMode => {
@@ -3156,9 +3155,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                 // The , symbol separates params only
                 else if contents == b"," {
                     match parse_mode {
-                        ParseMode::ArgMode | ParseMode::AfterTypeMode => {
-                            parse_mode = ParseMode::AfterCommaArgMode
-                        }
+                        ParseMode::ArgMode => parse_mode = ParseMode::AfterCommaArgMode,
                         ParseMode::AfterCommaArgMode => {
                             working_set.error(ParseError::Expected("parameter or flag", span));
                         }
@@ -3169,12 +3166,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             working_set.error(ParseError::Expected("default value", span));
                         }
                     }
-                    arg_explicit_type = false;
                 } else {
                     match parse_mode {
-                        ParseMode::ArgMode
-                        | ParseMode::AfterCommaArgMode
-                        | ParseMode::AfterTypeMode => {
+                        ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
                             if contents.starts_with(b"--") && contents.len() > 2 {
                                 // Split the long flag from the short flag with the ( character as delimiter.
@@ -3213,6 +3207,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             var_id: Some(var_id),
                                             default_value: None,
                                         },
+                                        type_annotated: false,
                                     });
                                 } else if flags.len() >= 3 {
                                     working_set.error(ParseError::Expected(
@@ -3273,6 +3268,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 var_id: Some(var_id),
                                                 default_value: None,
                                             },
+                                            type_annotated: false,
                                         });
                                     } else {
                                         working_set.error(ParseError::Expected("short flag", span));
@@ -3314,6 +3310,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         var_id: Some(var_id),
                                         default_value: None,
                                     },
+                                    type_annotated: false,
                                 });
                                 parse_mode = ParseMode::ArgMode;
                             }
@@ -3338,7 +3335,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
                                 if chars.len() == 1 {
                                     match args.last_mut() {
-                                        Some(Arg::Flag { flag }) => {
+                                        Some(Arg::Flag { flag, .. }) => {
                                             if flag.short.is_some() {
                                                 working_set.error(ParseError::Expected(
                                                     "one short flag",
@@ -3381,6 +3378,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         default_value: None,
                                     },
                                     required: false,
+                                    type_annotated: false,
                                 });
                                 parse_mode = ParseMode::ArgMode;
                             }
@@ -3433,6 +3431,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         default_value: None,
                                     },
                                     required: true,
+                                    type_annotated: false,
                                 });
                                 parse_mode = ParseMode::ArgMode;
                             }
@@ -3449,10 +3448,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 match last {
                                     Arg::Positional {
                                         arg: PositionalArg { shape, var_id, .. },
-                                        ..
+                                        required: _,
+                                        type_annotated,
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         *shape = syntax_shape;
+                                        *type_annotated = true;
                                     }
                                     Arg::RestPositional(PositionalArg {
                                         shape, var_id, ..
@@ -3462,13 +3463,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                     Arg::Flag {
                                         flag: Flag { arg, var_id, .. },
+                                        type_annotated,
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         *arg = Some(syntax_shape);
+                                        *type_annotated = true;
                                     }
                                 }
                             }
-                            parse_mode = ParseMode::AfterTypeMode;
+                            parse_mode = ParseMode::ArgMode;
                         }
                         ParseMode::DefaultValueMode => {
                             if let Some(last) = args.last_mut() {
@@ -3485,12 +3488,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 ..
                                             },
                                         required,
+                                        type_annotated,
                                     } => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
                                             Type::Any => {
-                                                if !arg_explicit_type {
+                                                if !*type_annotated {
                                                     working_set.set_variable_type(
                                                         var_id,
                                                         expression.ty.clone(),
@@ -3523,7 +3527,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             None
                                         };
 
-                                        if !arg_explicit_type {
+                                        if !*type_annotated {
                                             *shape = expression.ty.to_shape();
                                         }
                                         *required = false;
@@ -3543,6 +3547,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 default_value,
                                                 ..
                                             },
+                                        type_annotated,
                                     } => {
                                         let expression_span = expression.span;
 
@@ -3565,7 +3570,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         // in the case, `var_type` is any.
                                         match var_type {
                                             Type::Any => {
-                                                if !arg_explicit_type {
+                                                if !*type_annotated {
                                                     *arg = Some(expression_ty.to_shape());
                                                     working_set
                                                         .set_variable_type(var_id, expression_ty);
@@ -3589,9 +3594,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     }
                                 }
                             }
-                            // after setting a default value, we'll go to new parameter
-                            // so `arg_explicit_type` should be false again.
-                            arg_explicit_type = false;
                             parse_mode = ParseMode::ArgMode;
                         }
                     }
@@ -3608,7 +3610,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
                 if let Some(last) = args.last_mut() {
                     match last {
-                        Arg::Flag { flag } => {
+                        Arg::Flag { flag, .. } => {
                             if !flag.desc.is_empty() {
                                 flag.desc.push('\n');
                             }
@@ -3642,6 +3644,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
             Arg::Positional {
                 arg: positional,
                 required,
+                ..
             } => {
                 if required {
                     if !sig.optional_positional.is_empty() {
@@ -3655,7 +3658,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                     sig.optional_positional.push(positional)
                 }
             }
-            Arg::Flag { flag } => sig.named.push(flag),
+            Arg::Flag { flag, .. } => sig.named.push(flag),
             Arg::RestPositional(positional) => {
                 if positional.name.is_empty() {
                     working_set.error(ParseError::RestNeedsName(span))
