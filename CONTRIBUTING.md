@@ -15,6 +15,10 @@ Welcome to Nushell and thank you for considering contributing!
   - [Things we want to get better at](#things-we-want-to-get-better-at)
 - [License](#license)
 
+## Other helpful resources
+
+More resources can be found in the nascent [developer documentation](devdocs/README.md) in this repo.
+
 ## Proposing design changes
 
 First of all, before diving into the code, if you want to create a new feature, change something significantly, and especially if the change is user-facing, it is a good practice to first get an approval from the core team before starting to work on it.
