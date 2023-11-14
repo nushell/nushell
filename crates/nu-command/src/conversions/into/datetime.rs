@@ -1,13 +1,14 @@
 use crate::{generate_strftime_list, parse_date_from_string};
+use chrono::NaiveTime;
 use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -95,6 +96,11 @@ impl Command for SubCommand {
                 "Show all possible variables for use in --format flag",
                 Some('l'),
                 )
+            .switch(
+                "list-human",
+                "Show human-readable datetime parsing examples",
+                Some('n'),
+                )
             .rest(
             "rest",
                 SyntaxShape::CellPath,
@@ -112,6 +118,8 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         if call.has_flag("list") {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
+        } else if call.has_flag("list-human") {
+            Ok(list_human_readable_examples(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
@@ -225,6 +233,21 @@ impl Command for SubCommand {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'Today at 18:30' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'Last Friday at 19:45' | into datetime",
+                result: None,
+            },
+            Example {
+                description: "Parsing human readable datetimes",
+                example: "'In 5 minutes and 30 seconds' | into datetime",
+                result: None,
+            },
         ]
     }
 }
@@ -241,7 +264,38 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         if let Ok(input_val) = input.as_spanned_string() {
             match parse_date_from_string(&input_val.item, input_val.span) {
                 Ok(date) => return Value::date(date, input_val.span),
-                Err(err) => err,
+                Err(_) => {
+                    // Let's try human-date-parser second
+                    match from_human_time(&input_val.item) {
+                        Ok(date) => match date {
+                            ParseResult::Date(date) => {
+                                let time = NaiveTime::from_hms_opt(0, 0, 0).expect("valid time");
+                                let combined = date.and_time(time);
+                                let dt_fixed = DateTime::from_naive_utc_and_offset(
+                                    combined,
+                                    *Local::now().offset(),
+                                );
+
+                                return Value::date(dt_fixed, input_val.span);
+                            }
+                            ParseResult::DateTime(date) => {
+                                return Value::date(date.fixed_offset(), input_val.span)
+                            }
+                            ParseResult::Time(time) => {
+                                let date = Local::now().date_naive();
+                                let combined = date.and_time(time);
+                                let dt_fixed = DateTime::from_naive_utc_and_offset(
+                                    combined,
+                                    *Local::now().offset(),
+                                );
+                                return Value::date(dt_fixed, input_val.span);
+                            }
+                        },
+                        _ => {
+                            // Don't error out here so we can keep on trying other things below
+                        }
+                    }
+                }
             };
         }
     }
@@ -360,6 +414,43 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             head,
         ),
     }
+}
+
+fn list_human_readable_examples(span: Span) -> Value {
+    let examples: Vec<String> = vec![
+        "Today 18:30".into(),
+        "2022-11-07 13:25:30".into(),
+        "15:20 Friday".into(),
+        "This Friday 17:00".into(),
+        "13:25, Next Tuesday".into(),
+        "Last Friday at 19:45".into(),
+        "In 3 days".into(),
+        "In 2 hours".into(),
+        "10 hours and 5 minutes ago".into(),
+        "1 years ago".into(),
+        "A year ago".into(),
+        "A month ago".into(),
+        "A week ago".into(),
+        "A day ago".into(),
+        "An hour ago".into(),
+        "A minute ago".into(),
+        "A second ago".into(),
+        "Now".into(),
+    ];
+
+    let records = examples
+        .iter()
+        .map(|s| {
+            Value::record(
+                record! {
+                    "parseable human datetime examples" => Value::test_string(s.to_string())
+                },
+                span,
+            )
+        })
+        .collect::<Vec<Value>>();
+
+    Value::list(records, span)
 }
 
 #[cfg(test)]
