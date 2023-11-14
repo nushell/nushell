@@ -156,8 +156,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Err(*error.clone());
             }
 
-            let mut inner_cfg = cfg.clone();
-            inner_cfg.opts.width = available_width;
+            let inner_cfg = update_config(cfg.clone(), available_width);
             let (mut text, style) = expanded_table_entry2(item, inner_cfg);
 
             let value_width = string_width(&text);
@@ -244,8 +243,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Err(*error.clone());
             }
 
-            let mut inner_cfg = cfg.clone();
-            inner_cfg.opts.width = available;
+            let inner_cfg = update_config(cfg.clone(), available);
             let (mut text, style) = expanded_table_entry(item, header.as_str(), inner_cfg);
 
             let mut value_width = string_width(&text);
@@ -407,8 +405,7 @@ fn expand_table_value(
     let span = value.span();
     match value {
         Value::List { vals, .. } => {
-            let mut inner_cfg = dive_options(cfg, span);
-            inner_cfg.opts.width = value_width;
+            let inner_cfg = update_config(dive_options(cfg, span), value_width);
             let table = expanded_table_list(vals, inner_cfg)?;
 
             match table {
@@ -438,8 +435,7 @@ fn expand_table_value(
                 )));
             }
 
-            let mut inner_cfg = dive_options(cfg, span);
-            inner_cfg.opts.width = value_width;
+            let inner_cfg = update_config(dive_options(cfg, span), value_width);
             let result = expanded_table_kv(record, inner_cfg)?;
             match result {
                 Some(result) => Ok(Some((result, true))),
@@ -595,4 +591,11 @@ fn value_to_wrapped_string(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> 
 fn value_to_wrapped_string_clean(value: &Value, cfg: &Cfg<'_>, value_width: usize) -> String {
     let text = nu_value_to_string_colored(value, cfg.opts.config, cfg.opts.style_computer);
     wrap_text(&text, value_width, cfg.opts.config)
+}
+
+fn update_config(cfg: Cfg<'_>, width: usize) -> Cfg<'_> {
+    let mut inner_cfg = cfg.clone();
+    inner_cfg.opts.width = width;
+    inner_cfg.opts.row_offset = 0;
+    inner_cfg
 }
