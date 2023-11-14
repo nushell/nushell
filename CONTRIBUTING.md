@@ -67,74 +67,74 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
 
 - Build and run Nushell:
 
-  ```shell
+  ```nushell
   cargo run
   ```
 
 - Build and run with dataframe support.
-  ```shell
+  ```nushell
   cargo run --features=dataframe
   ```
 
 - Run Clippy on Nushell:
 
-  ```shell
+  ```nushell
   cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu clippy
   clippy
   ```
 
 - Run all tests:
 
-  ```shell
+  ```nushell
   cargo test --workspace
   ```
 
   along with dataframe tests
 
-  ```shell
+  ```nushell
   cargo test --workspace --features=dataframe
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu test
   test
   ```
 
 - Run all tests for a specific command
 
-  ```shell
+  ```nushell
   cargo test --package nu-cli --test main -- commands::<command_name_here>
   ```
 
 - Check to see if there are code formatting issues
 
-  ```shell
+  ```nushell
   cargo fmt --all -- --check
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu fmt
   fmt --check
   ```
 
 - Format the code in the project
 
-  ```shell
+  ```nushell
   cargo fmt --all
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu fmt
   fmt
   ```
 
 - Set up `git` hooks to check formatting and run `clippy` before committing and pushing:
 
-  ```shell
+  ```nushell
   use toolkit.nu setup-git-hooks
   setup-git-hooks
   ```
@@ -144,12 +144,12 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
 
 - To view verbose logs when developing, enable the `trace` log level.
 
-  ```shell
+  ```nushell
   cargo run --release -- --log-level trace
   ```
 
 - To redirect trace logs to a file, enable the `--log-target file` switch.
-  ```shell
+  ```nushell
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
