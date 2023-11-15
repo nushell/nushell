@@ -229,30 +229,29 @@ fn match_with_guard_no_expr_after_if() {
 
 #[test]
 fn match_typed_variables_int() {
-    let actual = nu!("match 4 { $s: string => { $s }, $x: int => { $x }, _ => { 0 } }");
+    let actual = nu!("match 4 { $s: string => { 'no' }, $x: int => { 'yes' }, _ => { 'what' } }");
 
-    assert_eq!(actual.out, "4");
+    assert_eq!(actual.out, "yes");
 }
 
 #[test]
 fn match_typed_variables_string() {
-    let actual = nu!("match 'hello' { $s: string => { $s }, $x: int => { $x }, _ => { 0 } }");
+    let actual =
+        nu!("match 'hello' { $s: string => { 'yes' }, $x: int => { 'no' }, _ => { 'what' } }");
 
-    assert_eq!(actual.out, "hello");
+    assert_eq!(actual.out, "yes");
 }
 
 #[test]
 fn match_typed_variables_int_with_guard() {
     let actual = nu!(
-        cwd: ".",
-        "match 12 { $s: string => { $s }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+        "match 12 { $s: string => { 'str' }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
     );
 
     assert_eq!(actual.out, "even");
 
     let actual = nu!(
-        cwd: ".",
-        "match 13 { $s: string => { $s }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+        "match 13 { $s: string => { 'str' }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
     );
 
     assert_eq!(actual.out, "odd");
