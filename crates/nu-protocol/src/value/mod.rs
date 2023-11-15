@@ -977,7 +977,7 @@ impl Value {
                                 span: *origin_span,
                             });
                         }
-                        Value::Error { error, .. } => return Err(*error.clone()),
+                        Value::Error { error, .. } => return Err(*error),
                         x => {
                             return Err(ShellError::IncompatiblePathAccess {
                                 type_name: format!("{}", x.get_type()),
