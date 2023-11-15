@@ -82,6 +82,34 @@ fn custom_switch2() -> TestResult {
 }
 
 #[test]
+fn custom_switch3() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int = 0
+            --name = "foobar"
+        ] { 
+            ($age | into string) + $name
+        }
+        florb"#,
+        "0foobar",
+    )
+}
+
+#[test]
+fn custom_switch4() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int
+            --name = "foobar"
+        ] {
+            ($age | into string) + $name
+        }
+        florb --age 3"#,
+        "3foobar",
+    )
+}
+
+#[test]
 fn simple_var_closing() -> TestResult {
     run_test("let $x = 10; def foo [] { $x }; foo", "10")
 }
