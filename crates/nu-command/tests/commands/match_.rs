@@ -226,3 +226,34 @@ fn match_with_guard_no_expr_after_if() {
 
     assert!(actual.err.contains("Match guard without an expression"));
 }
+
+#[test]
+fn match_typed_variables_int() {
+    let actual = nu!("match 4 { $s: string => { $s }, $x: int => { $x }, _ => { 0 } }");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[test]
+fn match_typed_variables_string() {
+    let actual = nu!("match 'hello' { $s: string => { $s }, $x: int => { $x }, _ => { 0 } }");
+
+    assert_eq!(actual.out, "hello");
+}
+
+#[test]
+fn match_typed_variables_int_with_guard() {
+    let actual = nu!(
+        cwd: ".",
+        "match 12 { $s: string => { $s }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "even");
+
+    let actual = nu!(
+        cwd: ".",
+        "match 13 { $s: string => { $s }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "odd");
+}

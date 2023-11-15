@@ -1581,6 +1581,10 @@ pub fn parse_brace_expr(
         .get(1)
         .map(|token| working_set.get_span_contents(token.span));
 
+    let fifth_token = tokens
+        .get(3)
+        .map(|token| working_set.get_span_contents(token.span));
+
     if second_token.is_none() {
         // If we're empty, that means an empty record or closure
         if matches!(shape, SyntaxShape::Closure(_)) {
@@ -1596,7 +1600,7 @@ pub fn parse_brace_expr(
         || matches!(second_token_contents, Some(TokenContents::PipePipe))
     {
         parse_closure_expression(working_set, shape, span)
-    } else if matches!(third_token, Some(b":")) {
+    } else if matches!(third_token, Some(b":")) && !matches!(fifth_token, Some(b"=>")) {
         parse_full_cell_path(working_set, None, span)
     } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
         parse_closure_expression(working_set, shape, span)
@@ -4015,7 +4019,8 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
     let source = working_set.get_span_contents(inner_span);
 
-    let (output, err) = lex(source, start, &[b' ', b'\r', b'\n', b',', b'|'], &[], false);
+    let (output, err) = lex(source, start, &[b'\r', b'\n', b',', b'|'], &[b':'], false);
+
     if let Some(err) = err {
         working_set.error(err);
     }
@@ -4029,8 +4034,19 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
         working_set.enter_scope();
 
+        let start = output[position].span.start;
+
+        // if next token is ':', then we include it as well as the next token
+        if position + 1 < output.len()
+            && working_set.get_span_contents(output[position + 1].span) == b":"
+        {
+            position += 2;
+        }
+
+        let end = output[position].span.end;
+
         // First parse the pattern
-        let mut pattern = parse_pattern(working_set, output[position].span);
+        let mut pattern = parse_pattern(working_set, Span::new(start, end));
 
         position += 1;
 
@@ -5590,6 +5606,10 @@ pub fn discover_captures_in_pipeline_element(
 pub fn discover_captures_in_pattern(pattern: &MatchPattern, seen: &mut Vec<VarId>) {
     match &pattern.pattern {
         Pattern::Variable(var_id) => seen.push(*var_id),
+        Pattern::Type(_, var_id) => match var_id {
+            Some(var_id) => seen.push(*var_id),
+            None => {}
+        },
         Pattern::List(items) => {
             for item in items {
                 discover_captures_in_pattern(item, seen)

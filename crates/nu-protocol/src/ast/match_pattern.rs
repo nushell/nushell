@@ -1,5 +1,5 @@
 use super::Expression;
-use crate::{Span, VarId};
+use crate::{Span, Type, VarId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -21,6 +21,7 @@ pub enum Pattern {
     List(Vec<MatchPattern>),
     Value(Expression),
     Variable(VarId),
+    Type(Type, Option<VarId>),
     Or(Vec<MatchPattern>),
     Rest(VarId), // the ..$foo pattern
     IgnoreRest,  // the .. pattern
@@ -43,6 +44,11 @@ impl Pattern {
                 }
             }
             Pattern::Variable(var_id) => output.push(*var_id),
+            Pattern::Type(_, var_id) => {
+                if let Some(var_id) = var_id {
+                    output.push(*var_id);
+                }
+            }
             Pattern::Or(patterns) => {
                 for pattern in patterns {
                     output.append(&mut pattern.variables());

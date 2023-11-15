@@ -6,6 +6,7 @@ use nu_protocol::{
 
 use crate::{
     lex, lite_parse,
+    parse_shape_specs::parse_type,
     parser::{is_variable, parse_value},
     LiteElement,
 };
@@ -36,7 +37,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
 
     if bytes.starts_with(b"$") {
         // Variable pattern
-        parse_variable_pattern(working_set, span)
+        parse_opt_typed_variable_pattern(working_set, span)
     } else if bytes.starts_with(b"{") {
         // Record pattern
         parse_record_pattern(working_set, span)
@@ -87,6 +88,80 @@ pub fn parse_variable_pattern(working_set: &mut StateWorkingSet, span: Span) -> 
     } else {
         working_set.error(ParseError::Expected("valid variable name", span));
         garbage(span)
+    }
+}
+
+/// Parse a typed variable pattern, e.g. `$x: int` as well as non-typed variable patterns '$x'.
+pub fn parse_opt_typed_variable_pattern(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+) -> MatchPattern {
+    let bytes = working_set.get_span_contents(span);
+
+    let start = span.start;
+
+    let (output, err) = lex(bytes, start, &[b' ', b'\n', b'\r'], &[b':'], true);
+    if let Some(err) = err {
+        working_set.error(err);
+        return garbage(span);
+    }
+
+    let mut iter = output.into_iter();
+    let Some(var_token) = iter.next() else {
+        working_set.error(ParseError::Expected("variable", span));
+        return garbage(span);
+    };
+
+    let var_name = working_set.get_span_contents(var_token.span).to_vec();
+
+    if !is_variable(working_set.get_span_contents(var_token.span)) {
+        working_set.error(ParseError::Expected("variable", var_token.span));
+        return garbage(span);
+    }
+
+    let var_id =
+        if let Some(var_id) = working_set.find_variable_in_current_frame(var_name.as_slice()) {
+            var_id
+        } else {
+            working_set.add_variable(
+                working_set.get_span_contents(var_token.span).to_vec(),
+                var_token.span,
+                Type::Any,
+                false,
+            )
+        };
+
+    let Some(colon_token) = iter.next() else {
+        return MatchPattern {
+            pattern: Pattern::Variable(var_id),
+            guard: None,
+            span,
+        };
+    };
+
+    let colon = working_set.get_span_contents(colon_token.span);
+    if colon != b":" {
+        working_set.error(ParseError::Mismatch(
+            ":".to_string(),
+            String::from_utf8_lossy(colon).to_string(),
+            colon_token.span,
+        ));
+        return garbage(span);
+    }
+
+    let Some(type_token) = iter.next() else {
+        working_set.error(ParseError::Expected("type", span));
+        return garbage(span);
+    };
+
+    let type_name = working_set.get_span_contents(type_token.span).to_vec();
+
+    let typ = parse_type(working_set, type_name.as_slice(), span);
+
+    MatchPattern {
+        pattern: Pattern::Type(typ, Some(var_id)),
+        guard: None,
+        span,
     }
 }
 
