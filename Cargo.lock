@@ -2312,8 +2312,7 @@ dependencies = [
 [[package]]
 name = "lsp-server"
 version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b52dccdf3302eefab8c8a1273047f0a3c3dca4b527c8458d00c09484c8371928"
+source = "git+https://github.com/schrieveslaach/rust-analyzer.git?branch=cancelable-initialization#f95d538d3af1eac9266b898c8bed384c1498edfc"
 dependencies = [
  "crossbeam-channel",
  "log",
@@ -2972,6 +2971,7 @@ name = "nu-lsp"
 version = "0.87.1"
 dependencies = [
  "assert-json-diff",
+ "crossbeam-channel",
  "lsp-server",
  "lsp-types",
  "miette",
