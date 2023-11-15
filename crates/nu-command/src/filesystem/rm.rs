@@ -250,7 +250,7 @@ fn rm(
             Ok(files) => {
                 for file in files {
                     match file {
-                        Ok(ref f) => {
+                        Ok(f) => {
                             if !target_exists {
                                 target_exists = true;
                             }
@@ -263,7 +263,9 @@ fn rm(
                                 continue;
                             }
 
-                            all_targets.entry(f.clone()).or_insert_with(|| target.span);
+                            all_targets
+                                .entry(currentdir_path.join(f))
+                                .or_insert_with(|| target.span);
                         }
                         Err(e) => {
                             return Err(ShellError::GenericError(
