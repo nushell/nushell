@@ -3,7 +3,7 @@ use crate::{record, Config, ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
 pub enum TableMode {
     Basic,
     Thin,

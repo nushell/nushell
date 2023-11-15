@@ -1,6 +1,6 @@
 use nu_color_config::TextStyle;
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, TableIndexMode, Value};
+use nu_protocol::{Config, Record, ShellError, Value};
 
 use crate::{
     clean_charset, colorize_space,
@@ -10,6 +10,8 @@ use crate::{
     },
     NuTable, NuTableCell, StringResult, TableOpts, TableOutput, TableResult,
 };
+
+use super::has_index;
 
 pub struct JustTable;
 
@@ -24,7 +26,7 @@ impl JustTable {
 }
 
 fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, ShellError> {
-    match table(input, opts.row_offset, opts.clone())? {
+    match table(input, &opts)? {
         Some(mut out) => {
             let left = opts.config.table_indent.left;
             let right = opts.config.table_indent.right;
@@ -33,7 +35,7 @@ fn create_table(input: &[Value], opts: TableOpts<'_>) -> Result<Option<String>, 
             colorize_space(out.table.get_records_mut(), opts.style_computer);
 
             let table_config =
-                create_nu_table_config(opts.config, opts.style_computer, &out, false);
+                create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
             Ok(out.table.draw(table_config, opts.width))
         }
         None => Ok(None),
@@ -65,23 +67,21 @@ fn kv_table(record: &Record, opts: TableOpts<'_>) -> StringResult {
     let right = opts.config.table_indent.right;
     out.table.set_indent(left, right);
 
-    let table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
+    let table_config =
+        create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
     let table = out.table.draw(table_config, opts.width);
 
     Ok(table)
 }
 
-fn table(input: &[Value], row_offset: usize, opts: TableOpts<'_>) -> TableResult {
+fn table(input: &[Value], opts: &TableOpts<'_>) -> TableResult {
     if input.is_empty() {
         return Ok(None);
     }
 
     let mut headers = get_columns(input);
-    let with_index = match opts.config.table_index_mode {
-        TableIndexMode::Always => true,
-        TableIndexMode::Never => false,
-        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
-    };
+    let with_index = has_index(opts, &headers);
+    let row_offset = opts.index_offset;
 
     let with_header = !headers.is_empty();
     if !with_header {
@@ -112,7 +112,7 @@ fn to_table_with_header(
     headers: Vec<String>,
     with_index: bool,
     row_offset: usize,
-    opts: TableOpts<'_>,
+    opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let count_rows = input.len() + 1;
     let count_columns = headers.len();
@@ -140,7 +140,7 @@ fn to_table_with_header(
 
         let skip_index = usize::from(with_index);
         for (col, header) in headers.iter().enumerate().skip(skip_index) {
-            let (text, style) = get_string_value_with_header(item, header, &opts);
+            let (text, style) = get_string_value_with_header(item, header, opts);
 
             table.insert((row + 1, col), text);
             table.insert_style((row + 1, col), style);
@@ -154,7 +154,7 @@ fn to_table_with_no_header(
     input: &[Value],
     with_index: bool,
     row_offset: usize,
-    opts: TableOpts<'_>,
+    opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
     let mut table = NuTable::new(input.len(), with_index as usize + 1);
     table.set_index_style(get_index_style(opts.style_computer));
@@ -173,7 +173,7 @@ fn to_table_with_no_header(
             table.insert((row, 0), text);
         }
 
-        let (text, style) = get_string_value(item, &opts);
+        let (text, style) = get_string_value(item, opts);
 
         let pos = (row, with_index as usize);
         table.insert(pos, text);
