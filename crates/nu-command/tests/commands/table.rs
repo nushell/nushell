@@ -2849,3 +2849,15 @@ fn table_expand_index_arg() {
     let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic --expand -i 10");
     assert_eq!(actual.out, "+----+---+------------+|  # | a |     b      |+----+---+------------+| 10 | 1 |          2 |+----+---+------------+| 11 | 2 | +----+---+ ||    |   | | 10 | 4 | ||    |   | +----+---+ ||    |   | | 11 | 4 | ||    |   | +----+---+ |+----+---+------------+");
 }
+
+#[test]
+fn table_list() {
+    let actual = nu!("table --list");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
+
+    let actual = nu!("ls | table --list");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
+
+    let actual = nu!("table --list --theme basic");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
+}

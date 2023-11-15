@@ -111,6 +111,7 @@ impl Command for Table {
                 "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
+            .switch("list", "list available table modes/themes", Some('l'))
             .category(Category::Viewers)
     }
 
@@ -121,6 +122,13 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let list_themes: bool = call.has_flag("list");
+        // if list argument is present we just need to return a list of supported table themes
+        if list_themes {
+            let val = Value::list(supported_table_modes(), Span::test_data());
+            return Ok(val.into_pipeline_data());
+        }
+
         let cfg = parse_table_config(call, engine_state, stack)?;
         let input = CmdInput::new(engine_state, stack, call, input);
 
@@ -290,9 +298,9 @@ fn get_index_flag(
                 Err(ShellError::UnsupportedInput {
                     msg: String::from("got a negative integer"),
                     input: val.to_string(),
-                    msg_span: Span::unknown(),
+                    msg_span: call.span(),
                     input_span: internal_span,
-                })?
+                })
             } else {
                 Ok(Some(val as usize))
             }
@@ -301,9 +309,9 @@ fn get_index_flag(
         _ => Err(ShellError::CantConvert {
             to_type: String::from("index"),
             from_type: String::new(),
-            span: Span::unknown(),
+            span: call.span(),
             help: Some(String::from("supported values: [bool, int, nothing]")),
-        })?,
+        }),
     }
 }
 
@@ -318,7 +326,7 @@ fn get_theme_flag(
         .map_err(|err| ShellError::CantConvert {
             to_type: String::from("theme"),
             from_type: String::from("string"),
-            span: Span::unknown(),
+            span: call.span(),
             help: Some(String::from(err)),
         })
 }
@@ -1006,4 +1014,26 @@ where
     out.extend(tail.iter().cloned());
 
     out
+}
+
+fn supported_table_modes() -> Vec<Value> {
+    vec![
+        Value::test_string("basic"),
+        Value::test_string("compact"),
+        Value::test_string("compact_double"),
+        Value::test_string("default"),
+        Value::test_string("heavy"),
+        Value::test_string("light"),
+        Value::test_string("none"),
+        Value::test_string("reinforced"),
+        Value::test_string("rounded"),
+        Value::test_string("thin"),
+        Value::test_string("with_love"),
+        Value::test_string("psql"),
+        Value::test_string("markdown"),
+        Value::test_string("dots"),
+        Value::test_string("restructured"),
+        Value::test_string("ascii_rounded"),
+        Value::test_string("basic_compact"),
+    ]
 }
