@@ -11,6 +11,7 @@ pub enum TableMode {
     Compact,
     WithLove,
     CompactDouble,
+    Default,
     #[default]
     Rounded,
     Reinforced,
@@ -35,6 +36,7 @@ impl FromStr for TableMode {
             "compact" => Ok(Self::Compact),
             "with_love" => Ok(Self::WithLove),
             "compact_double" => Ok(Self::CompactDouble),
+            "default" => Ok(Self::Rounded),
             "rounded" => Ok(Self::Rounded),
             "reinforced" => Ok(Self::Reinforced),
             "heavy" => Ok(Self::Heavy),
@@ -60,6 +62,7 @@ impl ReconstructVal for TableMode {
                 TableMode::Compact => "compact",
                 TableMode::WithLove => "with_love",
                 TableMode::CompactDouble => "compact_double",
+                TableMode::Default => "rounded",
                 TableMode::Rounded => "rounded",
                 TableMode::Reinforced => "reinforced",
                 TableMode::Heavy => "heavy",
