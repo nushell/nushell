@@ -969,9 +969,9 @@ fn get_name(psid: PSID) -> Option<(String, String)> {
         let ret = LookupAccountSidW(
             ptr::null::<u16>() as *mut u16,
             psid,
-            name.as_mut_ptr() as *mut u16,
+            name.as_mut_ptr(),
             &mut cc_name,
-            domainname.as_mut_ptr() as *mut u16,
+            domainname.as_mut_ptr(),
             &mut cc_domainname,
             &mut pe_use,
         );

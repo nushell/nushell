@@ -38,9 +38,11 @@ fn try_build_map(
         style_computer,
         ctrlc,
         Span::unknown(),
-        0,
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
+        config.table_mode,
+        0,
+        false,
     );
     let result = ExpandedTable::new(None, false, String::new()).build_map(&record, opts);
     match result {
@@ -63,10 +65,13 @@ fn try_build_list(
         style_computer,
         ctrlc,
         Span::unknown(),
-        0,
         usize::MAX,
         (config.table_indent.left, config.table_indent.right),
+        config.table_mode,
+        0,
+        false,
     );
+
     let result = ExpandedTable::new(None, false, String::new()).build_list(&vals, opts);
     match result {
         Ok(Some(out)) => out,
