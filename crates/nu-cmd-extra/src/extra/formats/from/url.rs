@@ -1,7 +1,7 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -37,19 +37,11 @@ impl Command for FromUrl {
         vec![Example {
             example: "'bread=baguette&cheese=comt%C3%A9&meat=ham&fat=butter' | from url",
             description: "Convert url encoded string into a record",
-            result: Some(Value::test_record(Record {
-                cols: vec![
-                    "bread".to_string(),
-                    "cheese".to_string(),
-                    "meat".to_string(),
-                    "fat".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("baguette"),
-                    Value::test_string("comté"),
-                    Value::test_string("ham"),
-                    Value::test_string("butter"),
-                ],
+            result: Some(Value::test_record(record! {
+                "bread" =>  Value::test_string("baguette"),
+                "cheese" => Value::test_string("comté"),
+                "meat" =>   Value::test_string("ham"),
+                "fat" =>    Value::test_string("butter"),
             })),
         }]
     }
@@ -69,12 +61,12 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
 
             Ok(PipelineData::Value(Value::record(record, head), metadata))
         }
-        _ => Err(ShellError::UnsupportedInput(
-            "String not compatible with URL encoding".to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "String not compatible with URL encoding".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 

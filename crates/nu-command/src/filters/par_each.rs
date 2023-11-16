@@ -128,7 +128,7 @@ impl Command for ParEach {
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;

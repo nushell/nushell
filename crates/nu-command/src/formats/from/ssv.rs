@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
 
@@ -44,30 +44,28 @@ impl Command for FromSsv {
             example: r#"'FOO   BAR
 1   2' | from ssv"#,
             description: "Converts ssv formatted string to table",
-            result: Some(Value::list(
-                vec![Value::test_record(Record {
-                    cols: vec!["FOO".to_string(), "BAR".to_string()],
-                    vals: vec![Value::test_string("1"), Value::test_string("2")],
+            result: Some(Value::test_list(
+                vec![Value::test_record(record! {
+                    "FOO" => Value::test_string("1"),
+                    "BAR" => Value::test_string("2"),
                 })],
-                Span::test_data(),
             )),
         }, Example {
             example: r#"'FOO   BAR
 1   2' | from ssv --noheaders"#,
             description: "Converts ssv formatted string to table but not treating the first row as column names",
             result: Some(
-                Value::list(
+                Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("FOO"), Value::test_string("BAR")],
+                        Value::test_record(record! {
+                            "column1" => Value::test_string("FOO"),
+                            "column2" => Value::test_string("BAR"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["column1".to_string(), "column2".to_string()],
-                            vals: vec![Value::test_string("1"), Value::test_string("2")],
+                        Value::test_record(record! {
+                            "column1" => Value::test_string("1"),
+                            "column2" => Value::test_string("2"),
                         }),
                     ],
-                    Span::test_data(),
                 )
             ),
         }]

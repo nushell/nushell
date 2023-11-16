@@ -317,6 +317,15 @@ impl<'a> StateWorkingSet<'a> {
         self.num_virtual_paths() - 1
     }
 
+    pub fn get_span_for_filename(&self, filename: &str) -> Option<Span> {
+        let (file_id, ..) = self
+            .files()
+            .enumerate()
+            .find(|(_, (fname, _, _))| fname == filename)?;
+
+        Some(self.get_span_for_file(file_id))
+    }
+
     pub fn get_span_for_file(&self, file_id: usize) -> Span {
         let result = self
             .files()

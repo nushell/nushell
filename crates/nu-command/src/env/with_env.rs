@@ -85,7 +85,7 @@ fn with_env(
 
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
     let block = engine_state.get_block(capture_block.block_id);
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
 
     let mut env: HashMap<String, Value> = HashMap::new();
 

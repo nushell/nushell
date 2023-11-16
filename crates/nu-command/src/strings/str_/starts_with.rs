@@ -6,6 +6,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::Spanned;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
     substring: String,
@@ -111,7 +112,7 @@ fn action(
     match input {
         Value::String { val: s, .. } => {
             let starts_with = if *case_insensitive {
-                s.to_lowercase().starts_with(&substring.to_lowercase())
+                s.to_folded_case().starts_with(&substring.to_folded_case())
             } else {
                 s.starts_with(substring)
             };

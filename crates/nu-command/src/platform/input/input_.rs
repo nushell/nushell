@@ -73,12 +73,12 @@ impl Command for Input {
         });
 
         if numchar.item < 1 {
-            return Err(ShellError::UnsupportedInput(
-                "Number of characters to read has to be positive".to_string(),
-                "value originated from here".to_string(),
-                call.head,
-                numchar.span,
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Number of characters to read has to be positive".to_string(),
+                input: "value originated from here".to_string(),
+                msg_span: call.head,
+                input_span: numchar.span,
+            });
         }
 
         if let Some(prompt) = &prompt {

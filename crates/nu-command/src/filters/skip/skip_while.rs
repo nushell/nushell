@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -44,39 +44,35 @@ impl Command for SkipWhile {
             Example {
                 description: "Skip while the element is negative",
                 example: "[-2 0 2 -1] | skip while {|x| $x < 0 }",
-                result: Some(Value::list(
-                    vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(2),
+                    Value::test_int(-1),
+                ])),
             },
             Example {
                 description: "Skip while the element is negative using stored condition",
                 example: "let cond = {|x| $x < 0 }; [-2 0 2 -1] | skip while $cond",
-                result: Some(Value::list(
-                    vec![Value::test_int(0), Value::test_int(2), Value::test_int(-1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(2),
+                    Value::test_int(-1),
+                ])),
             },
             Example {
                 description: "Skip while the field value is negative",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip while {|x| $x.a < 0 }",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(0)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(-1)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(0),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-1),
+                    }),
+                ])),
             },
         ]
     }
@@ -95,7 +91,7 @@ impl Command for SkipWhile {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();

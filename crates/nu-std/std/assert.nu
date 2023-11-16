@@ -28,9 +28,8 @@
 # ```
 # def "assert even" [number: int] {
 #     assert ($number mod 2 == 0) --error-label {
-#         start: (metadata $number).span.start,
-#         end: (metadata $number).span.end,
 #         text: $"($number) is not an even number",
+#         span: (metadata $number).span,
 #     }
 # }
 # ```
@@ -40,13 +39,11 @@ export def main [
     --error-label: record # Label for `error make` if you want to create a custom assert
 ] {
     if $condition { return }
-    let span = (metadata $condition).span
     error make {
         msg: ($message | default "Assertion failed."),
         label: ($error_label | default {
             text: "It is not true.",
-            start: $span.start,
-            end: $span.end
+            span: (metadata $condition).span,
         })
     }
 }
@@ -75,8 +72,7 @@ export def main [
 # ```
 # def "assert not even" [number: int] {
 #     assert not ($number mod 2 == 0) --error-label {
-#         start: (metadata $number).span.start,
-#         end: (metadata $number).span.end,
+#         span: (metadata $number).span,
 #         text: $"($number) is an even number",
 #     }
 # }
@@ -93,8 +89,7 @@ export def not [
             msg: ($message | default "Assertion failed."),
             label: ($error_label | default {
                 text: "It is not false.",
-                start: $span.start,
-                end: $span.end
+                span: $span,
             })
         }
     }
@@ -114,8 +109,7 @@ export def error [
 ] {
     let error_raised = (try { do $code; false } catch { true })
     main ($error_raised) $message --error-label {
-        start: (metadata $code).span.start
-        end: (metadata $code).span.end
+        span: (metadata $code).span
         text: (
             "There were no error during code execution:\n"
          + $"        (view source $code)"
@@ -134,8 +128,10 @@ export def error [
 # > assert equal 1 2 # fails
 export def equal [left: any, right: any, message?: string] {
     main ($left == $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "These are not equal.\n"
          + $"        Left  : '($left | to nuon --raw)'\n"
@@ -155,8 +151,10 @@ export def equal [left: any, right: any, message?: string] {
 # > assert not equal 7 7 # fails
 export def "not equal" [left: any, right: any, message?: string] {
     main ($left != $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: $"These are both '($left | to nuon --raw)'."
     }
 }
@@ -172,8 +170,10 @@ export def "not equal" [left: any, right: any, message?: string] {
 # > assert less or equal 1 0 # fails
 export def "less or equal" [left: any, right: any, message?: string] {
     main ($left <= $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "The condition *left <= right* is not satisfied.\n"
          + $"        Left  : '($left)'\n"
@@ -192,8 +192,10 @@ export def "less or equal" [left: any, right: any, message?: string] {
 # > assert less 1 1 # fails
 export def less [left: any, right: any, message?: string] {
     main ($left < $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "The condition *left < right* is not satisfied.\n"
          + $"        Left  : '($left)'\n"
@@ -212,8 +214,10 @@ export def less [left: any, right: any, message?: string] {
 # > assert greater 2 2 # fails
 export def greater [left: any, right: any, message?: string] {
     main ($left > $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "The condition *left > right* is not satisfied.\n"
          + $"        Left  : '($left)'\n"
@@ -233,8 +237,10 @@ export def greater [left: any, right: any, message?: string] {
 # > assert greater or equal 1 2 # fails
 export def "greater or equal" [left: any, right: any, message?: string] {
     main ($left >= $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "The condition *left < right* is not satisfied.\n"
          + $"        Left  : '($left)'\n"
@@ -254,8 +260,10 @@ alias "core length" = length
 # > assert length [0] 3 # fails
 export def length [left: list, right: int, message?: string] {
     main (($left | core length) == $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             "This does not have the correct length:\n"
          + $"        value    : ($left | to nuon --raw)\n"
@@ -276,8 +284,10 @@ alias "core str contains" = str contains
 # > assert str contains "arst" "k" # fails
 export def "str contains" [left: string, right: string, message?: string] {
     main ($left | core str contains $right) $message --error-label {
-        start: (metadata $left).span.start
-        end: (metadata $right).span.end
+        span: {
+            start: (metadata $left).span.start
+            end: (metadata $right).span.end
+        }
         text: (
             $"This does not contain '($right)'.\n"
           + $"        value: ($left | to nuon --raw)"

@@ -2,7 +2,7 @@ use ical::parser::vcard::component::*;
 use ical::property::Property;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
+use nu_protocol::{record, PluginExample, ShellError, Span, Value};
 
 pub const CMD_NAME: &str = "from vcf";
 
@@ -32,12 +32,12 @@ pub fn from_vcf_call(call: &EvaluatedCall, input: &Value) -> Result<Value, Label
     let iter = parser.map(move |contact| match contact {
         Ok(c) => contact_to_value(c, head),
         Err(e) => Value::error(
-            ShellError::UnsupportedInput(
-                format!("input cannot be parsed as .vcf ({e})"),
-                "value originates from here".into(),
-                head,
-                span,
-            ),
+            ShellError::UnsupportedInput {
+                msg: format!("input cannot be parsed as .vcf ({e})"),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span,
+            },
             span,
         ),
     });
@@ -55,53 +55,27 @@ EMAIL:foo@bar.com
 END:VCARD' | from vcf"
             .into(),
         description: "Converts ics formatted string to table".into(),
-        result: Some(Value::list(
-            vec![Value::test_record(Record {
-                cols: vec!["properties".to_string()],
-                vals: vec![Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("N"),
-                                Value::test_string("Foo"),
-                                Value::nothing(Span::test_data()),
-                            ],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("FN"),
-                                Value::test_string("Bar"),
-                                Value::nothing(Span::test_data()),
-                            ],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec![
-                                "name".to_string(),
-                                "value".to_string(),
-                                "params".to_string(),
-                            ],
-                            vals: vec![
-                                Value::test_string("EMAIL"),
-                                Value::test_string("foo@bar.com"),
-                                Value::nothing(Span::test_data()),
-                            ],
-                        }),
-                    ],
-                    Span::test_data(),
-                )],
-            })],
-            Span::test_data(),
-        )),
+        result: Some(Value::test_list(vec![Value::test_record(record! {
+            "properties" => Value::test_list(
+                vec![
+                    Value::test_record(record! {
+                            "name" =>   Value::test_string("N"),
+                            "value" =>  Value::test_string("Foo"),
+                            "params" => Value::nothing(Span::test_data()),
+                    }),
+                    Value::test_record(record! {
+                            "name" =>   Value::test_string("FN"),
+                            "value" =>  Value::test_string("Bar"),
+                            "params" => Value::nothing(Span::test_data()),
+                    }),
+                    Value::test_record(record! {
+                            "name" =>   Value::test_string("EMAIL"),
+                            "value" =>  Value::test_string("foo@bar.com"),
+                            "params" => Value::nothing(Span::test_data()),
+                    }),
+                ],
+            ),
+        })])),
     }]
 }
 

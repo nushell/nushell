@@ -72,11 +72,10 @@ def create-test-record [] nothing -> record<before-each: string, after-each: str
             valid-annotations
             | get $x.annotation
         }
-        | group-by annotation
-        | transpose key value
-        | update value {|x|
-            $x.value.function_name
-            | if $x.key in ["test", "test-skip"] {
+        | group-by --to-table annotation
+        | update items {|x|
+            $x.items.function_name
+            | if $x.group in ["test", "test-skip"] {
                 $in
             } else {
                 get 0
@@ -95,8 +94,7 @@ def throw-error [error: record] {
         msg: $"(ansi red)($error.msg)(ansi reset)"
         label: {
             text: ($error.label)
-            start: $error.span.start
-            end: $error.span.end
+            span: $error.span
         }
     }
 }

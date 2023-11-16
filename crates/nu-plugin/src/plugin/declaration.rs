@@ -43,6 +43,19 @@ impl Command for PluginDeclaration {
         self.signature.sig.usage.as_str()
     }
 
+    fn extra_usage(&self) -> &str {
+        self.signature.sig.extra_usage.as_str()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .sig
+            .search_terms
+            .iter()
+            .map(|term| term.as_str())
+            .collect()
+    }
+
     fn examples(&self) -> Vec<Example> {
         let mut res = vec![];
         for e in self.signature.examples.iter() {

@@ -41,7 +41,7 @@ impl Command for Explain {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
 
@@ -253,11 +253,11 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         },
         //TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
         Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
