@@ -327,7 +327,7 @@ fn get_theme_flag(
                 to_type: String::from("theme"),
                 from_type: String::from("string"),
                 span: call.span(),
-                help: Some(format!("{}, but found '{}'.", String::from(err), theme)),
+                help: Some(format!("{}, but found '{}'.", err, theme)),
             })
         })
         .transpose()
@@ -966,7 +966,7 @@ fn create_empty_placeholder(
     let out = TableOutput::new(table, false, false);
 
     let style_computer = &StyleComputer::from_config(engine_state, stack);
-    let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::Default);
+    let config = create_nu_table_config(&config, style_computer, &out, false, TableMode::default());
 
     out.table
         .draw(config, termwidth)
