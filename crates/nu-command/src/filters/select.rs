@@ -93,6 +93,9 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 };
                                 new_columns.push(cv.clone());
                             }
+                            Value::CellPath { val, .. } => {
+                                new_columns.push(val);
+                            }
                             y => {
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
@@ -180,6 +183,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                 result: None
             },
             Example {
+                description: "Select columns by a provided list of columns",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ["name", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")})],
+                ))
+            },
+            Example {
                 description: "Select rows by a provided list of rows",
                 example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | select $rows",
                 result: None
@@ -254,7 +266,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.into_string().replace('.', "_"), fetcher);
+                                        record.push(path.to_string().replace('.', "_"), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -284,7 +296,7 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.into_string().replace('.', "_"), result);
+                                    record.push(cell_path.to_string().replace('.', "_"), result);
                                 }
                                 Err(e) => return Err(e),
                             }
@@ -309,7 +321,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.into_string().replace('.', "_"), value);
+                                record.push(path.to_string().replace('.', "_"), value);
                             }
                             Err(e) => return Err(e),
                         }

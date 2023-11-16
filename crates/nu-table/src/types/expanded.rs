@@ -3,17 +3,18 @@ use std::collections::HashMap;
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
-use nu_protocol::{Config, Record, ShellError, Span, TableIndexMode, Value};
+use nu_protocol::{Config, Record, ShellError, Span, Value};
 use tabled::grid::config::Position;
 
 use crate::{
     common::{
-        create_nu_table_config, error_sign, get_header_style, get_index_style,
-        load_theme_from_config, nu_value_to_string, nu_value_to_string_clean,
-        nu_value_to_string_colored, wrap_text, NuText, StringResult, TableResult,
-        INDEX_COLUMN_NAME,
+        create_nu_table_config, error_sign, get_header_style, get_index_style, load_theme,
+        nu_value_to_string, nu_value_to_string_clean, nu_value_to_string_colored, wrap_text,
+        NuText, StringResult, TableResult, INDEX_COLUMN_NAME,
     },
-    string_width, NuTable, NuTableCell, TableOpts, TableOutput,
+    string_width,
+    types::has_index,
+    NuTable, NuTableCell, TableOpts, TableOutput,
 };
 
 #[derive(Debug, Clone)]
@@ -83,11 +84,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 
     let headers = get_columns(input);
 
-    let with_index = match cfg.opts.config.table_index_mode {
-        TableIndexMode::Always => true,
-        TableIndexMode::Never => false,
-        TableIndexMode::Auto => headers.iter().any(|header| header == INDEX_COLUMN_NAME),
-    };
+    let with_index = has_index(&cfg.opts, &headers);
+    let row_offset = cfg.opts.index_offset;
 
     // The header with the INDEX is removed from the table headers since
     // it is added to the natural table index
@@ -115,7 +113,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
                 return Err(*error.clone());
             }
 
-            let index = row + cfg.opts.row_offset;
+            let index = row + row_offset;
             let text = item
                 .as_record()
                 .ok()
@@ -343,7 +341,7 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
 }
 
 fn expanded_table_kv(record: &Record, cfg: Cfg<'_>) -> StringResult {
-    let theme = load_theme_from_config(cfg.opts.config);
+    let theme = load_theme(cfg.opts.mode);
     let key_width = record
         .columns()
         .map(|col| string_width(col))
@@ -556,7 +554,8 @@ fn dive_options<'b>(cfg: &Cfg<'b>, span: Span) -> Cfg<'b> {
 }
 
 fn maybe_expand_table(out: TableOutput, term_width: usize, opts: &TableOpts<'_>) -> StringResult {
-    let mut table_config = create_nu_table_config(opts.config, opts.style_computer, &out, false);
+    let mut table_config =
+        create_nu_table_config(opts.config, opts.style_computer, &out, false, opts.mode);
     let total_width = out.table.total_width(&table_config);
     if total_width < term_width {
         const EXPAND_THRESHOLD: f32 = 0.80;
@@ -577,7 +576,13 @@ fn set_data_styles(table: &mut NuTable, styles: HashMap<Position, TextStyle>) {
 }
 
 fn create_table_cfg(cfg: &Cfg<'_>, out: &TableOutput) -> crate::NuTableConfig {
-    create_nu_table_config(cfg.opts.config, cfg.opts.style_computer, out, false)
+    create_nu_table_config(
+        cfg.opts.config,
+        cfg.opts.style_computer,
+        out,
+        false,
+        cfg.opts.mode,
+    )
 }
 
 fn value_to_string(value: &Value, cfg: &Cfg<'_>) -> String {

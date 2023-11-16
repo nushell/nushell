@@ -279,7 +279,7 @@ pub fn nu_run_test(opts: NuOpts, commands: impl AsRef<str>, with_std: bool) -> O
 
     println!("=== stderr\n{}", err);
 
-    Outcome::new(out, err.into_owned())
+    Outcome::new(out, err.into_owned(), output.status)
 }
 
 pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command: &str) -> Outcome {
@@ -339,7 +339,7 @@ pub fn nu_with_plugin_run_test(cwd: impl AsRef<Path>, plugins: &[&str], command:
 
     println!("=== stderr\n{}", err);
 
-    Outcome::new(out, err.into_owned())
+    Outcome::new(out, err.into_owned(), output.status)
 }
 
 fn escape_quote_string(input: String) -> String {
