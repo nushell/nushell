@@ -187,17 +187,17 @@ impl Command for NuCheck {
             },
             Example {
                 description: "Parse a input file by showing error message",
-                example: "nu-check -d script.nu",
+                example: "nu-check --debug script.nu",
                 result: None,
             },
             Example {
                 description: "Parse an external stream as script by showing error message",
-                example: "open foo.nu | nu-check -d script.nu",
+                example: "open foo.nu | nu-check --debug script.nu",
                 result: None,
             },
             Example {
                 description: "Parse an internal stream as module by showing error message",
-                example: "open module.nu | lines | nu-check -d --as-module module.nu",
+                example: "open module.nu | lines | nu-check --debug --as-module module.nu",
                 result: None,
             },
             Example {
@@ -212,7 +212,7 @@ impl Command for NuCheck {
             },
             Example {
                 description: "Heuristically parse by showing error message",
-                example: "open foo.nu | lines | nu-check -ad",
+                example: "open foo.nu | lines | nu-check --all --debug",
                 result: None,
             },
         ]

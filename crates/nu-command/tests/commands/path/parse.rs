@@ -49,7 +49,7 @@ fn parses_custom_extension_gets_extension() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e tar.gz
+            | path parse --extension tar.gz
             | get extension
         "#
     ));
@@ -63,7 +63,7 @@ fn parses_custom_extension_gets_stem() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e tar.gz
+            | path parse --extension tar.gz
             | get stem
         "#
     ));
@@ -77,7 +77,7 @@ fn parses_ignoring_extension_gets_extension() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e ''
+            | path parse --extension ''
             | get extension
         "#
     ));
@@ -91,7 +91,7 @@ fn parses_ignoring_extension_gets_stem() {
         cwd: "tests", pipeline(
         r#"
             echo 'home/viking/spam.tar.gz'
-            | path parse -e ""
+            | path parse --extension ""
             | get stem
         "#
     ));

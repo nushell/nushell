@@ -117,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
                 result: Some(Value::test_string("ふが")),
             },
         ]
@@ -191,13 +191,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
-            ShellError::UnsupportedInput(
-                "Only string values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.span(),
-            ),
+            ShellError::UnsupportedInput {
+                msg: "Only string values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
             head,
         ),
     }

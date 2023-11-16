@@ -6,7 +6,7 @@ print '-------------------------------------------------------------------'
 
 warning "./scripts/build-all.nu will be deprecated, please use the `toolkit build` command instead"
 
-let repo_root = ($env.CURRENT_FILE | path dirname -n 2)
+let repo_root = ($env.CURRENT_FILE | path dirname --num-levels 2)
 
 def build-nushell [] {
     print $'(char nl)Building nushell'

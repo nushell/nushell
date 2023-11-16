@@ -5,7 +5,7 @@ use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -56,9 +56,9 @@ impl Command for SubCommand {
             Example {
                 description: "Compute the medians of the columns of a table",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: -3 b: 5}] | math median",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(3)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(3),
                 })),
             },
         ]
@@ -107,14 +107,14 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
     match take {
         Pick::Median => {
             let idx = (values.len() as f64 / 2.0).floor() as usize;
-            let out = sorted.get(idx).ok_or_else(|| {
-                ShellError::UnsupportedInput(
-                    "Empty input".to_string(),
-                    "value originates from here".into(),
-                    head,
-                    span,
-                )
-            })?;
+            let out = sorted
+                .get(idx)
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
+                })?;
             Ok(out.clone())
         }
         Pick::MedianAverage => {
@@ -123,25 +123,21 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
 
             let left = sorted
                 .get(idx_start)
-                .ok_or_else(|| {
-                    ShellError::UnsupportedInput(
-                        "Empty input".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
                 })?
                 .clone();
 
             let right = sorted
                 .get(idx_end)
-                .ok_or_else(|| {
-                    ShellError::UnsupportedInput(
-                        "Empty input".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    )
+                .ok_or_else(|| ShellError::UnsupportedInput {
+                    msg: "Empty input".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: span,
                 })?
                 .clone();
 

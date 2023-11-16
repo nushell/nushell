@@ -46,90 +46,62 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Convert from one row table to record",
                 example: "[[value]; [false]] | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::bool(false, span)],
+                result: Some(Value::test_record(record! {
+                    "value" => Value::test_bool(false),
                 })),
             },
             Example {
                 description: "Convert from list to record",
                 example: "[1 2 3] | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
-                    vals: vec![
-                        Value::int(1, span),
-                        Value::int(2, span),
-                        Value::int(3, span),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "0" => Value::test_int(1),
+                    "1" => Value::test_int(2),
+                    "2" => Value::test_int(3),
                 })),
             },
             Example {
                 description: "Convert from range to record",
                 example: "0..2 | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["0".to_string(), "1".to_string(), "2".to_string()],
-                    vals: vec![
-                        Value::int(0, span),
-                        Value::int(1, span),
-                        Value::int(2, span),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "0" => Value::test_int(0),
+                    "1" => Value::test_int(1),
+                    "2" => Value::test_int(2),
                 })),
             },
             Example {
                 description: "convert duration to record (weeks max)",
                 example: "(-500day - 4hr - 5sec) | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "week".into(),
-                        "day".into(),
-                        "hour".into(),
-                        "second".into(),
-                        "sign".into(),
-                    ],
-                    vals: vec![
-                        Value::int(71, span),
-                        Value::int(3, span),
-                        Value::int(4, span),
-                        Value::int(5, span),
-                        Value::string("-", span),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "week" =>   Value::test_int(71),
+                    "day" =>    Value::test_int(3),
+                    "hour" =>   Value::test_int(4),
+                    "second" => Value::test_int(5),
+                    "sign" =>   Value::test_string("-"),
                 })),
             },
             Example {
                 description: "convert record to record",
                 example: "{a: 1, b: 2} | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::int(1, span), Value::int(2, span)],
+                result: Some(Value::test_record(record! {
+                    "a" =>  Value::test_int(1),
+                    "b" =>  Value::test_int(2),
                 })),
             },
             Example {
                 description: "convert date to record",
                 example: "2020-04-12T22:10:57+02:00 | into record",
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "year".into(),
-                        "month".into(),
-                        "day".into(),
-                        "hour".into(),
-                        "minute".into(),
-                        "second".into(),
-                        "timezone".into(),
-                    ],
-                    vals: vec![
-                        Value::int(2020, span),
-                        Value::int(4, span),
-                        Value::int(12, span),
-                        Value::int(22, span),
-                        Value::int(10, span),
-                        Value::int(57, span),
-                        Value::string("+02:00".to_string(), span),
-                    ],
+                result: Some(Value::test_record(record! {
+                    "year" =>     Value::test_int(2020),
+                    "month" =>    Value::test_int(4),
+                    "day" =>      Value::test_int(12),
+                    "hour" =>     Value::test_int(22),
+                    "minute" =>   Value::test_int(10),
+                    "second" =>   Value::test_int(57),
+                    "timezone" => Value::test_string("+02:00"),
                 })),
             },
         ]

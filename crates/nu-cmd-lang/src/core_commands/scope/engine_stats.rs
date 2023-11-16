@@ -15,7 +15,7 @@ impl Command for ScopeEngineStats {
         Signature::build("scope engine-stats")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .category(Category::Filters)
+            .category(Category::Core)
     }
 
     fn usage(&self) -> &str {

@@ -70,8 +70,8 @@ pub(crate) fn read_config_file(
                 get_default_config()
             };
 
-            match answer.to_lowercase().trim() {
-                "y" | "" => {
+            match answer.trim() {
+                "y" | "Y" | "" => {
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{config_file}").is_ok() {
                             let config_type = if is_env_config {

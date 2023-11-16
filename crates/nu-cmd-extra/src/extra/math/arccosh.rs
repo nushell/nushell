@@ -74,12 +74,12 @@ fn operate(value: Value, head: Span) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'arccosh' undefined for values below 1.".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'arccosh' undefined for values below 1.".into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 )
             }

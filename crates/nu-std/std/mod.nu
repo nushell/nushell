@@ -40,39 +40,39 @@ export def --env "path add" [
     ...paths  # the paths to add to $env.PATH.
 ] {
     let span = (metadata $paths).span
-    let paths = ($paths | flatten)
+    let paths = $paths | flatten
 
     if ($paths | is-empty) or ($paths | length) == 0 {
         error make {msg: "Empty input", label: {
             text: "Provide at least one string or a record",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
-    let paths = ($paths | each {|p|
-        if ($p | describe) == "string" {
-            $p
-        } else if ($p | describe | str starts-with "record") {
-            $p | get -i $nu.os-info.name
+    let paths = $paths | each {|p|
+        let p = match ($p | describe | str replace --regex '<.*' '') {
+            "string" => $p,
+            "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
-    })
+
+        $p | path expand
+    }
 
     if null in $paths or ($paths | is-empty) {
         error make {msg: "Empty input", label: {
             text: $"Received a record, that does not contain a ($nu.os-info.name) key",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
     load-env {$path_name: (
         $env
-        | get $path_name
-        | if $append { append $paths }
-        else { prepend $paths }
+            | get $path_name
+            | split row (char esep)
+            | path expand
+            | if $append { append $paths } else { prepend $paths }
     )}
 
     if $ret {
@@ -324,8 +324,7 @@ export def repeat [
             msg: $"(ansi red_bold)invalid_argument(ansi reset)"
             label: {
                 text: $"n should be a positive integer, found ($n)"
-                start: $span.start
-                end: $span.end
+            	span: $span
             }
         }
     }

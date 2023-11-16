@@ -578,7 +578,7 @@ fn fill_modifiers(attrs: &str, style: &mut Style) {
     //
     // since we can combine styles like bold-italic, iterate through the chars
     // and set the bools for later use in the nu_ansi_term::Style application
-    for ch in attrs.to_lowercase().chars() {
+    for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
         match ch {
             'l' => style.is_blink = true,
             'b' => style.is_bold = true,

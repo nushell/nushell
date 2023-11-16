@@ -97,79 +97,49 @@ On Windows, an extra 'prefix' column is added."#
 
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
+        use nu_protocol::record;
+
         vec![
             Example {
                 description: "Parse a single path",
                 example: r"'C:\Users\viking\spam.txt' | path parse",
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "prefix".into(),
-                        "parent".into(),
-                        "stem".into(),
-                        "extension".into(),
-                    ],
-                    vals: vec![
-                        Value::test_string("C:"),
-                        Value::test_string(r"C:\Users\viking"),
-                        Value::test_string("spam"),
-                        Value::test_string("txt"),
-                    ],
+                result: Some(Value::test_record(record! {
+                        "prefix" =>    Value::test_string("C:"),
+                        "parent" =>    Value::test_string(r"C:\Users\viking"),
+                        "stem" =>      Value::test_string("spam"),
+                        "extension" => Value::test_string("txt"),
                 })),
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'C:\Users\viking\spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
+                example: r"'C:\Users\viking\spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"'C:\Users\viking.d' | path parse -e ''",
-                result: Some(Value::test_record(Record {
-                    cols: vec![
-                        "prefix".into(),
-                        "parent".into(),
-                        "stem".into(),
-                        "extension".into(),
-                    ],
-                    vals: vec![
-                        Value::test_string("C:"),
-                        Value::test_string(r"C:\Users"),
-                        Value::test_string("viking.d"),
-                        Value::test_string(""),
-                    ],
+                example: r"'C:\Users\viking.d' | path parse --extension ''",
+                result: Some(Value::test_record(record! {
+                        "prefix" =>    Value::test_string("C:"),
+                        "parent" =>    Value::test_string(r"C:\Users"),
+                        "stem" =>      Value::test_string("viking.d"),
+                        "extension" => Value::test_string(""),
                 })),
             },
             Example {
                 description: "Parse all paths in a list",
                 example: r"[ C:\Users\viking.d C:\Users\spam.txt ] | path parse",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(Record {
-                        cols: vec![
-                            "prefix".into(),
-                            "parent".into(),
-                            "stem".into(),
-                            "extension".into(),
-                        ],
-                        vals: vec![
-                            Value::test_string("C:"),
-                            Value::test_string(r"C:\Users"),
-                            Value::test_string("viking"),
-                            Value::test_string("d"),
-                        ],
+                    Value::test_record(record! {
+                            "prefix" =>    Value::test_string("C:"),
+                            "parent" =>    Value::test_string(r"C:\Users"),
+                            "stem" =>      Value::test_string("viking"),
+                            "extension" => Value::test_string("d"),
                     }),
-                    Value::test_record(Record {
-                        cols: vec![
-                            "prefix".into(),
-                            "parent".into(),
-                            "stem".into(),
-                            "extension".into(),
-                        ],
-                        vals: vec![
-                            Value::test_string("C:"),
-                            Value::test_string(r"C:\Users"),
-                            Value::test_string("spam"),
-                            Value::test_string("txt"),
-                        ],
+                    Value::test_record(record! {
+                            "prefix" =>    Value::test_string("C:"),
+                            "parent" =>    Value::test_string(r"C:\Users"),
+                            "stem" =>      Value::test_string("spam"),
+                            "extension" => Value::test_string("txt"),
                     }),
                 ])),
             },
@@ -178,55 +148,45 @@ On Windows, an extra 'prefix' column is added."#
 
     #[cfg(not(windows))]
     fn examples(&self) -> Vec<Example> {
+        use nu_protocol::record;
+
         vec![
             Example {
                 description: "Parse a path",
                 example: r"'/home/viking/spam.txt' | path parse",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["parent".into(), "stem".into(), "extension".into()],
-                    vals: vec![
-                        Value::test_string("/home/viking"),
-                        Value::test_string("spam"),
-                        Value::test_string("txt"),
-                    ],
+                result: Some(Value::test_record(record! {
+                        "parent" =>    Value::test_string("/home/viking"),
+                        "stem" =>      Value::test_string("spam"),
+                        "extension" => Value::test_string("txt"),
                 })),
             },
             Example {
                 description: "Replace a complex extension",
-                example: r"'/home/viking/spam.tar.gz' | path parse -e tar.gz | upsert extension { 'txt' }",
+                example: r"'/home/viking/spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension",
-                example: r"'/etc/conf.d' | path parse -e ''",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["parent".into(), "stem".into(), "extension".into()],
-                    vals: vec![
-                        Value::test_string("/etc"),
-                        Value::test_string("conf.d"),
-                        Value::test_string(""),
-                    ],
+                example: r"'/etc/conf.d' | path parse --extension ''",
+                result: Some(Value::test_record(record! {
+                        "parent" =>    Value::test_string("/etc"),
+                        "stem" =>      Value::test_string("conf.d"),
+                        "extension" => Value::test_string(""),
                 })),
             },
             Example {
                 description: "Parse all paths in a list",
                 example: r"[ /home/viking.d /home/spam.txt ] | path parse",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(Record {
-                        cols: vec!["parent".into(), "stem".into(), "extension".into()],
-                        vals: vec![
-                            Value::test_string("/home"),
-                            Value::test_string("viking"),
-                            Value::test_string("d"),
-                        ],
+                    Value::test_record(record! {
+                        "parent" =>    Value::test_string("/home"),
+                        "stem" =>      Value::test_string("viking"),
+                        "extension" => Value::test_string("d"),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["parent".into(), "stem".into(), "extension".into()],
-                        vals: vec![
-                            Value::test_string("/home"),
-                            Value::test_string("spam"),
-                            Value::test_string("txt"),
-                        ],
+                    Value::test_record(record! {
+                        "parent" =>    Value::test_string("/home"),
+                        "stem" =>      Value::test_string("spam"),
+                        "extension" => Value::test_string("txt"),
                     }),
                 ])),
             },

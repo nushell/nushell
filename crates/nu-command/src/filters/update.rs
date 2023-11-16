@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -57,42 +57,39 @@ impl Command for Update {
             Example {
                 description: "Update a column value",
                 example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["name".into(), "stars".into()],
-                    vals: vec![Value::test_string("Nushell"), Value::test_int(5)],
+                result: Some(Value::test_record(record! {
+                    "name" =>  Value::test_string("Nushell"),
+                    "stars" => Value::test_int(5),
                 })),
             },
             Example {
                 description: "Use in closure form for more involved updating logic",
                 example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["count".into(), "fruit".into()],
-                        vals: vec![Value::test_int(5), Value::test_string("apple")],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "count" => Value::test_int(5),
+                        "fruit" => Value::test_string("apple"),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Alter each value in the 'authors' column to use a single string instead of a list",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["project".into(), "authors".into()],
-                        vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "project" => Value::test_string("nu"),
+                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "You can also use a simple command to update 'authors' to a single string",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["project".into(), "authors".into()],
-                        vals: vec![Value::test_string("nu"), Value::test_string("Andrés,JT,Yehuda")],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "project" => Value::test_string("nu"),
+                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
                     })],
-                    Span::test_data(),
                 )),
             }
         ]
@@ -122,10 +119,10 @@ fn update(
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
-        let capture_block: Closure = FromValue::from_value(&replacement)?;
+        let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 

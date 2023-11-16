@@ -28,7 +28,11 @@ pub enum BodyType {
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-pub fn http_client(allow_insecure: bool) -> ureq::Agent {
+pub fn http_client(
+    allow_insecure: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> ureq::Agent {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
@@ -38,7 +42,7 @@ pub fn http_client(allow_insecure: bool) -> ureq::Agent {
         .user_agent("nushell")
         .tls_connector(std::sync::Arc::new(tls));
 
-    if let Some(http_proxy) = retrieve_http_proxy_from_env() {
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
         if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
             agent_builder = agent_builder.proxy(proxy);
         }
@@ -56,13 +60,8 @@ pub fn http_parse_url(
     let url = match url::Url::parse(&requested_url) {
         Ok(u) => u,
         Err(_e) => {
-            return Err(ShellError::UnsupportedInput(
-                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-                    .to_string(),
-                format!("value: '{requested_url:?}'"),
-                call.head,
-                span,
-            ));
+            return Err(ShellError::UnsupportedInput { msg: "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+                    .to_string(), input: format!("value: '{requested_url:?}'"), msg_span: call.head, input_span: span });
         }
     };
 
@@ -607,9 +606,12 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
     for (name, values) in headers {
         let is_duplicate = vals.iter().any(|val| {
             if let Value::Record { val, .. } = val {
-                if let Some(Value::String {
-                    val: header_name, ..
-                }) = val.vals.get(0)
+                if let Some((
+                    _col,
+                    Value::String {
+                        val: header_name, ..
+                    },
+                )) = val.get_index(0)
                 {
                     return name == header_name;
                 }
@@ -647,10 +649,18 @@ pub fn request_handle_response_headers(
     }
 }
 
-fn retrieve_http_proxy_from_env() -> Option<String> {
-    std::env::vars()
-        .find(|(key, _)| key == "http_proxy")
-        .or(std::env::vars().find(|(key, _)| key == "HTTP_PROXY"))
-        .or(std::env::vars().find(|(key, _)| key == "ALL_PROXY"))
-        .map(|(_, value)| value)
+fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
+    let proxy_value: Option<Value> = stack
+        .get_env_var(engine_state, "http_proxy")
+        .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
+        .or(stack.get_env_var(engine_state, "https_proxy"))
+        .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
+        .or(stack.get_env_var(engine_state, "ALL_PROXY"));
+    match proxy_value {
+        Some(value) => match value.as_string() {
+            Ok(proxy) => Some(proxy),
+            _ => None,
+        },
+        _ => None,
+    }
 }

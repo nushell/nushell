@@ -2,7 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use std::collections::BTreeSet;
@@ -93,6 +93,9 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 };
                                 new_columns.push(cv.clone());
                             }
+                            Value::CellPath { val, .. } => {
+                                new_columns.push(val);
+                            }
                             y => {
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
@@ -151,20 +154,17 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_string("a")]
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" => Value::test_string("a")
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Select a field in a record",
                 example: "{a: a b: b} | select a",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string()],
-                    vals: vec![Value::test_string("a")]
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_string("a")
                 })),
             },
             Example {
@@ -181,6 +181,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                 description: "Select columns by a provided list of columns",
                 example: "let cols = [name type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select $cols",
                 result: None
+            },
+            Example {
+                description: "Select columns by a provided list of columns",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ["name", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")})],
+                ))
             },
             Example {
                 description: "Select rows by a provided list of rows",
@@ -257,7 +266,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.into_string().replace('.', "_"), fetcher);
+                                        record.push(path.to_string().replace('.', "_"), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -287,7 +296,7 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.into_string().replace('.', "_"), result);
+                                    record.push(cell_path.to_string().replace('.', "_"), result);
                                 }
                                 Err(e) => return Err(e),
                             }
@@ -312,7 +321,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.into_string().replace('.', "_"), value);
+                                record.push(path.to_string().replace('.', "_"), value);
                             }
                             Err(e) => return Err(e),
                         }

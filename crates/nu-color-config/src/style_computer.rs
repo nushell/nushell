@@ -57,15 +57,11 @@ impl<'a> StyleComputer<'a> {
             Some(ComputableStyle::Closure(v)) => {
                 let span = v.span();
                 match v {
-                    Value::Closure {
-                        val: block_id,
-                        captures,
-                        ..
-                    } => {
-                        let block = self.engine_state.get_block(*block_id).clone();
+                    Value::Closure { val, .. } => {
+                        let block = self.engine_state.get_block(val.block_id).clone();
                         // Because captures_to_stack() clones, we don't need to use with_env() here
                         // (contrast with_env() usage in `each` or `do`).
-                        let mut stack = self.stack.captures_to_stack(captures);
+                        let mut stack = self.stack.captures_to_stack(val.captures.clone());
 
                         // Support 1-argument blocks as well as 0-argument blocks.
                         if let Some(var) = block.signature.get_positional(0) {

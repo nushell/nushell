@@ -96,7 +96,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count length using grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str length -g",
+                example: "'🇯🇵ほげ ふが ぴよ' | str length  --grapheme-clusters",
                 result: Some(Value::test_int(9)),
             },
             Example {

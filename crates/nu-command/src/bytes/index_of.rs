@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 struct Arguments {
@@ -95,33 +95,29 @@ impl Command for BytesIndexOf {
             Example {
                 description: "Returns all matched index",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all 0x[33 44]",
-                result: Some(Value::list(
-                    vec![Value::test_int(0), Value::test_int(5), Value::test_int(7)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(5),
+                    Value::test_int(7),
+                ])),
             },
             Example {
                 description: "Returns all matched index, searching from end",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all --end 0x[33 44]",
-                result: Some(Value::list(
-                    vec![Value::test_int(7), Value::test_int(5), Value::test_int(0)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(7),
+                    Value::test_int(5),
+                    Value::test_int(0),
+                ])),
             },
             Example {
                 description: "Returns index of pattern for specific column",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
-                        vals: vec![
-                            Value::test_int(0),
-                            Value::binary(vec![0x14, 0x15, 0x16], Span::test_data()),
-                            Value::test_int(-1),
-                        ],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_int(0),
+                    "ColB" => Value::binary(vec![0x14, 0x15, 0x16], Span::test_data()),
+                    "ColC" => Value::test_int(-1),
+                })])),
             },
         ]
     }

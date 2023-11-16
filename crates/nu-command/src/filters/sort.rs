@@ -2,9 +2,10 @@ use alphanumeric_sort::compare_str;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
-    ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Record, ShellError, Signature, Span, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 
 #[derive(Clone)]
@@ -113,17 +114,18 @@ impl Command for Sort {
             Example {
                 description: "Sort record by key (case-insensitive)",
                 example: "{b: 3, a: 4} | sort",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(4), Value::test_int(3)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(4),
+                    "b" => Value::test_int(3),
                 })),
             },
             Example {
                 description: "Sort record by value",
                 example: "{b: 4, a: 3, c:1} | sort -v",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["c".to_string(), "a".to_string(), "b".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(3), Value::test_int(4)],
+                result: Some(Value::test_record(record! {
+                    "c" => Value::test_int(1),
+                    "a" => Value::test_int(3),
+                    "b" => Value::test_int(4),
                 })),
             },
         ]
@@ -219,14 +221,14 @@ fn sort_record(
             b.0.clone()
         };
 
-        // Convert to lowercase if case-insensitive
+        // Fold case if case-insensitive
         let left = if insensitive {
-            left_res.to_ascii_lowercase()
+            left_res.to_folded_case()
         } else {
             left_res
         };
         let right = if insensitive {
-            right_res.to_ascii_lowercase()
+            right_res.to_folded_case()
         } else {
             right_res
         };
@@ -234,7 +236,7 @@ fn sort_record(
         if natural {
             compare_str(left, right)
         } else {
-            left.partial_cmp(&right).unwrap_or(Ordering::Equal)
+            left.cmp(&right)
         }
     });
 
@@ -253,7 +255,7 @@ pub fn sort(
 ) -> Result<(), ShellError> {
     match vec.first() {
         Some(Value::Record { val, .. }) => {
-            let columns = val.cols.clone();
+            let columns: Vec<String> = val.columns().cloned().collect();
             vec.sort_by(|a, b| process(a, b, &columns, span, insensitive, natural));
         }
         _ => {
@@ -261,28 +263,24 @@ pub fn sort(
                 let span_a = a.span();
                 let span_b = b.span();
                 if insensitive {
-                    let lowercase_left = match a {
-                        Value::String { val, .. } => {
-                            Value::string(val.to_ascii_lowercase(), span_a)
-                        }
+                    let folded_left = match a {
+                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_a),
                         _ => a.clone(),
                     };
 
-                    let lowercase_right = match b {
-                        Value::String { val, .. } => {
-                            Value::string(val.to_ascii_lowercase(), span_b)
-                        }
+                    let folded_right = match b {
+                        Value::String { val, .. } => Value::string(val.to_folded_case(), span_b),
                         _ => b.clone(),
                     };
 
                     if natural {
-                        match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                        match (folded_left.as_string(), folded_right.as_string()) {
                             (Ok(left), Ok(right)) => compare_str(left, right),
                             _ => Ordering::Equal,
                         }
                     } else {
-                        lowercase_left
-                            .partial_cmp(&lowercase_right)
+                        folded_left
+                            .partial_cmp(&folded_right)
                             .unwrap_or(Ordering::Equal)
                     }
                 } else if natural {
@@ -325,23 +323,23 @@ pub fn process(
         let result = if insensitive {
             let span_left = left_res.span();
             let span_right = right_res.span();
-            let lowercase_left = match left_res {
-                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_left),
+            let folded_left = match left_res {
+                Value::String { val, .. } => Value::string(val.to_folded_case(), span_left),
                 _ => left_res,
             };
 
-            let lowercase_right = match right_res {
-                Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), span_right),
+            let folded_right = match right_res {
+                Value::String { val, .. } => Value::string(val.to_folded_case(), span_right),
                 _ => right_res,
             };
             if natural {
-                match (lowercase_left.as_string(), lowercase_right.as_string()) {
+                match (folded_left.as_string(), folded_right.as_string()) {
                     (Ok(left), Ok(right)) => compare_str(left, right),
                     _ => Ordering::Equal,
                 }
             } else {
-                lowercase_left
-                    .partial_cmp(&lowercase_right)
+                folded_left
+                    .partial_cmp(&folded_right)
                     .unwrap_or(Ordering::Equal)
             }
         } else {

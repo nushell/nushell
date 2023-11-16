@@ -65,7 +65,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             },
             Example {
                 description: "Replace characters with HTML entities if they can't be encoded",
-                example: r#""🎈" | encode -i shift-jis"#,
+                example: r#""🎈" | encode --ignore-errors shift-jis"#,
                 result: Some(Value::binary(
                     vec![0x26, 0x23, 0x31, 0x32, 0x37, 0x38, 0x38, 0x30, 0x3b],
                     Span::test_data(),
@@ -113,12 +113,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             }
             // This should be more precise, but due to difficulties in getting spans
             // from PipelineData::ListStream, this is as it is.
-            _ => Err(ShellError::UnsupportedInput(
-                "non-string input".into(),
-                "value originates from here".into(),
-                head,
-                input.span().unwrap_or(head),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "non-string input".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: input.span().unwrap_or(head),
+            }),
         }
     }
 }

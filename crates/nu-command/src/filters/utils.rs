@@ -30,7 +30,7 @@ pub fn boolean_fold(
 
     let block = engine_state.get_block(block_id);
     let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-    let mut stack = stack.captures_to_stack(&capture_block.captures);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
 
     let orig_env_vars = stack.env_vars.clone();
     let orig_env_hidden = stack.env_hidden.clone();

@@ -29,7 +29,7 @@ fn trims() {
 fn error_trim_multiple_chars() {
     let actual = nu!(pipeline(
         r#"
-        echo "does it work now?!" | str trim -c "?!"
+        echo "does it work now?!" | str trim --char "?!"
         "#
     ));
 
@@ -77,6 +77,13 @@ fn downcases() {
 }
 
 #[test]
+fn non_ascii_downcase() {
+    let actual = nu!("'ὈΔΥΣΣΕΎΣ' | str downcase");
+
+    assert_eq!(actual.out, "ὀδυσσεύς");
+}
+
+#[test]
 fn upcases() {
     Playground::setup("str_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -94,6 +101,13 @@ fn upcases() {
 
         assert_eq!(actual.out, "NUSHELL");
     })
+}
+
+#[test]
+fn non_ascii_upcase() {
+    let actual = nu!("'ὀδυσσεύς' | str upcase");
+
+    assert_eq!(actual.out, "ὈΔΥΣΣΕΎΣ");
 }
 
 #[test]

@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -40,35 +40,30 @@ impl Command for TakeUntil {
             Example {
                 description: "Take until the element is positive",
                 example: "[-1 -2 9 1] | take until {|x| $x > 0 }",
-                result: Some(Value::list(
-                    vec![Value::test_int(-1), Value::test_int(-2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(-1),
+                    Value::test_int(-2),
+                ])),
             },
             Example {
                 description: "Take until the element is positive using stored condition",
                 example: "let cond = {|x| $x > 0 }; [-1 -2 9 1] | take until $cond",
-                result: Some(Value::list(
-                    vec![Value::test_int(-1), Value::test_int(-2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(-1),
+                    Value::test_int(-2),
+                ])),
             },
             Example {
                 description: "Take until the field value is positive",
                 example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until {|x| $x.a > 0 }",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(-1)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(-2)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-1),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-2),
+                    }),
+                ])),
             },
         ]
     }
@@ -87,7 +82,7 @@ impl Command for TakeUntil {
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();

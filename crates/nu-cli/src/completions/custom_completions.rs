@@ -5,6 +5,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -79,21 +80,20 @@ impl Completer for CustomCompletion {
             .map(|pd| {
                 let value = pd.into_value(span);
                 match &value {
-                    Value::Record { .. } => {
-                        let completions = value
-                            .get_data_by_key("completions")
+                    Value::Record { val, .. } => {
+                        let completions = val
+                            .get("completions")
                             .and_then(|val| {
                                 val.as_list()
                                     .ok()
                                     .map(|it| map_value_completions(it.iter(), span, offset))
                             })
                             .unwrap_or_default();
-                        let options = value.get_data_by_key("options");
+                        let options = val.get("options");
 
-                        if let Some(Value::Record { .. }) = &options {
-                            let options = options.unwrap_or_default();
+                        if let Some(Value::Record { val: options, .. }) = &options {
                             let should_sort = options
-                                .get_data_by_key("sort")
+                                .get("sort")
                                 .and_then(|val| val.as_bool().ok())
                                 .unwrap_or(false);
 
@@ -103,11 +103,11 @@ impl Completer for CustomCompletion {
 
                             custom_completion_options = Some(CompletionOptions {
                                 case_sensitive: options
-                                    .get_data_by_key("case_sensitive")
+                                    .get("case_sensitive")
                                     .and_then(|val| val.as_bool().ok())
                                     .unwrap_or(true),
                                 positional: options
-                                    .get_data_by_key("positional")
+                                    .get("positional")
                                     .and_then(|val| val.as_bool().ok())
                                     .unwrap_or(true),
                                 sort_by: if should_sort {
@@ -115,9 +115,7 @@ impl Completer for CustomCompletion {
                                 } else {
                                     SortBy::None
                                 },
-                                match_algorithm: match options
-                                    .get_data_by_key("completion_algorithm")
-                                {
+                                match_algorithm: match options.get("completion_algorithm") {
                                     Some(option) => option
                                         .as_string()
                                         .ok()
@@ -156,8 +154,8 @@ fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) ->
                 (true, true) => it.value.as_bytes().starts_with(prefix),
                 (true, false) => it.value.contains(std::str::from_utf8(prefix).unwrap_or("")),
                 (false, positional) => {
-                    let value = it.value.to_lowercase();
-                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_lowercase();
+                    let value = it.value.to_folded_case();
+                    let prefix = std::str::from_utf8(prefix).unwrap_or("").to_folded_case();
                     if positional {
                         value.starts_with(&prefix)
                     } else {

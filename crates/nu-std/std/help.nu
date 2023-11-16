@@ -7,8 +7,7 @@ def throw-error [error: string, msg: string, span: record] {
         msg: ($error | error-fmt)
         label: {
             text: $msg
-            start: $span.start
-            end: $span.end
+            span: $span
         }
     }
 }
@@ -762,11 +761,10 @@ You can also learn more at (ansi default_italic)(ansi light_cyan_underline)https
 
     let span = (metadata $item | get span)
     error make {
-        msg: ("std::help::item_not_found"  | error-fmt)
+        msg: ("std::help::item_not_found" | error-fmt)
         label: {
             text: "item not found"
-            start: $span.start
-            end: $span.end
+            span: $span
         }
     }
 }

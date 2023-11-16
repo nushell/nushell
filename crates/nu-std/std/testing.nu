@@ -43,7 +43,7 @@ def get-annotated [
     | where annotation in (valid-annotations|columns)
     | reject index
     | update item {
-        split column -c ' '
+        split column --collapse-empty ' '
         | get column2.0
     }
     | rename function_name
@@ -72,11 +72,10 @@ def create-test-record [] nothing -> record<before-each: string, after-each: str
             valid-annotations
             | get $x.annotation
         }
-        | group-by annotation
-        | transpose key value
-        | update value {|x|
-            $x.value.function_name
-            | if $x.key in ["test", "test-skip"] {
+        | group-by --to-table annotation
+        | update items {|x|
+            $x.items.function_name
+            | if $x.group in ["test", "test-skip"] {
                 $in
             } else {
                 get 0
@@ -95,8 +94,7 @@ def throw-error [error: record] {
         msg: $"(ansi red)($error.msg)(ansi reset)"
         label: {
             text: ($error.label)
-            start: $error.span.start
-            end: $error.span.end
+            span: $error.span
         }
     }
 }
@@ -143,8 +141,8 @@ def show-pretty-test [indent: int = 4] {
 def run-test [
     test: record
 ] {
-    let test_file_name = (random chars -l 10)
-    let test_function_name = (random chars -l 10)
+    let test_file_name = (random chars --length 10)
+    let test_function_name = (random chars --length 10)
     let rendered_module_path = ({parent: ($test.file|path dirname), stem: $test_file_name, extension: nu}| path join)
 
     let test_function = $"

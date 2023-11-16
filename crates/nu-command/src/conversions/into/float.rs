@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -62,9 +62,8 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to float in table",
                 example: "[[num]; ['5.01']] | into float num",
-                result: Some(Value::test_list(vec![Value::test_record(Record {
-                    cols: vec!["num".to_string()],
-                    vals: vec![Value::test_float(5.01)],
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "num" => Value::test_float(5.01),
                 })])),
             },
             Example {

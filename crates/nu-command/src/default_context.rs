@@ -115,6 +115,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Complete,
             External,
+            Exec,
             NuCheck,
             Sys,
         };
@@ -138,16 +139,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,
             ViewSource,
             ViewSpan,
         };
-
-        #[cfg(unix)]
-        bind_command! { Exec }
 
         #[cfg(windows)]
         bind_command! { RegistryQuery }
@@ -190,6 +187,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrIndexOf,
             StrLength,
             StrReverse,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
@@ -204,6 +202,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Cd,
             Ls,
             Mkdir,
+        UMkdir,
             Mv,
             Cp,
             UCp,
@@ -219,6 +218,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
+            AnsiLink,
             AnsiStrip,
             Clear,
             Du,
@@ -228,6 +228,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Kill,
             Sleep,
             TermSize,
+            Whoami,
         };
 
         // Date

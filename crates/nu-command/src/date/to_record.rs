@@ -3,7 +3,7 @@ use chrono::{DateTime, Datelike, FixedOffset, Local, Timelike};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, PipelineData, Record, ShellError, ShellError::DatetimeParseError,
+    record, Category, Example, PipelineData, ShellError, ShellError::DatetimeParseError,
     ShellError::PipelineEmpty, Signature, Span, Type, Value,
 };
 
@@ -49,56 +49,6 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let example_result_1 = || {
-            let span = Span::test_data();
-            let cols = vec![
-                "year".into(),
-                "month".into(),
-                "day".into(),
-                "hour".into(),
-                "minute".into(),
-                "second".into(),
-                "nanosecond".into(),
-                "timezone".into(),
-            ];
-            let vals = vec![
-                Value::int(2020, span),
-                Value::int(4, span),
-                Value::int(12, span),
-                Value::int(22, span),
-                Value::int(10, span),
-                Value::int(57, span),
-                Value::int(123_000_000, span),
-                Value::string("+02:00", span),
-            ];
-            Some(Value::test_record(Record { cols, vals }))
-        };
-
-        let example_result_2 = || {
-            let span = Span::test_data();
-            let cols = vec![
-                "year".into(),
-                "month".into(),
-                "day".into(),
-                "hour".into(),
-                "minute".into(),
-                "second".into(),
-                "nanosecond".into(),
-                "timezone".into(),
-            ];
-            let vals = vec![
-                Value::int(2020, span),
-                Value::int(4, span),
-                Value::int(12, span),
-                Value::int(22, span),
-                Value::int(10, span),
-                Value::int(57, span),
-                Value::int(0, span),
-                Value::string("+02:00", span),
-            ];
-            Some(Value::test_record(Record { cols, vals }))
-        };
-
         vec![
             Example {
                 description: "Convert the current date into a record.",
@@ -113,12 +63,30 @@ impl Command for SubCommand {
             Example {
                 description: "Convert a date string into a record.",
                 example: "'2020-04-12T22:10:57.123+02:00' | date to-record",
-                result: example_result_1(),
+                result: Some(Value::test_record(record!(
+                        "year" =>       Value::test_int(2020),
+                        "month" =>      Value::test_int(4),
+                        "day" =>        Value::test_int(12),
+                        "hour" =>       Value::test_int(22),
+                        "minute" =>     Value::test_int(10),
+                        "second" =>     Value::test_int(57),
+                        "nanosecond" => Value::test_int(123_000_000),
+                        "timezone" =>   Value::test_string("+02:00"),
+                ))),
             },
             Example {
                 description: "Convert a date into a record.",
                 example: "'2020-04-12 22:10:57 +0200' | into datetime | date to-record",
-                result: example_result_2(),
+                result: Some(Value::test_record(record!(
+                        "year" =>       Value::test_int(2020),
+                        "month" =>      Value::test_int(4),
+                        "day" =>        Value::test_int(12),
+                        "hour" =>       Value::test_int(22),
+                        "minute" =>     Value::test_int(10),
+                        "second" =>     Value::test_int(57),
+                        "nanosecond" => Value::test_int(0),
+                        "timezone" =>   Value::test_string("+02:00"),
+                ))),
             },
         ]
     }
@@ -153,7 +121,13 @@ fn helper(val: Value, head: Span) -> Value {
             parse_date_into_table(n, head)
         }
         Value::Date { val, .. } => parse_date_into_table(val, head),
-        _ => Value::error(DatetimeParseError(val.debug_value(), head), head),
+        _ => Value::error(
+            DatetimeParseError {
+                msg: val.debug_value(),
+                span: head,
+            },
+            head,
+        ),
     }
 }
 
