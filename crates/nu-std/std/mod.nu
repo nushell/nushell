@@ -336,7 +336,7 @@ export def repeat [
     1..$n | each { $item }
 }
 
-# reutrn a null device file.
+# return a null device file.
 #
 # # Examples
 #     run a command and ignore it's stderr output
