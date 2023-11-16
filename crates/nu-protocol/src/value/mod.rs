@@ -1090,7 +1090,7 @@ impl Value {
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
                         }
-                        Value::Error { error, .. } => return Err(*error.clone()),
+                        Value::Error { error, .. } => return Err(*error),
                         x => {
                             return Err(ShellError::IncompatiblePathAccess {
                                 type_name: format!("{}", x.get_type()),
