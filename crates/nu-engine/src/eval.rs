@@ -541,13 +541,6 @@ pub fn eval_expression(
                 match &expr.expr {
                     Expr::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
                         Value::List { mut vals, .. } => output.append(&mut vals),
-                        Value::String { val, internal_span } => {
-                            for c in val.chars() {
-                                // TODO check if Span::unknown() would be more appropriate
-                                // The "split chars" command uses the string's span
-                                output.push(Value::string(c, internal_span));
-                            }
-                        }
                         _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                     },
                     _ => output.push(eval_expression(engine_state, stack, expr)?),

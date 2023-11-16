@@ -281,11 +281,6 @@ pub fn eval_constant(
                 match &expr.expr {
                     Expr::Spread(expr) => match eval_constant(working_set, expr)? {
                         Value::List { mut vals, .. } => output.append(&mut vals),
-                        Value::String { val, internal_span } => {
-                            for c in val.chars() {
-                                output.push(Value::string(c, internal_span));
-                            }
-                        }
                         _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                     },
                     _ => output.push(eval_constant(working_set, expr)?),
