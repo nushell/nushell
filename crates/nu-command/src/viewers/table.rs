@@ -73,7 +73,7 @@ impl Command for Table {
             .named(
                 "index",
                 SyntaxShape::Any,
-                "set or set off a index mode/theme",
+                "enable or disable the #/index column or set the starting index",
                 Some('i'),
             )
             .named(
@@ -90,7 +90,7 @@ impl Command for Table {
             .named(
                 "expand-deep",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place",
+                "an expand limit of recursion which will take place. must be used with expand",
                 Some('d'),
             )
             .switch("flatten", "Flatten simple arrays", None)
@@ -144,7 +144,7 @@ impl Command for Table {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "List the files in current directory, with indexes starting from 1.",
+                description: "List the files in current directory, with indexes starting from 1",
                 example: r#"ls | table --start-number 1"#,
                 result: None,
             },
@@ -191,22 +191,22 @@ impl Command for Table {
                 ])),
             },
             Example {
-                description: "Change a theme",
+                description: "Change the table theme to the specified theme for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table --theme basic"#,
                 result: None,
             },
             Example {
-                description: "Force a show of an index",
-                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i"#,
+                description: "Force showing of the #/index column for a single run",
+                example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i true"#,
                 result: None,
             },
             Example {
-                description: "Set an index to start from a value",
+                description: "Set the starting number of the #/index column for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
                 result: None,
             },
             Example {
-                description: "Remove an index",
+                description: "Force hiding of the #/index column for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i false"#,
                 result: None,
             },
