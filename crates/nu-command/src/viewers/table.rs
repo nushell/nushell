@@ -321,21 +321,16 @@ fn get_theme_flag(
     state: &EngineState,
     stack: &mut Stack,
 ) -> Result<Option<TableMode>, ShellError> {
-    let theme_name = call.get_flag(state, stack, "theme")?;
-    theme_name
-        .clone()
-        .map(|theme: String| TableMode::from_str(&theme))
-        .transpose()
-        .map_err(|err| ShellError::CantConvert {
-            to_type: String::from("theme"),
-            from_type: String::from("string"),
-            span: call.span(),
-            help: Some(format!(
-                "{}, but found '{}'.",
-                String::from(err),
-                theme_name.unwrap_or("".to_string())
-            )),
+    call.get_flag(state, stack, "theme")?
+        .map(|theme: String| {
+            TableMode::from_str(&theme).map_err(|err| ShellError::CantConvert {
+                to_type: String::from("theme"),
+                from_type: String::from("string"),
+                span: call.span(),
+                help: Some(format!("{}, but found '{}'.", err, theme)),
+            })
         })
+        .transpose()
 }
 
 struct CmdInput<'a> {
