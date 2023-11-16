@@ -375,6 +375,21 @@ fn removes_symlink() {
     });
 }
 
+#[test]
+fn removes_file_after_cd() {
+    Playground::setup("rm_after_cd", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("delete.txt")]);
+
+        nu!(
+            cwd: dirs.root(),
+            "let file = 'delete.txt'; cd rm_after_cd; rm $file",
+        );
+
+        let path = dirs.test().join("delete.txt");
+        assert!(!path.exists());
+    })
+}
+
 struct Cleanup<'a> {
     dir_to_clean: &'a Path,
 }
