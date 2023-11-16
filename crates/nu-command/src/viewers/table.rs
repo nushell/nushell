@@ -330,7 +330,7 @@ fn get_theme_flag(
             from_type: String::from("string"),
             span: call.span(),
             help: Some(format!(
-                "{}, Found {}",
+                "{}, but found '{}'.",
                 String::from(err),
                 theme_name.unwrap_or("".to_string())
             )),
