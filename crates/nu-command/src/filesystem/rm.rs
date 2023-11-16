@@ -264,7 +264,7 @@ fn rm(
                             }
 
                             all_targets
-                                .entry(currentdir_path.join(f))
+                                .entry(nu_path::expand_path_with(f, &currentdir_path))
                                 .or_insert_with(|| target.span);
                         }
                         Err(e) => {
