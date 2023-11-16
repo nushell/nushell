@@ -1013,6 +1013,11 @@ pub fn parse_call(
         return garbage(head);
     }
 
+    if working_set.get_span_contents(spans[0]) == b"..." {
+        working_set.error(ParseError::UnexpectedSpread(spans[0]));
+        return garbage(head);
+    }
+
     let mut pos = 0;
     let cmd_start = pos;
     let mut name_spans = vec![];

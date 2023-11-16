@@ -483,6 +483,10 @@ pub enum ParseError {
         #[label("Not allowed here")] Span,
         #[label("...and here")] Option<Span>,
     ),
+
+    #[error("Unexpected spread operator outside list")]
+    #[diagnostic(code(nu::parser::unexpected_spread_operator))]
+    UnexpectedSpread(#[label("Spread operator not allowed here")] Span),
 }
 
 impl ParseError {
@@ -569,6 +573,7 @@ impl ParseError {
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectionInLetMut(s, _) => *s,
+            ParseError::UnexpectedSpread(s) => *s,
         }
     }
 }

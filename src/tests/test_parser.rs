@@ -771,3 +771,8 @@ fn spread_in_list() -> TestResult {
         "1 2 3 4 5 f o o ...bare",
     )
 }
+
+#[test]
+fn spread_outside_list() -> TestResult {
+    fail_test(r#"...$this is not fine"#, "Unexpected spread operator")
+}
