@@ -335,3 +335,16 @@ export def repeat [
 
     1..$n | each { $item }
 }
+
+# reutrn a null device file.
+#
+# # Examples
+#     run a command and ignore it's stderr output
+#     > cat xxx.txt e> (null-device)
+export def null-device []: any -> string {
+    if ((sys).host.name | str downcase) == "windows" {
+        "NUL"
+    } else {
+        "/dev/null"
+    }
+}
