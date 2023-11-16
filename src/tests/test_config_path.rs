@@ -10,7 +10,7 @@ fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
 
 #[cfg(target_os = "windows")]
 fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
-    const VERBATIM_PREFIX: &str = r#"\\?\"#;
+    const VERBATIM_PREFIX: &str = r"\\?\";
     let p = p.as_ref().display().to_string();
     if let Some(stripped) = p.strip_prefix(VERBATIM_PREFIX) {
         stripped.to_string()
