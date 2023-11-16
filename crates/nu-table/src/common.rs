@@ -17,9 +17,10 @@ pub fn create_nu_table_config(
     comp: &StyleComputer,
     out: &TableOutput,
     expand: bool,
+    mode: TableMode,
 ) -> NuTableConfig {
     NuTableConfig {
-        theme: load_theme_from_config(config),
+        theme: load_theme(mode),
         with_footer: with_footer(config, out.with_header, out.table.count_rows()),
         with_index: out.with_index,
         with_header: out.with_header,
@@ -173,8 +174,8 @@ fn is_cfg_trim_keep_words(config: &Config) -> bool {
     )
 }
 
-pub fn load_theme_from_config(config: &Config) -> TableTheme {
-    match config.table_mode {
+pub fn load_theme(mode: TableMode) -> TableTheme {
+    match mode {
         TableMode::Basic => TableTheme::basic(),
         TableMode::Thin => TableTheme::thin(),
         TableMode::Light => TableTheme::light(),
