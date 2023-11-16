@@ -73,7 +73,7 @@ impl Command for Table {
             .named(
                 "index",
                 SyntaxShape::Any,
-                "enable or disable the #/index column or set the starting index",
+                "enable (true) or disable (false) the #/index column or set the starting index",
                 Some('i'),
             )
             .named(
@@ -90,7 +90,7 @@ impl Command for Table {
             .named(
                 "expand-deep",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place. must be used with expand",
+                "an expand limit of recursion which will take place, must be used with --expand",
                 Some('d'),
             )
             .switch("flatten", "Flatten simple arrays", None)
@@ -145,7 +145,7 @@ impl Command for Table {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",
-                example: r#"ls | table --start-number 1"#,
+                example: r#"ls | table --index 1"#,
                 result: None,
             },
             Example {
@@ -201,7 +201,8 @@ impl Command for Table {
                 result: None,
             },
             Example {
-                description: "Set the starting number of the #/index column for a single run",
+                description:
+                    "Set the starting number of the #/index column to 100 for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
                 result: None,
             },
