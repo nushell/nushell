@@ -615,3 +615,18 @@ fn copy_file_with_update_flag_impl(progress: bool) {
         assert_eq!(actual.out, "newest_body");
     });
 }
+
+#[test]
+fn cp_with_cd() {
+    Playground::setup("cp_test_20", |_dirs, sandbox| {
+        sandbox
+            .mkdir("tmp_dir")
+            .with_files(vec![FileWithContent("tmp_dir/file.txt", "body")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            r#"do { cd tmp_dir; let f = 'file.txt'; cp $f .. }; open file.txt"#,
+        );
+        assert!(actual.out.contains("body"));
+    });
+}
