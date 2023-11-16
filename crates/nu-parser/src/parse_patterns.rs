@@ -156,7 +156,7 @@ pub fn parse_opt_typed_variable_pattern(
 
     let type_name = working_set.get_span_contents(type_token.span).to_vec();
 
-    let typ = parse_type(working_set, type_name.as_slice(), span);
+    let typ = parse_type(working_set, type_name.as_slice(), type_token.span);
 
     MatchPattern {
         pattern: Pattern::Type(typ, Some(var_id)),

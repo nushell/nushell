@@ -243,6 +243,48 @@ fn match_typed_variables_string() {
 }
 
 #[test]
+fn match_invalid_type() {
+    let actual =
+        nu!("match 4 { $s: invalid_type => { 'no' }, $x: bool => { 'no' }, _ => { 'what' } }");
+
+    assert!(actual.err.contains("Unknown type."));
+}
+
+#[test]
+fn match_subtyping() {
+    let actual =
+        nu!("match 4 { $s: string => { 'no' }, $x: number => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+
+    let actual =
+        nu!("match 4.0 { $s: string => { 'no' }, $x: number => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
+fn match_subtyping_list() {
+    let actual =
+        nu!("match [1 2 3] { $s: number => { 'no' }, $x: list => { 'yes' }, _ => { 'what' } }");
+
+    assert_eq!(actual.out, "yes");
+
+    let actual = nu!(
+        "match [1 2 3] { $s: number => { 'no' }, $x: list<int> => { 'yes' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "yes");
+
+    // lists are covariant
+    let actual = nu!(
+        "match [1 2 3] { $s: number => { 'no' }, $x: list<string> => { 'yes' }, _ => { 'what' } }"
+    );
+
+    assert_eq!(actual.out, "yes");
+}
+
+#[test]
 fn match_typed_variables_int_with_guard() {
     let actual = nu!(
         "match 12 { $s: string => { 'str' }, $x: int if (($x mod 2) == 0) => { 'even' }, $x: int => { 'odd' }, _ => { 'what' } }"
