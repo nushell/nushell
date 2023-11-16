@@ -278,7 +278,7 @@ fn match_subtyping_list() {
 
     // lists are covariant
     let actual = nu!(
-        "match [1 2 3] { $s: number => { 'no' }, $x: list<string> => { 'yes' }, _ => { 'what' } }"
+        "match [1 2 3] { $s: number => { 'no' }, $x: list<number> => { 'yes' }, _ => { 'what' } }"
     );
 
     assert_eq!(actual.out, "yes");
