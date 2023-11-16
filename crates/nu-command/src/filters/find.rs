@@ -304,8 +304,9 @@ fn highlight_terms_in_record_with_search_columns(
         let val_str = val.into_string("", config);
         let Some(term_str) = term_strs
             .iter()
-            .find(|term_str| contains_ignore_case(&val_str, term_str)) else {
-                continue;
+            .find(|term_str| contains_ignore_case(&val_str, term_str))
+        else {
+            continue;
         };
 
         let highlighted_str =
