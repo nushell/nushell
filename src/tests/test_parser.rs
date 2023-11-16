@@ -765,11 +765,9 @@ fn implied_collect_has_compatible_type() -> TestResult {
 }
 
 #[test]
-fn spread_list_in_list() -> TestResult {
-    run_test(r#"[1 2 ...[3 4] 5] | str join " ""#, "1 2 3 4 5")
-}
-
-#[test]
-fn spread_str_in_list() -> TestResult {
-    run_test(r#"[..."foo"] | str join " ""#, "f o o")
+fn spread_in_list() -> TestResult {
+    run_test(
+        r#"[1 2 ...[3 4] 5 ... ("foo" | split chars) ...bare] | str join " ""#,
+        "1 2 3 4 5 f o o ...bare",
+    )
 }

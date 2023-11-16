@@ -3081,7 +3081,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
         AfterCommaArgMode,
         TypeMode,
         DefaultValueMode,
-        RestParamMode,
     }
 
     #[derive(Debug)]
@@ -3130,9 +3129,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             // We're seeing two types for the same thing for some reason, error
                             working_set.error(ParseError::Expected("type", span));
                         }
-                        ParseMode::RestParamMode => {
-                            working_set.error(ParseError::Expected("parameter name", span));
-                        }
                     }
                 }
                 // The = symbol separates a variable from its default value
@@ -3148,9 +3144,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             // We're seeing two default values for some reason, error
                             working_set.error(ParseError::Expected("default value", span));
                         }
-                        ParseMode::RestParamMode => {
-                            working_set.error(ParseError::Expected("parameter name", span));
-                        }
                     }
                 }
                 // The , symbol separates params only
@@ -3165,9 +3158,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                         }
                         ParseMode::DefaultValueMode => {
                             working_set.error(ParseError::Expected("default value", span));
-                        }
-                        ParseMode::RestParamMode => {
-                            working_set.error(ParseError::Expected("parameter name", span));
                         }
                     }
                     arg_explicit_type = false;
@@ -3378,8 +3368,28 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 parse_mode = ParseMode::ArgMode;
                             }
                             // Rest param
-                            else if contents == b"..." {
-                                parse_mode = ParseMode::RestParamMode;
+                            else if let Some(contents) = contents.strip_prefix(b"...") {
+                                let name = String::from_utf8_lossy(contents).to_string();
+                                let contents_vec: Vec<u8> = contents.to_vec();
+
+                                if !is_variable(&contents_vec) {
+                                    working_set.error(ParseError::Expected(
+                                        "valid variable name for this rest parameter",
+                                        span,
+                                    ))
+                                }
+
+                                let var_id =
+                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+
+                                args.push(Arg::RestPositional(PositionalArg {
+                                    desc: String::new(),
+                                    name,
+                                    shape: SyntaxShape::Any,
+                                    var_id: Some(var_id),
+                                    default_value: None,
+                                }));
+                                parse_mode = ParseMode::ArgMode;
                             }
                             // Normal param
                             else {
@@ -3409,29 +3419,6 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 ));
                                 parse_mode = ParseMode::ArgMode;
                             }
-                        }
-                        ParseMode::RestParamMode => {
-                            let name = String::from_utf8_lossy(&contents).to_string();
-                            let contents_vec: Vec<u8> = contents.to_vec();
-
-                            if !is_variable(&contents_vec) {
-                                working_set.error(ParseError::Expected(
-                                    "valid variable name for this rest parameter",
-                                    span,
-                                ))
-                            }
-
-                            let var_id =
-                                working_set.add_variable(contents_vec, span, Type::Any, false);
-
-                            args.push(Arg::RestPositional(PositionalArg {
-                                desc: String::new(),
-                                name,
-                                shape: SyntaxShape::Any,
-                                var_id: Some(var_id),
-                                default_value: None,
-                            }));
-                            parse_mode = ParseMode::ArgMode;
                         }
                         ParseMode::TypeMode => {
                             if let Some(last) = args.last_mut() {
@@ -3707,14 +3694,10 @@ pub fn parse_list_expression(
                                 working_set,
                                 &command.parts,
                                 &mut spans_idx,
-                                &SyntaxShape::OneOf(vec![
-                                    SyntaxShape::List(Box::new(element_shape.clone())),
-                                    SyntaxShape::String,
-                                ]),
+                                &SyntaxShape::List(Box::new(element_shape.clone())),
                             );
                             let elem_ty = match &spread_arg.ty {
                                 Type::List(elem_ty) => *elem_ty.clone(),
-                                Type::String => Type::String,
                                 _ => Type::Any,
                             };
                             let span = Span::new(curr_span.start, spread_arg.span.end);
