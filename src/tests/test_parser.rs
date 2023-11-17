@@ -767,7 +767,7 @@ fn implied_collect_has_compatible_type() -> TestResult {
 #[test]
 fn spread_in_list() -> TestResult {
     run_test(
-        r#"[1 2 ...[3 4] 5 ... ("foo" | split chars) ...bare] | str join " ""#,
+        r#"[1 2 ...[3 4] 5 ...("foo" | split chars) ...bare] | str join " ""#,
         "1 2 3 4 5 f o o ...bare",
     )
 }
@@ -780,7 +780,7 @@ fn spread_outside_list() -> TestResult {
 #[test]
 fn spread_args() -> TestResult {
     fail_test(
-        r#"this will ... eventually be supported"#,
+        r#"this will ...$eventually be supported"#,
         "Unexpected spread operator",
     )
 }

@@ -44,10 +44,6 @@ impl BlockKind {
     }
 }
 
-fn is_whitespace(c: u8, additional_whitespace: &[u8]) -> bool {
-    c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' || additional_whitespace.contains(&c)
-}
-
 // A baseline token is terminated if it's not nested inside of a paired
 // delimiter and the next character is one of: `|`, `;`, `#` or any
 // whitespace.
@@ -58,9 +54,13 @@ fn is_item_terminator(
     special_tokens: &[u8],
 ) -> bool {
     block_level.is_empty()
-        && (c == b'|'
+        && (c == b' '
+            || c == b'\t'
+            || c == b'\n'
+            || c == b'\r'
+            || c == b'|'
             || c == b';'
-            || is_whitespace(c, additional_whitespace)
+            || additional_whitespace.contains(&c)
             || special_tokens.contains(&c))
 }
 
@@ -70,23 +70,6 @@ fn is_item_terminator(
 // `foo:bar`
 fn is_special_item(block_level: &[BlockKind], c: u8, special_tokens: &[u8]) -> bool {
     block_level.is_empty() && special_tokens.contains(&c)
-}
-
-fn is_spread_operator(c: u8, input: &[u8], offset: usize, additional_whitespace: &[u8]) -> bool {
-    if c == b'.'
-        && input.get(offset + 1).is_some_and(|c| *c == b'.')
-        && input.get(offset + 2).is_some_and(|c| *c == b'.')
-    {
-        // Only allow spreading $variables, [lists], and (subexpressions)
-        if let Some(&c) = input[offset + 3..]
-            .iter()
-            .find(|c| !is_whitespace(**c, additional_whitespace))
-        {
-            return c == b'[' || c == b'$' || c == b'(';
-        }
-    }
-
-    false
 }
 
 pub fn lex_item(
@@ -486,7 +469,14 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
-        } else if is_spread_operator(c, input, curr_offset, additional_whitespace) {
+        } else if c == b'.'
+            && input.get(curr_offset + 1).is_some_and(|&c| c == b'.')
+            && input.get(curr_offset + 2).is_some_and(|&c| c == b'.')
+            && input
+                .get(curr_offset + 3)
+                .is_some_and(|&c| c == b'[' || c == b'$' || c == b'(')
+        {
+            // Only allow spread operator before $variables, [lists], and (subexpressions)
             let start = curr_offset;
             curr_offset += 3;
             output.push(Token::new(
