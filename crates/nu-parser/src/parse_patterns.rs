@@ -154,9 +154,19 @@ pub fn parse_opt_typed_variable_pattern(
         return garbage(span);
     };
 
-    let type_name = working_set.get_span_contents(type_token.span).to_vec();
+    let last_token = iter.last();
 
-    let typ = parse_type(working_set, type_name.as_slice(), type_token.span);
+    let end = if let Some(last_token) = last_token {
+        last_token.span.end
+    } else {
+        type_token.span.end
+    };
+
+    let new_span = Span::new(type_token.span.start, end);
+
+    let type_name = working_set.get_span_contents(new_span).to_vec();
+
+    let typ = parse_type(working_set, type_name.as_slice(), new_span);
 
     MatchPattern {
         pattern: Pattern::Type(typ, Some(var_id)),

@@ -4036,17 +4036,22 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
         let start = output[position].span.start;
 
-        // if next token is ':', then we include it as well as the next token
-        if position + 1 < output.len()
-            && working_set.get_span_contents(output[position + 1].span) == b":"
-        {
-            position += 2;
+        // look for the either the next => or if
+        while position < output.len() {
+            let contents = working_set.get_span_contents(output[position].span);
+
+            if contents == b"=>" || contents == b"if" {
+                position -= 1;
+                break;
+            }
+
+            position += 1;
         }
 
-        let end = output[position].span.end;
+        let pattern_span = Span::new(start, output[position].span.end);
 
         // First parse the pattern
-        let mut pattern = parse_pattern(working_set, Span::new(start, end));
+        let mut pattern = parse_pattern(working_set, pattern_span);
 
         position += 1;
 
