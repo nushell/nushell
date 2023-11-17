@@ -3,9 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
-
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -17,7 +16,7 @@ impl Command for Mktemp {
     }
 
     fn usage(&self) -> &str {
-        "Create temporary files or directories using uutils/coreutils mktemp. TEMPLATE must contain at least 3 consecutive 'X's in last component."
+        "Create temporary files or directories using uutils/coreutils mktemp."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -34,14 +33,14 @@ impl Command for Mktemp {
     fn signature(&self) -> Signature {
         Signature::build("mktemp")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-						.optional(
+            .optional(
                 "template",
                 SyntaxShape::String,
                 "Optional pattern from which the name of the file or directory is derived. Must contain at least three 'X's in last component.",
             )
             .named("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
             .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
-						.switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
+            .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
             .switch("directory", "Create a directory instead of a file.", Some('d'))
             .category(Category::FileSystem)
     }
@@ -111,22 +110,22 @@ impl Command for Mktemp {
             Example {
                 description: "Make a temporary file with the given suffix in the current working directory.",
                 example: "mktemp --suffix .txt",
-                result: Some(Value::string("<WORKING_DIR>/tmp.lekjbhelyx.txt", Span::new(0, 0))),
+                result: Some(Value::test_string("<WORKING_DIR>/tmp.lekjbhelyx.txt")),
             },
             Example {
-                description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory. If a template is provided, it must end in at least three 'X's.",
+                description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory.",
                 example: "mktemp testfile.XXX",
-                result: Some(Value::string("<WORKING_DIR>/testfile.4kh", Span::new(0, 0))),
+                result: Some(Value::test_string("<WORKING_DIR>/testfile.4kh")),
             },
             Example {
                 description: "Make a temporary file with a template in the system temp directory.",
                 example: "mktemp -t testfile.XXX",
-                result: Some(Value::string("/tmp/testfile.4kh", Span::new(0, 0))),
+                result: Some(Value::test_string("/tmp/testfile.4kh")),
             },
             Example {
                 description: "Make a temporary directory with randomly generated name in the temporary directory.",
                 example: "mktemp -d",
-                result: Some(Value::string("/tmp/tmp.NMw9fJr8K0", Span::new(0, 0))),
+                result: Some(Value::test_string("/tmp/tmp.NMw9fJr8K0")),
             },
         ]
     }
