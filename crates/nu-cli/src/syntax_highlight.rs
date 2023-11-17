@@ -94,7 +94,6 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Keyword => add_colored_token(&shape.1, next_token),
                 FlatShape::Literal => add_colored_token(&shape.1, next_token),
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),
-                FlatShape::Spread => add_colored_token(&shape.1, next_token),
                 FlatShape::Signature => add_colored_token(&shape.1, next_token),
                 FlatShape::String => add_colored_token(&shape.1, next_token),
                 FlatShape::StringInterpolation => add_colored_token(&shape.1, next_token),
