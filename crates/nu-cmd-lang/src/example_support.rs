@@ -282,6 +282,9 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             Value::MatchPattern { val, .. } => {
                 write!(f, "MatchPattern({:?})", val)
             }
+            Value::TypeLiteral { val, .. } => {
+                write!(f, "Type({:?})", val)
+            }
         }
     }
 }

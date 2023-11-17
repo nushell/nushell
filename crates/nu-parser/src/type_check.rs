@@ -888,6 +888,23 @@ pub fn math_result_type(
                     )
                 }
             },
+            Operator::Comparison(Comparison::Is) => match &rhs.ty {
+                Type::TypeLiteral(_) => (Type::Bool, None),
+                _ => {
+                    *op = Expression::garbage(op.span);
+                    (
+                        Type::Any,
+                        Some(ParseError::UnsupportedOperationRHS(
+                            "type comparison".into(),
+                            op.span,
+                            lhs.span,
+                            lhs.ty.clone(),
+                            rhs.span,
+                            rhs.ty.clone(),
+                        )),
+                    )
+                }
+            },
             Operator::Bits(Bits::ShiftLeft)
             | Operator::Bits(Bits::ShiftRight)
             | Operator::Bits(Bits::BitOr)

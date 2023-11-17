@@ -149,6 +149,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
             let collected = val.to_base_value(span)?;
             value_to_json_value(&collected)?
         }
+        Value::TypeLiteral { val, .. } => nu_json::Value::String(val.to_string()),
     })
 }
 

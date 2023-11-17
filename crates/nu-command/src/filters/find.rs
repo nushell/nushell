@@ -518,6 +518,7 @@ fn value_should_be_printed(
         },
         Value::Binary { .. } => false,
         Value::MatchPattern { .. } => false,
+        Value::TypeLiteral { .. } => false,
     });
     if invert {
         match_found = !match_found;

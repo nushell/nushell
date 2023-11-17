@@ -496,6 +496,7 @@ fn convert_to_value(
             "variable declarations not supported in nuon".into(),
             expr.span,
         )),
+        Expr::Type(ty) => Ok(Value::type_litteral(ty.as_ref().clone(), span)),
     }
 }
 

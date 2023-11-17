@@ -56,6 +56,7 @@ impl Expression {
                     Operator::Boolean(Boolean::And) => 50,
                     Operator::Boolean(Boolean::Xor) => 45,
                     Operator::Boolean(Boolean::Or) => 40,
+                    Operator::Comparison(Comparison::Is) => 30,
                     Operator::Assignment(_) => 10,
                 }
             }
@@ -289,6 +290,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
+            Expr::Type(_) => false,
         }
     }
 
@@ -480,6 +482,7 @@ impl Expression {
                 }
             }
             Expr::VarDecl(_) => {}
+            Expr::Type(_) => {}
         }
     }
 
@@ -618,6 +621,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
+            Expr::Type(_) => {}
         }
     }
 }

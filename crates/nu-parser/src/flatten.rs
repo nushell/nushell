@@ -40,6 +40,7 @@ pub enum FlatShape {
     String,
     StringInterpolation,
     Table,
+    TypeLitteral,
     Variable(VarId),
     VarDecl(VarId),
 }
@@ -81,6 +82,7 @@ impl Display for FlatShape {
             FlatShape::Table => write!(f, "shape_table"),
             FlatShape::Variable(_) => write!(f, "shape_variable"),
             FlatShape::VarDecl(_) => write!(f, "shape_vardecl"),
+            FlatShape::TypeLitteral => write!(f, "shape_type_litteral"),
         }
     }
 }
@@ -500,6 +502,7 @@ pub fn flatten_expression(
         Expr::VarDecl(var_id) => {
             vec![(expr.span, FlatShape::VarDecl(*var_id))]
         }
+        Expr::Type(_) => vec![(expr.span, FlatShape::TypeLitteral)],
     }
 }
 

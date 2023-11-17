@@ -186,3 +186,32 @@ fn gte_null() -> TestResult {
     run_test("null >= 3 | to nuon", "null").unwrap();
     run_test("null >= null | to nuon", "null")
 }
+
+#[test]
+fn is_() -> TestResult {
+    run_test("1 is type<int>", "true").unwrap();
+    run_test("1 is type<number>", "true").unwrap();
+    run_test("1 is type<any>", "true").unwrap();
+    run_test("1 is type<string>", "false").unwrap();
+
+    run_test("'foo' is type<string>", "true").unwrap();
+    run_test("'foo' is type<any>", "true").unwrap();
+    run_test("'foo' is type<number>", "false").unwrap();
+
+    run_test("null is type<nothing>", "true").unwrap();
+    run_test("null is type<any>", "true").unwrap();
+
+    run_test("[1 2 3] is type<list>", "true").unwrap();
+    run_test("[1 2 3] is type<list<number>>", "true").unwrap();
+    run_test("[1 2 3] is type<list<int>>", "true").unwrap();
+    run_test("[1 2 3] is type<int>", "false").unwrap();
+
+    run_test("[] is type<list>", "true").unwrap();
+    run_test("[] is type<list<any>>", "true").unwrap();
+    run_test("[] is type<list<int>>", "false").unwrap();
+
+    run_test("{a: 1, b: 2} is type<record>", "true").unwrap();
+    run_test("{a: 1, b: 2} is type<record<a: int, b: int>>", "true").unwrap();
+
+    Ok(())
+}

@@ -265,6 +265,7 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
         Value::MatchPattern { val, .. } => format!("{:?}", val),
+        Value::TypeLiteral { val, .. } => format!("{:?}", val),
     }
 }
 

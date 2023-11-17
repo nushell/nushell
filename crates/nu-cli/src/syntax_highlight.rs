@@ -128,6 +128,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::Redirection => add_colored_token(&shape.1, next_token),
                 FlatShape::Custom(..) => add_colored_token(&shape.1, next_token),
                 FlatShape::MatchPattern => add_colored_token(&shape.1, next_token),
+                FlatShape::TypeLitteral => add_colored_token(&shape.1, next_token),
             }
             last_seen_span = shape.0.end;
         }
@@ -429,6 +430,7 @@ fn find_matching_block_end_in_expr(
                     None
                 }
             }
+            Expr::Type(_) => None,
         };
     }
     None

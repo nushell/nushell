@@ -33,6 +33,7 @@ pub enum Type {
     Signature,
     String,
     Table(Vec<(String, Type)>),
+    TypeLiteral(Box<Type>),
 }
 
 impl Type {
@@ -111,6 +112,7 @@ impl Type {
             Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
             Type::MatchPattern => SyntaxShape::MatchPattern,
+            Type::TypeLiteral(ty) => SyntaxShape::TypeLiteral(Box::new(ty.to_shape())),
         }
     }
 
@@ -141,6 +143,7 @@ impl Type {
             Type::Binary => String::from("binary"),
             Type::Custom(_) => String::from("custom"),
             Type::Signature => String::from("signature"),
+            Type::TypeLiteral(_) => String::from("type"),
         }
     }
 }
@@ -199,6 +202,7 @@ impl Display for Type {
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
             Type::MatchPattern => write!(f, "match-pattern"),
+            Type::TypeLiteral(ty) => write!(f, "type<{ty}>"),
         }
     }
 }

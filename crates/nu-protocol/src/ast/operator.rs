@@ -19,6 +19,7 @@ pub enum Comparison {
     NotIn,
     StartsWith,
     EndsWith,
+    Is,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -89,6 +90,7 @@ impl Display for Operator {
             Operator::Comparison(Comparison::EndsWith) => write!(f, "ends-with"),
             Operator::Comparison(Comparison::In) => write!(f, "in"),
             Operator::Comparison(Comparison::NotIn) => write!(f, "not-in"),
+            Operator::Comparison(Comparison::Is) => write!(f, "is"),
             Operator::Math(Math::Plus) => write!(f, "+"),
             Operator::Math(Math::Append) => write!(f, "++"),
             Operator::Math(Math::Minus) => write!(f, "-"),

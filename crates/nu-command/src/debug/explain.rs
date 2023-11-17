@@ -260,5 +260,6 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
         Value::MatchPattern { val, .. } => format!("{:?}", val),
+        Value::TypeLiteral { val, .. } => format!("{:?}", val),
     }
 }

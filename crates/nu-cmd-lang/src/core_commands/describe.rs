@@ -413,6 +413,13 @@ fn describe_value(
 
             Value::record(record, head)
         }
+        Value::TypeLiteral { val, .. } => Value::record(
+            record!(
+                "type" => Value::string("type", head),
+                "subtype" => Value::string(val.to_string(), head),
+            ),
+            head,
+        ),
     })
 }
 

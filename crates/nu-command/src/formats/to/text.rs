@@ -149,6 +149,7 @@ fn local_into_string(value: Value, separator: &str, config: &Config) -> String {
         Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
         Value::MatchPattern { val, .. } => format!("{:?}", val),
+        Value::TypeLiteral { val, .. } => format!("<Type {}>", val),
     }
 }
 

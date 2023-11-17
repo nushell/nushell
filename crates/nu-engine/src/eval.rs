@@ -402,6 +402,7 @@ pub fn eval_expression(
                         }
                         Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
                         Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
+                        Comparison::Is => lhs.is_(op_span, &rhs, expr.span),
                     }
                 }
                 Operator::Bits(bits) => {
@@ -635,6 +636,7 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::nothing(expr.span)),
         Expr::Garbage => Ok(Value::nothing(expr.span)),
         Expr::Nothing => Ok(Value::nothing(expr.span)),
+        Expr::Type(ty) => Ok(Value::type_litteral(ty.as_ref().clone(), expr.span)),
     }
 }
 

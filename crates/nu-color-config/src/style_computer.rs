@@ -133,6 +133,7 @@ impl<'a> StyleComputer<'a> {
             | Value::Error { .. }
             | Value::LazyRecord { .. }
             | Value::MatchPattern { .. } => TextStyle::basic_left(),
+            Value::TypeLiteral { .. } => TextStyle::with_style(Left, s),
         }
     }
 
