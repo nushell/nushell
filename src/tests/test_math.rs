@@ -211,7 +211,7 @@ fn is_() -> TestResult {
     run_test("[] is type<list<int>>", "false").unwrap();
 
     run_test("{a: 1, b: 2} is type<record>", "true").unwrap();
-    run_test("{a: 1, b: 2} is type<record<a: int, b: int>>", "true").unwrap();
+    run_test("{a: 1, b: 2} is type<record<a:int,b:int>>", "true").unwrap();
 
     Ok(())
 }
