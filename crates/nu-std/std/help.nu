@@ -70,6 +70,7 @@ def get-all-operators [] { return [
     [Boolean, and, And, "Checks if two values are true.", 50]
     [Boolean, or, Or, "Checks if either value is true.", 40]
     [Boolean, xor, Xor, "Checks if one value is true and the other is false.", 45]
+    [Boolean, is, Is, "Checks if a value is of a certain type.", 30]
 ]}
 
 def "nu-complete list-aliases" [] {
