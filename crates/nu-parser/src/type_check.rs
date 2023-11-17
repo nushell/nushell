@@ -889,7 +889,7 @@ pub fn math_result_type(
                 }
             },
             Operator::Comparison(Comparison::Is) => match &rhs.ty {
-                Type::TypeLiteral(_) => (Type::Bool, None),
+                Type::TypeLiteral(_) | Type::Any => (Type::Bool, None),
                 _ => {
                     *op = Expression::garbage(op.span);
                     (

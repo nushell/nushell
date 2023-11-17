@@ -343,6 +343,7 @@ impl Value {
                 }
             }),
             Value::Date { val, .. } => Ok(val.to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
+            Value::TypeLiteral { val, .. } => Ok(val.to_string()),
             x => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: x.get_type().to_string(),
@@ -751,7 +752,7 @@ impl Value {
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern: {:?}>", val),
-            Value::TypeLiteral { val, .. } => format!("<Type: {}>", val),
+            Value::TypeLiteral { val, .. } => val.to_string(),
         }
     }
 
@@ -807,7 +808,7 @@ impl Value {
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
-            Value::TypeLiteral { val, .. } => format!("<Type: {}>", val),
+            Value::TypeLiteral { val, .. } => val.to_string(),
         }
     }
 
@@ -916,7 +917,7 @@ impl Value {
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern {:?}>", val),
-            Value::TypeLiteral { val, .. } => format!("<Type: {}>", val),
+            Value::TypeLiteral { val, .. } => val.to_string(),
         }
     }
 

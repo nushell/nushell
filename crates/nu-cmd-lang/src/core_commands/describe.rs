@@ -20,9 +20,10 @@ impl Command for Describe {
     fn signature(&self) -> Signature {
         Signature::build("describe")
             .input_output_types(vec![
-                (Type::Any, Type::String),
                 (Type::Any, Type::Record(vec![])),
+                (Type::Any, Type::String),
             ])
+            .filter()
             .switch(
                 "no-collect",
                 "do not collect streams of structured data",
@@ -72,41 +73,32 @@ impl Command for Describe {
                 example:
                     "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
-                    "type" => Value::test_string("record"),
+                    "type" => Value::test_type_litteral(Type::Record(vec![
+                        ("shell".to_string(), Type::String),
+                        ("uwu".to_string(), Type::Bool),
+                        ("features".to_string(), Type::Record(vec![
+                            ("bugs".to_string(), Type::Bool),
+                            ("multiplatform".to_string(), Type::Bool),
+                            ("speed".to_string(), Type::Int),
+                        ])),
+                        ("fib".to_string(), Type::List(Box::new(Type::Int))),
+                        ("on_save".to_string(), Type::Closure),
+                        ("first_commit".to_string(), Type::Date),
+                        ("my_duration".to_string(), Type::Duration),
+                    ])),
                     "lazy" => Value::test_bool(false),
                     "columns" => Value::test_record(record!(
-                        "shell" => Value::test_string("string"),
-                        "uwu" => Value::test_string("bool"),
-                        "features" => Value::test_record(record!(
-                            "type" => Value::test_string("record"),
-                            "lazy" => Value::test_bool(false),
-                            "columns" => Value::test_record(record!(
-                                "bugs" => Value::test_string("bool"),
-                                "multiplatform" => Value::test_string("bool"),
-                                "speed" => Value::test_string("int"),
-                            )),
-                        )),
-                        "fib" => Value::test_record(record!(
-                            "type" => Value::test_string("list"),
-                            "length" => Value::test_int(6),
-                            "values" => Value::test_list(vec![
-                                Value::test_string("int"),
-                                Value::test_string("int"),
-                                Value::test_string("int"),
-                                Value::test_string("int"),
-                                Value::test_string("int"),
-                                Value::test_string("int"),
-                           ]),
-                        )),
-                        "on_save" => Value::test_record(record!(
-                            "type" => Value::test_string("closure"),
-                            "signature" => Value::test_record(record!(
-                                "name" => Value::test_string(""),
-                                "category" => Value::test_string("default"),
-                            )),
-                        )),
-                        "first_commit" => Value::test_string("date"),
-                        "my_duration" => Value::test_string("duration"),
+                        "shell" => Value::test_type_litteral(Type::String),
+                        "uwu" => Value::test_type_litteral(Type::Bool),
+                        "features" => Value::test_type_litteral(Type::Record(vec![
+                            ("bugs".to_string(), Type::Bool),
+                            ("multiplatform".to_string(), Type::Bool),
+                            ("speed".to_string(), Type::Int),
+                        ])),
+                        "fib" => Value::test_type_litteral(Type::List(Box::new(Type::Int))),
+                        "on_save" => Value::test_type_litteral(Type::Closure),
+                        "first_commit" => Value::test_type_litteral(Type::Date),
+                        "my_duration" => Value::test_type_litteral(Type::Duration),
                     )),
                 ))),
             },
@@ -168,12 +160,12 @@ fn run(
             if detailed {
                 Value::record(
                     record!(
-                        "type" => Value::string("stream", head),
+                        "type" => Value::type_litteral(Type::ListStream, head),
                         "origin" => Value::string("external", head),
                         "stdout" => match stdout {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::string("stream", head),
+                                        "type" => Value::type_litteral(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("any", head),
                                     ),
@@ -184,7 +176,7 @@ fn run(
                         "stderr" => match stderr {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::string("stream", head),
+                                        "type" => Value::type_litteral(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("any", head),
                                     ),
@@ -195,7 +187,7 @@ fn run(
                         "exit_code" => match exit_code {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::string("stream", head),
+                                        "type" => Value::type_litteral(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("int", head),
                                     ),
@@ -213,17 +205,19 @@ fn run(
         }
         PipelineData::ListStream(_, _) => {
             if detailed {
+                let (ty, subty) = if no_collect {
+                    (Type::ListStream, Value::nothing(head))
+                } else {
+                    let value = input.into_value(head);
+                    let ty = value.get_type().clone();
+                    let desc = describe_value(value, head, engine_state, call)?;
+                    (ty, desc)
+                };
                 Value::record(
                     record!(
-                        "type" => Value::string("stream", head),
+                        "type" => Value::type_litteral(ty, head),
                         "origin" => Value::string("nushell", head),
-                        "subtype" => {
-                           if no_collect {
-                            Value::string("any", head)
-                           } else {
-                            describe_value(input.into_value(head), head, engine_state, call)?
-                           }
-                        },
+                        "description" => subty,
                         "metadata" => metadata_to_value(metadata, head),
                     ),
                     head,
@@ -242,13 +236,13 @@ fn run(
         }
         _ => {
             let value = input.into_value(head);
-            if !detailed {
+            if detailed {
+                describe_value(value, head, engine_state, call)?
+            } else {
                 match value {
                     Value::CustomValue { val, .. } => Value::string(val.value_string(), head),
                     _ => Value::string(value.get_type().to_string(), head),
                 }
-            } else {
-                describe_value(value, head, engine_state, call)?
             }
         }
     };
@@ -265,7 +259,7 @@ fn describe_value(
     Ok(match value {
         Value::CustomValue { val, internal_span } => Value::record(
             record!(
-                "type" => Value::string("custom", head),
+                "type" => Value::type_litteral(Type::Custom(val.value_string()), head),
                 "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data())?.into_value(head),
             ),
             head,
@@ -281,50 +275,31 @@ fn describe_value(
         | Value::MatchPattern { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
-                "type" => Value::string(value.get_type().to_string(), head),
+                "type" => Value::type_litteral(value.get_type(), head),
             ),
             head,
         ),
-        Value::Record { val, .. } => {
-            let mut record = Record::new();
-            for i in 0..val.len() {
-                let k = val.cols[i].clone();
-                let v = val.vals[i].clone();
-
-                record.push(k, {
-                    if let Value::Record { val, .. } =
-                        describe_value(v.clone(), head, engine_state, call)?
-                    {
-                        if let [Value::String { val: k, .. }] = val.vals.as_slice() {
-                            Value::string(k, head)
-                        } else {
-                            Value::record(val, head)
-                        }
-                    } else {
-                        describe_value(v, head, engine_state, call)?
-                    }
-                });
-            }
+        Value::Record { ref val, .. } => {
+            let columns = val
+                .into_iter()
+                .map(|(k, v)| -> Result<(String, Value), ShellError> {
+                    Ok((k.to_string(), Value::type_litteral(v.get_type(), head)))
+                })
+                .collect::<Result<_, _>>()?;
 
             Value::record(
                 record!(
-                    "type" => Value::string("record", head),
+                    "type" => Value::type_litteral(value.get_type(), head),
                     "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(record, head),
+                    "columns" => Value::record(columns, head),
                 ),
                 head,
             )
         }
-        Value::List { vals, .. } => Value::record(
+        Value::List { ref vals, .. } => Value::record(
             record!(
-                "type" => Value::string("list", head),
+                "type" => Value::type_litteral(value.get_type(), head),
                 "length" => Value::int(vals.len() as i64, head),
-                "values" => Value::list(vals.iter().map(|v|
-                    match describe_value(v.clone(), head, engine_state, call) {
-                        Ok(Value::Record {val, ..}) => if val.cols.as_slice() == ["type"] {Ok(val.vals[0].clone())} else {Ok(Value::record(val, head))},
-                        x => x
-                    }
-                ).collect::<Result<Vec<_>, _>>()?, head),
             ),
             head,
         ),
@@ -337,7 +312,7 @@ fn describe_value(
 
             if let Some(block) = block {
                 let mut record = Record::new();
-                record.push("type", Value::string(value.get_type().to_string(), head));
+                record.push("type", Value::type_litteral(value.get_type(), head));
                 record.push(
                     "signature",
                     Value::record(
@@ -352,71 +327,76 @@ fn describe_value(
             } else {
                 Value::record(
                     record!(
-                        "type" => Value::string("closure", head),
+                        "type" => Value::type_litteral(value.get_type(), head),
                     ),
                     head,
                 )
             }
         }
 
-        Value::Error { error, .. } => Value::record(
+        Value::Error { ref error, .. } => Value::record(
             record!(
-                "type" => Value::string("error", head),
+                "type" => Value::type_litteral(value.get_type(), head),
                 "subtype" => Value::string(error.to_string(), head),
             ),
             head,
         ),
-        Value::Binary { val, .. } => Value::record(
+        Value::Binary { ref val, .. } => Value::record(
             record!(
-                "type" => Value::string("binary", head),
+                "type" => Value::type_litteral(value.get_type(), head),
                 "length" => Value::int(val.len() as i64, head),
             ),
             head,
         ),
-        Value::CellPath { val, .. } => Value::record(
+        Value::CellPath { ref val, .. } => Value::record(
             record!(
-                "type" => Value::string("cellpath", head),
+                "type" => Value::type_litteral(value.get_type(), head),
                 "length" => Value::int(val.members.len() as i64, head),
             ),
             head,
         ),
-        Value::LazyRecord { val, .. } => {
+        Value::LazyRecord { ref val, .. } => {
             let collect_lazyrecords: bool = call.has_flag("collect-lazyrecords");
+
             let mut record = Record::new();
 
-            record.push("type", Value::string("record", head));
+            record.push(
+                "type",
+                if collect_lazyrecords {
+                    Value::type_litteral(value.get_type(), head)
+                } else {
+                    Value::type_litteral(
+                        Type::Record(
+                            val.column_names()
+                                .into_iter()
+                                .map(|c| (c.to_string(), Type::Any))
+                                .collect(),
+                        ),
+                        head,
+                    )
+                },
+            );
             record.push("lazy", Value::bool(true, head));
+            record.push("length", Value::int(val.column_names().len() as i64, head));
 
             if collect_lazyrecords {
                 let collected = val.collect()?;
-                if let Value::Record { val, .. } =
-                    describe_value(collected, head, engine_state, call)?
-                {
-                    let mut record_cols = Record::new();
-                    record.push("length", Value::int(val.len() as i64, head));
-
-                    for i in 0..val.len() {
-                        record_cols.push(
-                            val.cols[i].clone(),
-                            describe_value(val.vals[i].clone(), head, engine_state, call)?,
-                        );
-                    }
+                if let Value::Record { val, .. } = collected {
+                    let record_cols = val
+                        .into_iter()
+                        .map(|(k, v)| -> Result<(String, Value), ShellError> {
+                            Ok((k.to_string(), Value::type_litteral(v.get_type(), head)))
+                        })
+                        .collect::<Result<_, _>>()?;
                     record.push("columns", Value::record(record_cols, head));
-                } else {
-                    let cols = val.column_names();
-                    record.push("length", Value::int(cols.len() as i64, head));
                 }
-            } else {
-                let cols = val.column_names();
-                record.push("length", Value::int(cols.len() as i64, head));
             }
 
             Value::record(record, head)
         }
-        Value::TypeLiteral { val, .. } => Value::record(
+        Value::TypeLiteral { .. } => Value::record(
             record!(
-                "type" => Value::string("type", head),
-                "subtype" => Value::string(val.to_string(), head),
+                "type" => Value::type_litteral(value.get_type(), head),
             ),
             head,
         ),
