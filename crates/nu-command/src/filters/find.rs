@@ -1,5 +1,4 @@
 use crate::help::highlight_search_string;
-use itertools::Itertools;
 
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
@@ -11,6 +10,7 @@ use nu_protocol::{
     record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
 pub struct Find;
@@ -253,26 +253,29 @@ fn find_with_regex(
     input.filter(
         move |value| match value {
             Value::String { val, .. } => re.is_match(val.as_str()).unwrap_or(false) != invert,
-            Value::Record {
-                val: Record { vals, .. },
-                ..
-            }
-            | Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
+            Value::Record { val, .. } => values_match_find(val.values(), &re, &config, invert),
+            Value::List { vals, .. } => values_match_find(vals, &re, &config, invert),
             _ => false,
         },
         ctrlc,
     )
 }
 
-fn values_match_find(values: &[Value], re: &Regex, config: &Config, invert: bool) -> bool {
+fn values_match_find<'a, I>(values: I, re: &Regex, config: &Config, invert: bool) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
     match invert {
         true => !record_matches_regex(values, re, config),
         false => record_matches_regex(values, re, config),
     }
 }
 
-fn record_matches_regex(values: &[Value], re: &Regex, config: &Config) -> bool {
-    values.iter().any(|v| {
+fn record_matches_regex<'a, I>(values: I, re: &Regex, config: &Config) -> bool
+where
+    I: IntoIterator<Item = &'a Value>,
+{
+    values.into_iter().any(|v| {
         re.is_match(v.into_string(" ", config).as_str())
             .unwrap_or(false)
     })
@@ -288,50 +291,38 @@ fn highlight_terms_in_record_with_search_columns(
     string_style: Style,
     highlight_style: Style,
 ) -> Value {
-    let cols_to_search = if search_cols.is_empty() {
-        &record.cols
-    } else {
-        search_cols
-    };
+    let col_select = !search_cols.is_empty();
     let term_strs: Vec<_> = terms.iter().map(|v| v.into_string("", config)).collect();
 
+    // TODO: change API to mutate in place
+    let mut record = record.clone();
     // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted, otherwise Err(val)
-    let try_val_highlight = record.iter().map(|(col, val)| {
+    for (col, val) in record.iter_mut() {
+        if col_select && !search_cols.contains(col) {
+            continue;
+        }
         let val_str = val.into_string("", config);
-        let predicate = cols_to_search.contains(col);
-        predicate
-            .then_some(val_str)
-            .and_then(|val_str| {
-                term_strs
-                    .iter()
-                    .find(|term_str| contains_ignore_case(&val_str, term_str))
-                    .map(|term_str| (val_str, term_str))
-            })
-            .ok_or_else(|| val.clone())
-    });
+        let Some(term_str) = term_strs
+            .iter()
+            .find(|term_str| contains_ignore_case(&val_str, term_str))
+        else {
+            continue;
+        };
 
-    // turn Ok pairs into vals of highlighted strings, Err vals is original vals
-    let new_vals = try_val_highlight
-        .map_ok(|(val_str, term_str)| {
-            let highlighted_str =
-                highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
-                    .unwrap_or_else(|_| string_style.paint(term_str).to_string());
+        let highlighted_str =
+            highlight_search_string(&val_str, term_str, &string_style, &highlight_style)
+                .unwrap_or_else(|_| string_style.paint(term_str).to_string());
 
-            Value::string(highlighted_str, span)
-        })
-        .map(|v| v.unwrap_or_else(|v| v));
+        *val = Value::string(highlighted_str, span);
+    }
 
-    Value::record(
-        Record {
-            cols: record.cols.clone(),
-            vals: new_vals.collect(),
-        },
-        span,
-    )
+    Value::record(record, span)
 }
 
 fn contains_ignore_case(string: &str, substring: &str) -> bool {
-    string.to_lowercase().contains(&substring.to_lowercase())
+    string
+        .to_folded_case()
+        .contains(&substring.to_folded_case())
 }
 
 fn find_with_rest_and_highlight(
@@ -551,13 +542,10 @@ fn record_matches_term(
     term: &Value,
     span: Span,
 ) -> bool {
-    let cols_to_search = if columns_to_search.is_empty() {
-        &record.cols
-    } else {
-        columns_to_search
-    };
+    // Only perform column selection if given columns.
+    let col_select = !columns_to_search.is_empty();
     record.iter().any(|(col, val)| {
-        if !cols_to_search.contains(col) {
+        if col_select && !columns_to_search.contains(col) {
             return false;
         }
         let lower_val = if !val.is_error() {

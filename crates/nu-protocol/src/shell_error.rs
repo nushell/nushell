@@ -650,7 +650,7 @@ pub enum ShellError {
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime: [{0}].")]
+    #[error("Unable to parse datetime: [{msg}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         help(
@@ -663,7 +663,11 @@ pub enum ShellError {
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
+    DatetimeParseError {
+        msg: String,
+        #[label("datetime parsing failed")]
+        span: Span,
+    },
 
     /// A network operation failed.
     ///

@@ -190,7 +190,7 @@ pub fn value_to_string(
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
-            if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
+            if !headers.is_empty() && vals.iter().all(|x| x.columns().eq(headers.iter())) {
                 // Table output
                 let headers: Vec<String> = headers
                     .iter()
@@ -209,7 +209,7 @@ pub fn value_to_string(
                     let mut row = vec![];
 
                     if let Value::Record { val, .. } = val {
-                        for val in &val.vals {
+                        for val in val.values() {
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,

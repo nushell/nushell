@@ -269,10 +269,10 @@ fn cd_permission_denied_folder() {
         sandbox.mkdir("banned");
         let actual = nu!(
             cwd: dirs.test(),
-            r#"
+            r"
                 icacls banned /deny BUILTIN\Administrators:F
                 cd banned
-            "#
+            "
         );
         assert!(actual.err.contains("Folder is not able to read"));
     });

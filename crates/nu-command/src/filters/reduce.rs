@@ -98,7 +98,7 @@ impl Command for Reduce {
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
 

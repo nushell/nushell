@@ -182,7 +182,7 @@ mod test {
         ast::{CellPath, PathMember},
         engine::Closure,
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
 
     #[test]
     fn from_value() {
@@ -243,7 +243,7 @@ mod test {
             Value::closure(
                 Closure {
                     block_id: 0,
-                    captures: HashMap::new(),
+                    captures: Vec::new(),
                 },
                 span,
             ),

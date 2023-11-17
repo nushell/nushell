@@ -96,7 +96,7 @@ impl Command for UpdateCells {
         // the block to run on each cell
         let engine_state = engine_state.clone();
         let block: Closure = call.req(&engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(&block.captures);
+        let mut stack = stack.captures_to_stack(block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
@@ -158,7 +158,7 @@ impl Iterator for UpdateCellIterator {
         match self.input.next() {
             Some(val) => {
                 if let Some(ref cols) = self.columns {
-                    if !val.columns().iter().any(|c| cols.contains(c)) {
+                    if !val.columns().any(|c| cols.contains(c)) {
                         return Some(val);
                     }
                 }

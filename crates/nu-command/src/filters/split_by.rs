@@ -125,13 +125,21 @@ pub fn split(
 
     match grouper {
         Grouper::ByColumn(Some(column_name)) => {
-            let block = move |_, row: &Value| match row.get_data_by_key(&column_name.item) {
-                Some(group_key) => Ok(group_key.as_string()?),
-                None => Err(ShellError::CantFindColumn {
-                    col_name: column_name.item.to_string(),
-                    span: column_name.span,
-                    src_span: row.span(),
-                }),
+            let block = move |_, row: &Value| {
+                let group_key = if let Value::Record { val: row, .. } = row {
+                    row.get(&column_name.item)
+                } else {
+                    None
+                };
+
+                match group_key {
+                    Some(group_key) => Ok(group_key.as_string()?),
+                    None => Err(ShellError::CantFindColumn {
+                        col_name: column_name.item.to_string(),
+                        span: column_name.span,
+                        src_span: row.span(),
+                    }),
+                }
             };
 
             data_split(values, Some(&block), span)
@@ -185,15 +193,15 @@ pub fn data_split(
             let span = v.span();
             match v {
                 Value::Record { val: grouped, .. } => {
-                    for (idx, list) in grouped.vals.iter().enumerate() {
-                        match data_group(list, splitter, span) {
+                    for (outer_key, list) in grouped.into_iter() {
+                        match data_group(&list, splitter, span) {
                             Ok(grouped_vals) => {
                                 if let Value::Record { val: sub, .. } = grouped_vals {
-                                    for (inner_idx, subset) in sub.vals.iter().enumerate() {
+                                    for (inner_key, subset) in sub.into_iter() {
                                         let s: &mut IndexMap<String, Value> =
-                                            splits.entry(sub.cols[inner_idx].clone()).or_default();
+                                            splits.entry(inner_key).or_default();
 
-                                        s.insert(grouped.cols[idx].clone(), subset.clone());
+                                        s.insert(outer_key.clone(), subset.clone());
                                     }
                                 }
                             }
