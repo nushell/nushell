@@ -4036,11 +4036,11 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
 
         let start = output[position].span.start;
 
-        // look for the either the next => or if
+        // look for the either the next "=>", "if" or "|"
         while position < output.len() {
             let contents = working_set.get_span_contents(output[position].span);
 
-            if contents == b"=>" || contents == b"if" {
+            if contents == b"=>" || contents == b"if" || contents == b"|" {
                 position -= 1;
                 break;
             }
