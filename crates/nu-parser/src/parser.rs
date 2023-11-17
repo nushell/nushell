@@ -268,7 +268,10 @@ pub fn check_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> O
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
-    if contents.starts_with(b"$") || contents.starts_with(b"(") {
+    if contents == b"..." {
+        working_set.error(ParseError::UnexpectedSpread(span));
+        garbage(span)
+    } else if contents.starts_with(b"$") || contents.starts_with(b"(") {
         parse_dollar_expr(working_set, span)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)

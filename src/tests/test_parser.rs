@@ -776,3 +776,11 @@ fn spread_in_list() -> TestResult {
 fn spread_outside_list() -> TestResult {
     fail_test(r#"...$this is not fine"#, "Unexpected spread operator")
 }
+
+#[test]
+fn spread_args() -> TestResult {
+    fail_test(
+        r#"this will ... eventually be supported"#,
+        "Unexpected spread operator",
+    )
+}
