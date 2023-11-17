@@ -59,9 +59,6 @@ fn main() -> Result<()> {
         miette_hook(x);
     }));
 
-    // This allows more intuitive backtraces
-    color_backtrace::install();
-
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
     let mut engine_state = get_engine_state();
@@ -196,7 +193,7 @@ fn main() -> Result<()> {
     }
 
     if parsed_nu_cli_args.lsp {
-        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state);
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
     // IDE commands

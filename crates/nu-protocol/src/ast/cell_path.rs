@@ -1,7 +1,7 @@
 use super::Expression;
 use crate::Span;
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
+use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum PathMember {
@@ -55,24 +55,6 @@ pub struct CellPath {
 }
 
 impl CellPath {
-    pub fn into_string(&self) -> String {
-        let mut output = String::new();
-
-        for (idx, elem) in self.members.iter().enumerate() {
-            if idx > 0 {
-                output.push('.');
-            }
-            match elem {
-                PathMember::Int { val, .. } => {
-                    let _ = write!(output, "{val}");
-                }
-                PathMember::String { val, .. } => output.push_str(val),
-            }
-        }
-
-        output
-    }
-
     pub fn make_optional(&mut self) {
         for member in &mut self.members {
             match member {
@@ -84,6 +66,21 @@ impl CellPath {
                 } => *optional = true,
             }
         }
+    }
+}
+
+impl Display for CellPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (idx, elem) in self.members.iter().enumerate() {
+            if idx > 0 {
+                write!(f, ".")?;
+            }
+            match elem {
+                PathMember::Int { val, .. } => write!(f, "{val}")?,
+                PathMember::String { val, .. } => write!(f, "{val}")?,
+            }
+        }
+        Ok(())
     }
 }
 

@@ -144,7 +144,7 @@ pub fn transpose(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
-    let transpose_args = TransposeArgs {
+    let args = TransposeArgs {
         header_row: call.has_flag("header-row"),
         ignore_titles: call.has_flag("ignore-titles"),
         as_record: call.has_flag("as-record"),
@@ -153,27 +153,43 @@ pub fn transpose(
         rest: call.rest(engine_state, stack, 0)?,
     };
 
+    if !args.rest.is_empty() && args.header_row {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can not provide header names and use `--header-row`".into(),
+            span: call.get_named_arg("header-row").expect("has flag").span,
+        });
+    }
+    if !args.header_row && args.keep_all {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can only be used with `--header-row`(`-r`)".into(),
+            span: call.get_named_arg("keep-all").expect("has flag").span,
+        });
+    }
+    if !args.header_row && args.keep_last {
+        return Err(ShellError::IncompatibleParametersSingle {
+            msg: "Can only be used with `--header-row`(`-r`)".into(),
+            span: call.get_named_arg("keep-last").expect("has flag").span,
+        });
+    }
+    if args.keep_all && args.keep_last {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "can't use `--keep-last` at the same time".into(),
+            left_span: call.get_named_arg("keep-last").expect("has flag").span,
+            right_message: "because of `--keep-all`".into(),
+            right_span: call.get_named_arg("keep-all").expect("has flag").span,
+        });
+    }
+
     let ctrlc = engine_state.ctrlc.clone();
     let metadata = input.metadata();
     let input: Vec<_> = input.into_iter().collect();
-    let args = transpose_args;
 
     let descs = get_columns(&input);
 
-    let mut headers: Vec<String> = vec![];
-
-    if !args.rest.is_empty() && args.header_row {
-        return Err(ShellError::GenericError(
-            "Can not provide header names and use header row".into(),
-            "using header row".into(),
-            Some(name),
-            None,
-            Vec::new(),
-        ));
-    }
+    let mut headers: Vec<String> = Vec::with_capacity(input.len());
 
     if args.header_row {
-        for i in input.clone() {
+        for i in input.iter() {
             if let Some(desc) = descs.get(0) {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
@@ -219,15 +235,12 @@ pub fn transpose(
         }
     }
 
-    let descs: Vec<_> = if args.header_row {
-        descs.into_iter().skip(1).collect()
-    } else {
-        descs
-    };
-
+    let mut descs = descs.into_iter();
+    if args.header_row {
+        descs.next();
+    }
     let mut result_data = descs
-        .into_iter()
-        .map(move |desc| {
+        .map(|desc| {
             let mut column_num: usize = 0;
             let mut record = Record::new();
 
@@ -239,75 +252,31 @@ pub fn transpose(
                 column_num += 1
             }
 
-            for i in input.clone() {
-                match &i.get_data_by_key(&desc) {
-                    Some(x) => {
-                        if args.keep_all && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let current_span = record.vals[index].span();
-                            let new_val = match &record.vals[index] {
-                                Value::List { vals, .. } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(x.clone());
-                                    Value::list(vals.to_vec(), current_span)
-                                }
-                                v => Value::list(vec![v.clone(), x.clone()], v.span()),
-                            };
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-
-                            record.push(headers[column_num].clone(), new_val);
-                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-                            record.push(headers[column_num].clone(), x.clone());
-                        } else if !record.cols.contains(&headers[column_num]) {
-                            record.push(headers[column_num].clone(), x.clone());
-                        }
+            for i in input.iter() {
+                let x = i
+                    .get_data_by_key(&desc)
+                    .unwrap_or_else(|| Value::nothing(name));
+                match record.get_mut(&headers[column_num]) {
+                    None => {
+                        record.push(headers[column_num].clone(), x);
                     }
-                    _ => {
-                        if args.keep_all && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            let current_span = record.vals[index].span();
-                            let new_val = match &record.vals[index] {
+                    Some(val) => {
+                        if args.keep_all {
+                            let current_span = val.span();
+                            match val {
                                 Value::List { vals, .. } => {
-                                    let mut vals = vals.clone();
-                                    vals.push(Value::nothing(name));
-                                    Value::list(vals.to_vec(), current_span)
+                                    vals.push(x);
                                 }
-                                v => Value::list(vec![v.clone(), Value::nothing(name)], v.span()),
+                                v => {
+                                    *v = Value::list(vec![std::mem::take(v), x], current_span);
+                                }
                             };
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-
-                            record.push(headers[column_num].clone(), new_val);
-                        } else if args.keep_last && record.cols.contains(&headers[column_num]) {
-                            let index = record
-                                .cols
-                                .iter()
-                                .position(|y| y == &headers[column_num])
-                                .expect("value is contained.");
-                            record.cols.remove(index);
-                            record.vals.remove(index);
-                            record.push(headers[column_num].clone(), Value::nothing(name));
-                        } else if !record.cols.contains(&headers[column_num]) {
-                            record.push(headers[column_num].clone(), Value::nothing(name));
+                        } else if args.keep_last {
+                            *val = x;
                         }
                     }
                 }
+
                 column_num += 1;
             }
 

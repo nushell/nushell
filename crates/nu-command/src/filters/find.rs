@@ -10,6 +10,7 @@ use nu_protocol::{
     record, Category, Config, Example, IntoInterruptiblePipelineData, IntoPipelineData, ListStream,
     PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
 pub struct Find;
@@ -303,8 +304,9 @@ fn highlight_terms_in_record_with_search_columns(
         let val_str = val.into_string("", config);
         let Some(term_str) = term_strs
             .iter()
-            .find(|term_str| contains_ignore_case(&val_str, term_str)) else {
-                continue;
+            .find(|term_str| contains_ignore_case(&val_str, term_str))
+        else {
+            continue;
         };
 
         let highlighted_str =
@@ -318,7 +320,9 @@ fn highlight_terms_in_record_with_search_columns(
 }
 
 fn contains_ignore_case(string: &str, substring: &str) -> bool {
-    string.to_lowercase().contains(&substring.to_lowercase())
+    string
+        .to_folded_case()
+        .contains(&substring.to_folded_case())
 }
 
 fn find_with_rest_and_highlight(

@@ -1,11 +1,11 @@
 use nu_color_config::StyleComputer;
-use nu_protocol::{Config, Record, Value};
+use nu_protocol::{Config, Record, TableMode, Value};
 
 use crate::UnstructuredTable;
 
 use crate::common::nu_value_to_string_clean;
 use crate::{
-    common::{get_index_style, load_theme_from_config},
+    common::{get_index_style, load_theme},
     StringResult, TableOpts,
 };
 
@@ -13,7 +13,13 @@ pub struct CollapsedTable;
 
 impl CollapsedTable {
     pub fn build(value: Value, opts: TableOpts<'_>) -> StringResult {
-        collapsed_table(value, opts.config, opts.width, opts.style_computer)
+        collapsed_table(
+            value,
+            opts.config,
+            opts.width,
+            opts.style_computer,
+            opts.mode,
+        )
     }
 }
 
@@ -22,10 +28,11 @@ fn collapsed_table(
     config: &Config,
     term_width: usize,
     style_computer: &StyleComputer,
+    mode: TableMode,
 ) -> StringResult {
     colorize_value(&mut value, config, style_computer);
 
-    let theme = load_theme_from_config(config);
+    let theme = load_theme(mode);
     let mut table = UnstructuredTable::new(value, config);
     let is_empty = table.truncate(&theme, term_width);
     if is_empty {

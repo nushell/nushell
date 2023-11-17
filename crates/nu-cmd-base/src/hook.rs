@@ -2,7 +2,6 @@ use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
-use nu_protocol::ast::PathMember;
 use nu_protocol::cli_error::{report_error, report_error_new};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
@@ -62,27 +61,7 @@ pub fn eval_hook(
     value: &Value,
     hook_name: &str,
 ) -> Result<PipelineData, ShellError> {
-    let value_span = value.span();
-
-    // Hooks can optionally be a record in this form:
-    // {
-    //     condition: {|before, after| ... }  # block that evaluates to true/false
-    //     code: # block or a string
-    // }
-    // The condition block will be run to check whether the main hook (in `code`) should be run.
-    // If it returns true (the default if a condition block is not specified), the hook should be run.
-    let condition_path = PathMember::String {
-        val: "condition".to_string(),
-        span: value_span,
-        optional: false,
-    };
     let mut output = PipelineData::empty();
-
-    let code_path = PathMember::String {
-        val: "code".to_string(),
-        span: value_span,
-        optional: false,
-    };
 
     let span = value.span();
     match value {
@@ -161,10 +140,15 @@ pub fn eval_hook(
                 )?;
             }
         }
-        Value::Record { .. } => {
-            let do_run_hook = if let Ok(condition) =
-                value.clone().follow_cell_path(&[condition_path], false)
-            {
+        Value::Record { val, .. } => {
+            // Hooks can optionally be a record in this form:
+            // {
+            //     condition: {|before, after| ... }  # block that evaluates to true/false
+            //     code: # block or a string
+            // }
+            // The condition block will be run to check whether the main hook (in `code`) should be run.
+            // If it returns true (the default if a condition block is not specified), the hook should be run.
+            let do_run_hook = if let Some(condition) = val.get("condition") {
                 let other_span = condition.span();
                 if let Ok(block_id) = condition.as_block() {
                     match run_hook_block(
@@ -204,7 +188,13 @@ pub fn eval_hook(
             };
 
             if do_run_hook {
-                let follow = value.clone().follow_cell_path(&[code_path], false)?;
+                let Some(follow) = val.get("code") else {
+                    return Err(ShellError::CantFindColumn {
+                        col_name: "code".into(),
+                        span,
+                        src_span: span,
+                    });
+                };
                 let source_span = follow.span();
                 match follow {
                     Value::String { val, .. } => {
@@ -270,7 +260,7 @@ pub fn eval_hook(
                         run_hook_block(
                             engine_state,
                             stack,
-                            block_id,
+                            *block_id,
                             input,
                             arguments,
                             source_span,

@@ -47,9 +47,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export def",
     b"for",
     b"extern",
-    b"extern-wrapped",
     b"export extern",
-    b"export extern-wrapped",
     b"alias",
     b"export alias",
     b"export-env",
@@ -151,7 +149,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    if def_type_name != b"def" && def_type_name != b"extern" && def_type_name != b"extern-wrapped" {
+    if def_type_name != b"def" && def_type_name != b"extern" {
         return;
     }
 
@@ -631,9 +629,9 @@ pub fn parse_extern(
         };
 
     let extern_call = working_set.get_span_contents(name_span).to_vec();
-    if extern_call != b"extern" && extern_call != b"extern-wrapped" {
+    if extern_call != b"extern" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for extern or extern-wrapped command".into(),
+            "internal error: Wrong call name for extern command".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -1001,7 +999,28 @@ pub fn parse_alias(
             working_set.add_decl(Box::new(decl));
         }
 
-        if spans.len() < 4 {
+        // special case for `alias foo=bar`
+        if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
+
+            // split at '='.  Note that the output must never be None, the
+            // `unwrap` is just to avoid the possibility of panic, if the
+            // invariant is broken.
+            let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
+
+            let name = if name.is_empty() { "{name}" } else { name };
+            let initial_value = if initial_value.is_empty() {
+                "{initial_value}"
+            } else {
+                initial_value
+            };
+
+            working_set.error(ParseError::IncorrectValue(
+                "alias argument".into(),
+                spans[1],
+                format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
+            ))
+        } else if spans.len() < 4 {
             working_set.error(ParseError::IncorrectValue(
                 "Incomplete alias".into(),
                 span(&spans[..split_id]),
@@ -1030,7 +1049,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"extern" | b"extern-wrapped" | b"use" | b"module" | b"const" => {
+            b"alias" | b"def" | b"extern" | b"use" | b"module" | b"const" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
@@ -1097,7 +1116,6 @@ pub fn parse_export_in_block(
         }
         b"export module" => parse_module(working_set, lite_command, None).0,
         b"export extern" => parse_extern(working_set, lite_command, None),
-        b"export extern-wrapped" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
                 String::from_utf8_lossy(&full_name).to_string(),
@@ -1206,7 +1224,7 @@ pub fn parse_export_in_module(
 
                 result
             }
-            b"extern" | b"extern-wrapped" => {
+            b"extern" => {
                 let lite_command = LiteCommand {
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
@@ -1219,7 +1237,7 @@ pub fn parse_export_in_module(
                     id
                 } else {
                     working_set.error(ParseError::InternalError(
-                        "missing 'export extern' or 'export extern-wrapped' command".into(),
+                        "missing 'export extern' command".into(),
                         export_span,
                     ));
                     return (garbage_pipeline(spans), vec![]);
@@ -1485,7 +1503,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, alias, use, module, const, extern or extern-wrapped keyword",
+                    "def, alias, use, module, const or extern keyword",
                     spans[1],
                 ));
 
@@ -1494,9 +1512,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
+            "def, alias, use, module, const or extern keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, alias, use, module, const, extern or extern-wrapped keyword".to_string(),
+            "def, alias, use, module, const or extern keyword".to_string(),
         ));
 
         vec![]
@@ -1678,11 +1696,9 @@ pub fn parse_module_block(
                         b"const" => block
                             .pipelines
                             .push(parse_const(working_set, &command.parts)),
-                        b"extern" | b"extern-wrapped" => {
-                            block
-                                .pipelines
-                                .push(parse_extern(working_set, command, None))
-                        }
+                        b"extern" => block
+                            .pipelines
+                            .push(parse_extern(working_set, command, None)),
                         b"alias" => {
                             block.pipelines.push(parse_alias(
                                 working_set,
@@ -1822,7 +1838,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, extern, extern-wrapped, alias, use, module, export or export-env keyword".into(),
+                                "def, const, extern, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 

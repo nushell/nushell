@@ -5,11 +5,11 @@ use nu_test_support::{nu, pipeline};
 fn parses_single_path_prefix() {
     let actual = nu!(
         cwd: "tests", pipeline(
-        r#"
+        r"
             echo 'C:\users\viking\spam.txt'
             | path parse
             | get prefix
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "C:");
