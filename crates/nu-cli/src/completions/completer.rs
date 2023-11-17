@@ -67,7 +67,7 @@ impl NuCompleter {
         let mut callee_stack = stack.gather_captures(&self.engine_state, &block.captures);
 
         // Line
-        if let Some(pos_arg) = block.signature.required_positional.get(0) {
+        if let Some(pos_arg) = block.signature.required_positional.first() {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
