@@ -3709,13 +3709,11 @@ pub fn parse_list_expression(
                                 _ => Type::Any,
                             };
                             let span = Span::new(curr_span.start, spread_arg.span.end);
-                            // TODO should this be None?
-                            let custom_completion = spread_arg.custom_completion;
                             let spread_expr = Expression {
                                 expr: Expr::Spread(Box::new(spread_arg)),
                                 span,
                                 ty: Type::List(Box::new(elem_ty.clone())),
-                                custom_completion,
+                                custom_completion: None,
                             };
                             (spread_expr, elem_ty)
                         } else {
