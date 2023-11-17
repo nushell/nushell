@@ -79,7 +79,7 @@ pub fn min(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
 }
 
 pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
-    let initial_value = data.get(0);
+    let initial_value = data.first();
 
     let mut acc = match initial_value {
         Some(v) => {
@@ -124,7 +124,7 @@ pub fn sum(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError
 }
 
 pub fn product(data: Vec<Value>, span: Span, head: Span) -> Result<Value, ShellError> {
-    let initial_value = data.get(0);
+    let initial_value = data.first();
 
     let mut acc = match initial_value {
         Some(v) => {

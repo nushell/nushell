@@ -81,14 +81,14 @@ pub(crate) fn parse_commandline_args(
     let mut stack = Stack::new();
 
     // We should have a successful parse now
-    if let Some(pipeline) = block.pipelines.get(0) {
+    if let Some(pipeline) = block.pipelines.first() {
         if let Some(PipelineElement::Expression(
             _,
             Expression {
                 expr: Expr::Call(call),
                 ..
             },
-        )) = pipeline.elements.get(0)
+        )) = pipeline.elements.first()
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");

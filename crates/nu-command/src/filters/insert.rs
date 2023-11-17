@@ -171,7 +171,7 @@ fn insert(
             ctrlc,
         )
     } else {
-        if let Some(PathMember::Int { val, .. }) = cell_path.members.get(0) {
+        if let Some(PathMember::Int { val, .. }) = cell_path.members.first() {
             let mut input = input.into_iter();
             let mut pre_elems = vec![];
 

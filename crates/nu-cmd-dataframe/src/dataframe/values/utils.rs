@@ -11,7 +11,7 @@ pub(crate) fn convert_columns(
 ) -> Result<(Vec<Spanned<String>>, Span), ShellError> {
     // First column span
     let mut col_span = columns
-        .get(0)
+        .first()
         .ok_or_else(|| {
             ShellError::GenericError(
                 "Empty column list".into(),
@@ -54,7 +54,7 @@ pub(crate) fn convert_columns_string(
 ) -> Result<(Vec<String>, Span), ShellError> {
     // First column span
     let mut col_span = columns
-        .get(0)
+        .first()
         .ok_or_else(|| {
             ShellError::GenericError(
                 "Empty column list".into(),
