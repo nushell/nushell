@@ -1049,7 +1049,6 @@ impl Value {
                                 .into_iter()
                                 .map(|val| {
                                     let val_span = val.span();
-                                    // only look in records; this avoids unintentionally recursing into deeply nested tables
                                     match val {
                                         Value::Record { val, .. } => {
                                             if let Some(found) = val.iter().rev().find(|x| {
@@ -1062,6 +1061,13 @@ impl Value {
                                                 Ok(found.1.clone()) // TODO: avoid clone here
                                             } else if *optional {
                                                 Ok(Value::nothing(*origin_span))
+                                            } else if let Some(suggestion) =
+                                                did_you_mean(val.columns(), column_name)
+                                            {
+                                                return Err(ShellError::DidYouMean(
+                                                    suggestion,
+                                                    *origin_span,
+                                                ));
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
