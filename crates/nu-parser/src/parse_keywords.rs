@@ -70,13 +70,13 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 /// Check whether spans start with a parser keyword that can be aliased
 pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
     // try two words
-    if let (Some(span1), Some(span2)) = (spans.get(0), spans.get(1)) {
+    if let (Some(span1), Some(span2)) = (spans.first(), spans.get(1)) {
         let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
         return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
     }
 
     // try one word
-    if let Some(span1) = spans.get(0) {
+    if let Some(span1) = spans.first() {
         let cmd_name = working_set.get_span_contents(*span1);
         UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
     } else {
@@ -653,7 +653,7 @@ pub fn parse_extern(
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            if let Some(name_span) = rest_spans.get(0) {
+            if let Some(name_span) = rest_spans.first() {
                 if let Some(err) = detect_params_in_name(
                     working_set,
                     *name_span,
@@ -1135,7 +1135,7 @@ pub fn parse_export_in_module(
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
-    let export_span = if let Some(sp) = spans.get(0) {
+    let export_span = if let Some(sp) = spans.first() {
         if working_set.get_span_contents(*sp) != b"export" {
             working_set.error(ParseError::UnknownState(
                 "expected export statement".into(),
@@ -1209,7 +1209,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1249,7 +1249,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1310,7 +1310,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1370,7 +1370,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref alias_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = alias_call.clone();
 
@@ -1429,7 +1429,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref use_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = use_call.clone();
 
@@ -1466,7 +1466,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref module_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = module_call.clone();
 
@@ -1523,7 +1523,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 

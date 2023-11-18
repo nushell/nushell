@@ -111,7 +111,7 @@ fn gather_env_vars(
             let name = if let Some(Token {
                 contents: TokenContents::Item,
                 span,
-            }) = parts.get(0)
+            }) = parts.first()
             {
                 let mut working_set = StateWorkingSet::new(engine_state);
                 let bytes = working_set.get_span_contents(*span);

@@ -271,7 +271,7 @@ fn group_closure(
                         ));
                     }
 
-                    let value = match collection.get(0) {
+                    let value = match collection.first() {
                         Some(Value::Error { .. }) | None => Value::string(error_key, span),
                         Some(return_value) => return_value.clone(),
                     };

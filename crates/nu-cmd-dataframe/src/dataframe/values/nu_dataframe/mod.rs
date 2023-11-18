@@ -325,7 +325,7 @@ impl NuDataFrame {
         let series = self
             .df
             .get_columns()
-            .get(0)
+            .first()
             .expect("We have already checked that the width is 1");
 
         Ok(series.clone())
