@@ -45,6 +45,31 @@ impl Command for Mktemp {
             .category(Category::FileSystem)
     }
 
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Make a temporary file with the given suffix in the current working directory.",
+                example: "mktemp --suffix .txt",
+                result: Some(Value::test_string("<WORKING_DIR>/tmp.lekjbhelyx.txt")),
+            },
+            Example {
+                description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory.",
+                example: "mktemp testfile.XXX",
+                result: Some(Value::test_string("<WORKING_DIR>/testfile.4kh")),
+            },
+            Example {
+                description: "Make a temporary file with a template in the system temp directory.",
+                example: "mktemp -t testfile.XXX",
+                result: Some(Value::test_string("/tmp/testfile.4kh")),
+            },
+            Example {
+                description: "Make a temporary directory with randomly generated name in the temporary directory.",
+                example: "mktemp -d",
+                result: Some(Value::test_string("/tmp/tmp.NMw9fJr8K0")),
+            },
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -53,19 +78,16 @@ impl Command for Mktemp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
-        let template: String = call
+        let template = call
             .rest(engine_state, stack, 0)?
-            .get(0)
+            .first()
             .cloned()
             .map(|i: Spanned<String>| i.item)
             .unwrap_or("tmp.XXXXXXXXXX".to_string()); // same as default in coreutils
-
         let directory = call.has_flag("directory");
-        let suffix: Option<String> = call
-            .get_flag(engine_state, stack, "suffix")?
-            .map(|i: Spanned<String>| i.item);
+        let suffix = call.get_flag(engine_state, stack, "suffix")?;
         let tmpdir = call.has_flag("tmpdir");
-        let tmpdir_path: Option<PathBuf> = call
+        let tmpdir_path = call
             .get_flag(engine_state, stack, "tmpdir-path")?
             .map(|i: Spanned<PathBuf>| i.item);
 
@@ -103,30 +125,5 @@ impl Command for Mktemp {
             }
         };
         Ok(PipelineData::Value(Value::string(res, span), None))
-    }
-
-    fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Make a temporary file with the given suffix in the current working directory.",
-                example: "mktemp --suffix .txt",
-                result: Some(Value::test_string("<WORKING_DIR>/tmp.lekjbhelyx.txt")),
-            },
-            Example {
-                description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory.",
-                example: "mktemp testfile.XXX",
-                result: Some(Value::test_string("<WORKING_DIR>/testfile.4kh")),
-            },
-            Example {
-                description: "Make a temporary file with a template in the system temp directory.",
-                example: "mktemp -t testfile.XXX",
-                result: Some(Value::test_string("/tmp/testfile.4kh")),
-            },
-            Example {
-                description: "Make a temporary directory with randomly generated name in the temporary directory.",
-                example: "mktemp -d",
-                result: Some(Value::test_string("/tmp/tmp.NMw9fJr8K0")),
-            },
-        ]
     }
 }
