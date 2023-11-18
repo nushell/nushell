@@ -360,24 +360,33 @@ impl ExternalCommand {
                             let mut engine_state = engine_state.clone();
                             if let Some(hook) = engine_state.config.hooks.command_not_found.clone()
                             {
-                                if let Ok(PipelineData::Value(Value::String { val, .. }, ..)) =
-                                    eval_hook(
-                                        &mut engine_state,
-                                        stack,
-                                        None,
-                                        vec![(
-                                            "cmd_name".into(),
-                                            Value::string(
-                                                self.name.item.to_string(),
-                                                self.name.span,
-                                            ),
-                                        )],
-                                        &hook,
-                                        "command_not_found",
-                                    )
-                                {
-                                    err_str = format!("{}\n{}", err_str, val);
+                                if stack.is_overlay_active("command_not_found") {
+                                    return Err(ShellError::ExternalCommand {
+                                        label: "command_not_found handler could not be run".into(),
+                                        help: "make sure the command_not_found closure itself does not use unknown commands".to_string(),
+                                        span: self.name.span,
+                                    });
                                 }
+                                stack.add_overlay("command_not_found".into());
+                                match eval_hook(
+                                    &mut engine_state,
+                                    stack,
+                                    None,
+                                    vec![(
+                                        "cmd_name".into(),
+                                        Value::string(self.name.item.to_string(), self.name.span),
+                                    )],
+                                    &hook,
+                                    "command_not_found",
+                                ) {
+                                    Ok(PipelineData::Value(Value::String { val, .. }, ..)) => {
+                                        err_str = format!("{}\n{}", err_str, val);
+                                    }
+
+                                    Err(err) => return Err(err),
+                                    _ => {}
+                                }
+                                stack.remove_overlay("command_not_found");
                             }
                         }
 
