@@ -73,7 +73,7 @@ impl Command for Describe {
                 example:
                     "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| print $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
-                    "type" => Value::test_type_litteral(Type::Record(vec![
+                    "type" => Value::test_type_literal(Type::Record(vec![
                         ("shell".to_string(), Type::String),
                         ("uwu".to_string(), Type::Bool),
                         ("features".to_string(), Type::Record(vec![
@@ -88,17 +88,17 @@ impl Command for Describe {
                     ])),
                     "lazy" => Value::test_bool(false),
                     "columns" => Value::test_record(record!(
-                        "shell" => Value::test_type_litteral(Type::String),
-                        "uwu" => Value::test_type_litteral(Type::Bool),
-                        "features" => Value::test_type_litteral(Type::Record(vec![
+                        "shell" => Value::test_type_literal(Type::String),
+                        "uwu" => Value::test_type_literal(Type::Bool),
+                        "features" => Value::test_type_literal(Type::Record(vec![
                             ("bugs".to_string(), Type::Bool),
                             ("multiplatform".to_string(), Type::Bool),
                             ("speed".to_string(), Type::Int),
                         ])),
-                        "fib" => Value::test_type_litteral(Type::List(Box::new(Type::Int))),
-                        "on_save" => Value::test_type_litteral(Type::Closure),
-                        "first_commit" => Value::test_type_litteral(Type::Date),
-                        "my_duration" => Value::test_type_litteral(Type::Duration),
+                        "fib" => Value::test_type_literal(Type::List(Box::new(Type::Int))),
+                        "on_save" => Value::test_type_literal(Type::Closure),
+                        "first_commit" => Value::test_type_literal(Type::Date),
+                        "my_duration" => Value::test_type_literal(Type::Duration),
                     )),
                 ))),
             },
@@ -160,12 +160,12 @@ fn run(
             if detailed {
                 Value::record(
                     record!(
-                        "type" => Value::type_litteral(Type::ListStream, head),
+                        "type" => Value::type_literal(Type::ListStream, head),
                         "origin" => Value::string("external", head),
                         "stdout" => match stdout {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::type_litteral(Type::ListStream, head),
+                                        "type" => Value::type_literal(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("any", head),
                                     ),
@@ -176,7 +176,7 @@ fn run(
                         "stderr" => match stderr {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::type_litteral(Type::ListStream, head),
+                                        "type" => Value::type_literal(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("any", head),
                                     ),
@@ -187,7 +187,7 @@ fn run(
                         "exit_code" => match exit_code {
                             Some(_) => Value::record(
                                     record!(
-                                        "type" => Value::type_litteral(Type::ListStream, head),
+                                        "type" => Value::type_literal(Type::ListStream, head),
                                         "origin" => Value::string("external", head),
                                         "subtype" => Value::string("int", head),
                                     ),
@@ -215,7 +215,7 @@ fn run(
                 };
                 Value::record(
                     record!(
-                        "type" => Value::type_litteral(ty, head),
+                        "type" => Value::type_literal(ty, head),
                         "origin" => Value::string("nushell", head),
                         "description" => subty,
                         "metadata" => metadata_to_value(metadata, head),
@@ -259,7 +259,7 @@ fn describe_value(
     Ok(match value {
         Value::CustomValue { val, internal_span } => Value::record(
             record!(
-                "type" => Value::type_litteral(Type::Custom(val.value_string()), head),
+                "type" => Value::type_literal(Type::Custom(val.value_string()), head),
                 "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data())?.into_value(head),
             ),
             head,
@@ -275,7 +275,7 @@ fn describe_value(
         | Value::MatchPattern { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
             ),
             head,
         ),
@@ -283,13 +283,13 @@ fn describe_value(
             let columns = val
                 .into_iter()
                 .map(|(k, v)| -> Result<(String, Value), ShellError> {
-                    Ok((k.to_string(), Value::type_litteral(v.get_type(), head)))
+                    Ok((k.to_string(), Value::type_literal(v.get_type(), head)))
                 })
                 .collect::<Result<_, _>>()?;
 
             Value::record(
                 record!(
-                    "type" => Value::type_litteral(value.get_type(), head),
+                    "type" => Value::type_literal(value.get_type(), head),
                     "lazy" => Value::bool(false, head),
                     "columns" => Value::record(columns, head),
                 ),
@@ -298,7 +298,7 @@ fn describe_value(
         }
         Value::List { ref vals, .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
                 "length" => Value::int(vals.len() as i64, head),
             ),
             head,
@@ -312,7 +312,7 @@ fn describe_value(
 
             if let Some(block) = block {
                 let mut record = Record::new();
-                record.push("type", Value::type_litteral(value.get_type(), head));
+                record.push("type", Value::type_literal(value.get_type(), head));
                 record.push(
                     "signature",
                     Value::record(
@@ -327,7 +327,7 @@ fn describe_value(
             } else {
                 Value::record(
                     record!(
-                        "type" => Value::type_litteral(value.get_type(), head),
+                        "type" => Value::type_literal(value.get_type(), head),
                     ),
                     head,
                 )
@@ -336,21 +336,21 @@ fn describe_value(
 
         Value::Error { ref error, .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
                 "subtype" => Value::string(error.to_string(), head),
             ),
             head,
         ),
         Value::Binary { ref val, .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
                 "length" => Value::int(val.len() as i64, head),
             ),
             head,
         ),
         Value::CellPath { ref val, .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
                 "length" => Value::int(val.members.len() as i64, head),
             ),
             head,
@@ -363,9 +363,9 @@ fn describe_value(
             record.push(
                 "type",
                 if collect_lazyrecords {
-                    Value::type_litteral(value.get_type(), head)
+                    Value::type_literal(value.get_type(), head)
                 } else {
-                    Value::type_litteral(
+                    Value::type_literal(
                         Type::Record(
                             val.column_names()
                                 .into_iter()
@@ -385,7 +385,7 @@ fn describe_value(
                     let record_cols = val
                         .into_iter()
                         .map(|(k, v)| -> Result<(String, Value), ShellError> {
-                            Ok((k.to_string(), Value::type_litteral(v.get_type(), head)))
+                            Ok((k.to_string(), Value::type_literal(v.get_type(), head)))
                         })
                         .collect::<Result<_, _>>()?;
                     record.push("columns", Value::record(record_cols, head));
@@ -396,7 +396,7 @@ fn describe_value(
         }
         Value::TypeLiteral { .. } => Value::record(
             record!(
-                "type" => Value::type_litteral(value.get_type(), head),
+                "type" => Value::type_literal(value.get_type(), head),
             ),
             head,
         ),

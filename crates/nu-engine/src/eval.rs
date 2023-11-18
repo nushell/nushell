@@ -636,7 +636,7 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::nothing(expr.span)),
         Expr::Garbage => Ok(Value::nothing(expr.span)),
         Expr::Nothing => Ok(Value::nothing(expr.span)),
-        Expr::Type(ty) => Ok(Value::type_litteral(ty.as_ref().clone(), expr.span)),
+        Expr::Type(ty) => Ok(Value::type_literal(ty.as_ref().clone(), expr.span)),
     }
 }
 

@@ -1859,7 +1859,7 @@ impl Value {
         }
     }
 
-    pub fn type_litteral(val: Type, span: Span) -> Value {
+    pub fn type_literal(val: Type, span: Span) -> Value {
         Value::TypeLiteral {
             val,
             internal_span: span,
@@ -1976,8 +1976,8 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_type_litteral(val: Type) -> Value {
-        Value::type_litteral(val, Span::test_data())
+    pub fn test_type_literal(val: Type) -> Value {
+        Value::type_literal(val, Span::test_data())
     }
 
     pub fn is_(&self, op_span: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
