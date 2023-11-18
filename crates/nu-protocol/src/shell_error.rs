@@ -1165,10 +1165,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     /// ## Resolution
     ///
     /// Only lists can be spread inside lists. Try converting the value to a list before spreading.
-    #[error("Cannot spread value")]
+    #[error("Not a list")]
     #[diagnostic(
         code(nu::shell::cannot_spread),
-        help("Try converting the value to a list before spreading")
+        help("Only lists can be spread inside lists. Try converting the value to a list before spreading")
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]
