@@ -676,7 +676,11 @@ pub enum ShellError {
     /// It's always DNS.
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure))]
-    NetworkFailure(String, #[label("{0}")] Span),
+    NetworkFailure {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Help text for this command could not be found.
     ///
