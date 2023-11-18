@@ -1064,10 +1064,10 @@ impl Value {
                                             } else if let Some(suggestion) =
                                                 did_you_mean(val.columns(), column_name)
                                             {
-                                                return Err(ShellError::DidYouMean(
+                                                Err(ShellError::DidYouMean(
                                                     suggestion,
                                                     *origin_span,
-                                                ));
+                                                ))
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
