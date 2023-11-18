@@ -773,14 +773,9 @@ fn spread_in_list() -> TestResult {
 }
 
 #[test]
-fn spread_outside_list() -> TestResult {
-    fail_test(r#"...$this is not fine"#, "Unexpected spread operator")
-}
-
-#[test]
-fn spread_args() -> TestResult {
-    fail_test(
-        r#"this will ...$eventually be supported"#,
-        "Unexpected spread operator",
+fn not_spread_outside_list() -> TestResult {
+    run_test(
+        r#"echo ... [...] | each { |x| $x | describe } | str join ", ""#,
+        "string, list<string>",
     )
 }
