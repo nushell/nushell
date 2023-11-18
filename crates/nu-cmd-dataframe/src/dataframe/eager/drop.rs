@@ -68,7 +68,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let new_df = col_string
-        .get(0)
+        .first()
         .ok_or_else(|| {
             ShellError::GenericError(
                 "Empty names list".into(),

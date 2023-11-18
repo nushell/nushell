@@ -109,10 +109,20 @@ fn gather_env_vars(
             let (parts, _) = lex(contents, full_span.start, &[], &[b'='], true);
             let env_str = String::from_utf8_lossy(contents);
 
-            let name = match try_parse_token(&parts, engine_state, TokenPosition::Name) {
-                Ok((name, _)) => name,
-                Err(err) => {
-                    report_capture_error(engine_state, &env_str, &err);
+            let name = if let Some(Token {
+                contents: TokenContents::Item,
+                span,
+            }) = parts.first()
+            {
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let bytes = working_set.get_span_contents(*span);
+
+                if bytes.len() < 2 {
+                    report_capture_error(
+                        engine_state,
+                        &String::from_utf8_lossy(contents),
+                        "Got empty name.",
+                    );
                     continue;
                 }
             };
