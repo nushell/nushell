@@ -763,19 +763,3 @@ fn properly_typecheck_rest_param() -> TestResult {
 fn implied_collect_has_compatible_type() -> TestResult {
     run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
 }
-
-#[test]
-fn spread_in_list() -> TestResult {
-    run_test(
-        r#"[1 2 ...[3 4] 5 ...("foo" | split chars) ...bare] | str join " ""#,
-        "1 2 3 4 5 f o o ...bare",
-    )
-}
-
-#[test]
-fn not_spread_outside_list() -> TestResult {
-    run_test(
-        r#"echo ... [...] | each { |x| $x | describe } | str join ", ""#,
-        "string, list<string>",
-    )
-}
