@@ -685,7 +685,10 @@ pub enum ShellError {
     /// Check the spelling for the requested command and try again. Are you sure it's defined and your configurations are loading correctly? Can you execute it?
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found))]
-    CommandNotFound(#[label("command not found")] Span),
+    CommandNotFound {
+        #[label("command not found")]
+        span: Span,
+    },
 
     /// This alias could not be found
     ///
