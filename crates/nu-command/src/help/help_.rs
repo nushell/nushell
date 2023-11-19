@@ -95,7 +95,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
                 result
             };
 
-            let result = if let Err(ShellError::CommandNotFound(_)) = result {
+            let result = if let Err(ShellError::CommandNotFound { .. }) = result {
                 help_modules(engine_state, stack, call)
             } else {
                 result
