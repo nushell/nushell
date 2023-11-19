@@ -1037,7 +1037,10 @@ pub fn eval_block(
                         // that we don't have duplicate err> like this:
                         // cat a.txt err> /dev/null err> /tmp/a
                         if idx < elements_length - 2 {
-                            redirect_stdout = true
+                            let next_2nd_element = &elements[idx + 2];
+                            if matches!(next_2nd_element, PipelineElement::Expression(..)) {
+                                redirect_stdout = true
+                            }
                         }
                     }
                     _ => {}
