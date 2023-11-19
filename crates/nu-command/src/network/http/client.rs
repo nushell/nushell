@@ -363,38 +363,26 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure(
-            format!("Resource moved permanently (301): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
         Error::Status(400, _) => {
-            ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
         }
         Error::Status(403, _) => {
-            ShellError::NetworkFailure(format!("Access forbidden (403) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
         }
-        Error::Status(404, _) => ShellError::NetworkFailure(
-            format!("Requested file not found (404): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
         Error::Status(408, _) => {
-            ShellError::NetworkFailure(format!("Request timeout (408): {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
         }
-        Error::Status(_, _) => ShellError::NetworkFailure(
-            format!(
+        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ),
-            span,
-        ),
+            ), span },
 
         Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure(
-                format!("Cannot make request to {requested_url}, there was an error establishing a connection.",),
-                span,
-            ),
-            t => ShellError::NetworkFailure(t.to_string(), span),
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+            t => ShellError::NetworkFailure { msg: t.to_string(), span },
         },
     }
 }
