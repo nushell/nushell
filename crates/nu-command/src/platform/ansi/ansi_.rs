@@ -646,6 +646,10 @@ Operating system commands:
         vec!["text-color", "text-style", "colors"]
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
