@@ -190,7 +190,7 @@ pub fn transpose(
 
     if args.header_row {
         for i in input.iter() {
-            if let Some(desc) = descs.get(0) {
+            if let Some(desc) = descs.first() {
                 match &i.get_data_by_key(desc) {
                     Some(x) => {
                         if let Ok(s) = x.as_string() {

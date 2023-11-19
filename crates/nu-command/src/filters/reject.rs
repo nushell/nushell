@@ -221,7 +221,7 @@ fn reject(
     let mut new_rows = vec![];
     for column in cell_paths {
         let CellPath { ref members } = column;
-        match members.get(0) {
+        match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
                     return Err(ShellError::GenericError(

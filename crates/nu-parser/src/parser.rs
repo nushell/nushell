@@ -1572,10 +1572,10 @@ pub fn parse_brace_expr(
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
     let second_token = tokens
-        .get(0)
+        .first()
         .map(|token| working_set.get_span_contents(token.span));
 
-    let second_token_contents = tokens.get(0).map(|token| token.contents);
+    let second_token_contents = tokens.first().map(|token| token.contents);
 
     let third_token = tokens
         .get(1)
@@ -2666,7 +2666,7 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let Some(head_span) = spans.get(0) else {
+    let Some(head_span) = spans.first() else {
         working_set.error(ParseError::WrongImportPattern(
             "needs at least one component of import pattern".to_string(),
             span(spans),

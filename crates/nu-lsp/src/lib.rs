@@ -63,7 +63,7 @@ impl LanguageServer {
         engine_state: EngineState,
         ctrlc: Arc<AtomicBool>,
     ) -> Result<()> {
-        let server_capabilities = serde_json::to_value(&ServerCapabilities {
+        let server_capabilities = serde_json::to_value(ServerCapabilities {
             text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
                 TextDocumentSyncKind::INCREMENTAL,
             )),
