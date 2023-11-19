@@ -132,7 +132,7 @@ impl Command for PluginDeclaration {
         // `register nu_plugin_example` the plugin config lookup uses `"example"`
         let config = self
             .filename
-            .file_name()
+            .file_stem()
             .and_then(|file| {
                 file.to_string_lossy()
                     .clone()
