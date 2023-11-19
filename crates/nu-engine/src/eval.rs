@@ -981,8 +981,8 @@ pub fn eval_block(
     stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
+    mut redirect_stdout: bool,
+    mut redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
     if let Some(recursive) = block.recursive {
@@ -1003,20 +1003,46 @@ pub fn eval_block(
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        let mut elements_iter = pipeline.elements.iter().peekable();
         let mut stderr_writer_jobs = vec![];
-        while let Some(element) = elements_iter.next() {
-            let redirect_stderr = redirect_stderr
-                || (elements_iter.peek().map_or(false, |next_element| {
-                    matches!(
-                        next_element,
-                        PipelineElement::Redirection(_, Redirection::Stderr, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
-                            | PipelineElement::SeparateRedirection { .. }
-                    )
-                }));
+        let elements = &pipeline.elements;
+        let elements_length = elements.len();
+        for (idx, element) in elements.iter().enumerate() {
+            if !redirect_stderr && idx < elements_length - 1 {
+                let next_element = &elements[idx + 1];
+                if matches!(
+                    next_element,
+                    PipelineElement::Redirection(_, Redirection::Stderr, _)
+                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                        | PipelineElement::SeparateRedirection { .. }
+                ) {
+                    redirect_stderr = true;
+                }
+            }
 
-            let redirect_stdout = redirect_stdout || elements_iter.peek().is_some();
+            if !redirect_stdout && idx < elements_length - 1 {
+                let next_element = &elements[idx + 1];
+                match next_element {
+                    // is next element a stdout relative redirection?
+                    PipelineElement::Redirection(_, Redirection::Stdout, _)
+                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    | PipelineElement::SeparateRedirection { .. }
+                    | PipelineElement::Expression(..) => redirect_stdout = true,
+
+                    PipelineElement::Redirection(_, Redirection::Stderr, _) => {
+                        // a stderr redirection, but we still need to check for the next 2nd
+                        // element, to handle for the following case:
+                        // cat a.txt err> /dev/null | lines
+                        //
+                        // we only need to check the next 2nd element because we already make sure
+                        // that we don't have duplicate err> like this:
+                        // cat a.txt err> /dev/null err> /tmp/a
+                        if idx < elements_length - 2 {
+                            redirect_stdout = true
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(

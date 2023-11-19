@@ -320,6 +320,21 @@ fn redirection_with_pipe() {
             let expected_out_file = dirs.test().join("tmp_file");
             let actual_len = file_contents(expected_out_file).len();
             assert_eq!(actual_len, 40);
+
+            // check it inside a function
+            let actual = nu!(
+                cwd: dirs.test(),
+                "bash test.sh err> tmp_file; print aa"
+            );
+            assert!(actual.out.contains(&format!("{}aa", expect_body)));
         },
     )
+}
+
+#[test]
+fn no_duplicate_redirection() {
+    let actual = nu!("echo 3 o> a.txt o> a.txt");
+    assert!(actual.err.contains("Can't make stdout redirection twice"));
+    let actual = nu!("echo 3 e> a.txt e> a.txt");
+    assert!(actual.err.contains("Can't make stderr redirection twice"));
 }

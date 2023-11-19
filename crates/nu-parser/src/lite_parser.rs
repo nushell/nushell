@@ -71,6 +71,17 @@ impl LitePipeline {
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
     }
+
+    pub fn exists(&self, new_target: Redirection) -> bool {
+        for cmd in &self.commands {
+            if let LiteElement::Redirection(_, exists_target, _) = cmd {
+                if exists_target == &new_target {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 #[derive(Debug)]
@@ -367,7 +378,7 @@ pub fn lite_parse(tokens: &[Token]) -> (LiteBlock, Option<ParseError>) {
 /// push a `command` to `pipeline`
 ///
 /// It will return Some(err) if `command` is empty and we want to push a
-/// redirection command.
+/// redirection command, or we have meet the same redirection in `pipeline`.
 fn push_command_to(
     pipeline: &mut LitePipeline,
     command: LiteCommand,
@@ -377,14 +388,28 @@ fn push_command_to(
     if !command.is_empty() {
         match last_connector {
             TokenContents::OutGreaterThan => {
-                pipeline.push(LiteElement::Redirection(
-                    last_connector_span
-                        .expect("internal error: redirection missing span information"),
-                    Redirection::Stdout,
-                    command,
-                ));
+                let span = last_connector_span
+                    .expect("internal error: redirection missing span information");
+                if pipeline.exists(Redirection::Stdout) {
+                    return Some(ParseError::LabeledError(
+                        "Can't make stdout redirection twice".into(),
+                        "try to remove one".into(),
+                        span,
+                    ));
+                }
+
+                pipeline.push(LiteElement::Redirection(span, Redirection::Stdout, command));
             }
             TokenContents::ErrGreaterThan => {
+                let span = last_connector_span
+                    .expect("internal error: redirection missing span information");
+                if pipeline.exists(Redirection::Stderr) {
+                    return Some(ParseError::LabeledError(
+                        "Can't make stderr redirection twice".into(),
+                        "try to remove one".into(),
+                        span,
+                    ));
+                }
                 pipeline.push(LiteElement::Redirection(
                     last_connector_span
                         .expect("internal error: redirection missing span information"),
