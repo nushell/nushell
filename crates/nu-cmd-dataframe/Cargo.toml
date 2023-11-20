@@ -59,7 +59,7 @@ features = [
 	"to_dummies",
 ]
 optional = true
-version = "0.33"
+version = "0.35"
 
 [features]
 dataframe = ["num", "polars", "polars-io", "sqlparser"]
