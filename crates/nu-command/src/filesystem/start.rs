@@ -4,6 +4,7 @@ use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Value;
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
 };
@@ -30,7 +31,7 @@ impl Command for Start {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("start")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .required("path", SyntaxShape::String, "path to open")
+            .optional("path", SyntaxShape::String, "path to open")
             .category(Category::FileSystem)
     }
 
@@ -39,9 +40,93 @@ impl Command for Start {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let path = call.req::<Spanned<String>>(engine_state, stack, 0)?;
+        let path: Spanned<String> = match (input, call.opt(engine_state, stack, 0)?) {
+            // Positional input
+            (
+                PipelineData::ExternalStream { stdout: None, .. }
+                | PipelineData::Empty
+                | PipelineData::Value(Value::Nothing { .. }, _),
+                Some(p),
+            ) => Ok(p),
+            // Pipelined input
+            (PipelineData::Value(Value::String { val, .. }, _), None) => Ok(Spanned {
+                item: val,
+                span: call.head,
+            }),
+            // Pipelined input from external stream
+            (
+                PipelineData::ExternalStream {
+                    stdout: Some(out), ..
+                },
+                None,
+            ) => out.into_string(),
+            // No input is given
+            (
+                PipelineData::ExternalStream { stdout: None, .. }
+                | PipelineData::Empty
+                | PipelineData::Value(Value::Nothing { .. }, _),
+                None,
+            ) => Err(ShellError::MissingParameter {
+                param_name: r#"Positional parameter "path" or pipelined data"#.into(),
+                span: call.head,
+            }),
+            // Ambiguous input, unable to determine which is the expected input
+            (PipelineData::Value(Value::String { internal_span, .. }, _), Some(p)) => {
+                Err(ShellError::IncompatibleParameters {
+                    left_message: "Received string from pipelined data".into(),
+                    left_span: internal_span,
+                    right_message:
+                        "...but also a positional parameter, unable to determine which to open"
+                            .into(),
+                    right_span: p.span,
+                })
+            }
+            (PipelineData::Value(val, _), Some(_)) => Err(ShellError::UnsupportedInput {
+                msg:
+                    "Got positional parameter and unsupported value from pipeline at the same time"
+                        .into(),
+                input: "remove pipeline to use positional parameter".into(),
+                msg_span: call.head,
+                input_span: val.span(),
+            }),
+            (PipelineData::ListStream(list, _), Some(_)) => Err(ShellError::UnsupportedInput {
+                msg:
+                    "Got positional parameter and unsupported value from pipeline at the same time"
+                        .into(),
+                input: "remove pipeline to use positional parameter".into(),
+                msg_span: call.head,
+                input_span: list.map(|s| s.span()).next().unwrap_or(call.head),
+            }),
+            (
+                PipelineData::ExternalStream {
+                    stdout: Some(out), ..
+                },
+                Some(_),
+            ) => Err(ShellError::UnsupportedInput {
+                msg:
+                    "Got positional parameter and unsupported value from pipeline at the same time"
+                        .into(),
+                input: "remove pipeline to use positional parameter".into(),
+                msg_span: call.head,
+                input_span: out.span,
+            }),
+            // Unsupported input type
+            (PipelineData::Value(val, _), None) => Err(ShellError::UnsupportedInput {
+                msg: "Only String is allowed here".into(),
+                input: "pipelined value from here".into(),
+                msg_span: call.head,
+                input_span: val.span(),
+            }),
+            // Unsupported liststream input
+            (PipelineData::ListStream(list, _), None) => Err(ShellError::UnsupportedInput {
+                msg: "list input is unsupported".into(),
+                input: "value originates from here".into(),
+                msg_span: call.head,
+                input_span: list.map(|s| s.span()).next().unwrap_or(call.head),
+            }),
+        }?;
         let path = Spanned {
             item: nu_utils::strip_ansi_string_unlikely(path.item),
             span: path.span,
