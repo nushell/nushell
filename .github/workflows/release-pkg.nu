@@ -138,8 +138,6 @@ print $'(char nl)Copying release files...'; hr-line
 
 > register ./nu_plugin_query" | save $'($dist)/README.txt' -f
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
-# Sleep a few seconds to make sure the cp process finished successfully
-sleep 3sec
 
 print $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
@@ -149,6 +147,7 @@ let ver = if $os == 'windows-latest' {
 }
 if ($ver | str trim | is-empty) {
     print $'(ansi r)Incompatible nu binary...(ansi reset)'
+    print $'(char nl)This may also only indicate that a crosscompiled binary is executed on an incompatible build host.'
 } else { print $ver }
 
 # ----------------------------------------------------------------------------
