@@ -92,7 +92,7 @@ uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
 uu_mkdir = "0.0.23"
 uu_mktemp = "0.0.23"
-uuid = { version = "1.5", features = ["v4"] }
+uuid = { version = "1.6", features = ["v4"] }
 wax = { version = "0.6" }
 which = { version = "5.0", optional = true }
 bracoxide = "0.1.2"
