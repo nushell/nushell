@@ -138,6 +138,7 @@ fn into_record(
         ),
         Value::Record { val, .. } => Value::record(val, span),
         Value::Error { .. } => input,
+        Value::TypeLiteral { val, .. } => type_into_record(val, span),
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
@@ -149,6 +150,50 @@ fn into_record(
         ),
     };
     Ok(res.into_pipeline_data())
+}
+
+fn type_into_record(val: Type, span: Span) -> Value {
+    match val {
+        Type::List(inner) => Value::record(
+            record!(
+                "type" => Value::type_literal(Type::List(inner.clone()), span),
+                "inner" => Value::type_literal(inner.as_ref().clone(), span),
+            ),
+            span,
+        ),
+        Type::Table(inner) => Value::record(
+            record!(
+                "type" => Value::type_literal(Type::Table(inner.clone()), span),
+                "columns" => Value::record(
+                    inner
+                        .into_iter()
+                        .map(|(k, v)| (k, Value::type_literal(v, span)))
+                        .collect(),
+                    span,
+                ),
+            ),
+            span,
+        ),
+        Type::Record(inner) => Value::record(
+            record!(
+                "type" => Value::type_literal(Type::Record(inner.clone()), span),
+                "columns" => Value::record(
+                    inner
+                        .into_iter()
+                        .map(|(k, v)| (k, Value::type_literal(v, span)))
+                        .collect(),
+                    span,
+                ),
+            ),
+            span,
+        ),
+        _ => Value::record(
+            record!(
+                "type" => Value::type_literal(val.clone(), span),
+            ),
+            span,
+        ),
+    }
 }
 
 fn parse_date_into_record(date: DateTime<FixedOffset>, span: Span) -> Value {

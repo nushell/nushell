@@ -66,7 +66,7 @@ impl Command for Describe {
             Example {
                 description: "Describe the type of a string",
                 example: "'hello' | describe",
-                result: Some(Value::test_string("string")),
+                result: Some(Value::test_type_literal(Type::String)),
             },
             Example {
                 description: "Describe the type of a record in a detailed way",
@@ -200,7 +200,7 @@ fn run(
                     head,
                 )
             } else {
-                Value::string("raw input", head)
+                Value::type_literal(Type::ListStream, head)
             }
         }
         PipelineData::ListStream(_, _) => {
@@ -223,15 +223,10 @@ fn run(
                     head,
                 )
             } else if no_collect {
-                Value::string("stream", head)
+                Value::type_literal(Type::ListStream, head)
             } else {
                 let value = input.into_value(head);
-                let base_description = match value {
-                    Value::CustomValue { val, .. } => val.value_string(),
-                    _ => value.get_type().to_string(),
-                };
-
-                Value::string(format!("{} (stream)", base_description), head)
+                Value::type_literal(value.get_type(), head)
             }
         }
         _ => {
@@ -240,8 +235,10 @@ fn run(
                 describe_value(value, head, engine_state, call)?
             } else {
                 match value {
-                    Value::CustomValue { val, .. } => Value::string(val.value_string(), head),
-                    _ => Value::string(value.get_type().to_string(), head),
+                    Value::CustomValue { val, .. } => {
+                        Value::type_literal(Type::Custom(val.value_string()), head)
+                    }
+                    _ => Value::type_literal(value.get_type(), head),
                 }
             }
         }

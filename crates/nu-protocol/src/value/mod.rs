@@ -516,7 +516,7 @@ impl Value {
         }
     }
 
-    pub fn as_type(&self) -> Result<&Type, ShellError> {
+    pub fn as_type_literal(&self) -> Result<&Type, ShellError> {
         match self {
             Value::TypeLiteral { val, .. } => Ok(val),
             x => Err(ShellError::CantConvert {
