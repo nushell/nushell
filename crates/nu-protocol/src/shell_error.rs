@@ -1,5 +1,6 @@
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
+use strum_macros::AsRefStr;
 use thiserror::Error;
 
 use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
@@ -7,7 +8,7 @@ use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Sp
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
 /// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
 /// and pass it into an error viewer to display to the user.
-#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize)]
+#[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize, AsRefStr)]
 pub enum ShellError {
     /// An operator received two arguments of incompatible types.
     ///

@@ -25,6 +25,9 @@ shadow-rs = { version = "0.24", default-features = false }
 [build-dependencies]
 shadow-rs = { version = "0.24", default-features = false }
 
+[dev-dependencies]
+rand = "0.8"
+
 [features]
 mimalloc = []
 which-support = []
