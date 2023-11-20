@@ -99,7 +99,7 @@ bracoxide = "0.1.2"
 chardetng = "0.1.17"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.51"
+winreg = "0.52"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
