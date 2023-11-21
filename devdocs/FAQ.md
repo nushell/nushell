@@ -9,9 +9,6 @@ Let's keep the answers concise and up to date (or general enough) to remain rele
 ## How do I properly test my feature or bugfix?
 TODO (Probably fork out into its own file)
 
-## How do I check an environment variable?
-TODO
-
 ## I want to report an error to the user
 
 Approximate flow:
@@ -35,6 +32,9 @@ Approximate flow:
     - good practice: `nu_protocol::cli_error::report_error` or `report_error_new`
         - depending on whether you have access to a `StateWorkingSet`
     - if only relevant to in the field debugging: `log`-crate macros.
+
+## How do I check an environment variable?
+TODO
 
 ## WTF is `PipelineMetadata`?
 TODO
