@@ -80,7 +80,9 @@ impl Command for Mv {
             arg_glob(&spanned_source, &path).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::FileNotFound(spanned_source.span));
+            return Err(ShellError::FileNotFound {
+                span: spanned_source.span,
+            });
         }
 
         // We have two possibilities.

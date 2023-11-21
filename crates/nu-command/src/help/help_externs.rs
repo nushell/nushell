@@ -133,10 +133,9 @@ pub fn help_externs(
                     .into_pipeline_data(),
             )
         } else {
-            Err(ShellError::CommandNotFound(span(&[
-                rest[0].span,
-                rest[rest.len() - 1].span,
-            ])))
+            Err(ShellError::CommandNotFound {
+                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+            })
         }
     }
 }

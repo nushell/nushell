@@ -105,7 +105,7 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound(span, _) => ShellError::FileNotFound(span),
+                    ShellError::DirectoryNotFound(span, _) => ShellError::FileNotFound { span },
                     _ => err,
                 })?
                 .1
