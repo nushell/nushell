@@ -111,7 +111,7 @@ impl Command for Cp {
         };
 
         if sources.is_empty() {
-            return Err(ShellError::FileNotFound(src.span));
+            return Err(ShellError::FileNotFound { span: src.span });
         }
 
         if sources.len() > 1 && !destination.is_dir() {

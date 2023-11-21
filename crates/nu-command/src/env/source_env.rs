@@ -55,7 +55,9 @@ impl Command for SourceEnv {
         )? {
             PathBuf::from(&path)
         } else {
-            return Err(ShellError::FileNotFound(source_filename.span));
+            return Err(ShellError::FileNotFound {
+                span: source_filename.span,
+            });
         };
 
         if let Some(parent) = file_path.parent() {
