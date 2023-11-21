@@ -563,9 +563,15 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
     let shell_error = match error.kind() {
         ErrorKind::NotFound => {
             if std::path::Path::new(&dst).exists() {
-                ShellError::FileNotFoundCustom(message_src, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_src,
+                    span,
+                }
             } else {
-                ShellError::FileNotFoundCustom(message_dst, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_dst,
+                    span,
+                }
             }
         }
         ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
