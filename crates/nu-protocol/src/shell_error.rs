@@ -627,12 +627,14 @@ pub enum ShellError {
     /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input))]
-    UnsupportedInput(
-        String,
-        String,
-        #[label("{0}")] Span, // call head (the name of the command itself)
-        #[label("input type: {1}")] Span,
-    ),
+    UnsupportedInput {
+        msg: String,
+        input: String,
+        #[label("{msg}")]
+        msg_span: Span,
+        #[label("{input}")]
+        input_span: Span,
+    },
 
     /// Failed to parse an input into a datetime value.
     ///
@@ -648,7 +650,7 @@ pub enum ShellError {
     /// * "2020-04-12 22:10:57 +02:00"
     /// * "2020-04-12T22:10:57.213231+02:00"
     /// * "Tue, 1 Jul 2003 10:52:37 +0200""#
-    #[error("Unable to parse datetime: [{0}].")]
+    #[error("Unable to parse datetime: [{msg}].")]
     #[diagnostic(
         code(nu::shell::datetime_parse_error),
         help(
@@ -661,7 +663,11 @@ pub enum ShellError {
  * "Tue, 1 Jul 2003 10:52:37 +0200""#
         )
     )]
-    DatetimeParseError(String, #[label("datetime parsing failed")] Span),
+    DatetimeParseError {
+        msg: String,
+        #[label("datetime parsing failed")]
+        span: Span,
+    },
 
     /// A network operation failed.
     ///
@@ -670,7 +676,11 @@ pub enum ShellError {
     /// It's always DNS.
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure))]
-    NetworkFailure(String, #[label("{0}")] Span),
+    NetworkFailure {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Help text for this command could not be found.
     ///
@@ -679,7 +689,10 @@ pub enum ShellError {
     /// Check the spelling for the requested command and try again. Are you sure it's defined and your configurations are loading correctly? Can you execute it?
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found))]
-    CommandNotFound(#[label("command not found")] Span),
+    CommandNotFound {
+        #[label("command not found")]
+        span: Span,
+    },
 
     /// This alias could not be found
     ///
@@ -688,13 +701,10 @@ pub enum ShellError {
     /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
     #[error("Alias not found")]
     #[diagnostic(code(nu::shell::alias_not_found))]
-    AliasNotFound(#[label("alias not found")] Span),
-
-    /// A flag was not found.
-    #[error("Flag not found")]
-    #[diagnostic(code(nu::shell::flag_not_found))]
-    // NOTE: Seems to be unused. Removable?
-    FlagNotFound(String, #[label("{0} not found")] Span),
+    AliasNotFound {
+        #[label("alias not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
@@ -703,7 +713,10 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFound(#[label("file not found")] Span),
+    FileNotFound {
+        #[label("file not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///

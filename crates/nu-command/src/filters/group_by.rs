@@ -246,7 +246,7 @@ fn group_closure(
 
     for value in values {
         if let Some(capture_block) = &block {
-            let mut stack = stack.captures_to_stack(&capture_block.captures);
+            let mut stack = stack.captures_to_stack(capture_block.captures.clone());
             let block = engine_state.get_block(capture_block.block_id);
             let pipeline = eval_block(
                 engine_state,
@@ -271,7 +271,7 @@ fn group_closure(
                         ));
                     }
 
-                    let value = match collection.get(0) {
+                    let value = match collection.first() {
                         Some(Value::Error { .. }) | None => Value::string(error_key, span),
                         Some(return_value) => return_value.clone(),
                     };

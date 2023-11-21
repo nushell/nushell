@@ -201,7 +201,7 @@ fn main() -> Result<()> {
     }
 
     if parsed_nu_cli_args.lsp {
-        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state);
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
     // IDE commands

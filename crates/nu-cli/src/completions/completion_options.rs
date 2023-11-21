@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
 use nu_parser::trim_quotes_str;
+use nu_protocol::CompletionAlgorithm;
 
 #[derive(Copy, Clone)]
 pub enum SortBy {
@@ -51,6 +52,15 @@ impl MatchAlgorithm {
                 let matcher = SkimMatcherV2::default();
                 matcher.fuzzy_match(&haystack_str, &needle_str).is_some()
             }
+        }
+    }
+}
+
+impl From<CompletionAlgorithm> for MatchAlgorithm {
+    fn from(value: CompletionAlgorithm) -> Self {
+        match value {
+            CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
+            CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
         }
     }
 }

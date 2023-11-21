@@ -707,8 +707,8 @@ impl EngineState {
         &self.config
     }
 
-    pub fn set_config(&mut self, conf: &Config) {
-        self.config = conf.clone();
+    pub fn set_config(&mut self, conf: Config) {
+        self.config = conf;
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
@@ -755,8 +755,7 @@ impl EngineState {
             decls_map.extend(new_decls);
         }
 
-        let mut decls: Vec<(Vec<u8>, DeclId)> =
-            decls_map.into_iter().map(|(v, k)| (v, k)).collect();
+        let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
         decls.into_iter()

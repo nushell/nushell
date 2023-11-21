@@ -44,9 +44,7 @@ impl Completer for VariableCompletion {
     ) -> Vec<Suggestion> {
         let mut output = vec![];
         let builtins = ["$nu", "$in", "$env"];
-        let var_str = std::str::from_utf8(&self.var_context.0)
-            .unwrap_or("")
-            .to_lowercase();
+        let var_str = std::str::from_utf8(&self.var_context.0).unwrap_or("");
         let var_id = working_set.find_variable(&self.var_context.0);
         let current_span = reedline::Span {
             start: span.start - offset,
@@ -57,7 +55,7 @@ impl Completer for VariableCompletion {
         // Completions for the given variable
         if !var_str.is_empty() {
             // Completion for $env.<tab>
-            if var_str.as_str() == "$env" {
+            if var_str == "$env" {
                 let env_vars = self.stack.get_env_vars(&self.engine_state);
 
                 // Return nested values
@@ -109,7 +107,7 @@ impl Completer for VariableCompletion {
             }
 
             // Completions for $nu.<tab>
-            if var_str.as_str() == "$nu" {
+            if var_str == "$nu" {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
@@ -237,9 +235,9 @@ fn nested_suggestions(
     match value {
         Value::Record { val, .. } => {
             // Add all the columns as completion
-            for item in val.cols {
+            for (col, _) in val.into_iter() {
                 output.push(Suggestion {
-                    value: item,
+                    value: col,
                     description: None,
                     extra: None,
                     span: current_span,

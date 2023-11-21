@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.86.1"
+# version = "0.87.2"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -50,6 +50,7 @@ let dark_theme = {
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
+    shape_keyword: cyan_bold
     shape_list: cyan_bold
     shape_literal: blue
     shape_match_pattern: green
@@ -113,6 +114,7 @@ let light_theme = {
     shape_globpattern: cyan_bold
     shape_int: purple_bold
     shape_internalcall: cyan_bold
+    shape_keyword: cyan_bold
     shape_list: cyan_bold
     shape_literal: blue
     shape_match_pattern: green

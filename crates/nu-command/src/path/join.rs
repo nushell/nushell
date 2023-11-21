@@ -180,12 +180,12 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
             metadata,
         )),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
-        _ => Err(ShellError::UnsupportedInput(
-            "Input value cannot be joined".to_string(),
-            "value originates from here".into(),
-            head,
-            input.span().unwrap_or(call.head),
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "Input value cannot be joined".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input.span().unwrap_or(call.head),
+        }),
     }
 }
 
@@ -249,14 +249,9 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
     for key in &record.cols {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
-            return Err(ShellError::UnsupportedInput(
-                format!(
+            return Err(ShellError::UnsupportedInput { msg: format!(
                     "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
-                ),
-                "value originates from here".into(),
-                head,
-                span
-            ));
+                ), input: "value originates from here".into(), msg_span: head, input_span: span });
         }
     }
 

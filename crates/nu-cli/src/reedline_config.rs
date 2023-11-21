@@ -7,8 +7,8 @@ use nu_parser::parse;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},
-    extract_value, Config, ParsedKeybinding, ParsedMenu, PipelineData, Record, ShellError, Span,
-    Value,
+    extract_value, Config, EditBindings, ParsedKeybinding, ParsedMenu, PipelineData, Record,
+    ShellError, Span, Value,
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
@@ -252,7 +252,7 @@ pub(crate) fn add_columnar_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -334,7 +334,7 @@ pub(crate) fn add_list_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -452,7 +452,7 @@ pub(crate) fn add_description_menu(
             let menu_completer = NuMenuCompleter::new(
                 val.block_id,
                 span,
-                stack.captures_to_stack(&val.captures),
+                stack.captures_to_stack(val.captures.clone()),
                 engine_state,
                 only_buffer_difference,
             );
@@ -537,11 +537,11 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
     let mut insert_keybindings = default_vi_insert_keybindings();
     let mut normal_keybindings = default_vi_normal_keybindings();
 
-    match config.edit_mode.as_str() {
-        "emacs" => {
+    match config.edit_mode {
+        EditBindings::Emacs => {
             add_menu_keybindings(&mut emacs_keybindings);
         }
-        _ => {
+        EditBindings::Vi => {
             add_menu_keybindings(&mut insert_keybindings);
             add_menu_keybindings(&mut normal_keybindings);
         }
@@ -557,9 +557,9 @@ pub(crate) fn create_keybindings(config: &Config) -> Result<KeybindingsMode, She
         )?
     }
 
-    match config.edit_mode.as_str() {
-        "emacs" => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
-        _ => Ok(KeybindingsMode::Vi {
+    match config.edit_mode {
+        EditBindings::Emacs => Ok(KeybindingsMode::Emacs(emacs_keybindings)),
+        EditBindings::Vi => Ok(KeybindingsMode::Vi {
             insert_keybindings,
             normal_keybindings,
         }),
@@ -616,7 +616,7 @@ fn add_parsed_keybinding(
     let modifier = match keybinding
         .modifier
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "control" => KeyModifiers::CONTROL,
@@ -641,7 +641,7 @@ fn add_parsed_keybinding(
     let keycode = match keybinding
         .keycode
         .into_string("", config)
-        .to_lowercase()
+        .to_ascii_lowercase()
         .as_str()
     {
         "backspace" => KeyCode::Backspace,
@@ -728,7 +728,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
     match value {
         Value::Record { val: record, .. } => match EventType::try_from_record(record, span)? {
             EventType::Send(value) => event_from_record(
-                value.into_string("", config).to_lowercase().as_str(),
+                value.into_string("", config).to_ascii_lowercase().as_str(),
                 record,
                 config,
                 span,
@@ -736,7 +736,7 @@ fn parse_event(value: &Value, config: &Config) -> Result<Option<ReedlineEvent>, 
             .map(Some),
             EventType::Edit(value) => {
                 let edit = edit_from_record(
-                    value.into_string("", config).to_lowercase().as_str(),
+                    value.into_string("", config).to_ascii_lowercase().as_str(),
                     record,
                     config,
                     span,

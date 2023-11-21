@@ -200,13 +200,12 @@ pub fn rotate(
             }
         }
     } else {
-        return Err(ShellError::UnsupportedInput(
-            "list input is empty".to_string(),
-            "value originates from here".into(),
-            call.head,
-            // TODO: Maybe make all Pipelines have spans, so that this doesn't need to be unwrapped.
-            span.unwrap_or(call.head),
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "list input is empty".to_string(),
+            input: "value originates from here".into(),
+            msg_span: call.head,
+            input_span: span.unwrap_or(call.head),
+        });
     }
 
     let total_columns = &old_column_names.len();

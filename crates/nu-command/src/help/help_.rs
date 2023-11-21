@@ -10,6 +10,7 @@ use nu_protocol::{
     span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 #[derive(Clone)]
 pub struct Help;
 
@@ -88,13 +89,13 @@ You can also learn more at https://www.nushell.sh/book/"#;
         } else {
             let result = help_aliases(engine_state, stack, call);
 
-            let result = if let Err(ShellError::AliasNotFound(_)) = result {
+            let result = if let Err(ShellError::AliasNotFound { .. }) = result {
                 help_commands(engine_state, stack, call)
             } else {
                 result
             };
 
-            let result = if let Err(ShellError::CommandNotFound(_)) = result {
+            let result = if let Err(ShellError::CommandNotFound { .. }) = result {
                 help_modules(engine_state, stack, call)
             } else {
                 result
@@ -144,7 +145,7 @@ pub fn highlight_search_in_table(
     highlight_style: &Style,
 ) -> Result<Vec<Value>, ShellError> {
     let orig_search_string = search_string;
-    let search_string = search_string.to_lowercase();
+    let search_string = search_string.to_folded_case();
     let mut matches = vec![];
 
     for record in table {
@@ -168,7 +169,7 @@ pub fn highlight_search_in_table(
                 }
                 let span = val.span();
                 if let Value::String { val: s, .. } = val {
-                    if s.to_lowercase().contains(&search_string) {
+                    if s.to_folded_case().contains(&search_string) {
                         *val = Value::string(
                             highlight_search_string(
                                 s,

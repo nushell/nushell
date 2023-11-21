@@ -125,7 +125,7 @@ fn insert(
         let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
@@ -171,7 +171,7 @@ fn insert(
             ctrlc,
         )
     } else {
-        if let Some(PathMember::Int { val, .. }) = cell_path.members.get(0) {
+        if let Some(PathMember::Int { val, .. }) = cell_path.members.first() {
             let mut input = input.into_iter();
             let mut pre_elems = vec![];
 

@@ -70,9 +70,12 @@ fn config_add_unsupported_value() {
         r#"$env.config.history.file_format = ''"#,
         r#";"#]));
 
-    assert!(actual.err.contains(
-        "unrecognized $env.config.history.file_format ''; expected either 'sqlite' or 'plaintext'"
-    ));
+    assert!(actual
+        .err
+        .contains("unrecognized $env.config.history.file_format option ''"));
+    assert!(actual
+        .err
+        .contains("expected either 'sqlite' or 'plaintext'"));
 }
 
 #[test]

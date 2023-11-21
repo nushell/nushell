@@ -110,7 +110,7 @@ pub fn compact(
                     Value::Nothing { .. } => false,
                     Value::Record { val, .. } => {
                         for column in columns.iter() {
-                            match item.get_data_by_key(column) {
+                            match val.get(column) {
                                 None => return false,
                                 Some(x) => {
                                     if let Value::Nothing { .. } = x {
