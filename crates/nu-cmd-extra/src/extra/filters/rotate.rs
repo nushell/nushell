@@ -178,10 +178,9 @@ pub fn rotate(
             let span = val.span();
             match val {
                 Value::Record { val: record, .. } => {
-                    old_column_names = record.cols;
-                    for v in record.vals {
-                        new_values.push(v)
-                    }
+                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                    old_column_names = cols;
+                    new_values.extend_from_slice(&vals);
                 }
                 Value::List { vals, .. } => {
                     not_a_record = true;
@@ -237,10 +236,7 @@ pub fn rotate(
     if not_a_record {
         return Ok(Value::list(
             vec![Value::record(
-                Record {
-                    cols: new_column_names,
-                    vals: new_values,
-                },
+                Record::from_raw_cols_vals(new_column_names, new_values),
                 call.head,
             )],
             call.head,
@@ -286,10 +282,7 @@ pub fn rotate(
             res.to_vec()
         };
         final_values.push(Value::record(
-            Record {
-                cols: new_column_names.clone(),
-                vals: new_vals,
-            },
+            Record::from_raw_cols_vals(new_column_names.clone(), new_vals),
             call.head,
         ))
     }
