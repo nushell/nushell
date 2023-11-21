@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, PipelineData, ShellError, Signature, Span, Type, Value,
+    span, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::io::IsTerminal as _;
 
@@ -24,6 +24,20 @@ impl Command for IsTerminal {
 
     fn usage(&self) -> &str {
         "Check if stdin, stdout, or stderr is a terminal"
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![Example {
+            description: r#"Return "terminal attached" if standard input is attached to a terminal, and "no terminal" if not."#,
+            example: r#"if (is-terminal --stdin) { "terminal attached" } else { "no terminal" }"#,
+            result: Some(Value::test_string("terminal attached")),
+        }]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "input", "output", "stdin", "stdout", "stderr", "terminal", "tty",
+        ]
     }
 
     fn run(
