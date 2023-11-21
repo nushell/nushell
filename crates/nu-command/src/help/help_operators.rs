@@ -198,6 +198,13 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
             precedence: 0,
         },
         OperatorInfo {
+            op_type: "Comparison".into(),
+            operator: "is".into(),
+            name: "Is".into(),
+            description: "Checks if a value is of a certain type.".into(),
+            precedence: 30,
+        },
+        OperatorInfo {
             op_type: "Math".into(),
             operator: "+".into(),
             name: "Plus".into(),

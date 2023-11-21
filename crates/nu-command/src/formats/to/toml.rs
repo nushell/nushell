@@ -95,6 +95,7 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
         ),
         Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
         Value::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
+        Value::TypeLiteral { val, .. } => toml::Value::String(format!("<Type {}>", val)),
     })
 }
 

@@ -248,10 +248,16 @@ def report [
 #
 # now the whole `toolkit check pr` passes! :tada:
 export def "check pr" [
-    --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
-    --features: list<string> # the list of features to check the current PR on
+    --fast (-f) # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
+    --features (-F): list<string> # the list of features to check the current PR on
+    --all-features (-a) # check the current PR on all the features
 ] {
     $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    let features = if $all_features {
+        open Cargo.toml | get features | columns
+    } else {
+        $features
+    }
     try {
         fmt --check --verbose
     } catch {

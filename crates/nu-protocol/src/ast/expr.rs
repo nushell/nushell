@@ -2,7 +2,7 @@ use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
 use super::{Call, CellPath, Expression, FullCellPath, MatchPattern, Operator, RangeOperator};
-use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
+use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Type, Unit, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Expr {
@@ -45,6 +45,7 @@ pub enum Expr {
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
     MatchPattern(Box<MatchPattern>),
+    Type(Box<Type>),
     Nothing,
     Garbage,
 }

@@ -4413,6 +4413,10 @@ pub fn parse_value(
         _ => {}
     }
 
+    if bytes.starts_with(b"type<") {
+        return parse_type_literal(working_set, bytes.to_vec().as_slice(), span);
+    }
+
     match shape {
         SyntaxShape::CompleterWrapper(shape, custom_completion) => {
             let mut expression = parse_value(working_set, span, shape);
@@ -4483,7 +4487,9 @@ pub fn parse_value(
 
             Expression::garbage(span)
         }
-
+        SyntaxShape::TypeLiteral(_) => {
+            parse_type_literal(working_set, bytes.to_vec().as_slice(), span)
+        }
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
                 //parse_value(working_set, span, &SyntaxShape::Table)
@@ -4497,6 +4503,7 @@ pub fn parse_value(
                     SyntaxShape::DateTime,
                     SyntaxShape::Int,
                     SyntaxShape::Number,
+                    SyntaxShape::TypeLiteral(Box::new(SyntaxShape::Any)),
                     SyntaxShape::String,
                 ];
                 for shape in shapes.iter() {
@@ -4535,6 +4542,44 @@ pub fn parse_value(
     }
 }
 
+/// Parse a "type<shape>" expression
+pub fn parse_type_literal(
+    working_set: &mut StateWorkingSet<'_>,
+    bytes: &[u8],
+    span: Span,
+) -> Expression {
+    trace!("parsing: type literal {:?}", String::from_utf8_lossy(bytes));
+    if !bytes.starts_with(b"type<") || !bytes.ends_with(b">") {
+        working_set.error(ParseError::Expected("type", span));
+        return garbage(span);
+    }
+
+    let new_span = Span::new(span.start + 5, span.end - 1);
+    let new_bytes = working_set.get_span_contents(new_span).to_vec();
+    let starting_error_count = working_set.parse_errors.len();
+    let parsed = parse_type(working_set, new_bytes.as_slice(), new_span);
+    if starting_error_count == working_set.parse_errors.len() {
+        Expression {
+            expr: Expr::Type(Box::new(parsed.clone())),
+            span,
+            ty: Type::TypeLiteral(Box::new(parsed.clone())),
+            custom_completion: None,
+        }
+    } else if let Some(ParseError::UnknownType(_)) = working_set.parse_errors.last() {
+        working_set.parse_errors.pop();
+        working_set.error(ParseError::ExpectedWithStringMsg(
+            format!(
+                "valid type but got {:?}",
+                String::from_utf8_lossy(new_bytes.as_slice())
+            ),
+            span,
+        ));
+        garbage(span)
+    } else {
+        garbage(span)
+    }
+}
+
 pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let contents = working_set.get_span_contents(span);
 
@@ -4561,6 +4606,7 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         b"//" => Operator::Math(Math::FloorDivision),
         b"in" => Operator::Comparison(Comparison::In),
         b"not-in" => Operator::Comparison(Comparison::NotIn),
+        b"is" => Operator::Comparison(Comparison::Is),
         b"mod" => Operator::Math(Math::Modulo),
         b"bit-or" => Operator::Bits(Bits::BitOr),
         b"bit-xor" => Operator::Bits(Bits::BitXor),
@@ -4586,13 +4632,9 @@ pub fn parse_operator(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             ));
             return garbage(span);
         }
-        equality @ (b"is" | b"===") => {
+        b"===" => {
             working_set.error(ParseError::UnknownOperator(
-                match equality {
-                    b"is" => "is",
-                    b"===" => "===",
-                    _ => unreachable!(),
-                },
+                "===",
                 "Did you mean '=='?",
                 span,
             ));
@@ -5870,6 +5912,7 @@ pub fn discover_captures_in_expr(
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
         }
+        Expr::Type(_) => {}
     }
     Ok(())
 }

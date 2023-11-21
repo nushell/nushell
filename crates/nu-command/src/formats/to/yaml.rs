@@ -98,6 +98,7 @@ pub fn value_to_yaml_value(v: &Value) -> Result<serde_yaml::Value, ShellError> {
         ),
         Value::CustomValue { .. } => serde_yaml::Value::Null,
         Value::MatchPattern { .. } => serde_yaml::Value::Null,
+        Value::TypeLiteral { val, .. } => serde_yaml::Value::String(val.to_string()),
     })
 }
 

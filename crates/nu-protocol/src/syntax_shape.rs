@@ -116,6 +116,9 @@ pub enum SyntaxShape {
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
     Table(Vec<(String, SyntaxShape)>),
 
+    /// A Type literal, eg `int` or `string`
+    TypeLiteral(Box<SyntaxShape>),
+
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
 }
@@ -177,6 +180,7 @@ impl SyntaxShape {
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
+            SyntaxShape::TypeLiteral(ty) => Type::TypeLiteral(Box::new(ty.to_type())),
         }
     }
 }
@@ -252,6 +256,7 @@ impl Display for SyntaxShape {
                 write!(f, "one_of({arg_string})")
             }
             SyntaxShape::Nothing => write!(f, "nothing"),
+            SyntaxShape::TypeLiteral(ty) => write!(f, "type<{ty}>"),
         }
     }
 }
