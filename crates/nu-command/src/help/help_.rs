@@ -89,7 +89,7 @@ You can also learn more at https://www.nushell.sh/book/"#;
         } else {
             let result = help_aliases(engine_state, stack, call);
 
-            let result = if let Err(ShellError::AliasNotFound(_)) = result {
+            let result = if let Err(ShellError::AliasNotFound { .. }) = result {
                 help_commands(engine_state, stack, call)
             } else {
                 result

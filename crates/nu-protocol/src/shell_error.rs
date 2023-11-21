@@ -701,7 +701,10 @@ pub enum ShellError {
     /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
     #[error("Alias not found")]
     #[diagnostic(code(nu::shell::alias_not_found))]
-    AliasNotFound(#[label("alias not found")] Span),
+    AliasNotFound {
+        #[label("alias not found")]
+        span: Span,
+    },
 
     /// A flag was not found.
     #[error("Flag not found")]
