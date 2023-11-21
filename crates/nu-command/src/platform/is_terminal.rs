@@ -1,7 +1,7 @@
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    span, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    span, Category, Example, PipelineData, ShellError, Signature, Type, Value,
 };
 use std::io::IsTerminal as _;
 
@@ -43,17 +43,8 @@ impl Command for IsTerminal {
         _engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let PipelineData::Empty = input else {
-            let src_span = input.span().unwrap_or(Span::unknown());
-            return Err(ShellError::PipelineMismatch {
-                exp_input_type: "nothing".into(),
-                dst_span: call.head,
-                src_span,
-            });
-        };
-
         let stdin = call.has_flag("stdin");
         let stdout = call.has_flag("stdout");
         let stderr = call.has_flag("stderr");
