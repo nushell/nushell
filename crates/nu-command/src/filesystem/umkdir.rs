@@ -50,11 +50,11 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let path = current_dir(engine_state, stack)?;
+        let cwd = current_dir(engine_state, stack)?;
         let mut directories = call
             .rest::<String>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| path.join(dir))
+            .map(|dir| nu_path::expand_path_with(dir, &cwd))
             .peekable();
 
         let is_verbose = call.has_flag("verbose");

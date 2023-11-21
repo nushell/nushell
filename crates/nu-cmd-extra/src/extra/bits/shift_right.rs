@@ -63,12 +63,12 @@ impl Command for BitsShr {
         let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
         // This doesn't match explicit nulls

@@ -1016,29 +1016,19 @@ fn in_char_specifiers(specifiers: &[CharSpecifier], c: char, options: MatchOptio
             CharRange(start, end) => {
                 // FIXME: work with non-ascii chars properly (issue #1347)
                 if !options.case_sensitive && c.is_ascii() && start.is_ascii() && end.is_ascii() {
-                    let start = start.to_ascii_lowercase();
-                    let end = end.to_ascii_lowercase();
-
-                    let start_up = start
-                        .to_uppercase()
-                        .next()
-                        .expect("internal error: getting start uppercase");
-                    let end_up = end
-                        .to_uppercase()
-                        .next()
-                        .expect("internal error: getting end uppercase");
-
                     // only allow case insensitive matching when
                     // both start and end are within a-z or A-Z
-                    if start != start_up && end != end_up {
+                    if start.is_ascii_alphabetic() && end.is_ascii_alphabetic() {
+                        let start = start.to_ascii_lowercase();
+                        let end = end.to_ascii_lowercase();
                         let c = c.to_ascii_lowercase();
-                        if c >= start && c <= end {
+                        if (start..=end).contains(&c) {
                             return true;
                         }
                     }
                 }
 
-                if c >= start && c <= end {
+                if (start..=end).contains(&c) {
                     return true;
                 }
             }
@@ -1279,7 +1269,7 @@ mod test {
     fn test_range_pattern() {
         let pat = Pattern::new("a[0-9]b").unwrap();
         for i in 0..10 {
-            assert!(pat.matches(&format!("a{}b", i)));
+            assert!(pat.matches(&format!("a{}b", i)), "a{i}b =~ a[0-9]b");
         }
         assert!(!pat.matches("a_b"));
 

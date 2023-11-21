@@ -134,8 +134,8 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    match pipeline.elements.first() {
                         Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
@@ -150,8 +150,8 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    match pipeline.elements.first() {
                         Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
@@ -258,8 +258,8 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(expr) = pipeline.elements.first() {
                         expr.has_in_variable(working_set)
                     } else {
                         false
@@ -304,8 +304,8 @@ impl Expression {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)
@@ -335,8 +335,8 @@ impl Expression {
             Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_element = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)
@@ -433,8 +433,8 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_element = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)

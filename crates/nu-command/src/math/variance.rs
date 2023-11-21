@@ -65,12 +65,13 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
         let v = match &value {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
-            _ => Err(ShellError::UnsupportedInput(
-                "Attempted to compute the sum of squares of a non-int, non-float value".to_string(),
-                "value originates from here".into(),
-                span,
-                value.span(),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "Attempted to compute the sum of squares of a non-int, non-float value"
+                    .to_string(),
+                input: "value originates from here".into(),
+                msg_span: span,
+                input_span: value.span(),
+            }),
         }?;
         let v_squared = &v.mul(span, v, span)?;
         sum_x2 = sum_x2.add(span, v_squared, span)?;

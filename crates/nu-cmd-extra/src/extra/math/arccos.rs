@@ -84,12 +84,13 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'arccos' undefined for values outside the closed interval [-1, 1].".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'arccos' undefined for values outside the closed interval [-1, 1]."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 )
             }

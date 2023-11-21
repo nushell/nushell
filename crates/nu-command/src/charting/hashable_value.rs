@@ -102,12 +102,12 @@ impl HashableValue {
 
             // Explicitly propagate errors instead of dropping them.
             Value::Error { error, .. } => Err(*error),
-            _ => Err(ShellError::UnsupportedInput(
-                "input value is not hashable".into(),
-                format!("input type: {:?}", value.get_type()),
-                span,
-                value.span(),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "input value is not hashable".into(),
+                input: format!("input type: {:?}", value.get_type()),
+                msg_span: span,
+                input_span: value.span(),
+            }),
         }
     }
 
@@ -182,7 +182,7 @@ mod test {
         ast::{CellPath, PathMember},
         engine::Closure,
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashSet;
 
     #[test]
     fn from_value() {
@@ -243,7 +243,7 @@ mod test {
             Value::closure(
                 Closure {
                     block_id: 0,
-                    captures: HashMap::new(),
+                    captures: Vec::new(),
                 },
                 span,
             ),

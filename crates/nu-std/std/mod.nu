@@ -335,3 +335,16 @@ export def repeat [
 
     1..$n | each { $item }
 }
+
+# return a null device file.
+#
+# # Examples
+#     run a command and ignore it's stderr output
+#     > cat xxx.txt e> (null-device)
+export def null-device []: nothing -> path {
+    if ($nu.os-info.name | str downcase) == "windows" {
+        '\\.\NUL'
+    } else {
+        "/dev/null"
+    }
+}

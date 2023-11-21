@@ -708,10 +708,7 @@ fn build_table_as_list(v: &RecordView) -> Value {
         .cloned()
         .map(|vals| {
             Value::record(
-                Record {
-                    cols: headers.clone(),
-                    vals,
-                },
+                Record::from_raw_cols_vals(headers.clone(), vals),
                 NuSpan::unknown(),
             )
         })
@@ -724,9 +721,9 @@ fn build_table_as_record(v: &RecordView) -> Value {
     let layer = v.get_layer_last();
 
     let cols = layer.columns.to_vec();
-    let vals = layer.records.get(0).map_or(Vec::new(), |row| row.clone());
+    let vals = layer.records.first().map_or(Vec::new(), |row| row.clone());
 
-    Value::record(Record { cols, vals }, NuSpan::unknown())
+    Value::record(Record::from_raw_cols_vals(cols, vals), NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: XYCursor) -> String {

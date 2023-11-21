@@ -89,6 +89,7 @@ impl Command for Reject {
                                 };
                                 new_columns.push(cv.clone());
                             }
+                            Value::CellPath { val, .. } => new_columns.push(val),
                             y => {
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
@@ -190,6 +191,15 @@ impl Command for Reject {
                 result: None
             },
             Example {
+                description: "Reject columns by a list of columns directly",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ["size", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" =>  Value::test_string("Cargo.toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock")})],
+                )),
+            },
+            Example {
                 description: "Reject rows by a provided list of rows",
                 example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
                 result: None
@@ -211,7 +221,7 @@ fn reject(
     let mut new_rows = vec![];
     for column in cell_paths {
         let CellPath { ref members } = column;
-        match members.get(0) {
+        match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
                     return Err(ShellError::GenericError(

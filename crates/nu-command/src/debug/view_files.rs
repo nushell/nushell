@@ -22,7 +22,15 @@ impl Command for ViewFiles {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view files")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![(
+                Type::Nothing,
+                Type::Table(vec![
+                    ("filename".into(), Type::String),
+                    ("start".into(), Type::Int),
+                    ("end".into(), Type::Int),
+                    ("size".into(), Type::Int),
+                ]),
+            )])
             .category(Category::Debug)
     }
 
@@ -51,10 +59,17 @@ impl Command for ViewFiles {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "View the files registered in nushell's EngineState memory",
-            example: r#"view files"#,
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "View the files registered in Nushell's EngineState memory",
+                example: r#"view files"#,
+                result: None,
+            },
+            Example {
+                description: "View how Nushell was originally invoked",
+                example: r#"view files | get 0"#,
+                result: None,
+            },
+        ]
     }
 }
