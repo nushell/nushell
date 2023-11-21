@@ -36,7 +36,7 @@ impl Command for IsTerminal {
 
     fn search_terms(&self) -> Vec<&str> {
         vec![
-            "input", "output", "stdin", "stdout", "stderr", "terminal", "tty",
+            "input", "output", "stdin", "stdout", "stderr", "tty",
         ]
     }
 
