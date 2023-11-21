@@ -703,12 +703,6 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::alias_not_found))]
     AliasNotFound(#[label("alias not found")] Span),
 
-    /// A flag was not found.
-    #[error("Flag not found")]
-    #[diagnostic(code(nu::shell::flag_not_found))]
-    // NOTE: Seems to be unused. Removable?
-    FlagNotFound(String, #[label("{0} not found")] Span),
-
     /// Failed to find a file during a nushell operation.
     ///
     /// ## Resolution
