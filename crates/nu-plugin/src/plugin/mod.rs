@@ -339,7 +339,10 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                                         PluginResponse::PluginData(name, PluginData { data, span })
                                     }
                                     Err(err) => PluginResponse::Error(
-                                        ShellError::PluginFailedToEncode(err.to_string()).into(),
+                                        ShellError::PluginFailedToEncode {
+                                            msg: err.to_string(),
+                                        }
+                                        .into(),
                                     ),
                                 },
                                 value => PluginResponse::Value(Box::new(value)),

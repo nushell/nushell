@@ -88,7 +88,7 @@ impl From<ShellError> for LabeledError {
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToEncode(msg) => LabeledError {
+            ShellError::PluginFailedToEncode { msg } => LabeledError {
                 label: "Plugin failed to encode".into(),
                 msg,
                 span: None,
