@@ -320,7 +320,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                                 .map(|custom_value| {
                                     Value::custom_value(custom_value, plugin_data.span)
                                 })
-                                .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                                .map_err(|err| ShellError::PluginFailedToDecode {
+                                    msg: err.to_string(),
+                                })
                         }
                     };
 
@@ -353,7 +355,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
                     let response = bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                        .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToDecode {
+                            msg: err.to_string(),
+                        })
                         .and_then(|val| val.to_base_value(plugin_data.span))
                         .map(Box::new)
                         .map_err(LabeledError::from)

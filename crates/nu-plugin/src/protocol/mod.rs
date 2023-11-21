@@ -93,7 +93,7 @@ impl From<ShellError> for LabeledError {
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToDecode(msg) => LabeledError {
+            ShellError::PluginFailedToDecode { msg } => LabeledError {
                 label: "Plugin failed to decode".into(),
                 msg,
                 span: None,
