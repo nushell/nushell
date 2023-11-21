@@ -732,9 +732,9 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// This is a fairly generic error. Refer to the specific error message for further details.
-    #[error("Plugin failed to load: {0}")]
+    #[error("Plugin failed to load: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load))]
-    PluginFailedToLoad(String),
+    PluginFailedToLoad { msg: String },
 
     /// A message from a plugin failed to encode.
     ///
