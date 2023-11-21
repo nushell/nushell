@@ -1,7 +1,7 @@
 use nu_protocol::{
-    ast::{Argument, Call},
+    ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, PipelineData, ShellError, Signature, Span, Type, Value,
+    span, Category, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use std::io::IsTerminal as _;
 
@@ -35,7 +35,11 @@ impl Command for IsTerminal {
     ) -> Result<PipelineData, ShellError> {
         let PipelineData::Empty = input else {
             let src_span = input.span().unwrap_or(Span::unknown());
-            return Err(ShellError::PipelineMismatch { exp_input_type: "nothing".into(), dst_span: call.head, src_span  });
+            return Err(ShellError::PipelineMismatch {
+                exp_input_type: "nothing".into(),
+                dst_span: call.head,
+                src_span,
+            });
         };
 
         let stdin = call.has_flag("stdin");
@@ -53,19 +57,8 @@ impl Command for IsTerminal {
                 });
             }
             _ => {
-                let span = match call.arguments.len() {
-                    0 => call.span(),
-                    1 => *argument_span(call.arguments.first().expect("at least one argument")),
-                    _ => {
-                        // Build a span covering all arguments.  At least one of them must be removed
-                        let first =
-                            argument_span(call.arguments.first().expect("at least one argument"));
-                        let last =
-                            argument_span(call.arguments.last().expect("at least one argument"));
-
-                        Span::new(first.start, last.end)
-                    }
-                };
+                let spans: Vec<_> = call.arguments.iter().map(|arg| arg.span()).collect();
+                let span = span(&spans);
 
                 return Err(ShellError::IncompatibleParametersSingle {
                     msg: "Only one stream may be checked".into(),
@@ -78,13 +71,5 @@ impl Command for IsTerminal {
             Value::bool(is_terminal, call.head),
             None,
         ))
-    }
-}
-
-fn argument_span(argument: &Argument) -> &Span {
-    match argument {
-        Argument::Positional(e) => &e.span,
-        Argument::Named((s, _, _)) => &s.span,
-        Argument::Unknown(e) => &e.span,
     }
 }
