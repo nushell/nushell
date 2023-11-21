@@ -745,9 +745,9 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// This is likely a bug with the plugin itself.
-    #[error("Plugin failed to encode: {0}")]
+    #[error("Plugin failed to encode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_encode))]
-    PluginFailedToEncode(String),
+    PluginFailedToEncode { msg: String },
 
     /// A message to a plugin failed to decode.
     ///
