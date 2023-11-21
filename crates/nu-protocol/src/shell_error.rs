@@ -725,7 +725,11 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFoundCustom(String, #[label("{0}")] Span),
+    FileNotFoundCustom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A plugin failed to load.
     ///

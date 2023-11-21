@@ -35,10 +35,10 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::FileNotFoundCustom(
-                format!("Could not access file '{}': {:?}", path, e.to_string()),
-                Span::unknown(),
-            ),
+            &ShellError::FileNotFoundCustom {
+                msg: format!("Could not access file '{}': {:?}", path, e.to_string()),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
@@ -64,14 +64,14 @@ pub fn evaluate_file(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::FileNotFoundCustom(
-                    format!(
+                &ShellError::FileNotFoundCustom {
+                    msg: format!(
                         "Could not read file '{}': {:?}",
                         file_path_str,
                         e.to_string()
                     ),
-                    Span::unknown(),
-                ),
+                    span: Span::unknown(),
+                },
             );
             std::process::exit(1);
         });
@@ -82,10 +82,10 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::FileNotFoundCustom(
-                format!("The file path '{file_path_str}' does not have a parent"),
-                Span::unknown(),
-            ),
+            &ShellError::FileNotFoundCustom {
+                msg: format!("The file path '{file_path_str}' does not have a parent"),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
