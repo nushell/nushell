@@ -713,7 +713,10 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFound(#[label("file not found")] Span),
+    FileNotFound {
+        #[label("file not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
