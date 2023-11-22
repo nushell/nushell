@@ -392,7 +392,7 @@ fn push_command_to(
                     .expect("internal error: redirection missing span information");
                 if pipeline.exists(Redirection::Stdout) {
                     return Some(ParseError::LabeledError(
-                        "Can't make stdout redirection twice".into(),
+                        "Redirection can be set only once".into(),
                         "try to remove one".into(),
                         span,
                     ));
@@ -405,7 +405,7 @@ fn push_command_to(
                     .expect("internal error: redirection missing span information");
                 if pipeline.exists(Redirection::Stderr) {
                     return Some(ParseError::LabeledError(
-                        "Can't make stderr redirection twice".into(),
+                        "Redirection can be set only once".into(),
                         "try to remove one".into(),
                         span,
                     ));
