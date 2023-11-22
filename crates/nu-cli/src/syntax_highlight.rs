@@ -91,6 +91,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
                 FlatShape::External => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+                FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
                 FlatShape::Keyword => add_colored_token(&shape.1, next_token),
                 FlatShape::Literal => add_colored_token(&shape.1, next_token),
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),

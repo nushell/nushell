@@ -18,6 +18,7 @@ pub enum FlatShape {
     Directory,
     External,
     ExternalArg,
+    ExternalResolved,
     Filepath,
     Flag,
     Float,
@@ -57,6 +58,7 @@ impl Display for FlatShape {
             FlatShape::Directory => write!(f, "shape_directory"),
             FlatShape::External => write!(f, "shape_external"),
             FlatShape::ExternalArg => write!(f, "shape_externalarg"),
+            FlatShape::ExternalResolved => write!(f, "shape_external_resolved"),
             FlatShape::Filepath => write!(f, "shape_filepath"),
             FlatShape::Flag => write!(f, "shape_flag"),
             FlatShape::Float => write!(f, "shape_float"),
@@ -219,7 +221,14 @@ pub fn flatten_expression(
                     span,
                     ..
                 } => {
-                    output.push((span, FlatShape::External));
+                    if let Some(s) = &head.as_string() {
+                        if which::which(s).ok().is_some() {
+                            output.push((span, FlatShape::ExternalResolved));
+                        } else {
+                            output.push((span, FlatShape::External));
+                        }
+                    }
+                    // output.push((span, FlatShape::External));
                 }
                 _ => {
                     output.extend(flatten_expression(working_set, head));
