@@ -17,6 +17,11 @@ fn spread_in_list() -> TestResult {
         r#"let l = [1, 2, [3]]; [...$l $l] | to nuon"#,
         "[1, 2, [3], [1, 2, [3]]]",
     )
+    .unwrap();
+    run_test(
+        r#"[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon"#,
+        "[a, b, c, d]",
+    )
 }
 
 #[test]
