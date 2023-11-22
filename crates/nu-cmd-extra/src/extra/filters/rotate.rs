@@ -166,7 +166,7 @@ pub fn rotate(
     let mut old_column_names = vec![];
     let mut new_values = vec![];
     let mut not_a_record = false;
-    let total_rows = &mut values.len();
+    let mut total_rows = values.len();
     let ccw: bool = call.has_flag("ccw");
 
     if !ccw {
@@ -178,10 +178,9 @@ pub fn rotate(
             let span = val.span();
             match val {
                 Value::Record { val: record, .. } => {
-                    old_column_names = record.cols;
-                    for v in record.vals {
-                        new_values.push(v)
-                    }
+                    let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                    old_column_names = cols;
+                    new_values.extend_from_slice(&vals);
                 }
                 Value::List { vals, .. } => {
                     not_a_record = true;
@@ -208,17 +207,17 @@ pub fn rotate(
         });
     }
 
-    let total_columns = &old_column_names.len();
+    let total_columns = old_column_names.len();
 
     // we use this for building columns names, but for non-records we get an extra row so we remove it
-    if *total_columns == 0 {
-        *total_rows -= 1;
+    if total_columns == 0 {
+        total_rows -= 1;
     }
 
     // holder for the new column names, particularly if none are provided by the user we create names as column0, column1, etc.
     let mut new_column_names = {
         let mut res = vec![];
-        for idx in 0..(*total_rows + 1) {
+        for idx in 0..(total_rows + 1) {
             res.push(format!("column{idx}"));
         }
         res.to_vec()
@@ -237,10 +236,7 @@ pub fn rotate(
     if not_a_record {
         return Ok(Value::list(
             vec![Value::record(
-                Record {
-                    cols: new_column_names,
-                    vals: new_values,
-                },
+                Record::from_raw_cols_vals(new_column_names, new_values),
                 call.head,
             )],
             call.head,
@@ -276,7 +272,7 @@ pub fn rotate(
         let new_vals = {
             // move through the array with a step, which is every new_values size / total rows, starting from our old column's index
             // so if initial data was like this [[a b]; [1 2] [3 4]] - we basically iterate on this [3 4 1 2] array, so we pick 3, then 1, and then when idx increases, we pick 4 and 2
-            for i in (idx..new_values.len()).step_by(new_values.len() / *total_rows) {
+            for i in (idx..new_values.len()).step_by(new_values.len() / total_rows) {
                 res.push(new_values[i].clone());
             }
             // when rotating clockwise, the old column names become the last column's values
@@ -286,10 +282,7 @@ pub fn rotate(
             res.to_vec()
         };
         final_values.push(Value::record(
-            Record {
-                cols: new_column_names.clone(),
-                vals: new_vals,
-            },
+            Record::from_raw_cols_vals(new_column_names.clone(), new_vals),
             call.head,
         ))
     }

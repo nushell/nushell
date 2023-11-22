@@ -233,13 +233,12 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
             }
             Value::Record { val, .. } => {
                 write!(f, "{{")?;
-                for i in 0..val.len() {
-                    let col = &val.cols[i];
-                    let value = &val.vals[i];
-
-                    if i > 0 {
+                let mut first = true;
+                for (col, value) in val.into_iter() {
+                    if !first {
                         write!(f, ", ")?;
                     }
+                    first = false;
                     write!(f, "{:?}: {:?}", col, DebuggableValue(value))?;
                 }
                 write!(f, "}}")
