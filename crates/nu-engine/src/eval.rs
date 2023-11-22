@@ -538,7 +538,13 @@ pub fn eval_expression(
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
-                output.push(eval_expression(engine_state, stack, expr)?);
+                match &expr.expr {
+                    Expr::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
+                        Value::List { mut vals, .. } => output.append(&mut vals),
+                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                    },
+                    _ => output.push(eval_expression(engine_state, stack, expr)?),
+                }
             }
             Ok(Value::list(output, expr.span))
         }
@@ -635,6 +641,7 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::nothing(expr.span)),
         Expr::Garbage => Ok(Value::nothing(expr.span)),
         Expr::Nothing => Ok(Value::nothing(expr.span)),
+        Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
     }
 }
 

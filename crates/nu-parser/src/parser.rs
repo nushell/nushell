@@ -3705,7 +3705,7 @@ pub fn parse_list_expression(
         working_set.error(err)
     }
 
-    let (output, err) = lite_parse(&output);
+    let (mut output, err) = lite_parse(&output);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -3715,24 +3715,55 @@ pub fn parse_list_expression(
     let mut contained_type: Option<Type> = None;
 
     if !output.block.is_empty() {
-        for arg in &output.block[0].commands {
+        for arg in output.block.remove(0).commands {
             let mut spans_idx = 0;
 
-            if let LiteElement::Command(_, command) = arg {
+            if let LiteElement::Command(_, mut command) = arg {
                 while spans_idx < command.parts.len() {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &command.parts,
-                        &mut spans_idx,
-                        element_shape,
-                    );
+                    let curr_span = command.parts[spans_idx];
+                    let curr_tok = working_set.get_span_contents(curr_span);
+                    let (arg, ty) = if curr_tok.starts_with(b"...")
+                        && curr_tok.len() > 3
+                        && (curr_tok[3] == b'$' || curr_tok[3] == b'[' || curr_tok[3] == b'(')
+                    {
+                        // Parse the spread operator
+                        // Remove "..." before parsing argument to spread operator
+                        command.parts[spans_idx] = Span::new(curr_span.start + 3, curr_span.end);
+                        let spread_arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            &SyntaxShape::List(Box::new(element_shape.clone())),
+                        );
+                        let elem_ty = match &spread_arg.ty {
+                            Type::List(elem_ty) => *elem_ty.clone(),
+                            _ => Type::Any,
+                        };
+                        let span = Span::new(curr_span.start, spread_arg.span.end);
+                        let spread_expr = Expression {
+                            expr: Expr::Spread(Box::new(spread_arg)),
+                            span,
+                            ty: elem_ty.clone(),
+                            custom_completion: None,
+                        };
+                        (spread_expr, elem_ty)
+                    } else {
+                        let arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            element_shape,
+                        );
+                        let ty = arg.ty.clone();
+                        (arg, ty)
+                    };
 
                     if let Some(ref ctype) = contained_type {
-                        if *ctype != arg.ty {
+                        if *ctype != ty {
                             contained_type = Some(Type::Any);
                         }
                     } else {
-                        contained_type = Some(arg.ty.clone());
+                        contained_type = Some(ty);
                     }
 
                     args.push(arg);
@@ -5869,6 +5900,9 @@ pub fn discover_captures_in_expr(
         }
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
+        }
+        Expr::Spread(expr) => {
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
     }
     Ok(())

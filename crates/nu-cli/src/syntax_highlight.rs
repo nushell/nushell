@@ -315,6 +315,7 @@ fn find_matching_block_end_in_expr(
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
+            Expr::Spread(_) => None,
 
             Expr::Table(hdr, rows) => {
                 if expr_last == global_cursor_offset {
