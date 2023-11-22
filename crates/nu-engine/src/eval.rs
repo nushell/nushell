@@ -830,10 +830,10 @@ fn eval_element_with_input(
                             }
                         }
                     } else {
-                        Err(ShellError::CommandNotFound{ span: *span })
+                        Err(ShellError::CommandNotFound { span: *span })
                     }
                 }
-                _ => Err(ShellError::CommandNotFound{ span: *span }),
+                _ => Err(ShellError::CommandNotFound { span: *span }),
             }
         }
         PipelineElement::SeparateRedirection {
@@ -878,14 +878,14 @@ fn eval_element_with_input(
                         )
                     })
                 } else {
-                    Err(ShellError::CommandNotFound{ span: *out_span })
+                    Err(ShellError::CommandNotFound { span: *out_span })
                 }
             }
             (_out_other, err_other) => {
                 if let Expr::String(_) = err_other {
-                    Err(ShellError::CommandNotFound{ span: *out_span })
+                    Err(ShellError::CommandNotFound { span: *out_span })
                 } else {
-                    Err(ShellError::CommandNotFound{ span: *err_span })
+                    Err(ShellError::CommandNotFound { span: *err_span })
                 }
             }
         },
