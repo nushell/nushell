@@ -754,9 +754,9 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// This is either an issue with the inputs to a plugin (bad JSON?) or a bug in the plugin itself. Fix or report as appropriate.
-    #[error("Plugin failed to decode: {0}")]
+    #[error("Plugin failed to decode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_decode))]
-    PluginFailedToDecode(String),
+    PluginFailedToDecode { msg: String },
 
     /// I/O operation interrupted.
     ///

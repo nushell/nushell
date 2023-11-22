@@ -27,8 +27,9 @@ impl PluginEncoder for MsgPackSerializer {
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<crate::protocol::PluginCall, nu_protocol::ShellError> {
-        rmp_serde::from_read(reader)
-            .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+        rmp_serde::from_read(reader).map_err(|err| ShellError::PluginFailedToDecode {
+            msg: err.to_string(),
+        })
     }
 
     fn encode_response(
@@ -47,8 +48,9 @@ impl PluginEncoder for MsgPackSerializer {
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError> {
-        rmp_serde::from_read(reader)
-            .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+        rmp_serde::from_read(reader).map_err(|err| ShellError::PluginFailedToDecode {
+            msg: err.to_string(),
+        })
     }
 }
 
