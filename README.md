@@ -54,7 +54,7 @@ Detailed installation instructions can be found in the [installation chapter of 
 
 [![Packaging status](https://repology.org/badge/vertical-allrepos/nushell.svg)](https://repology.org/project/nushell/versions)
 
-For details about which platforms the Nushell team actively supports, see [our platform support policy](PLATFORM_SUPPORT.md).
+For details about which platforms the Nushell team actively supports, see [our platform support policy](devdocs/PLATFORM_SUPPORT.md).
 
 ## Configuration
 
@@ -199,7 +199,7 @@ topics that have been presented.
 
 Nu adheres closely to a set of goals that make up its design philosophy. As features are added, they are checked against these goals.
 
--   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has [first-class support for Windows, macOS, and Linux](PLATFORM_SUPPORT.md).
+-   First and foremost, Nu is cross-platform. Commands and techniques should work across platforms and Nu has [first-class support for Windows, macOS, and Linux](devdocs/PLATFORM_SUPPORT.md).
 
 -   Nu ensures compatibility with existing platform-specific executables.
 

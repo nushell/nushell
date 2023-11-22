@@ -68,9 +68,9 @@ impl CustomValue for PluginCustomValue {
             let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
-                    return Err(ShellError::PluginFailedToLoad(
-                        "Plugin missing stdout reader".into(),
-                    ))
+                    return Err(ShellError::PluginFailedToLoad {
+                        msg: "Plugin missing stdout reader".into(),
+                    })
                 }
             };
             get_plugin_encoding(stdout_reader)?

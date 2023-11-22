@@ -16,8 +16,11 @@ impl PluginEncoder for MsgPackSerializer {
         plugin_call: &crate::protocol::PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
-        rmp_serde::encode::write(writer, plugin_call)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        rmp_serde::encode::write(writer, plugin_call).map_err(|err| {
+            ShellError::PluginFailedToEncode {
+                msg: err.to_string(),
+            }
+        })
     }
 
     fn decode_call(
@@ -33,8 +36,11 @@ impl PluginEncoder for MsgPackSerializer {
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
-        rmp_serde::encode::write(writer, plugin_response)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        rmp_serde::encode::write(writer, plugin_response).map_err(|err| {
+            ShellError::PluginFailedToEncode {
+                msg: err.to_string(),
+            }
+        })
     }
 
     fn decode_response(

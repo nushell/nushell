@@ -14,6 +14,14 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
     Type, Value,
 };
+#[cfg(all(
+    unix,
+    not(target_os = "macos"),
+    not(target_os = "windows"),
+    not(target_os = "android"),
+    not(target_os = "ios")
+))]
+use procfs::WithCurrentSystemInfo;
 
 use std::time::Duration;
 
@@ -127,13 +135,11 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                         Vec::new(),
                     )
                 })?;
-                let proc_start = match proc_stat.starttime() {
-                    Ok(t) => t,
-                    Err(_) => {
-                        // If we can't get the start time, just use the current time
-                        chrono::Local::now()
-                    }
-                };
+                // If we can't get the start time, just use the current time
+                let proc_start = proc_stat
+                    .starttime()
+                    .get()
+                    .unwrap_or_else(|_| chrono::Local::now());
                 record.push("start_time", Value::date(proc_start.into(), span));
                 record.push("user_id", Value::int(proc.curr_proc.owner() as i64, span));
                 // These work and may be helpful, but it just seemed crowded

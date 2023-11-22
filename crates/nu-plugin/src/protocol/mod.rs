@@ -83,12 +83,12 @@ impl From<ShellError> for LabeledError {
                 msg: format!("did you mean '{suggestion}'?"),
                 span: Some(span),
             },
-            ShellError::PluginFailedToLoad(msg) => LabeledError {
+            ShellError::PluginFailedToLoad { msg } => LabeledError {
                 label: "Plugin failed to load".into(),
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToEncode(msg) => LabeledError {
+            ShellError::PluginFailedToEncode { msg } => LabeledError {
                 label: "Plugin failed to encode".into(),
                 msg,
                 span: None,

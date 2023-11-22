@@ -59,10 +59,10 @@ fn read_in_file<'a>(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::FileNotFoundCustom(
-                    format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    Span::unknown(),
-                ),
+                &ShellError::FileNotFoundCustom {
+                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
+                    span: Span::unknown(),
+                },
             );
             std::process::exit(1);
         });

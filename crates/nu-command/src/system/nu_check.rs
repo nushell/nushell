@@ -117,7 +117,9 @@ impl Command for NuCheck {
                             if let Some(path) = path {
                                 path
                             } else {
-                                return Err(ShellError::FileNotFound(path_str.span));
+                                return Err(ShellError::FileNotFound {
+                                    span: path_str.span,
+                                });
                             }
                         }
                         Err(error) => return Err(error),

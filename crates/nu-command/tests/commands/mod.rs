@@ -100,6 +100,7 @@ mod split_row;
 mod str_;
 mod table;
 mod take;
+mod terminal;
 mod to_text;
 mod touch;
 mod transpose;

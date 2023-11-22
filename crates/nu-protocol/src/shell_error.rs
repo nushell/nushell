@@ -676,7 +676,11 @@ pub enum ShellError {
     /// It's always DNS.
     #[error("Network failure")]
     #[diagnostic(code(nu::shell::network_failure))]
-    NetworkFailure(String, #[label("{0}")] Span),
+    NetworkFailure {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Help text for this command could not be found.
     ///
@@ -685,7 +689,10 @@ pub enum ShellError {
     /// Check the spelling for the requested command and try again. Are you sure it's defined and your configurations are loading correctly? Can you execute it?
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found))]
-    CommandNotFound(#[label("command not found")] Span),
+    CommandNotFound {
+        #[label("command not found")]
+        span: Span,
+    },
 
     /// This alias could not be found
     ///
@@ -694,13 +701,10 @@ pub enum ShellError {
     /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
     #[error("Alias not found")]
     #[diagnostic(code(nu::shell::alias_not_found))]
-    AliasNotFound(#[label("alias not found")] Span),
-
-    /// A flag was not found.
-    #[error("Flag not found")]
-    #[diagnostic(code(nu::shell::flag_not_found))]
-    // NOTE: Seems to be unused. Removable?
-    FlagNotFound(String, #[label("{0} not found")] Span),
+    AliasNotFound {
+        #[label("alias not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
@@ -709,7 +713,10 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFound(#[label("file not found")] Span),
+    FileNotFound {
+        #[label("file not found")]
+        span: Span,
+    },
 
     /// Failed to find a file during a nushell operation.
     ///
@@ -718,25 +725,29 @@ pub enum ShellError {
     /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
-    FileNotFoundCustom(String, #[label("{0}")] Span),
+    FileNotFoundCustom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A plugin failed to load.
     ///
     /// ## Resolution
     ///
     /// This is a fairly generic error. Refer to the specific error message for further details.
-    #[error("Plugin failed to load: {0}")]
+    #[error("Plugin failed to load: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load))]
-    PluginFailedToLoad(String),
+    PluginFailedToLoad { msg: String },
 
     /// A message from a plugin failed to encode.
     ///
     /// ## Resolution
     ///
     /// This is likely a bug with the plugin itself.
-    #[error("Plugin failed to encode: {0}")]
+    #[error("Plugin failed to encode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_encode))]
-    PluginFailedToEncode(String),
+    PluginFailedToEncode { msg: String },
 
     /// A message to a plugin failed to decode.
     ///
