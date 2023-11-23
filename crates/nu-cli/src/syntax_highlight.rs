@@ -17,18 +17,22 @@ impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
+        let highlight_resolved_externals =
+            self.engine_state.get_config().highlight_resolved_externals;
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
             let mut shapes = flatten_block(&working_set, &block);
-            for (span, shape) in shapes.iter_mut() {
-                if *shape == FlatShape::External {
-                    let str_contents =
-                        working_set.get_span_contents(Span::new(span.start, span.end));
+            if highlight_resolved_externals {
+                for (span, shape) in shapes.iter_mut() {
+                    if *shape == FlatShape::External {
+                        let str_contents =
+                            working_set.get_span_contents(Span::new(span.start, span.end));
 
-                    let str_word = String::from_utf8_lossy(str_contents).to_string();
-                    if which::which(str_word).ok().is_some() {
-                        *shape = FlatShape::ExternalResolved;
+                        let str_word = String::from_utf8_lossy(str_contents).to_string();
+                        if which::which(str_word).ok().is_some() {
+                            *shape = FlatShape::ExternalResolved;
+                        }
                     }
                 }
             }
