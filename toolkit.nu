@@ -267,9 +267,17 @@ export def "check pr" [
     print $"running ('toolkit test' | pretty-format-command)"
     try {
         if $fast {
-            test --features $features --fast
+            if ($features | is-empty) {
+                test --workspace --fast
+            } else {
+                test --features $features --fast
+            }
         } else {
-            test --features $features
+            if ($features | is-empty) {
+                test --workspace
+            } else {
+                test --features $features
+            }
         }
     } catch {
         return (report --fail-test)

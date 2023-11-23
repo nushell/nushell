@@ -121,15 +121,15 @@ fn command(
             "json" => from_json(engine_state, stack, call),
             "jsonl" => from_jsonl(engine_state, stack, call),
             "avro" => from_avro(engine_state, stack, call),
-            _ => Err(ShellError::FileNotFoundCustom(
-                format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
-                blamed,
-            )),
+            _ => Err(ShellError::FileNotFoundCustom {
+                msg: format!("{msg}. Supported values: csv, tsv, parquet, ipc, arrow, json"),
+                span: blamed,
+            }),
         },
-        None => Err(ShellError::FileNotFoundCustom(
-            "File without extension".into(),
-            file.span,
-        )),
+        None => Err(ShellError::FileNotFoundCustom {
+            msg: "File without extension".into(),
+            span: file.span,
+        }),
     }
     .map(|value| PipelineData::Value(value, None))
 }

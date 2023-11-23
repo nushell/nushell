@@ -74,6 +74,17 @@ impl LitePipeline {
     pub fn is_empty(&self) -> bool {
         self.commands.is_empty()
     }
+
+    pub fn exists(&self, new_target: &Redirection) -> bool {
+        for cmd in &self.commands {
+            if let LiteElement::Redirection(_, exists_target, _, _) = cmd {
+                if exists_target == new_target {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 #[derive(Debug)]
@@ -391,7 +402,7 @@ fn get_redirection(connector: TokenContents) -> Option<(Redirection, bool)> {
 /// push a `command` to `pipeline`
 ///
 /// It will return Some(err) if `command` is empty and we want to push a
-/// redirection command.
+/// redirection command, or we have meet the same redirection in `pipeline`.
 fn push_command_to(
     pipeline: &mut LitePipeline,
     command: LiteCommand,
@@ -400,12 +411,23 @@ fn push_command_to(
 ) -> Option<ParseError> {
     if !command.is_empty() {
         match get_redirection(last_connector) {
-            Some((redirect, is_append_mode)) => pipeline.push(LiteElement::Redirection(
-                last_connector_span.expect("internal error: redirection missing span information"),
-                redirect,
-                command,
-                is_append_mode,
-            )),
+            Some((redirect, is_append_mode)) => {
+                let span = last_connector_span
+                    .expect("internal error: redirection missing span information");
+                if pipeline.exists(&redirect) {
+                    return Some(ParseError::LabeledError(
+                        "Redirection can be set only once".into(),
+                        "try to remove one".into(),
+                        span,
+                    ));
+                }
+                pipeline.push(LiteElement::Redirection(
+                    last_connector_span.expect("internal error: redirection missing span information"),
+                    redirect,
+                    command,
+                    is_append_mode,
+                ))
+            }
             None => pipeline.push(LiteElement::Command(last_connector_span, command)),
         }
         None

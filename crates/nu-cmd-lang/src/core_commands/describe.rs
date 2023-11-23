@@ -256,6 +256,18 @@ fn run(
     Ok(description.into_pipeline_data())
 }
 
+fn compact_primitive_description(mut value: Value) -> Value {
+    if let Value::Record { ref mut val, .. } = value {
+        if val.len() != 1 {
+            return value;
+        }
+        if let Some(type_name) = val.get_mut("type") {
+            return std::mem::take(type_name);
+        }
+    }
+    value
+}
+
 fn describe_value(
     value: Value,
     head: nu_protocol::Span,
@@ -285,32 +297,21 @@ fn describe_value(
             ),
             head,
         ),
-        Value::Record { val, .. } => {
-            let mut record = Record::new();
-            for i in 0..val.len() {
-                let k = val.cols[i].clone();
-                let v = val.vals[i].clone();
-
-                record.push(k, {
-                    if let Value::Record { val, .. } =
-                        describe_value(v.clone(), head, engine_state, call)?
-                    {
-                        if let [Value::String { val: k, .. }] = val.vals.as_slice() {
-                            Value::string(k, head)
-                        } else {
-                            Value::record(val, head)
-                        }
-                    } else {
-                        describe_value(v, head, engine_state, call)?
-                    }
-                });
+        Value::Record { mut val, .. } => {
+            for (_k, v) in val.iter_mut() {
+                *v = compact_primitive_description(describe_value(
+                    std::mem::take(v),
+                    head,
+                    engine_state,
+                    call,
+                )?);
             }
 
             Value::record(
                 record!(
                     "type" => Value::string("record", head),
                     "lazy" => Value::bool(false, head),
-                    "columns" => Value::record(record, head),
+                    "columns" => Value::record(val, head),
                 ),
                 head,
             )
@@ -319,12 +320,12 @@ fn describe_value(
             record!(
                 "type" => Value::string("list", head),
                 "length" => Value::int(vals.len() as i64, head),
-                "values" => Value::list(vals.iter().map(|v|
-                    match describe_value(v.clone(), head, engine_state, call) {
-                        Ok(Value::Record {val, ..}) => if val.cols.as_slice() == ["type"] {Ok(val.vals[0].clone())} else {Ok(Value::record(val, head))},
-                        x => x
-                    }
-                ).collect::<Result<Vec<_>, _>>()?, head),
+                "values" => Value::list(vals.into_iter().map(|v|
+                    Ok(compact_primitive_description(
+                        describe_value(v, head, engine_state, call)?
+                    ))
+                )
+                .collect::<Result<Vec<Value>, ShellError>>()?, head),
             ),
             head,
         ),
@@ -389,19 +390,20 @@ fn describe_value(
 
             if collect_lazyrecords {
                 let collected = val.collect()?;
-                if let Value::Record { val, .. } =
+                if let Value::Record { mut val, .. } =
                     describe_value(collected, head, engine_state, call)?
                 {
-                    let mut record_cols = Record::new();
                     record.push("length", Value::int(val.len() as i64, head));
-
-                    for i in 0..val.len() {
-                        record_cols.push(
-                            val.cols[i].clone(),
-                            describe_value(val.vals[i].clone(), head, engine_state, call)?,
-                        );
+                    for (_k, v) in val.iter_mut() {
+                        *v = compact_primitive_description(describe_value(
+                            std::mem::take(v),
+                            head,
+                            engine_state,
+                            call,
+                        )?);
                     }
-                    record.push("columns", Value::record(record_cols, head));
+
+                    record.push("columns", Value::record(val, head));
                 } else {
                     let cols = val.column_names();
                     record.push("length", Value::int(cols.len() as i64, head));

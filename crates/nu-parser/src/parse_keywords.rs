@@ -70,13 +70,13 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 /// Check whether spans start with a parser keyword that can be aliased
 pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
     // try two words
-    if let (Some(span1), Some(span2)) = (spans.get(0), spans.get(1)) {
+    if let (Some(span1), Some(span2)) = (spans.first(), spans.get(1)) {
         let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
         return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
     }
 
     // try one word
-    if let Some(span1) = spans.get(0) {
+    if let Some(span1) = spans.first() {
         let cmd_name = working_set.get_span_contents(*span1);
         UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
     } else {
@@ -149,7 +149,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         return;
     };
 
-    if def_type_name != b"def" && def_type_name != b"def-env" && def_type_name != b"extern" {
+    if def_type_name != b"def" && def_type_name != b"extern" {
         return;
     }
 
@@ -372,7 +372,7 @@ pub fn parse_def(
         };
 
     let def_call = working_set.get_span_contents(name_span).to_vec();
-    if def_call != b"def" && def_call != b"def-env" {
+    if def_call != b"def" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for def function".into(),
             span(spans),
@@ -569,7 +569,7 @@ pub fn parse_def(
             let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
-            block.redirect_env = def_call == b"def-env" || has_env;
+            block.redirect_env = has_env;
 
             if block.signature.input_output_types.is_empty() {
                 block
@@ -653,7 +653,7 @@ pub fn parse_extern(
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
-            if let Some(name_span) = rest_spans.get(0) {
+            if let Some(name_span) = rest_spans.first() {
                 if let Some(err) = detect_params_in_name(
                     working_set,
                     *name_span,
@@ -1049,7 +1049,7 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" | b"module" | b"const" => {
+            b"alias" | b"def" | b"extern" | b"use" | b"module" | b"const" => {
                 [b"export ", sub].concat()
             }
             _ => b"export".to_vec(),
@@ -1108,7 +1108,7 @@ pub fn parse_export_in_block(
 
     match full_name.as_slice() {
         b"export alias" => parse_alias(working_set, lite_command, None),
-        b"export def" | b"export def-env" => parse_def(working_set, lite_command, None).0,
+        b"export def" => parse_def(working_set, lite_command, None).0,
         b"export const" => parse_const(working_set, &lite_command.parts[1..]),
         b"export use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
@@ -1135,7 +1135,7 @@ pub fn parse_export_in_module(
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
-    let export_span = if let Some(sp) = spans.get(0) {
+    let export_span = if let Some(sp) = spans.first() {
         if working_set.get_span_contents(*sp) != b"export" {
             working_set.error(ParseError::UnknownState(
                 "expected export statement".into(),
@@ -1209,7 +1209,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1221,66 +1221,6 @@ pub fn parse_export_in_module(
                         span(&spans[1..]),
                     ));
                 };
-
-                result
-            }
-            b"def-env" => {
-                let lite_command = LiteCommand {
-                    comments: lite_command.comments.clone(),
-                    parts: spans[1..].to_vec(),
-                };
-                let (pipeline, _) = parse_def(working_set, &lite_command, Some(module_name));
-
-                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def-env")
-                {
-                    id
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "missing 'export def-env' command".into(),
-                        export_span,
-                    ));
-                    return (garbage_pipeline(spans), vec![]);
-                };
-
-                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.get(0)
-                {
-                    call = def_call.clone();
-
-                    call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
-                    ));
-                };
-
-                let mut result = vec![];
-
-                let decl_name = match spans.get(2) {
-                    Some(span) => working_set.get_span_contents(*span),
-                    None => &[],
-                };
-                let decl_name = trim_quotes(decl_name);
-
-                if let Some(decl_id) = working_set.find_decl(decl_name) {
-                    result.push(Exportable::Decl {
-                        name: decl_name.to_vec(),
-                        id: decl_id,
-                    });
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "failed to find added declaration".into(),
-                        span(&spans[1..]),
-                    ));
-                }
 
                 result
             }
@@ -1310,7 +1250,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1370,7 +1310,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref alias_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = alias_call.clone();
 
@@ -1429,7 +1369,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref use_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = use_call.clone();
 
@@ -1466,7 +1406,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref module_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = module_call.clone();
 
@@ -1523,7 +1463,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1563,7 +1503,7 @@ pub fn parse_export_in_module(
             }
             _ => {
                 working_set.error(ParseError::Expected(
-                    "def, def-env, alias, use, module, const or extern keyword",
+                    "def, alias, use, module, const or extern keyword",
                     spans[1],
                 ));
 
@@ -1572,9 +1512,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const or extern keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "def, def-env, alias, use, module, const or extern keyword".to_string(),
+            "def, alias, use, module, const or extern keyword".to_string(),
         ));
 
         vec![]
@@ -1743,7 +1683,7 @@ pub fn parse_module_block(
                     let name = working_set.get_span_contents(command.parts[0]);
 
                     match name {
-                        b"def" | b"def-env" => {
+                        b"def" => {
                             block.pipelines.push(
                                 parse_def(
                                     working_set,
@@ -1898,7 +1838,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, def-env, extern, alias, use, module, export or export-env keyword".into(),
+                                "def, const, extern, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 

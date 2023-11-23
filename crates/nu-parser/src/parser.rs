@@ -401,13 +401,31 @@ fn parse_long_flag(
                     }
                 } else {
                     // A flag with no argument
-                    (
-                        Some(Spanned {
-                            item: long_name,
-                            span: arg_span,
-                        }),
-                        None,
-                    )
+                    // It can also takes a boolean value like --x=true
+                    if split.len() > 1 {
+                        // and we also have the argument
+                        let long_name_len = long_name.len();
+                        let mut span = arg_span;
+                        span.start += long_name_len + 3; //offset by long flag and '='
+
+                        let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
+
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                            }),
+                            Some(arg),
+                        )
+                    } else {
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: arg_span,
+                            }),
+                            None,
+                        )
+                    }
                 }
             } else {
                 working_set.error(ParseError::UnknownFlag(
@@ -1575,10 +1593,10 @@ pub fn parse_brace_expr(
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
     let second_token = tokens
-        .get(0)
+        .first()
         .map(|token| working_set.get_span_contents(token.span));
 
-    let second_token_contents = tokens.get(0).map(|token| token.contents);
+    let second_token_contents = tokens.first().map(|token| token.contents);
 
     let third_token = tokens
         .get(1)
@@ -2669,7 +2687,7 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
 }
 
 pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
-    let Some(head_span) = spans.get(0) else {
+    let Some(head_span) = spans.first() else {
         working_set.error(ParseError::WrongImportPattern(
             "needs at least one component of import pattern".to_string(),
             span(spans),
@@ -3708,7 +3726,7 @@ pub fn parse_list_expression(
         working_set.error(err)
     }
 
-    let (output, err) = lite_parse(&output);
+    let (mut output, err) = lite_parse(&output);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -3718,24 +3736,55 @@ pub fn parse_list_expression(
     let mut contained_type: Option<Type> = None;
 
     if !output.block.is_empty() {
-        for arg in &output.block[0].commands {
+        for arg in output.block.remove(0).commands {
             let mut spans_idx = 0;
 
-            if let LiteElement::Command(_, command) = arg {
+            if let LiteElement::Command(_, mut command) = arg {
                 while spans_idx < command.parts.len() {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &command.parts,
-                        &mut spans_idx,
-                        element_shape,
-                    );
+                    let curr_span = command.parts[spans_idx];
+                    let curr_tok = working_set.get_span_contents(curr_span);
+                    let (arg, ty) = if curr_tok.starts_with(b"...")
+                        && curr_tok.len() > 3
+                        && (curr_tok[3] == b'$' || curr_tok[3] == b'[' || curr_tok[3] == b'(')
+                    {
+                        // Parse the spread operator
+                        // Remove "..." before parsing argument to spread operator
+                        command.parts[spans_idx] = Span::new(curr_span.start + 3, curr_span.end);
+                        let spread_arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            &SyntaxShape::List(Box::new(element_shape.clone())),
+                        );
+                        let elem_ty = match &spread_arg.ty {
+                            Type::List(elem_ty) => *elem_ty.clone(),
+                            _ => Type::Any,
+                        };
+                        let span = Span::new(curr_span.start, spread_arg.span.end);
+                        let spread_expr = Expression {
+                            expr: Expr::Spread(Box::new(spread_arg)),
+                            span,
+                            ty: elem_ty.clone(),
+                            custom_completion: None,
+                        };
+                        (spread_expr, elem_ty)
+                    } else {
+                        let arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            element_shape,
+                        );
+                        let ty = arg.ty.clone();
+                        (arg, ty)
+                    };
 
                     if let Some(ref ctype) = contained_type {
-                        if *ctype != arg.ty {
+                        if *ctype != ty {
                             contained_type = Some(Type::Any);
                         }
                     } else {
-                        contained_type = Some(arg.ty.clone());
+                        contained_type = Some(ty);
                     }
 
                     args.push(arg);
@@ -5088,7 +5137,7 @@ pub fn parse_builtin_commands(
     let name = working_set.get_span_contents(lite_command.parts[0]);
 
     match name {
-        b"def" | b"def-env" => parse_def(working_set, lite_command, None).0,
+        b"def" => parse_def(working_set, lite_command, None).0,
         b"extern" => parse_extern(working_set, lite_command, None),
         b"let" => parse_let(working_set, &lite_command.parts),
         b"const" => parse_const(working_set, &lite_command.parts),
@@ -5874,6 +5923,9 @@ pub fn discover_captures_in_expr(
         }
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
+        }
+        Expr::Spread(expr) => {
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
         }
     }
     Ok(())

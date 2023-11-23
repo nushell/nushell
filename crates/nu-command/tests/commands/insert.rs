@@ -87,3 +87,17 @@ fn lazy_record_test_values() {
     );
     assert_eq!(actual.out, "3");
 }
+
+#[test]
+fn deep_cell_path_creates_all_nested_records() {
+    let actual = nu!(r#"{a: {}} | insert a.b.c 0 | get a.b.c"#);
+    assert_eq!(actual.out, "0");
+}
+
+#[test]
+fn inserts_all_rows_in_table_in_record() {
+    let actual = nu!(
+        r#"{table: [[col]; [{a: 1}], [{a: 1}]]} | insert table.col.b 2 | get table.col.b | to nuon"#
+    );
+    assert_eq!(actual.out, "[2, 2]");
+}

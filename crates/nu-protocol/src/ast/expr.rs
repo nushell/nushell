@@ -45,6 +45,7 @@ pub enum Expr {
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
     MatchPattern(Box<MatchPattern>),
+    Spread(Box<Expression>),
     Nothing,
     Garbage,
 }

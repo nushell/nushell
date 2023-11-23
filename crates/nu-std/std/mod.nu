@@ -144,12 +144,17 @@ export def clip [
     --expand (-e) # auto-expand the data given as input
     --codepage (-c): int  # the id of the codepage to use (only on Windows), see https://en.wikipedia.org/wiki/Windows_code_page, e.g. 65001 is for UTF-8
 ] {
-    let input = (
-        $in
+    let input = $in
+
+    print $"Warning:   (char -u 26a0) (ansi yellow_bold)deprecated_command(ansi reset)"
+    print "| the `std clip` command is deprecated and will be removed in Nushell 0.89"
+    print ""
+    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/system clip`]\(https://github.com/amtoine/nu_scripts/tree/main/modules#system\)(ansi reset)"
+
+    let input = $input
         | if $expand { table --expand } else { table }
         | into string
         | if $no_strip {} else { ansi strip }
-    )
 
     match $nu.os-info.name {
         "linux" => {
@@ -334,4 +339,17 @@ export def repeat [
     }
 
     1..$n | each { $item }
+}
+
+# return a null device file.
+#
+# # Examples
+#     run a command and ignore it's stderr output
+#     > cat xxx.txt e> (null-device)
+export def null-device []: nothing -> path {
+    if ($nu.os-info.name | str downcase) == "windows" {
+        '\\.\NUL'
+    } else {
+        "/dev/null"
+    }
 }

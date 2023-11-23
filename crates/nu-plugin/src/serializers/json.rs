@@ -17,16 +17,18 @@ impl PluginEncoder for JsonSerializer {
         plugin_call: &crate::protocol::PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
-        serde_json::to_writer(writer, plugin_call)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::to_writer(writer, plugin_call).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 
     fn decode_call(
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<crate::protocol::PluginCall, nu_protocol::ShellError> {
-        serde_json::from_reader(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::from_reader(reader).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 
     fn encode_response(
@@ -34,16 +36,20 @@ impl PluginEncoder for JsonSerializer {
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
-        serde_json::to_writer(writer, plugin_response)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::to_writer(writer, plugin_response).map_err(|err| {
+            ShellError::PluginFailedToEncode {
+                msg: err.to_string(),
+            }
+        })
     }
 
     fn decode_response(
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError> {
-        serde_json::from_reader(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::from_reader(reader).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 }
 

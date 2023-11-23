@@ -173,7 +173,7 @@ impl Command for UCp {
         for p in paths {
             let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound(p.span));
+                return Err(ShellError::FileNotFound { span: p.span });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -199,6 +199,14 @@ impl Command for UCp {
                 }
             }
             sources.append(&mut app_vals);
+        }
+
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
+        for src in sources.iter_mut() {
+            if !src.is_absolute() {
+                *src = nu_path::expand_path_with(&src, &cwd);
+            }
         }
 
         let options = uu_cp::Options {

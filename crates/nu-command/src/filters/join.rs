@@ -245,7 +245,7 @@ fn join_rows(
     this: &[Value],
     this_join_key: &str,
     other: HashMap<String, Vec<&Record>>,
-    other_keys: &[String],
+    other_keys: Vec<&String>,
     shared_join_key: Option<&str>,
     join_type: &JoinType,
     include_inner: IncludeInner,
@@ -285,7 +285,7 @@ fn join_rows(
                     // row with null values for columns not present,
                     let other_record = other_keys
                         .iter()
-                        .map(|key| {
+                        .map(|&key| {
                             let val = if Some(key.as_ref()) == shared_join_key {
                                 this_record
                                     .get(key)
@@ -318,11 +318,11 @@ fn join_rows(
 
 // Return column names (i.e. ordered keys from the first row; we assume that
 // these are the same for all rows).
-fn column_names(table: &[Value]) -> &[String] {
+fn column_names(table: &[Value]) -> Vec<&String> {
     table
         .iter()
         .find_map(|val| match val {
-            Value::Record { val, .. } => Some(&*val.cols),
+            Value::Record { val, .. } => Some(val.columns().collect()),
             _ => None,
         })
         .unwrap_or_default()

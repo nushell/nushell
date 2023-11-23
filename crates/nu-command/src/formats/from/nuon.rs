@@ -59,7 +59,7 @@ impl Command for FromNuon {
         let mut block = nu_parser::parse(&mut working_set, None, string_input.as_bytes(), false);
 
         if let Some(pipeline) = block.pipelines.get(1) {
-            if let Some(element) = pipeline.elements.get(0) {
+            if let Some(element) = pipeline.elements.first() {
                 return Err(ShellError::GenericError(
                     "error when loading nuon text".into(),
                     "could not load nuon text".into(),
@@ -346,6 +346,12 @@ fn convert_to_value(
             original_text.to_string(),
             "Error when loading".into(),
             "signatures not supported in nuon".into(),
+            expr.span,
+        )),
+        Expr::Spread(..) => Err(ShellError::OutsideSpannedLabeledError(
+            original_text.to_string(),
+            "Error when loading".into(),
+            "spread operator not supported in nuon".into(),
             expr.span,
         )),
         Expr::String(s) => Ok(Value::string(s, span)),

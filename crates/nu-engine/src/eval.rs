@@ -539,7 +539,13 @@ pub fn eval_expression(
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
-                output.push(eval_expression(engine_state, stack, expr)?);
+                match &expr.expr {
+                    Expr::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
+                        Value::List { mut vals, .. } => output.append(&mut vals),
+                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                    },
+                    _ => output.push(eval_expression(engine_state, stack, expr)?),
+                }
             }
             Ok(Value::list(output, expr.span))
         }
@@ -636,6 +642,7 @@ pub fn eval_expression(
         Expr::Signature(_) => Ok(Value::nothing(expr.span)),
         Expr::Garbage => Ok(Value::nothing(expr.span)),
         Expr::Nothing => Ok(Value::nothing(expr.span)),
+        Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
     }
 }
 
@@ -757,6 +764,9 @@ fn eval_element_with_input(
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
+
+                    // when nushell get Stderr Redirection, we want to take `stdout` part of `input`
+                    // so this stdout stream can be handled by next command.
                     let (input, out_stream) = match (redirection, input) {
                         (
                             Redirection::Stderr,
@@ -834,10 +844,10 @@ fn eval_element_with_input(
                             }
                         }
                     } else {
-                        Err(ShellError::CommandNotFound(*span))
+                        Err(ShellError::CommandNotFound { span: *span })
                     }
                 }
-                _ => Err(ShellError::CommandNotFound(*span)),
+                _ => Err(ShellError::CommandNotFound { span: *span }),
             }
         }
         PipelineElement::SeparateRedirection {
@@ -884,14 +894,14 @@ fn eval_element_with_input(
                         )
                     })
                 } else {
-                    Err(ShellError::CommandNotFound(*out_span))
+                    Err(ShellError::CommandNotFound { span: *out_span })
                 }
             }
             (_out_other, err_other) => {
                 if let Expr::String(_) = err_other {
-                    Err(ShellError::CommandNotFound(*out_span))
+                    Err(ShellError::CommandNotFound { span: *out_span })
                 } else {
-                    Err(ShellError::CommandNotFound(*err_span))
+                    Err(ShellError::CommandNotFound { span: *err_span })
                 }
             }
         },
@@ -988,8 +998,8 @@ pub fn eval_block(
     stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
+    mut redirect_stdout: bool,
+    mut redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
     if let Some(recursive) = block.recursive {
@@ -1010,20 +1020,49 @@ pub fn eval_block(
     let num_pipelines = block.len();
 
     for (pipeline_idx, pipeline) in block.pipelines.iter().enumerate() {
-        let mut elements_iter = pipeline.elements.iter().peekable();
         let mut stderr_writer_jobs = vec![];
-        while let Some(element) = elements_iter.next() {
-            let redirect_stderr = redirect_stderr
-                || (elements_iter.peek().map_or(false, |next_element| {
-                    matches!(
-                        next_element,
-                        PipelineElement::Redirection(_, Redirection::Stderr, _, _)
-                            | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
-                            | PipelineElement::SeparateRedirection { .. }
-                    )
-                }));
+        let elements = &pipeline.elements;
+        let elements_length = elements.len();
+        for (idx, element) in elements.iter().enumerate() {
+            if !redirect_stderr && idx < elements_length - 1 {
+                let next_element = &elements[idx + 1];
+                if matches!(
+                    next_element,
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _)
+                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
+                        | PipelineElement::SeparateRedirection { .. }
+                ) {
+                    redirect_stderr = true;
+                }
+            }
 
-            let redirect_stdout = redirect_stdout || elements_iter.peek().is_some();
+            if !redirect_stdout && idx < elements_length - 1 {
+                let next_element = &elements[idx + 1];
+                match next_element {
+                    // is next element a stdout relative redirection?
+                    PipelineElement::Redirection(_, Redirection::Stdout, _, _)
+                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
+                    | PipelineElement::SeparateRedirection { .. }
+                    | PipelineElement::Expression(..) => redirect_stdout = true,
+
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
+                        // a stderr redirection, but we still need to check for the next 2nd
+                        // element, to handle for the following case:
+                        // cat a.txt err> /dev/null | lines
+                        //
+                        // we only need to check the next 2nd element because we already make sure
+                        // that we don't have duplicate err> like this:
+                        // cat a.txt err> /dev/null err> /tmp/a
+                        if idx < elements_length - 2 {
+                            let next_2nd_element = &elements[idx + 2];
+                            if matches!(next_2nd_element, PipelineElement::Expression(..)) {
+                                redirect_stdout = true
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(

@@ -29,7 +29,7 @@ impl SQLContext {
     fn execute_select(&self, select_stmt: &Select) -> Result<LazyFrame, PolarsError> {
         // Determine involved dataframe
         // Implicit join require some more work in query parsers, Explicit join are preferred for now.
-        let tbl = select_stmt.from.get(0).ok_or_else(|| {
+        let tbl = select_stmt.from.first().ok_or_else(|| {
             PolarsError::ComputeError(ErrString::from("No table found in select statement"))
         })?;
         let mut alias_map = HashMap::new();
@@ -37,7 +37,7 @@ impl SQLContext {
             TableFactor::Table { name, alias, .. } => {
                 let tbl_name = name
                     .0
-                    .get(0)
+                    .first()
                     .ok_or_else(|| {
                         PolarsError::ComputeError(ErrString::from(
                             "No table found in select statement",
@@ -182,7 +182,7 @@ impl SQLContext {
             ))
         } else {
             let ast = ast
-                .get(0)
+                .first()
                 .ok_or_else(|| PolarsError::ComputeError(ErrString::from("No statement found")))?;
             Ok(match ast {
                 Statement::Query(query) => {
