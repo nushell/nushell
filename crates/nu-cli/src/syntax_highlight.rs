@@ -23,6 +23,8 @@ impl Highlighter for NuHighlighter {
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
             let mut shapes = flatten_block(&working_set, &block);
+            // Highlighting externals has a config point because of concerns that using which to resolve
+            // externals may slow down things too much.
             if highlight_resolved_externals {
                 for (span, shape) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
