@@ -757,6 +757,9 @@ fn eval_element_with_input(
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
                     };
+
+                    // when nushell get Stderr Redirection, we want to take `stdout` part of `input`
+                    // so this stdout stream can be handled by next command.
                     let (input, out_stream) = match (redirection, input) {
                         (
                             Redirection::Stderr,
