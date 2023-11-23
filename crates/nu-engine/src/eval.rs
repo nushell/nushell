@@ -576,7 +576,7 @@ pub fn eval_expression(
                                     record.push(col, val);
                                 }
                             }
-                            _ => todo!(),
+                            _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
                         }
                     }
                 }

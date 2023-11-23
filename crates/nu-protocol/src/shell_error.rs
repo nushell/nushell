@@ -1178,10 +1178,25 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     /// Only lists can be spread inside lists. Try converting the value to a list before spreading.
     #[error("Not a list")]
     #[diagnostic(
-        code(nu::shell::cannot_spread),
+        code(nu::shell::cannot_spread_as_list),
         help("Only lists can be spread inside lists. Try converting the value to a list before spreading")
     )]
     CannotSpreadAsList {
+        #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Tried spreading a non-record inside a record.
+    ///
+    /// ## Resolution
+    ///
+    /// Only records can be spread inside records. Try converting the value to a record before spreading.
+    #[error("Not a record")]
+    #[diagnostic(
+        code(nu::shell::cannot_spread_as_record),
+        help("Only records can be spread inside records. Try converting the value to a record before spreading.")
+    )]
+    CannotSpreadAsRecord {
         #[label = "cannot spread value"]
         span: Span,
     },
