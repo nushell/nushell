@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -347,9 +347,16 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside record
-                    for (k, v) in exprs {
-                        find_in_expr_or_continue!(k);
-                        find_in_expr_or_continue!(v);
+                    for expr in exprs {
+                        match expr {
+                            RecordItem::Pair(k, v) => {
+                                find_in_expr_or_continue!(k);
+                                find_in_expr_or_continue!(v);
+                            }
+                            RecordItem::Spread(record) => {
+                                find_in_expr_or_continue!(record);
+                            }
+                        }
                     }
                     None
                 }

@@ -14,6 +14,7 @@ use nu_protocol::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
+        RecordItem,
     },
     engine::StateWorkingSet,
     eval_const::{eval_constant, value_as_string},
@@ -5204,7 +5205,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             // so fall back to the Any type later
             field_types = None;
         }
-        output.push((field, value));
+        output.push(RecordItem::Pair(field, value));
     }
 
     Expression {
@@ -5815,10 +5816,29 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::Record(fields) => {
-            for (field_name, field_value) in fields {
-                discover_captures_in_expr(working_set, field_name, seen, seen_blocks, output)?;
-                discover_captures_in_expr(working_set, field_value, seen, seen_blocks, output)?;
+        Expr::Record(items) => {
+            for item in items {
+                match item {
+                    RecordItem::Pair(field_name, field_value) => {
+                        discover_captures_in_expr(
+                            working_set,
+                            field_name,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                        discover_captures_in_expr(
+                            working_set,
+                            field_value,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                    }
+                    RecordItem::Spread(record) => {
+                        discover_captures_in_expr(working_set, record, seen, seen_blocks, output)?;
+                    }
+                }
             }
         }
         Expr::Signature(sig) => {

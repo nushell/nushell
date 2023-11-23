@@ -1,7 +1,7 @@
 use crate::{
     ast::{
         eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PipelineElement,
+        PipelineElement, RecordItem,
     },
     engine::{EngineState, StateWorkingSet},
     record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
@@ -288,12 +288,25 @@ pub fn eval_constant(
             }
             Ok(Value::list(output, expr.span))
         }
-        Expr::Record(fields) => {
+        Expr::Record(items) => {
             let mut record = Record::new();
-            for (col, val) in fields {
-                // avoid duplicate cols.
-                let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                record.insert(col_name, eval_constant(working_set, val)?);
+            for item in items {
+                match item {
+                    RecordItem::Pair(col, val) => {
+                        // avoid duplicate cols.
+                        let col_name =
+                            value_as_string(eval_constant(working_set, col)?, expr.span)?;
+                        record.insert(col_name, eval_constant(working_set, val)?);
+                    }
+                    RecordItem::Spread(inner) => match eval_constant(working_set, inner)? {
+                        Value::Record { val: inner, .. } => {
+                            for (col, val) in inner {
+                                record.insert(col, val);
+                            }
+                        }
+                        _ => todo!(),
+                    },
+                }
             }
 
             Ok(Value::record(record, expr.span))

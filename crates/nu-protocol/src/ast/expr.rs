@@ -30,7 +30,7 @@ pub enum Expr {
     MatchBlock(Vec<(MatchPattern, Expression)>),
     List(Vec<Expression>),
     Table(Vec<Expression>, Vec<Vec<Expression>>),
-    Record(Vec<(Expression, Expression)>),
+    Record(Vec<RecordItem>),
     Keyword(Vec<u8>, Span, Box<Expression>),
     ValueWithUnit(Box<Expression>, Spanned<Unit>),
     DateTime(chrono::DateTime<FixedOffset>),
@@ -48,4 +48,11 @@ pub enum Expr {
     Spread(Box<Expression>),
     Nothing,
     Garbage,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum RecordItem {
+    /// A key: val mapping
+    Pair(Expression, Expression),
+    Spread(Expression),
 }

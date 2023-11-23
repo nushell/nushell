@@ -3,7 +3,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
-        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
+        Expression, Math, Operator, PathMember, PipelineElement, RecordItem, Redirection,
     },
     engine::{Closure, EngineState, Stack},
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
@@ -548,22 +548,36 @@ pub fn eval_expression(
             }
             Ok(Value::list(output, expr.span))
         }
-        Expr::Record(fields) => {
+        Expr::Record(items) => {
             let mut record = Record::new();
 
-            for (col, val) in fields {
-                // avoid duplicate cols.
-                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = record.index_of(&col_name);
-                match pos {
-                    Some(index) => {
-                        return Err(ShellError::ColumnDefinedTwice {
-                            second_use: col.span,
-                            first_use: fields[index].0.span,
-                        })
+            for item in items {
+                match item {
+                    RecordItem::Pair(col, val) => {
+                        // avoid duplicate cols.
+                        let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                        let pos = record.index_of(&col_name);
+                        match pos {
+                            Some(index) => {
+                                return Err(ShellError::ColumnDefinedTwice {
+                                    second_use: col.span,
+                                    first_use: todo!(), // fields[index].0.span,
+                                });
+                            }
+                            None => {
+                                record.push(col_name, eval_expression(engine_state, stack, val)?);
+                            }
+                        }
                     }
-                    None => {
-                        record.push(col_name, eval_expression(engine_state, stack, val)?);
+                    RecordItem::Spread(inner) => {
+                        match eval_expression(engine_state, stack, inner)? {
+                            Value::Record { val: inner, .. } => {
+                                for (col, val) in inner {
+                                    record.push(col, val);
+                                }
+                            }
+                            _ => todo!(),
+                        }
                     }
                 }
             }
