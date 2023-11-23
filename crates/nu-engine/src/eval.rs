@@ -1232,14 +1232,14 @@ fn gen_save_call(
     if out_append_mode {
         args.push(Argument::Named((
             Spanned {
-                item: "append".into(),
+                item: "out-append".into(),
                 span: out_span,
             },
             None,
             None,
         )))
     }
-    if let Some((err_span, err_expr, _)) = err_info {
+    if let Some((err_span, err_expr, err_append_mode)) = err_info {
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
@@ -1247,7 +1247,17 @@ fn gen_save_call(
             },
             None,
             Some(err_expr),
-        )))
+        )));
+        if err_append_mode {
+            args.push(Argument::Named((
+                Spanned {
+                    item: "err-append".into(),
+                    span: out_span,
+                },
+                None,
+                None,
+            )))
+        }
     }
 
     Call {
