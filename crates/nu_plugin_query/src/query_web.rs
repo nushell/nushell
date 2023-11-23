@@ -180,26 +180,21 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
         table_out.push(Value::record(record, span))
     } else {
         for row in &table {
-            let mut vals = vec![];
-            let record_cols = &cols;
-            for col in &cols {
-                let val = row
-                    .get(col)
-                    .unwrap_or(&format!("Missing column: '{}'", &col))
-                    .to_string();
+            let record = cols
+                .iter()
+                .map(|col| {
+                    let val = row
+                        .get(col)
+                        .unwrap_or(&format!("Missing column: '{}'", &col))
+                        .to_string();
 
-                if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
-                    at_least_one_row_filled = true;
-                }
-                vals.push(Value::string(val, span));
-            }
-            table_out.push(Value::record(
-                Record {
-                    cols: record_cols.to_vec(),
-                    vals,
-                },
-                span,
-            ))
+                    if !at_least_one_row_filled && val != format!("Missing column: '{}'", &col) {
+                        at_least_one_row_filled = true;
+                    }
+                    (col.clone(), Value::string(val, span))
+                })
+                .collect();
+            table_out.push(Value::record(record, span))
         }
     }
     if !at_least_one_row_filled {

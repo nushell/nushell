@@ -278,7 +278,13 @@ pub fn eval_constant(
         Expr::List(x) => {
             let mut output = vec![];
             for expr in x {
-                output.push(eval_constant(working_set, expr)?);
+                match &expr.expr {
+                    Expr::Spread(expr) => match eval_constant(working_set, expr)? {
+                        Value::List { mut vals, .. } => output.append(&mut vals),
+                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                    },
+                    _ => output.push(eval_constant(working_set, expr)?),
+                }
             }
             Ok(Value::list(output, expr.span))
         }

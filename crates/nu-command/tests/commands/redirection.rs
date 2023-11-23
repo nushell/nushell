@@ -288,3 +288,53 @@ fn redirection_should_have_a_target() {
         );
     }
 }
+
+#[test]
+#[cfg(not(windows))]
+fn redirection_with_pipe() {
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::playground::Playground;
+    Playground::setup(
+        "external with many stdout and stderr messages",
+        |dirs, sandbox| {
+            let script_body = r#"
+        x=$(printf '=%.0s' {1..40})
+        echo -n $x
+        echo -n $x 1>&2
+        "#;
+            let mut expect_body = String::new();
+            for _ in 0..40 {
+                expect_body.push('=');
+            }
+
+            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+
+            // check for stdout
+            let actual = nu!(
+                cwd: dirs.test(),
+                "bash test.sh err> tmp_file | str length",
+            );
+
+            assert_eq!(actual.out, "40");
+            // check for stderr redirection file.
+            let expected_out_file = dirs.test().join("tmp_file");
+            let actual_len = file_contents(expected_out_file).len();
+            assert_eq!(actual_len, 40);
+
+            // check it inside a function
+            let actual = nu!(
+                cwd: dirs.test(),
+                "bash test.sh err> tmp_file; print aa"
+            );
+            assert!(actual.out.contains(&format!("{}aa", expect_body)));
+        },
+    )
+}
+
+#[test]
+fn no_duplicate_redirection() {
+    let actual = nu!("echo 3 o> a.txt o> a.txt");
+    assert!(actual.err.contains("Redirection can be set only once"));
+    let actual = nu!("echo 3 e> a.txt e> a.txt");
+    assert!(actual.err.contains("Redirection can be set only once"));
+}

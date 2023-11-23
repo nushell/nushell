@@ -509,6 +509,15 @@ pub fn flatten_expression(
         Expr::VarDecl(var_id) => {
             vec![(expr.span, FlatShape::VarDecl(*var_id))]
         }
+
+        Expr::Spread(inner_expr) => {
+            let mut output = vec![(
+                Span::new(expr.span.start, expr.span.start + 3),
+                FlatShape::Operator,
+            )];
+            output.extend(flatten_expression(working_set, inner_expr));
+            output
+        }
     }
 }
 

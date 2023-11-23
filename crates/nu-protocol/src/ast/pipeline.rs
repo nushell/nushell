@@ -2,7 +2,7 @@ use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Redirection {
     Stdout,
     Stderr,
