@@ -422,7 +422,8 @@ fn push_command_to(
                     ));
                 }
                 pipeline.push(LiteElement::Redirection(
-                    last_connector_span.expect("internal error: redirection missing span information"),
+                    last_connector_span
+                        .expect("internal error: redirection missing span information"),
                     redirect,
                     command,
                     is_append_mode,

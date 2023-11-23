@@ -36,7 +36,7 @@ fn redirect_err() {
 
         let output = nu!(
             cwd: dirs.test(),
-            "vol missingdrive err>> a; (open a | size).bytes >= 32"
+            "vol missingdrive err>> a; (open a | str stats).bytes >= 32"
         );
         assert!(output.out.contains("true"));
     })
@@ -76,7 +76,7 @@ fn redirect_outerr() {
             cwd: dirs.test(),
             "vol missingdrive out+err>> a"
         );
-        let output = nu!(cwd: dirs.test(), "(open a | size).bytes >= 32");
+        let output = nu!(cwd: dirs.test(), "(open a | str stats).bytes >= 32");
         assert!(output.out.contains("true"));
     })
 }
