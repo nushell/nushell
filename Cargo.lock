@@ -2723,6 +2723,7 @@ dependencies = [
  "sysinfo",
  "unicode-segmentation",
  "uuid",
+ "which 5.0.0",
 ]
 
 [[package]]
@@ -2999,7 +3000,6 @@ dependencies = [
  "nu-protocol",
  "rstest",
  "serde_json",
- "which 5.0.0",
 ]
 
 [[package]]

@@ -221,14 +221,7 @@ pub fn flatten_expression(
                     span,
                     ..
                 } => {
-                    if let Some(s) = &head.as_string() {
-                        if which::which(s).ok().is_some() {
-                            output.push((span, FlatShape::ExternalResolved));
-                        } else {
-                            output.push((span, FlatShape::External));
-                        }
-                    }
-                    // output.push((span, FlatShape::External));
+                    output.push((span, FlatShape::External));
                 }
                 _ => {
                     output.extend(flatten_expression(working_set, head));

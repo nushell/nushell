@@ -20,7 +20,18 @@ impl Highlighter for NuHighlighter {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
-            let shapes = flatten_block(&working_set, &block);
+            let mut shapes = flatten_block(&working_set, &block);
+            for (span, shape) in shapes.iter_mut() {
+                if *shape == FlatShape::External {
+                    let str_contents =
+                        working_set.get_span_contents(Span::new(span.start, span.end));
+
+                    let str_word = String::from_utf8_lossy(str_contents).to_string();
+                    if which::which(str_word).ok().is_some() {
+                        *shape = FlatShape::ExternalResolved;
+                    }
+                }
+            }
             (shapes, self.engine_state.next_span_start())
         };
 
