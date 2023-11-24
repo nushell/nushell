@@ -228,6 +228,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),
             "meowb" => test_bins::meowb(),
