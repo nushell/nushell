@@ -970,6 +970,21 @@ fn test_cp_with_vars() {
     });
 }
 
+#[test]
+fn test_cp_destination_after_cd() {
+    Playground::setup("ucp_test_34", |dirs, sandbox| {
+        sandbox.mkdir("test");
+        sandbox.with_files(vec![EmptyFile("test/file.txt")]);
+        nu!(
+        cwd: dirs.test(),
+            // Defining variable avoid path expansion of cp argument.
+            // If argument was not expanded ucp wrapper should do it
+        "cd test; let file = 'copy.txt'; cp file.txt $file",
+        );
+        assert!(dirs.test().join("test").join("copy.txt").exists());
+    });
+}
+
 #[rstest]
 #[case(r#"'a]c'"#)]
 #[case(r#"'a[c'"#)]
