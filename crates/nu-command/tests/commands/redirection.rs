@@ -155,6 +155,33 @@ fn separate_redirection() {
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
+            #[cfg(not(windows))]
+            {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    "bash test.sh out>> out.txt err>> err.txt"
+                );
+            }
+            #[cfg(windows)]
+            {
+                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    "cmd /D /c test.bat out>> out.txt err>> err.txt"
+                );
+            }
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
+
+            // check for stderr redirection file.
+            let expected_err_file = dirs.test().join("err.txt");
+            let actual = file_contents(expected_err_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
         },
     )
 }
