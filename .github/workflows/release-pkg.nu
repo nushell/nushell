@@ -160,13 +160,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
     let archive = $'($dist)/($dest).tar.gz'
 
     mkdir $dest
-    $files | each {|it|
-        if not ($it | path exists) {
-            print $'(ansi r)($it) not exists, abort...(ansi reset)'
-            exit 1
-        }
-        mv $it $dest
-    } | ignore
+    $files | each {|it| mv $it $dest } | ignore
 
     print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest
 
