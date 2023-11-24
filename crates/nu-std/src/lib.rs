@@ -18,7 +18,6 @@ pub fn load_standard_library(
 
         let mut std_files = vec![
             ("mod.nu", include_str!("../std/mod.nu")),
-            ("testing.nu", include_str!("../std/testing.nu")),
             ("dirs.nu", include_str!("../std/dirs.nu")),
             ("dt.nu", include_str!("../std/dt.nu")),
             ("help.nu", include_str!("../std/help.nu")),

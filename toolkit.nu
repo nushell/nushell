@@ -107,7 +107,10 @@ export def test [
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
-    cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
+    cargo run -- -c $"
+        use crates/nu-std/testing.nu
+        testing run-tests --path crates/nu-std ($extra_args)
+    "
 }
 
 # formats the pipe input inside backticks, dimmed and italic, as a pretty command
