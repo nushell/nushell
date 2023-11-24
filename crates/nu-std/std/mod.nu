@@ -149,7 +149,7 @@ export def clip [
     print $"Warning:   (char -u 26a0) (ansi yellow_bold)deprecated_command(ansi reset)"
     print "| the `std clip` command is deprecated and will be removed in Nushell 0.89"
     print ""
-    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/system clip`]\(https://github.com/amtoine/nu_scripts/tree/main/modules#system\)(ansi reset)"
+    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/system clip`]\(https://github.com/nushell/nu_scripts/tree/main/modules#system\)(ansi reset)"
 
     let input = $input
         | if $expand { table --expand } else { table }
