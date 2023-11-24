@@ -263,7 +263,7 @@ fn separate_redirection_support_variable() {
                 r#"
             let o_f = "out2.txt"
             let e_f = "err2.txt"
-            "$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f"#,
+            $env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f"#,
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out2.txt");
@@ -280,7 +280,7 @@ fn separate_redirection_support_variable() {
                 r#"
             let o_f = "out2.txt"
             let e_f = "err2.txt"
-            "$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f"#,
+            $env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f"#,
             );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out2.txt");
@@ -320,43 +320,29 @@ fn redirection_should_have_a_target() {
 }
 
 #[test]
-#[cfg(not(windows))]
 fn redirection_with_pipe() {
-    use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
     Playground::setup(
         "external with many stdout and stderr messages",
-        |dirs, sandbox| {
-            let script_body = r#"
-        x=$(printf '=%.0s' {1..40})
-        echo -n $x
-        echo -n $x 1>&2
-        "#;
-            let mut expect_body = String::new();
-            for _ in 0..40 {
-                expect_body.push('=');
-            }
-
-            sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-
+        |dirs, _| {
             // check for stdout
             let actual = nu!(
                 cwd: dirs.test(),
-                "bash test.sh err> tmp_file | str length",
+                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file | str length"#,
             );
 
-            assert_eq!(actual.out, "40");
+            assert_eq!(actual.out, "8");
             // check for stderr redirection file.
             let expected_out_file = dirs.test().join("tmp_file");
             let actual_len = file_contents(expected_out_file).len();
-            assert_eq!(actual_len, 40);
+            assert_eq!(actual_len, 8);
 
             // check it inside a function
             let actual = nu!(
                 cwd: dirs.test(),
-                "bash test.sh err> tmp_file; print aa"
+                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ err> tmp_file; print aa"#,
             );
-            assert!(actual.out.contains(&format!("{}aa", expect_body)));
+            assert!(actual.out.contains("messageaa"));
         },
     )
 }

@@ -37,13 +37,11 @@ pub fn echo_env_mixed() {
     let args = args();
     let args = &args[1..];
 
-    if args.len() != 3 && args.len() != 4 {
+    if args.len() != 3 {
         panic!(
             r#"Usage examples:
 * nu --testbin echo_env_mixed out-err FOO BAR
-* nu --testbin echo_env_mixed err-out FOO BAR
-* nu --testbin echo_env_mixed out-err-out FOO BAR BAZ
-* nu --testbin echo_env_mixed err-out-err FOO BAR BAZ"#
+* nu --testbin echo_env_mixed err-out FOO BAR"#
         )
     }
     match args[0].as_str() {
@@ -56,24 +54,6 @@ pub fn echo_env_mixed() {
             let (err_arg, out_arg) = (&args[1], &args[2]);
             echo_one_env(err_arg, false);
             echo_one_env(out_arg, true);
-        }
-        "out-err-out" => {
-            if args.len() != 4 {
-                panic!("When use out-err-out mode, it requires 3 env vars")
-            }
-            let (out_arg, err_arg, out_arg2) = (&args[1], &args[2], &args[3]);
-            echo_one_env(out_arg, true);
-            echo_one_env(err_arg, false);
-            echo_one_env(out_arg2, true);
-        }
-        "err-out-err" => {
-            if args.len() != 4 {
-                panic!("When use out-err-out mode, it requires 3 env vars")
-            }
-            let (err_arg, out_arg, err_arg2) = (&args[1], &args[2], &args[3]);
-            echo_one_env(err_arg, false);
-            echo_one_env(out_arg, true);
-            echo_one_env(err_arg2, false);
         }
         _ => panic!("The mixed type must be `out_err`, `err_out`, `out_err_out`, `err_out_err`"),
     }
