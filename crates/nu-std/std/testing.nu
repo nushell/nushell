@@ -290,7 +290,7 @@ export def run-tests [
     print $"Warning:   (char -u 26a0) (ansi yellow_bold)deprecated_module(ansi reset)"
     print "| the `std testing run-tests` command is deprecated and will be removed in Nushell 0.90"
     print ""
-    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/testing run-tests`]\(https://github.com/amtoine/nu_scripts/tree/main/modules#testing\)(ansi reset) or (ansi {fg: cyan, attr: du})[`nushell/nupm`]\(https://github.com/nushell/nupm\)(ansi reset)"
+    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/testing run-tests`]\(https://github.com/nushell/nu_scripts/tree/main/modules#testing\)(ansi reset) or (ansi {fg: cyan, attr: du})[`nushell/nupm`]\(https://github.com/nushell/nupm\)(ansi reset)"
 
     let available_threads = (sys | get cpu | length)
 
