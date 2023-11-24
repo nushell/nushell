@@ -2,82 +2,40 @@ use nu_test_support::fs::{file_contents, Stub::FileWithContent};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
-#[cfg(not(windows))]
 #[test]
 fn redirect_err() {
     Playground::setup("redirect_err_test", |dirs, _sandbox| {
         let output = nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt err> a.txt; cat a.txt"
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ err> a.txt; open a.txt"#
         );
-
         assert!(output.out.contains("asdfasdfasdf.txt"));
 
         // check append mode
         let output = nu!(
-                cwd: dirs.test(),
-                "cat asdfasdfasdf.txt err>> a.txt; cat a.txt"
+            cwd: dirs.test(),
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ err>> a.txt; open a.txt"#
         );
         let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
         assert_eq!(v.len(), 2);
     })
 }
 
-#[cfg(windows)]
-#[test]
-fn redirect_err() {
-    Playground::setup("redirect_err_test", |dirs, _sandbox| {
-        let output = nu!(
-            cwd: dirs.test(),
-            "vol missingdrive err> a; (open a | str stats).bytes >= 16"
-        );
-
-        assert!(output.out.contains("true"));
-
-        let output = nu!(
-            cwd: dirs.test(),
-            "vol missingdrive err>> a; (open a | str stats).bytes >= 32"
-        );
-        assert!(output.out.contains("true"));
-    })
-}
-
-#[cfg(not(windows))]
 #[test]
 fn redirect_outerr() {
     Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
-        nu!(
+        let output = nu!(
             cwd: dirs.test(),
-            "cat asdfasdfasdf.txt out+err> a"
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ out+err> a.txt; open a.txt"#
         );
-        let output = nu!(cwd: dirs.test(), "cat a");
-
         assert!(output.out.contains("asdfasdfasdf.txt"));
 
-        let output = nu!(cwd: dirs.test(), "cat asdfasdfasdf.txt o+e>> a; cat a");
+        let output = nu!(
+            cwd: dirs.test(),
+            r#"$env.BAZ = "asdfasdfasdf.txt"; nu --testbin echo_env_stderr BAZ o+e>> a.txt; open a.txt"#
+        );
         let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
         assert_eq!(v.len(), 2);
-    })
-}
-
-#[cfg(windows)]
-#[test]
-fn redirect_outerr() {
-    Playground::setup("redirect_outerr_test", |dirs, _sandbox| {
-        nu!(
-            cwd: dirs.test(),
-            "vol missingdrive out+err> a"
-        );
-        let output = nu!(cwd: dirs.test(), "(open a | str stats).bytes >= 16");
-
-        assert!(output.out.contains("true"));
-
-        nu!(
-            cwd: dirs.test(),
-            "vol missingdrive out+err>> a"
-        );
-        let output = nu!(cwd: dirs.test(), "(open a | str stats).bytes >= 32");
-        assert!(output.out.contains("true"));
     })
 }
 
@@ -123,29 +81,13 @@ foobar"#);
 fn separate_redirection() {
     Playground::setup(
         "external with both stdout and stderr messages, to different file",
-        |dirs, sandbox| {
-            let script_body = r#"
-        echo message
-        echo message 1>&2
-        "#;
+        |dirs, _| {
             let expect_body = "message";
+            nu!(
+                cwd: dirs.test(),
+                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> out.txt e> err.txt"#,
+            );
 
-            #[cfg(not(windows))]
-            {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "bash test.sh out> out.txt err> err.txt"
-                );
-            }
-            #[cfg(windows)]
-            {
-                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "cmd /D /c test.bat out> out.txt err> err.txt"
-                );
-            }
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
@@ -155,25 +97,22 @@ fn separate_redirection() {
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
-            #[cfg(not(windows))]
-            {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "bash test.sh out>> out.txt err>> err.txt"
-                );
-                // check for stdout redirection file.
-                let expected_out_file = dirs.test().join("out.txt");
-                let actual = file_contents(expected_out_file);
-                let v: Vec<_> = actual.match_indices("message").collect();
-                assert_eq!(v.len(), 2);
 
-                // check for stderr redirection file.
-                let expected_err_file = dirs.test().join("err.txt");
-                let actual = file_contents(expected_err_file);
-                let v: Vec<_> = actual.match_indices("message").collect();
-                assert_eq!(v.len(), 2);
-            }
+            nu!(
+                cwd: dirs.test(),
+                r#"$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o>> out.txt e>> err.txt"#,
+            );
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
+
+            // check for stderr redirection file.
+            let expected_err_file = dirs.test().join("err.txt");
+            let actual = file_contents(expected_err_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
         },
     )
 }
@@ -247,35 +186,30 @@ fn redirection_keep_exit_codes() {
     )
 }
 
-#[cfg(not(windows))]
 #[test]
 fn redirection_with_pipeline_works() {
-    use nu_test_support::fs::{file_contents, Stub::FileWithContent};
+    use nu_test_support::fs::Stub::FileWithContent;
     use nu_test_support::playground::Playground;
     Playground::setup(
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
             let script_body = r"echo message";
             let expect_body = "message";
+
             sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
 
-            nu!(
+            let actual = nu!(
                 cwd: dirs.test(),
-                "bash test.sh out> out.txt | describe"
+                r#"$env.BAZ = "message"; nu --testbin echo_env BAZ out> out.txt | describe; open out.txt"#,
             );
-            // check for stdout redirection file.
-            let expected_out_file = dirs.test().join("out.txt");
-            let actual = file_contents(expected_out_file);
-            assert!(actual.contains(expect_body));
+            assert!(actual.out.contains(expect_body));
 
             // check append mode works
-            nu!(
+            let actual = nu!(
                 cwd: dirs.test(),
-                "bash test.sh o>> out.txt | describe"
+                r#"$env.BAZ = "message"; nu --testbin echo_env BAZ out>> out.txt | describe; open out.txt"#,
             );
-            let expected_out_file = dirs.test().join("out.txt");
-            let actual = file_contents(expected_out_file);
-            let v: Vec<_> = actual.match_indices("message").collect();
+            let v: Vec<_> = actual.out.match_indices("message").collect();
             assert_eq!(v.len(), 2);
         },
     )
@@ -322,29 +256,15 @@ fn redirect_support_variable() {
 fn separate_redirection_support_variable() {
     Playground::setup(
         "external with both stdout and stderr messages, to different file",
-        |dirs, sandbox| {
-            let script_body = r#"
-        echo message
-        echo message 1>&2
-        "#;
+        |dirs, _| {
             let expect_body = "message";
-
-            #[cfg(not(windows))]
-            {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; bash test.sh out> $o_f err> $e_f"#
-                );
-            }
-            #[cfg(windows)]
-            {
-                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
-                );
-            }
+            nu!(
+                cwd: dirs.test(),
+                r#"
+            let o_f = "out2.txt"
+            let e_f = "err2.txt"
+            "$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ o> $o_f e> $e_f"#,
+            );
             // check for stdout redirection file.
             let expected_out_file = dirs.test().join("out2.txt");
             let actual = file_contents(expected_out_file);
@@ -355,25 +275,24 @@ fn separate_redirection_support_variable() {
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
 
-            #[cfg(not(windows))]
-            {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; bash test.sh out>> $o_f err>> $e_f"#
-                );
-                // check for stdout redirection file.
-                let expected_out_file = dirs.test().join("out2.txt");
-                let actual = file_contents(expected_out_file);
-                let v: Vec<_> = actual.match_indices("message").collect();
-                assert_eq!(v.len(), 2);
+            nu!(
+                cwd: dirs.test(),
+                r#"
+            let o_f = "out2.txt"
+            let e_f = "err2.txt"
+            "$env.BAZ = "message"; nu --testbin echo_env_mixed out-err BAZ BAZ out>> $o_f err>> $e_f"#,
+            );
+            // check for stdout redirection file.
+            let expected_out_file = dirs.test().join("out2.txt");
+            let actual = file_contents(expected_out_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
 
-                // check for stderr redirection file.
-                let expected_err_file = dirs.test().join("err2.txt");
-                let actual = file_contents(expected_err_file);
-                let v: Vec<_> = actual.match_indices("message").collect();
-                assert_eq!(v.len(), 2);
-            }
+            // check for stderr redirection file.
+            let expected_err_file = dirs.test().join("err2.txt");
+            let actual = file_contents(expected_err_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
         },
     )
 }
