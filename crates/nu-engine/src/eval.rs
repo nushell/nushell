@@ -864,8 +864,6 @@ fn eval_element_with_input(
                 | Expr::StringInterpolation(_)
                 | Expr::Filepath(_),
             ) => {
-                // FIXME: currently save command only supports one `--append` argument
-                // it's required to support something like `--stderr-append` flag
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
