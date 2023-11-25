@@ -209,6 +209,8 @@ impl Command for UCp {
             }
         }
 
+        let target_path = nu_path::expand_path_with(&target_path, &cwd);
+
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
