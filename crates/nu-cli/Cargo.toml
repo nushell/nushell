@@ -40,6 +40,7 @@ pathdiff = "0.2"
 sysinfo = "0.29"
 unicode-segmentation = "1.10"
 uuid = { version = "1.6.0", features = ["v4"] }
+which = "5.0.0"
 
 [features]
 plugin = []

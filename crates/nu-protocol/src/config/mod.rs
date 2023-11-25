@@ -72,6 +72,7 @@ pub struct Config {
     pub datetime_table_format: Option<String>,
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
+    pub highlight_resolved_externals: bool,
 }
 
 impl Default for Config {
@@ -137,6 +138,7 @@ impl Default for Config {
             error_style: ErrorStyle::Fancy,
 
             use_kitty_protocol: false,
+            highlight_resolved_externals: false,
         }
     }
 }
@@ -621,6 +623,9 @@ impl Value {
                     }
                     "use_kitty_protocol" => {
                         process_bool_config(value, &mut errors, &mut config.use_kitty_protocol);
+                    }
+                    "highlight_resolved_externals" => {
+                        process_bool_config(value, &mut errors, &mut config.highlight_resolved_externals);
                     }
                     // Menus
                     "menus" => match create_menus(value) {
