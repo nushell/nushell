@@ -17,10 +17,27 @@ impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
+        let highlight_resolved_externals =
+            self.engine_state.get_config().highlight_resolved_externals;
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
-            let shapes = flatten_block(&working_set, &block);
+            let mut shapes = flatten_block(&working_set, &block);
+            // Highlighting externals has a config point because of concerns that using which to resolve
+            // externals may slow down things too much.
+            if highlight_resolved_externals {
+                for (span, shape) in shapes.iter_mut() {
+                    if *shape == FlatShape::External {
+                        let str_contents =
+                            working_set.get_span_contents(Span::new(span.start, span.end));
+
+                        let str_word = String::from_utf8_lossy(str_contents).to_string();
+                        if which::which(str_word).ok().is_some() {
+                            *shape = FlatShape::ExternalResolved;
+                        }
+                    }
+                }
+            }
             (shapes, self.engine_state.next_span_start())
         };
 
@@ -91,6 +108,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
                 FlatShape::External => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+                FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
                 FlatShape::Keyword => add_colored_token(&shape.1, next_token),
                 FlatShape::Literal => add_colored_token(&shape.1, next_token),
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),

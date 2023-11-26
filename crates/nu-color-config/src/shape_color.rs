@@ -15,6 +15,7 @@ pub fn default_shape_color(shape: String) -> Style {
         "shape_directory" => Style::new().fg(Color::Cyan),
         "shape_external" => Style::new().fg(Color::Cyan),
         "shape_externalarg" => Style::new().fg(Color::Green).bold(),
+        "shape_external_resolved" => Style::new().fg(Color::LightYellow).bold(),
         "shape_filepath" => Style::new().fg(Color::Cyan),
         "shape_flag" => Style::new().fg(Color::Blue).bold(),
         "shape_float" => Style::new().fg(Color::Purple).bold(),
