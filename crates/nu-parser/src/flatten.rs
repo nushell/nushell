@@ -410,8 +410,8 @@ pub fn flatten_expression(
             for l in list {
                 match l {
                     RecordItem::Pair(key, val) => {
-                        let flattened_lhs = flatten_expression(working_set, &key);
-                        let flattened_rhs = flatten_expression(working_set, &val);
+                        let flattened_lhs = flatten_expression(working_set, key);
+                        let flattened_rhs = flatten_expression(working_set, val);
 
                         if let Some(first) = flattened_lhs.first() {
                             if first.0.start > last_end {
