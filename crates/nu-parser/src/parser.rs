@@ -5179,33 +5179,49 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     let mut field_types = Some(vec![]);
     while idx < tokens.len() {
-        let field = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
-
-        idx += 1;
-        if idx == tokens.len() {
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let colon = working_set.get_span_contents(tokens[idx].span);
-        idx += 1;
-        if idx == tokens.len() || colon != b":" {
-            //FIXME: need better error
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
-        idx += 1;
-
-        if let Some(field) = field.as_string() {
-            if let Some(fields) = &mut field_types {
-                fields.push((field, value.ty.clone()));
-            }
+        let curr_span = tokens[idx].span;
+        let curr_tok = working_set.get_span_contents(curr_span);
+        if curr_tok.starts_with(b"...")
+            && curr_tok.len() > 3
+            && (curr_tok[3] == b'$' || curr_tok[3] == b'{' || curr_tok[3] == b'(')
+        {
+            let inner = parse_value(
+                working_set,
+                Span::new(curr_span.start + 3, curr_span.end),
+                &SyntaxShape::Record(vec![]),
+            );
+            idx += 1;
+            // TODO update field_types
+            output.push(RecordItem::Spread(inner));
         } else {
-            // We can't properly see all the field types
-            // so fall back to the Any type later
-            field_types = None;
+            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+
+            idx += 1;
+            if idx == tokens.len() {
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let colon = working_set.get_span_contents(tokens[idx].span);
+            idx += 1;
+            if idx == tokens.len() || colon != b":" {
+                //FIXME: need better error
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+            idx += 1;
+
+            if let Some(field) = field.as_string() {
+                if let Some(fields) = &mut field_types {
+                    fields.push((field, value.ty.clone()));
+                }
+            } else {
+                // We can't properly see all the field types
+                // so fall back to the Any type later
+                field_types = None;
+            }
+            output.push(RecordItem::Pair(field, value));
         }
-        output.push(RecordItem::Pair(field, value));
     }
 
     Expression {
