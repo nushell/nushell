@@ -551,20 +551,22 @@ pub fn eval_expression(
         Expr::Record(items) => {
             let mut record = Record::new();
 
+            let mut col_names: Vec<(String, Span)> = vec![];
+
             for item in items {
                 match item {
                     RecordItem::Pair(col, val) => {
                         // avoid duplicate cols.
                         let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                        let pos = record.index_of(&col_name);
-                        match pos {
-                            Some(index) => {
+                        match col_names.iter().find(|(name, _)| name == &col_name) {
+                            Some((_, span)) => {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     second_use: col.span,
-                                    first_use: todo!(), // fields[index].0.span,
+                                    first_use: *span,
                                 });
                             }
                             None => {
+                                col_names.push((col_name.clone(), col.span));
                                 record.push(col_name, eval_expression(engine_state, stack, val)?);
                             }
                         }
