@@ -1,12 +1,22 @@
 # std.nu, `used` to load all standard library components
 
+export use assert.nu
+export use dirs.nu
+export use dt.nu
+export use formats.nu
+export use help.nu
+export use input.nu
+export use iter.nu
+export use log.nu
+export use math.nu
+export use testing.nu
+export use xml.nu
 export-env {
     use dirs.nu []
     use log.nu []
 }
 
 use dt.nu [datetime-diff, pretty-print-duration]
-use log.nu
 
 # Add the given paths to the PATH.
 #
