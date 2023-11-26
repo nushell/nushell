@@ -60,7 +60,7 @@ impl Command for Save {
             )
             .switch(
                 "err-append",
-                "append stderr input to the end of the file",
+                "append stderr input to the end of `--stderr` file",
                 None,
             )
             .category(Category::FileSystem)
