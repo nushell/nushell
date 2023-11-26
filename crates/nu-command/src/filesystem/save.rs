@@ -53,9 +53,22 @@ impl Command for Save {
             .switch("append", "append input to the end of the file", Some('a'))
             .switch("force", "overwrite the destination", Some('f'))
             .switch("progress", "enable progress bar", Some('p'))
-            .switch("out-append", "only for internal use", None)
-            .switch("err-append", "only for internal use", None)
+            .switch(
+                "out-append",
+                "append stdout input to the end of the file",
+                None,
+            )
+            .switch(
+                "err-append",
+                "append stderr input to the end of `--stderr` file",
+                None,
+            )
             .category(Category::FileSystem)
+    }
+
+    fn extra_usage(&self) -> &str {
+        r#"Normally you don't need to care about `--out-append` and `err-append`
+It's used internally in redirection"#
     }
 
     fn run(
