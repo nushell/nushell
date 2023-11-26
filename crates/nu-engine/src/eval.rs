@@ -9,7 +9,7 @@ use nu_protocol::{
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -551,25 +551,33 @@ pub fn eval_expression(
         Expr::Record(items) => {
             let mut record = Record::new();
 
-            let mut col_names: Vec<(String, Span)> = vec![];
+            let mut col_names = VecDeque::<(String, Span)>::new();
+
+            for item in items {
+                if let RecordItem::Pair(col, _) = item {
+                    // avoid duplicate cols
+                    let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                    match col_names.iter().find(|(name, _)| name == &col_name) {
+                        Some((_, span)) => {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                second_use: col.span,
+                                first_use: *span,
+                            });
+                        }
+                        None => {
+                            col_names.push_back((col_name, col.span));
+                        }
+                    }
+                }
+            }
 
             for item in items {
                 match item {
-                    RecordItem::Pair(col, val) => {
-                        // avoid duplicate cols.
-                        let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                        match col_names.iter().find(|(name, _)| name == &col_name) {
-                            Some((_, span)) => {
-                                return Err(ShellError::ColumnDefinedTwice {
-                                    second_use: col.span,
-                                    first_use: *span,
-                                });
-                            }
-                            None => {
-                                col_names.push((col_name.clone(), col.span));
-                                record.push(col_name, eval_expression(engine_state, stack, val)?);
-                            }
-                        }
+                    RecordItem::Pair(_, val) => {
+                        let (col_name, _) = col_names
+                            .pop_front()
+                            .expect("Column name should have been evaluated");
+                        record.push(col_name, eval_expression(engine_state, stack, val)?);
                     }
                     RecordItem::Spread(inner) => {
                         match eval_expression(engine_state, stack, inner)? {
