@@ -215,6 +215,7 @@ fn reject(
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
+    let metadata = input.metadata();
     let val = input.into_value(span);
     let mut val = val;
     let mut new_columns = vec![];
@@ -257,7 +258,7 @@ fn reject(
     for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
-    Ok(val.into_pipeline_data())
+    Ok(val.into_pipeline_data().set_metadata(metadata))
 }
 
 #[cfg(test)]
