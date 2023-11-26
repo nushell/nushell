@@ -1,6 +1,8 @@
+use core::slice;
+
 use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
-use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -81,21 +83,14 @@ pub fn calculate(
             _ => mf(vals, span, name),
         },
         PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let new_vals: Result<Vec<Value>, ShellError> = record
-                .vals
-                .into_iter()
-                .map(|val| mf(&[val], span, name))
-                .collect();
-            match new_vals {
-                Ok(vec) => Ok(Value::record(
-                    Record {
-                        cols: record.cols,
-                        vals: vec,
-                    },
-                    span,
-                )),
-                Err(err) => Err(err),
-            }
+            let mut record = record;
+            record
+                .iter_mut()
+                .try_for_each(|(_, val)| -> Result<(), ShellError> {
+                    *val = mf(slice::from_ref(val), span, name)?;
+                    Ok(())
+                })?;
+            Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val

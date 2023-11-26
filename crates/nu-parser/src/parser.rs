@@ -402,13 +402,31 @@ fn parse_long_flag(
                     }
                 } else {
                     // A flag with no argument
-                    (
-                        Some(Spanned {
-                            item: long_name,
-                            span: arg_span,
-                        }),
-                        None,
-                    )
+                    // It can also takes a boolean value like --x=true
+                    if split.len() > 1 {
+                        // and we also have the argument
+                        let long_name_len = long_name.len();
+                        let mut span = arg_span;
+                        span.start += long_name_len + 3; //offset by long flag and '='
+
+                        let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
+
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                            }),
+                            Some(arg),
+                        )
+                    } else {
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: arg_span,
+                            }),
+                            None,
+                        )
+                    }
                 }
             } else {
                 working_set.error(ParseError::UnknownFlag(

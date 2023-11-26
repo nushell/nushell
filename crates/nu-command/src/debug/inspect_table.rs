@@ -200,14 +200,16 @@ mod util {
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {
         let span = value.span();
         match value {
-            Value::Record { val: record, .. } => (
-                record.cols,
-                vec![record
-                    .vals
-                    .into_iter()
-                    .map(|s| debug_string_without_formatting(&s))
-                    .collect()],
-            ),
+            Value::Record { val: record, .. } => {
+                let (cols, vals): (Vec<_>, Vec<_>) = record.into_iter().unzip();
+                (
+                    cols,
+                    vec![vals
+                        .into_iter()
+                        .map(|s| debug_string_without_formatting(&s))
+                        .collect()],
+                )
+            }
             Value::List { vals, .. } => {
                 let mut columns = get_columns(&vals);
                 let data = convert_records_to_dataset(&columns, vals);
