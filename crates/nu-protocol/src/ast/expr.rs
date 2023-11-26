@@ -54,5 +54,6 @@ pub enum Expr {
 pub enum RecordItem {
     /// A key: val mapping
     Pair(Expression, Expression),
-    Spread(Expression),
+    /// Span for the "..." and the expression that's being spread
+    Spread(Span, Expression),
 }

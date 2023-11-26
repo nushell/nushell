@@ -253,7 +253,7 @@ impl Expression {
                                 return true;
                             }
                         }
-                        RecordItem::Spread(record) => {
+                        RecordItem::Spread(_, record) => {
                             if record.has_in_variable(working_set) {
                                 return true;
                             }
@@ -434,7 +434,7 @@ impl Expression {
                             field_name.replace_in_variable(working_set, new_var_id);
                             field_value.replace_in_variable(working_set, new_var_id);
                         }
-                        RecordItem::Spread(record) => {
+                        RecordItem::Spread(_, record) => {
                             record.replace_in_variable(working_set, new_var_id);
                         }
                     }
@@ -604,7 +604,7 @@ impl Expression {
                             field_name.replace_span(working_set, replaced, new_span);
                             field_value.replace_span(working_set, replaced, new_span);
                         }
-                        RecordItem::Spread(record) => {
+                        RecordItem::Spread(_, record) => {
                             record.replace_span(working_set, replaced, new_span);
                         }
                     }

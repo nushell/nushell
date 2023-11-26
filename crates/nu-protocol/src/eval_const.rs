@@ -298,7 +298,7 @@ pub fn eval_constant(
                             value_as_string(eval_constant(working_set, col)?, expr.span)?;
                         record.insert(col_name, eval_constant(working_set, val)?);
                     }
-                    RecordItem::Spread(inner) => match eval_constant(working_set, inner)? {
+                    RecordItem::Spread(_, inner) => match eval_constant(working_set, inner)? {
                         Value::Record { val: inner, .. } => {
                             for (col, val) in inner {
                                 record.insert(col, val);

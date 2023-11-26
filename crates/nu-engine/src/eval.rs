@@ -579,7 +579,7 @@ pub fn eval_expression(
                             .expect("Column name should have been evaluated");
                         record.push(col_name, eval_expression(engine_state, stack, val)?);
                     }
-                    RecordItem::Spread(inner) => {
+                    RecordItem::Spread(_, inner) => {
                         match eval_expression(engine_state, stack, inner)? {
                             Value::Record { val: inner, .. } => {
                                 for (col, val) in inner {

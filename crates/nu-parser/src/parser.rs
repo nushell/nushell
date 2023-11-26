@@ -5192,7 +5192,10 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             );
             idx += 1;
             // TODO update field_types
-            output.push(RecordItem::Spread(inner));
+            output.push(RecordItem::Spread(
+                Span::new(curr_span.start, curr_span.start + 3),
+                inner,
+            ));
         } else {
             let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
 
@@ -5851,7 +5854,7 @@ pub fn discover_captures_in_expr(
                             output,
                         )?;
                     }
-                    RecordItem::Spread(record) => {
+                    RecordItem::Spread(_, record) => {
                         discover_captures_in_expr(working_set, record, seen, seen_blocks, output)?;
                     }
                 }

@@ -436,7 +436,8 @@ pub fn flatten_expression(
 
                         output.extend(flattened_rhs);
                     }
-                    RecordItem::Spread(record) => {
+                    RecordItem::Spread(span, record) => {
+                        output.push((*span, FlatShape::Operator));
                         output.extend(flatten_expression(working_set, record));
                     }
                 }

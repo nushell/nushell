@@ -353,7 +353,7 @@ fn find_matching_block_end_in_expr(
                                 find_in_expr_or_continue!(k);
                                 find_in_expr_or_continue!(v);
                             }
-                            RecordItem::Spread(record) => {
+                            RecordItem::Spread(_, record) => {
                                 find_in_expr_or_continue!(record);
                             }
                         }

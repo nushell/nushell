@@ -335,7 +335,7 @@ fn convert_to_value(
 
                         record.push(key_str, value);
                     }
-                    RecordItem::Spread(inner) => {
+                    RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError(
                             original_text.to_string(),
                             "Error when loading".into(),
