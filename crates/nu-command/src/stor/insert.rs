@@ -115,7 +115,7 @@ impl Command for StorInsert {
                         create_stmt.pop();
                     }
 
-                    create_stmt.push_str(")");
+                    create_stmt.push(')');
 
                     // dbg!(&create_stmt);
 
