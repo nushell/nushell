@@ -111,3 +111,16 @@ fn bad_spread_on_non_record() -> TestResult {
     fail_test(r#"let x = 5; { ...$x }"#, "cannot spread").unwrap();
     fail_test(r#"{...([1, 2])}"#, "cannot spread")
 }
+
+#[test]
+fn spread_type_record() -> TestResult {
+    run_test(
+        r#"def foo [a: record<x: int>] { $a.x }; foo { ...{x: 0} }"#,
+        "0",
+    )
+    .unwrap();
+    fail_test(
+        r#"def foo [a: record<x: int>] {}; foo { ...{x: "not an int"} }"#,
+        "type_mismatch",
+    )
+}
