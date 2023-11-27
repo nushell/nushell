@@ -438,9 +438,17 @@ pub fn flatten_expression(
 
                         output.extend(flattened_rhs);
                     }
-                    RecordItem::Spread(span, record) => {
-                        output.push((*span, FlatShape::Operator));
-                        output.extend(flatten_expression(working_set, record));
+                    RecordItem::Spread(op_span, record) => {
+                        if op_span.start > last_end {
+                            output.push((Span::new(last_end, op_span.start), FlatShape::Record));
+                        }
+                        output.push((*op_span, FlatShape::Operator));
+
+                        let flattened_inner = flatten_expression(working_set, record);
+                        if let Some(last) = flattened_inner.last() {
+                            last_end = last.0.end;
+                        }
+                        output.extend(flattened_inner);
                     }
                 }
             }
