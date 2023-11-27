@@ -403,6 +403,18 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             DateFormat,
         };
 
+        // Stor
+        bind_command! {
+            Stor,
+            StorCreate,
+            // StorInit,
+            StorInsert,
+            StorOpen,
+            StorUpdate,
+            StorDelete,
+            StorReset,
+        };
+
         working_set.render()
     };
 
