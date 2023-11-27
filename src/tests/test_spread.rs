@@ -25,6 +25,30 @@ fn spread_in_list() -> TestResult {
 }
 
 #[test]
+fn const_spread_in_list() -> TestResult {
+    run_test(r#"const x = [...[]]; $x | to nuon"#, "[]").unwrap();
+    run_test(
+        r#"const x = [1 2 ...[[3] {x: 1}] 5]; $x | to nuon"#,
+        "[1, 2, [3], {x: 1}, 5]",
+    )
+    .unwrap();
+    run_test(
+        r#"const x = [...([f o o]) 10]; $x | to nuon"#,
+        "[f, o, o, 10]",
+    )
+    .unwrap();
+    run_test(
+        r#"const l = [1, 2, [3]]; const x = [...$l $l]; $x | to nuon"#,
+        "[1, 2, [3], [1, 2, [3]]]",
+    )
+    .unwrap();
+    run_test(
+        r#"[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon"#,
+        "[a, b, c, d]",
+    )
+}
+
+#[test]
 fn not_spread() -> TestResult {
     run_test(r#"def ... [x] { $x }; ... ..."#, "...").unwrap();
     run_test(
