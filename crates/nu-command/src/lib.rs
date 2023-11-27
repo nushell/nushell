@@ -53,6 +53,7 @@ pub use random::*;
 pub use removed::*;
 pub use shells::*;
 pub use sort_utils::*;
+#[cfg(feature = "sqlite")]
 pub use stor::*;
 pub use strings::*;
 pub use system::*;
