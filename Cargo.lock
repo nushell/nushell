@@ -2306,7 +2306,7 @@ dependencies = [
 [[package]]
 name = "lsp-server"
 version = "0.7.4"
-source = "git+https://github.com/schrieveslaach/rust-analyzer.git?branch=cancelable-initialization#f95d538d3af1eac9266b898c8bed384c1498edfc"
+source = "git+https://github.com/schrieveslaach/rust-analyzer.git?branch=cancelable-initialization#81c2d3552e6d377bf0332523c1278b7e5723c27c"
 dependencies = [
  "crossbeam-channel",
  "log",
