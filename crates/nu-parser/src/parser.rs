@@ -5207,18 +5207,34 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             && curr_tok.len() > 3
             && (curr_tok[3] == b'$' || curr_tok[3] == b'{' || curr_tok[3] == b'(')
         {
+            // Parse spread operator
             let inner = parse_value(
                 working_set,
                 Span::new(curr_span.start + 3, curr_span.end),
                 &SyntaxShape::Record(vec![]),
             );
             idx += 1;
-            // TODO update field_types
+
+            match &inner.ty {
+                Type::Record(inner_fields) => {
+                    if let Some(fields) = &mut field_types {
+                        for (field, ty) in inner_fields {
+                            fields.push((field.clone(), ty.clone()));
+                        }
+                    }
+                }
+                _ => {
+                    // We can't properly see all the field types
+                    // so fall back to the Any type later
+                    field_types = None;
+                }
+            }
             output.push(RecordItem::Spread(
                 Span::new(curr_span.start, curr_span.start + 3),
                 inner,
             ));
         } else {
+            // Normal key-value pair
             let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
 
             idx += 1;
