@@ -60,8 +60,7 @@ impl Command for Take {
                     Value::List { vals, .. } => Ok(vals
                         .into_iter()
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
@@ -69,8 +68,7 @@ impl Command for Take {
                     Value::Range { val, .. } => Ok(val
                         .into_range_iter(ctrlc.clone())?
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {
@@ -83,8 +81,7 @@ impl Command for Take {
             }
             PipelineData::ListStream(ls, metadata) => Ok(ls
                 .take(rows_desired)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)),
+                .into_pipeline_data_with_metadata(metadata, ctrlc)),
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),

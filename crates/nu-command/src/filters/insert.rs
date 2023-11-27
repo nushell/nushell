@@ -190,8 +190,7 @@ fn insert(
                 .into_iter()
                 .chain(vec![replacement])
                 .chain(input)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata));
+                .into_pipeline_data_with_metadata(metadata, ctrlc));
         }
         input
             .map(

@@ -392,7 +392,7 @@ fn find_with_rest_and_highlight(
                 },
                 ctrlc,
             ),
-        PipelineData::ListStream(stream, meta) => Ok(ListStream::from_stream(
+        PipelineData::ListStream(stream, metadata) => Ok(ListStream::from_stream(
             stream
                 .map(move |mut x| {
                     let span = x.span();
@@ -421,8 +421,7 @@ fn find_with_rest_and_highlight(
                 }),
             ctrlc.clone(),
         )
-        .into_pipeline_data(ctrlc)
-        .set_metadata(meta)),
+        .into_pipeline_data_with_metadata(metadata, ctrlc)),
         PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
@@ -583,8 +582,7 @@ fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineDa
                         .collect(),
                     span,
                 )
-                .into_pipeline_data()
-                .set_metadata(input.metadata())
+                .into_pipeline_data_with_metadata(input.metadata())
             } else {
                 input
             }

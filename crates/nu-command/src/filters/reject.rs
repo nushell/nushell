@@ -258,7 +258,7 @@ fn reject(
     for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
-    Ok(val.into_pipeline_data().set_metadata(metadata))
+    Ok(val.into_pipeline_data_with_metadata(metadata))
 }
 
 #[cfg(test)]

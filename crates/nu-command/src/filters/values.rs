@@ -149,8 +149,7 @@ fn values(
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
                     Ok(cols) => Ok(cols
                         .into_iter()
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     Err(err) => Err(err),
                 },
                 Value::CustomValue { val, .. } => {
@@ -158,15 +157,13 @@ fn values(
                     match get_values(&[input_as_base_value], head, span) {
                         Ok(cols) => Ok(cols
                             .into_iter()
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata)),
+                            .into_pipeline_data_with_metadata(metadata, ctrlc)),
                         Err(err) => Err(err),
                     }
                 }
                 Value::Record { val, .. } => Ok(val
                     .into_values()
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
+                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
                 Value::LazyRecord { val, .. } => {
                     let record = match val.collect()? {
                         Value::Record { val, .. } => val,
@@ -178,8 +175,7 @@ fn values(
                     };
                     Ok(record
                         .into_values()
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata))
+                        .into_pipeline_data_with_metadata(metadata, ctrlc))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),
@@ -196,8 +192,7 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
+                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
                 Err(err) => Err(err),
             }
         }

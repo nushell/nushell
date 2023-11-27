@@ -291,7 +291,7 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data(ctrlc).set_metadata(metadata))
+        Ok(result_data.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

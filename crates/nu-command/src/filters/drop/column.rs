@@ -107,8 +107,7 @@ fn drop_cols(
                             Err(e) => Value::error(e, head),
                         }
                     }))
-                    .into_pipeline_data(engine_state.ctrlc.clone())
-                    .set_metadata(metadata))
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -123,18 +122,14 @@ fn drop_cols(
                             drop_record_cols(val, head, &drop_cols)?
                         }
                     }
-                    Ok(Value::list(vals, span)
-                        .into_pipeline_data()
-                        .set_metadata(metadata))
+                    Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                 }
                 Value::Record {
                     val: mut record, ..
                 } => {
                     let len = record.len().saturating_sub(columns);
                     record.truncate(len);
-                    Ok(Value::record(record, span)
-                        .into_pipeline_data()
-                        .set_metadata(metadata))
+                    Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),

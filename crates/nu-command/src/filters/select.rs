@@ -244,8 +244,7 @@ fn select(
             rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
-        .set_metadata(metadata)
+        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())
     } else {
         input
     };
@@ -285,8 +284,7 @@ fn select(
 
                     Ok(output
                         .into_iter()
-                        .into_pipeline_data(engine_state.ctrlc.clone())
-                        .set_metadata(metadata))
+                        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
                 }
                 _ => {
                     if !columns.is_empty() {
@@ -303,10 +301,9 @@ fn select(
                         }
 
                         Ok(Value::record(record, call_span)
-                            .into_pipeline_data()
-                            .set_metadata(metadata))
+                            .into_pipeline_data_with_metadata(metadata))
                     } else {
-                        Ok(v.into_pipeline_data().set_metadata(metadata))
+                        Ok(v.into_pipeline_data_with_metadata(metadata))
                     }
                 }
             }
@@ -332,9 +329,7 @@ fn select(
                 }
             }
 
-            Ok(values
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
+            Ok(values.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         }
         _ => Ok(PipelineData::empty()),
     }

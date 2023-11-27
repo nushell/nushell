@@ -106,9 +106,7 @@ fn first_helper(
 
     // early exit for `first 0`
     if rows_desired == 0 {
-        return Ok(Vec::<Value>::new()
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata));
+        return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
     }
 
     match input {
@@ -126,8 +124,7 @@ fn first_helper(
                         Ok(vals
                             .into_iter()
                             .take(rows_desired)
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata))
+                            .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
                 }
                 Value::Binary { val, .. } => {
@@ -152,8 +149,7 @@ fn first_helper(
                         Ok(val
                             .into_range_iter(ctrlc.clone())?
                             .take(rows_desired)
-                            .into_pipeline_data(ctrlc)
-                            .set_metadata(metadata))
+                            .into_pipeline_data_with_metadata(metadata, ctrlc))
                     }
                 }
                 // Propagate errors by explicitly matching them before the final case.
@@ -176,8 +172,7 @@ fn first_helper(
             } else {
                 Ok(ls
                     .take(rows_desired)
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata))
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
             }
         }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
