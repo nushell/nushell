@@ -73,7 +73,7 @@ fn spread_type_list() -> TestResult {
 
 #[test]
 fn spread_in_record() -> TestResult {
-    run_test(r#"{...{}} | to nuon"#, "{}").unwrap();
+    run_test(r#"{...{...{...{}}}} | to nuon"#, "{}").unwrap();
     run_test(
         r#"{foo: bar ...{a: {x: 1}} b: 3} | to nuon"#,
         "{foo: bar, a: {x: 1}, b: 3}",
@@ -82,7 +82,7 @@ fn spread_in_record() -> TestResult {
 
 #[test]
 fn const_spread_in_record() -> TestResult {
-    run_test(r#"const x = {...{}}; $x | to nuon"#, "{}").unwrap();
+    run_test(r#"const x = {...{...{...{}}}}; $x | to nuon"#, "{}").unwrap();
     run_test(
         r#"const x = {foo: bar ...{a: {x: 1}} b: 3}; $x | to nuon"#,
         "{foo: bar, a: {x: 1}, b: 3}",
