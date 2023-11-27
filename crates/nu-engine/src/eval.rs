@@ -7,7 +7,7 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    ShellError, Span, Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -754,7 +754,7 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(span, redirection, expr) => {
+        PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
             match &expr.expr {
                 Expr::String(_)
                 | Expr::FullCellPath(_)
@@ -793,7 +793,11 @@ fn eval_element_with_input(
                     };
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                        let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
+                        let save_call = gen_save_call(
+                            save_command,
+                            (*span, expr.clone(), *is_append_mode),
+                            None,
+                        );
                         match out_stream {
                             None => {
                                 eval_call(engine_state, stack, &save_call, input).map(|_| {
@@ -847,8 +851,8 @@ fn eval_element_with_input(
             }
         }
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_expr),
-            err: (err_span, err_expr),
+            out: (out_span, out_expr, out_append_mode),
+            err: (err_span, err_expr, err_append_mode),
         } => match (&out_expr.expr, &err_expr.expr) {
             (
                 Expr::String(_)
@@ -867,8 +871,8 @@ fn eval_element_with_input(
                     };
                     let save_call = gen_save_call(
                         save_command,
-                        (*out_span, out_expr.clone()),
-                        Some((*err_span, err_expr.clone())),
+                        (*out_span, out_expr.clone(), *out_append_mode),
+                        Some((*err_span, err_expr.clone(), *err_append_mode)),
                     );
 
                     eval_call(engine_state, stack, &save_call, input).map(|_| {
@@ -901,7 +905,7 @@ fn eval_element_with_input(
         },
         PipelineElement::SameTargetRedirection {
             cmd: (cmd_span, cmd_exp),
-            redirection: (redirect_span, redirect_exp),
+            redirection: (redirect_span, redirect_exp, is_append_mode),
         } => {
             // general idea: eval cmd and call save command to redirect stdout to result.
             input = match &cmd_exp.expr {
@@ -939,6 +943,7 @@ fn eval_element_with_input(
                     *redirect_span,
                     Redirection::Stdout,
                     redirect_exp.clone(),
+                    *is_append_mode,
                 ),
                 input,
                 redirect_stdout,
@@ -1021,8 +1026,8 @@ pub fn eval_block(
                 let next_element = &elements[idx + 1];
                 if matches!(
                     next_element,
-                    PipelineElement::Redirection(_, Redirection::Stderr, _)
-                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _)
+                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                         | PipelineElement::SeparateRedirection { .. }
                 ) {
                     redirect_stderr = true;
@@ -1033,12 +1038,12 @@ pub fn eval_block(
                 let next_element = &elements[idx + 1];
                 match next_element {
                     // is next element a stdout relative redirection?
-                    PipelineElement::Redirection(_, Redirection::Stdout, _)
-                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    PipelineElement::Redirection(_, Redirection::Stdout, _, _)
+                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                     | PipelineElement::SeparateRedirection { .. }
                     | PipelineElement::Expression(..) => redirect_stdout = true,
 
-                    PipelineElement::Redirection(_, Redirection::Stderr, _) => {
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
                         // a stderr redirection, but we still need to check for the next 2nd
                         // element, to handle for the following case:
                         // cat a.txt err> /dev/null | lines
@@ -1199,10 +1204,19 @@ fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
 
 fn gen_save_call(
     save_decl_id: DeclId,
-    out_info: (Span, Expression),
-    err_info: Option<(Span, Expression)>,
+    out_info: (Span, Expression, bool),
+    err_info: Option<(Span, Expression, bool)>,
 ) -> Call {
-    let (out_span, out_expr) = out_info;
+    let (out_span, out_expr, out_append_mode) = out_info;
+    let mut call = Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: vec![],
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    };
+
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1222,7 +1236,18 @@ fn gen_save_call(
             None,
         )),
     ];
-    if let Some((err_span, err_expr)) = err_info {
+    if out_append_mode {
+        call.set_parser_info(
+            "out-append".to_string(),
+            Expression {
+                expr: Expr::Bool(true),
+                span: out_span,
+                ty: Type::Bool,
+                custom_completion: None,
+            },
+        );
+    }
+    if let Some((err_span, err_expr, err_append_mode)) = err_info {
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
@@ -1230,17 +1255,22 @@ fn gen_save_call(
             },
             None,
             Some(err_expr),
-        )))
+        )));
+        if err_append_mode {
+            call.set_parser_info(
+                "err-append".to_string(),
+                Expression {
+                    expr: Expr::Bool(true),
+                    span: err_span,
+                    ty: Type::Bool,
+                    custom_completion: None,
+                },
+            );
+        }
     }
 
-    Call {
-        decl_id: save_decl_id,
-        head: out_span,
-        arguments: args,
-        redirect_stdout: false,
-        redirect_stderr: false,
-        parser_info: HashMap::new(),
-    }
+    call.arguments.append(&mut args);
+    call
 }
 
 /// A job which saves `PipelineData` to a file in a child thread.

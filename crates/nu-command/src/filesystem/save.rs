@@ -1,7 +1,7 @@
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
@@ -67,6 +67,24 @@ impl Command for Save {
         let append = call.has_flag("append");
         let force = call.has_flag("force");
         let progress = call.has_flag("progress");
+        let out_append = if let Some(Expression {
+            expr: Expr::Bool(out_append),
+            ..
+        }) = call.get_parser_info("out-append")
+        {
+            *out_append
+        } else {
+            false
+        };
+        let err_append = if let Some(Expression {
+            expr: Expr::Bool(err_append),
+            ..
+        }) = call.get_parser_info("err-append")
+        {
+            *err_append
+        } else {
+            false
+        };
 
         let span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -87,7 +105,7 @@ impl Command for Save {
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => {
                 // Open files to possibly truncate them
-                let _ = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let _ = get_files(&path, stderr_path.as_ref(), append, false, false, force)?;
                 Ok(PipelineData::empty())
             }
             PipelineData::ExternalStream {
@@ -95,7 +113,14 @@ impl Command for Save {
                 stderr,
                 ..
             } => {
-                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (file, stderr_file) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
@@ -127,7 +152,14 @@ impl Command for Save {
             PipelineData::ListStream(ls, _)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(|err| ShellError::IOError(err.to_string()))?;
@@ -143,7 +175,14 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
 
                 file.write_all(&bytes)
                     .map_err(|err| ShellError::IOError(err.to_string()))?;
@@ -319,17 +358,19 @@ fn get_files(
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
+    out_append: bool,
+    err_append: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
     // First check both paths
-    let (path, path_span) = prepare_path(path, append, force)?;
+    let (path, path_span) = prepare_path(path, append || out_append, force)?;
     let stderr_path_and_span = stderr_path
         .as_ref()
-        .map(|stderr_path| prepare_path(stderr_path, append, force))
+        .map(|stderr_path| prepare_path(stderr_path, append || err_append, force))
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(path, path_span, append)?;
+    let file = open_file(path, path_span, append || out_append)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
@@ -342,7 +383,7 @@ fn get_files(
                     vec![],
                 ))
             } else {
-                open_file(stderr_path, stderr_path_span, append)
+                open_file(stderr_path, stderr_path_span, append || err_append)
             }
         })
         .transpose()?;

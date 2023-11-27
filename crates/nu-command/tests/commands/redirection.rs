@@ -12,6 +12,14 @@ fn redirect_err() {
         );
 
         assert!(output.out.contains("asdfasdfasdf.txt"));
+
+        // check append mode
+        let output = nu!(
+                cwd: dirs.test(),
+                "cat asdfasdfasdf.txt err>> a.txt; cat a.txt"
+        );
+        let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
+        assert_eq!(v.len(), 2);
     })
 }
 
@@ -24,6 +32,12 @@ fn redirect_err() {
             "vol missingdrive err> a; (open a | str stats).bytes >= 16"
         );
 
+        assert!(output.out.contains("true"));
+
+        let output = nu!(
+            cwd: dirs.test(),
+            "vol missingdrive err>> a; (open a | str stats).bytes >= 32"
+        );
         assert!(output.out.contains("true"));
     })
 }
@@ -39,6 +53,10 @@ fn redirect_outerr() {
         let output = nu!(cwd: dirs.test(), "cat a");
 
         assert!(output.out.contains("asdfasdfasdf.txt"));
+
+        let output = nu!(cwd: dirs.test(), "cat asdfasdfasdf.txt o+e>> a; cat a");
+        let v: Vec<_> = output.out.match_indices("asdfasdfasdf.txt").collect();
+        assert_eq!(v.len(), 2);
     })
 }
 
@@ -53,6 +71,13 @@ fn redirect_outerr() {
         let output = nu!(cwd: dirs.test(), "(open a | str stats).bytes >= 16");
 
         assert!(output.out.contains("true"));
+
+        nu!(
+            cwd: dirs.test(),
+            "vol missingdrive out+err>> a"
+        );
+        let output = nu!(cwd: dirs.test(), "(open a | str stats).bytes >= 32");
+        assert!(output.out.contains("true"));
     })
 }
 
@@ -65,6 +90,12 @@ fn redirect_out() {
         );
 
         assert!(output.out.contains("hello"));
+
+        let output = nu!(
+            cwd: dirs.test(),
+            "echo 'hello' out>> a; open a"
+        );
+        assert!(output.out.contains("hellohello"));
     })
 }
 
@@ -124,6 +155,25 @@ fn separate_redirection() {
             let expected_err_file = dirs.test().join("err.txt");
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
+            #[cfg(not(windows))]
+            {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    "bash test.sh out>> out.txt err>> err.txt"
+                );
+                // check for stdout redirection file.
+                let expected_out_file = dirs.test().join("out.txt");
+                let actual = file_contents(expected_out_file);
+                let v: Vec<_> = actual.match_indices("message").collect();
+                assert_eq!(v.len(), 2);
+
+                // check for stderr redirection file.
+                let expected_err_file = dirs.test().join("err.txt");
+                let actual = file_contents(expected_err_file);
+                let v: Vec<_> = actual.match_indices("message").collect();
+                assert_eq!(v.len(), 2);
+            }
         },
     )
 }
@@ -149,6 +199,21 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
             ),
         );
 
+        let expected_file = dirs.test().join("another_large_file.txt");
+        let actual = file_contents(expected_file);
+        assert_eq!(actual, format!("{large_file_body}\n"));
+
+        // not hangs in append mode either.
+        let cloned_body = large_file_body.clone();
+        large_file_body.push_str(&format!("\n{cloned_body}"));
+        nu!(
+            cwd: dirs.test(), pipeline(
+                "
+                $env.LARGE = (open --raw a_large_file.txt);
+                nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt
+                "
+            ),
+        );
         let expected_file = dirs.test().join("another_large_file.txt");
         let actual = file_contents(expected_file);
         assert_eq!(actual, format!("{large_file_body}\n"));
@@ -202,6 +267,16 @@ fn redirection_with_pipeline_works() {
             let expected_out_file = dirs.test().join("out.txt");
             let actual = file_contents(expected_out_file);
             assert!(actual.contains(expect_body));
+
+            // check append mode works
+            nu!(
+                cwd: dirs.test(),
+                "bash test.sh o>> out.txt | describe"
+            );
+            let expected_out_file = dirs.test().join("out.txt");
+            let actual = file_contents(expected_out_file);
+            let v: Vec<_> = actual.match_indices("message").collect();
+            assert_eq!(v.len(), 2);
         },
     )
 }
@@ -224,6 +299,22 @@ fn redirect_support_variable() {
         let expected_out_file = dirs.test().join("tmp_file");
         let actual = file_contents(expected_out_file);
         assert!(actual.contains("hello there"));
+
+        // append mode support variable too.
+        let output = nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello' out>> $x; open tmp_file"
+        );
+        let v: Vec<_> = output.out.match_indices("hello").collect();
+        assert_eq!(v.len(), 2);
+
+        let output = nu!(
+            cwd: dirs.test(),
+            "let x = 'tmp_file'; echo 'hello' out+err>> $x; open tmp_file"
+        );
+        // check for stdout redirection file.
+        let v: Vec<_> = output.out.match_indices("hello").collect();
+        assert_eq!(v.len(), 3);
     })
 }
 
@@ -243,7 +334,7 @@ fn separate_redirection_support_variable() {
                 sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"let o_f = "out.txt"; let e_f = "err.txt"; bash test.sh out> $o_f err> $e_f"#
+                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; bash test.sh out> $o_f err> $e_f"#
                 );
             }
             #[cfg(windows)]
@@ -251,18 +342,38 @@ fn separate_redirection_support_variable() {
                 sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
                 nu!(
                     cwd: dirs.test(),
-                    r#"let o_f = "out.txt"; let e_f = "err.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
+                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; cmd /D /c test.bat out> $o_f err> $e_f"#
                 );
             }
             // check for stdout redirection file.
-            let expected_out_file = dirs.test().join("out.txt");
+            let expected_out_file = dirs.test().join("out2.txt");
             let actual = file_contents(expected_out_file);
             assert!(actual.contains(expect_body));
 
             // check for stderr redirection file.
-            let expected_err_file = dirs.test().join("err.txt");
+            let expected_err_file = dirs.test().join("err2.txt");
             let actual = file_contents(expected_err_file);
             assert!(actual.contains(expect_body));
+
+            #[cfg(not(windows))]
+            {
+                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
+                nu!(
+                    cwd: dirs.test(),
+                    r#"let o_f = "out2.txt"; let e_f = "err2.txt"; bash test.sh out>> $o_f err>> $e_f"#
+                );
+                // check for stdout redirection file.
+                let expected_out_file = dirs.test().join("out2.txt");
+                let actual = file_contents(expected_out_file);
+                let v: Vec<_> = actual.match_indices("message").collect();
+                assert_eq!(v.len(), 2);
+
+                // check for stderr redirection file.
+                let expected_err_file = dirs.test().join("err2.txt");
+                let actual = file_contents(expected_err_file);
+                let v: Vec<_> = actual.match_indices("message").collect();
+                assert_eq!(v.len(), 2);
+            }
         },
     )
 }

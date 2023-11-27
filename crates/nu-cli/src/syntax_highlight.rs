@@ -252,11 +252,11 @@ fn find_matching_block_end_in_block(
         for e in &p.elements {
             match e {
                 PipelineElement::Expression(_, e)
-                | PipelineElement::Redirection(_, _, e)
+                | PipelineElement::Redirection(_, _, e, _)
                 | PipelineElement::And(_, e)
                 | PipelineElement::Or(_, e)
                 | PipelineElement::SameTargetRedirection { cmd: (_, e), .. }
-                | PipelineElement::SeparateRedirection { out: (_, e), .. } => {
+                | PipelineElement::SeparateRedirection { out: (_, e, _), .. } => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,
