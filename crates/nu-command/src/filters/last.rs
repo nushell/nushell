@@ -96,9 +96,7 @@ impl Command for Last {
 
         // early exit for `last 0`
         if rows_desired == 0 {
-            return Ok(Vec::<Value>::new()
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata));
+            return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
         }
 
         match input {
@@ -118,12 +116,12 @@ impl Command for Last {
 
                 if return_single_element {
                     if let Some(last) = buf.pop_back() {
-                        Ok(last.into_pipeline_data().set_metadata(metadata))
+                        Ok(last.into_pipeline_data_with_metadata(metadata))
                     } else {
                         Ok(PipelineData::empty().set_metadata(metadata))
                     }
                 } else {
-                    Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
+                    Ok(buf.into_pipeline_data_with_metadata(metadata, ctrlc))
                 }
             }
             PipelineData::Value(val, _) => {
@@ -143,8 +141,7 @@ impl Command for Last {
                                 .rev()
                                 .take(rows_desired)
                                 .rev()
-                                .into_pipeline_data(ctrlc)
-                                .set_metadata(metadata))
+                                .into_pipeline_data_with_metadata(metadata, ctrlc))
                         }
                     }
                     Value::Binary { val, .. } => {

@@ -73,7 +73,7 @@ impl Command for Headers {
         let (old_headers, new_headers) = extract_headers(&value, config)?;
         let new_headers = replace_headers(value, &old_headers, &new_headers)?;
 
-        Ok(new_headers.into_pipeline_data().set_metadata(metadata))
+        Ok(new_headers.into_pipeline_data_with_metadata(metadata))
     }
 }
 

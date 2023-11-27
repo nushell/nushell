@@ -109,6 +109,7 @@ fn insert(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
     let span = call.head;
 
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
@@ -129,47 +130,49 @@ fn insert(
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
 
-        input.map(
-            move |mut input| {
-                // with_env() is used here to ensure that each iteration uses
-                // a different set of environment variables.
-                // Hence, a 'cd' in the first loop won't affect the next loop.
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
+        input
+            .map(
+                move |mut input| {
+                    // with_env() is used here to ensure that each iteration uses
+                    // a different set of environment variables.
+                    // Hence, a 'cd' in the first loop won't affect the next loop.
+                    stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                // Element argument
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, input.clone())
-                    }
-                }
-
-                let output = eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    input.clone().into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
-                );
-
-                match output {
-                    Ok(pd) => {
-                        let span = pd.span().unwrap_or(span);
-                        if let Err(e) = input.insert_data_at_cell_path(
-                            &cell_path.members,
-                            pd.into_value(span),
-                            span,
-                        ) {
-                            return Value::error(e, span);
+                    // Element argument
+                    if let Some(var) = block.signature.get_positional(0) {
+                        if let Some(var_id) = &var.var_id {
+                            stack.add_var(*var_id, input.clone())
                         }
-
-                        input
                     }
-                    Err(e) => Value::error(e, span),
-                }
-            },
-            ctrlc,
-        )
+
+                    let output = eval_block(
+                        &engine_state,
+                        &mut stack,
+                        &block,
+                        input.clone().into_pipeline_data(),
+                        redirect_stdout,
+                        redirect_stderr,
+                    );
+
+                    match output {
+                        Ok(pd) => {
+                            let span = pd.span().unwrap_or(span);
+                            if let Err(e) = input.insert_data_at_cell_path(
+                                &cell_path.members,
+                                pd.into_value(span),
+                                span,
+                            ) {
+                                return Value::error(e, span);
+                            }
+
+                            input
+                        }
+                        Err(e) => Value::error(e, span),
+                    }
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
     } else {
         if let Some(PathMember::Int { val, .. }) = cell_path.members.first() {
             let mut input = input.into_iter();
@@ -187,22 +190,24 @@ fn insert(
                 .into_iter()
                 .chain(vec![replacement])
                 .chain(input)
-                .into_pipeline_data(ctrlc));
+                .into_pipeline_data_with_metadata(metadata, ctrlc));
         }
-        input.map(
-            move |mut input| {
-                let replacement = replacement.clone();
+        input
+            .map(
+                move |mut input| {
+                    let replacement = replacement.clone();
 
-                if let Err(e) =
-                    input.insert_data_at_cell_path(&cell_path.members, replacement, span)
-                {
-                    return Value::error(e, span);
-                }
+                    if let Err(e) =
+                        input.insert_data_at_cell_path(&cell_path.members, replacement, span)
+                    {
+                        return Value::error(e, span);
+                    }
 
-                input
-            },
-            ctrlc,
-        )
+                    input
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
     }
 }
 

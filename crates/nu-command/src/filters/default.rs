@@ -78,51 +78,56 @@ fn default(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let metadata = input.metadata();
     let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
     let ctrlc = engine_state.ctrlc.clone();
 
     if let Some(column) = column {
-        input.map(
-            move |item| {
-                let span = item.span();
-                match item {
-                    Value::Record {
-                        val: mut record, ..
-                    } => {
-                        let mut found = false;
+        input
+            .map(
+                move |item| {
+                    let span = item.span();
+                    match item {
+                        Value::Record {
+                            val: mut record, ..
+                        } => {
+                            let mut found = false;
 
-                        for (col, val) in record.iter_mut() {
-                            if *col == column.item {
-                                found = true;
-                                if matches!(val, Value::Nothing { .. }) {
-                                    *val = value.clone();
+                            for (col, val) in record.iter_mut() {
+                                if *col == column.item {
+                                    found = true;
+                                    if matches!(val, Value::Nothing { .. }) {
+                                        *val = value.clone();
+                                    }
                                 }
                             }
-                        }
 
-                        if !found {
-                            record.push(column.item.clone(), value.clone());
-                        }
+                            if !found {
+                                record.push(column.item.clone(), value.clone());
+                            }
 
-                        Value::record(record, span)
+                            Value::record(record, span)
+                        }
+                        _ => item,
                     }
-                    _ => item,
-                }
-            },
-            ctrlc,
-        )
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
     } else if input.is_nothing() {
         Ok(value.into_pipeline_data())
     } else {
-        input.map(
-            move |item| match item {
-                Value::Nothing { .. } => value.clone(),
-                x => x,
-            },
-            ctrlc,
-        )
+        input
+            .map(
+                move |item| match item {
+                    Value::Nothing { .. } => value.clone(),
+                    x => x,
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
     }
 }
 
