@@ -74,8 +74,6 @@ impl Command for Open {
                     std::path::Path::new(crate::database::MEMORY_DB),
                     None,
                 ));
-                dbg!(db.clone());
-                // let open_db = db.open_connection()?;
                 return Ok(db.into_value(call.head).into_pipeline_data());
             }
 
