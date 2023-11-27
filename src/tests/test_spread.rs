@@ -54,9 +54,9 @@ fn spread_in_record() -> TestResult {
 
 #[test]
 fn duplicate_cols() -> TestResult {
-    fail_test(r#"{a: 1, ...{a: 3}} | to nuon"#, "column_defined_twice").unwrap();
-    fail_test(r#"{...{a: 3}, a: 1} | to nuon"#, "column_defined_twice").unwrap();
-    fail_test(r#"{...{a: 3}, ...{a: 5}}"#, "column_defined_twice")
+    fail_test(r#"{a: 1, ...{a: 3}} | to nuon"#, "column used twice").unwrap();
+    fail_test(r#"{...{a: 4, x: 3}, x: 1} | to nuon"#, "column used twice").unwrap();
+    fail_test(r#"{...{a: 0, x: []}, ...{x: 5}}"#, "column used twice")
 }
 
 #[test]
