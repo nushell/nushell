@@ -253,10 +253,10 @@ pub fn evaluate_repl(
             // try to enable bracketed paste
             // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
             .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-            .with_highlighter(Box::new(NuHighlighter {
-                engine_state: engine_reference.clone(),
-                config: config.clone(),
-            }))
+            // .with_highlighter(Box::new(NuHighlighter {
+            //     engine_state: engine_reference.clone(),
+            //     config: config.clone(),
+            // }))
             .with_validator(Box::new(NuValidator {
                 engine_state: engine_reference.clone(),
             }))
