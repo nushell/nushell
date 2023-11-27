@@ -9,7 +9,7 @@ use nu_protocol::{
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
 
 pub fn eval_call(
@@ -552,42 +552,53 @@ pub fn eval_expression(
         Expr::Record(items) => {
             let mut record = Record::new();
 
-            let mut col_names = VecDeque::<(String, Span)>::new();
-
-            for item in items {
-                if let RecordItem::Pair(col, _) = item {
-                    // avoid duplicate cols
-                    let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                    match col_names.iter().find(|(name, _)| name == &col_name) {
-                        Some((_, span)) => {
-                            return Err(ShellError::ColumnDefinedTwice {
-                                second_use: col.span,
-                                first_use: *span,
-                            });
-                        }
-                        None => {
-                            col_names.push_back((col_name, col.span));
-                        }
-                    }
-                }
-            }
-
             for item in items {
                 match item {
-                    RecordItem::Pair(_, val) => {
-                        let (col_name, _) = col_names
-                            .pop_front()
-                            .expect("Column name should have been evaluated");
-                        record.push(col_name, eval_expression(engine_state, stack, val)?);
+                    RecordItem::Pair(col, val) => {
+                        // avoid duplicate cols.
+                        let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                        let pos = record.index_of(&col_name);
+                        match pos {
+                            Some(index) => {
+                                let orig_span = match &items[index] {
+                                    RecordItem::Pair(col, _) => col.span,
+                                    RecordItem::Spread(_, inner) => inner.span,
+                                };
+                                return Err(ShellError::ColumnDefinedTwice {
+                                    second_use: col.span,
+                                    first_use: orig_span,
+                                });
+                            }
+                            None => {
+                                record.push(col_name, eval_expression(engine_state, stack, val)?);
+                            }
+                        }
                     }
                     RecordItem::Spread(_, inner) => {
                         match eval_expression(engine_state, stack, inner)? {
-                            Value::Record { val: inner, .. } => {
-                                for (col, val) in inner {
-                                    record.push(col, val);
+                            Value::Record { val: inner_val, .. } => {
+                                for (col_name, val) in inner_val {
+                                    let pos = record.index_of(&col_name);
+                                    match pos {
+                                        Some(index) => {
+                                            let orig_span = match &items[index] {
+                                                RecordItem::Pair(col, _) => col.span,
+                                                RecordItem::Spread(_, inner) => inner.span,
+                                            };
+                                            return Err(ShellError::ColumnDefinedTwice {
+                                                second_use: inner.span,
+                                                first_use: orig_span,
+                                            });
+                                        }
+                                        None => {
+                                            record.push(col_name, val);
+                                        }
+                                    }
                                 }
                             }
-                            _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
+                            _ => {
+                                return Err(ShellError::CannotSpreadAsRecord { span: inner.span });
+                            }
                         }
                     }
                 }
