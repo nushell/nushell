@@ -65,10 +65,25 @@ fn bad_spread_on_non_list() -> TestResult {
 
 #[test]
 fn spread_type_list() -> TestResult {
-    run_test(r#"[1 ...[]] | describe"#, "list<int>").unwrap();
-    run_test(r#"[1 ...[2]] | describe"#, "list<int>").unwrap();
-    run_test(r#"["foo" ...[4 5 6]] | describe"#, "list<any>").unwrap();
-    run_test(r#"[1 2 ...["misfit"] 4] | describe"#, "list<any>")
+    run_test(
+        r#"def f [a: list<int>] { $a | describe }; f [1 ...[]]"#,
+        "list<int>",
+    )
+    .unwrap();
+    run_test(
+        r#"def f [a: list<int>] { $a | describe }; f [1 ...[2]]"#,
+        "list<int>",
+    )
+    .unwrap();
+    fail_test(
+        r#"def f [a: list<int>] { }; f ["foo" ...[4 5 6]]"#,
+        "expected int",
+    )
+    .unwrap();
+    fail_test(
+        r#"def f [a: list<int>] { }; f [1 2 ...["misfit"] 4]"#,
+        "expected int",
+    )
 }
 
 #[test]
@@ -115,12 +130,12 @@ fn bad_spread_on_non_record() -> TestResult {
 #[test]
 fn spread_type_record() -> TestResult {
     run_test(
-        r#"def foo [a: record<x: int>] { $a.x }; foo { ...{x: 0} }"#,
+        r#"def f [a: record<x: int>] { $a.x }; f { ...{x: 0} }"#,
         "0",
     )
     .unwrap();
     fail_test(
-        r#"def foo [a: record<x: int>] {}; foo { ...{x: "not an int"} }"#,
+        r#"def f [a: record<x: int>] {}; f { ...{x: "not an int"} }"#,
         "type_mismatch",
     )
 }
