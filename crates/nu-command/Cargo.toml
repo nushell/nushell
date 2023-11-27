@@ -86,7 +86,7 @@ terminal_size = "0.3"
 titlecase = "2.0"
 toml = "0.8"
 unicode-segmentation = "1.10"
-ureq = { version = "2.8", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
+ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
 uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
