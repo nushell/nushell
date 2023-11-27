@@ -35,7 +35,7 @@ impl Command for StorDelete {
     }
 
     fn usage(&self) -> &str {
-        "Update information in a table in the in-memory database"
+        "Delete a table or specified rows in the in-memory sqlite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {

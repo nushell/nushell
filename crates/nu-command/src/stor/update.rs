@@ -41,7 +41,7 @@ impl Command for StorUpdate {
     }
 
     fn usage(&self) -> &str {
-        "Update information in a table in the in-memory database"
+        "Update information in a specified table in the in-memory sqlite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {

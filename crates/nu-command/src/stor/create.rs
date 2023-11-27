@@ -35,7 +35,7 @@ impl Command for StorCreate {
     }
 
     fn usage(&self) -> &str {
-        "Create a table in the in-memory database"
+        "Create a table in the in-memory sqlite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -35,7 +35,7 @@ impl Command for StorInsert {
     }
 
     fn usage(&self) -> &str {
-        "Insert information into a table in the in-memory database"
+        "Insert information into a specified table in the in-memory sqlite database"
     }
 
     fn search_terms(&self) -> Vec<&str> {
