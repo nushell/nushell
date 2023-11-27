@@ -1,7 +1,7 @@
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
@@ -53,22 +53,7 @@ impl Command for Save {
             .switch("append", "append input to the end of the file", Some('a'))
             .switch("force", "overwrite the destination", Some('f'))
             .switch("progress", "enable progress bar", Some('p'))
-            .switch(
-                "out-append",
-                "append stdout input to the end of the file",
-                None,
-            )
-            .switch(
-                "err-append",
-                "append stderr input to the end of `--stderr` file",
-                None,
-            )
             .category(Category::FileSystem)
-    }
-
-    fn extra_usage(&self) -> &str {
-        r#"Normally you don't need to care about `--out-append` and `err-append`
-It's used internally in redirection"#
     }
 
     fn run(
@@ -82,8 +67,24 @@ It's used internally in redirection"#
         let append = call.has_flag("append");
         let force = call.has_flag("force");
         let progress = call.has_flag("progress");
-        let out_append = call.has_flag("out-append");
-        let err_append = call.has_flag("err-append");
+        let out_append = if let Some(Expression {
+            expr: Expr::Bool(out_append),
+            ..
+        }) = call.get_parser_info("out-append")
+        {
+            *out_append
+        } else {
+            false
+        };
+        let err_append = if let Some(Expression {
+            expr: Expr::Bool(err_append),
+            ..
+        }) = call.get_parser_info("err-append")
+        {
+            *err_append
+        } else {
+            false
+        };
 
         let span = call.head;
         let cwd = current_dir(engine_state, stack)?;

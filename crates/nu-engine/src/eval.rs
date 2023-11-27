@@ -7,7 +7,7 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    ShellError, Span, Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -1208,6 +1208,15 @@ fn gen_save_call(
     err_info: Option<(Span, Expression, bool)>,
 ) -> Call {
     let (out_span, out_expr, out_append_mode) = out_info;
+    let mut call = Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: vec![],
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    };
+
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1228,14 +1237,15 @@ fn gen_save_call(
         )),
     ];
     if out_append_mode {
-        args.push(Argument::Named((
-            Spanned {
-                item: "out-append".into(),
+        call.set_parser_info(
+            "out-append".to_string(),
+            Expression {
+                expr: Expr::Bool(true),
                 span: out_span,
+                ty: Type::Bool,
+                custom_completion: None,
             },
-            None,
-            None,
-        )))
+        );
     }
     if let Some((err_span, err_expr, err_append_mode)) = err_info {
         args.push(Argument::Named((
@@ -1247,25 +1257,20 @@ fn gen_save_call(
             Some(err_expr),
         )));
         if err_append_mode {
-            args.push(Argument::Named((
-                Spanned {
-                    item: "err-append".into(),
-                    span: out_span,
+            call.set_parser_info(
+                "err-append".to_string(),
+                Expression {
+                    expr: Expr::Bool(true),
+                    span: err_span,
+                    ty: Type::Bool,
+                    custom_completion: None,
                 },
-                None,
-                None,
-            )))
+            );
         }
     }
 
-    Call {
-        decl_id: save_decl_id,
-        head: out_span,
-        arguments: args,
-        redirect_stdout: false,
-        redirect_stderr: false,
-        parser_info: HashMap::new(),
-    }
+    call.arguments.append(&mut args);
+    call
 }
 
 /// A job which saves `PipelineData` to a file in a child thread.
