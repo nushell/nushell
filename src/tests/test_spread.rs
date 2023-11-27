@@ -73,14 +73,37 @@ fn spread_type_list() -> TestResult {
 
 #[test]
 fn spread_in_record() -> TestResult {
-    run_test(r#"{...{}} | to nuon"#, "{}")
+    run_test(r#"{...{}} | to nuon"#, "{}").unwrap();
+    run_test(
+        r#"{foo: bar ...{a: {x: 1}} b: 3} | to nuon"#,
+        "{foo: bar, a: {x: 1}, b: 3}",
+    )
+}
+
+#[test]
+fn const_spread_in_record() -> TestResult {
+    run_test(r#"const x = {...{}}; $x | to nuon"#, "{}").unwrap();
+    run_test(
+        r#"const x = {foo: bar ...{a: {x: 1}} b: 3}; $x | to nuon"#,
+        "{foo: bar, a: {x: 1}, b: 3}",
+    )
 }
 
 #[test]
 fn duplicate_cols() -> TestResult {
-    fail_test(r#"{a: 1, ...{a: 3}} | to nuon"#, "column used twice").unwrap();
-    fail_test(r#"{...{a: 4, x: 3}, x: 1} | to nuon"#, "column used twice").unwrap();
-    fail_test(r#"{...{a: 0, x: []}, ...{x: 5}}"#, "column used twice")
+    fail_test(r#"{a: 1, ...{a: 3}}"#, "column used twice").unwrap();
+    fail_test(r#"{...{a: 4, x: 3}, x: 1}"#, "column used twice").unwrap();
+    fail_test(r#"{...{a: 0, x: 2}, ...{x: 5}}"#, "column used twice")
+}
+
+#[test]
+fn const_duplicate_cols() -> TestResult {
+    fail_test(r#"const _ = {a: 1, ...{a: 3}}"#, "column used twice").unwrap();
+    fail_test(r#"const _ = {...{a: 4, x: 3}, x: 1}"#, "column used twice").unwrap();
+    fail_test(
+        r#"const _ = {...{a: 0, x: 2}, ...{x: 5}}"#,
+        "column used twice",
+    )
 }
 
 #[test]

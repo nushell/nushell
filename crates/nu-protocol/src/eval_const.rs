@@ -7,7 +7,10 @@ use crate::{
     record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -290,18 +293,35 @@ pub fn eval_constant(
         }
         Expr::Record(items) => {
             let mut record = Record::new();
+            let mut col_names = HashMap::new();
             for item in items {
                 match item {
                     RecordItem::Pair(col, val) => {
-                        // avoid duplicate cols.
+                        // avoid duplicate cols
                         let col_name =
                             value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                        record.insert(col_name, eval_constant(working_set, val)?);
+                        if let Some(orig_span) = col_names.get(&col_name) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                second_use: col.span,
+                                first_use: *orig_span,
+                            });
+                        } else {
+                            col_names.insert(col_name.clone(), col.span);
+                            record.push(col_name, eval_constant(working_set, val)?);
+                        }
                     }
                     RecordItem::Spread(_, inner) => match eval_constant(working_set, inner)? {
-                        Value::Record { val: inner, .. } => {
-                            for (col, val) in inner {
-                                record.insert(col, val);
+                        Value::Record { val: inner_val, .. } => {
+                            for (col_name, val) in inner_val {
+                                if let Some(orig_span) = col_names.get(&col_name) {
+                                    return Err(ShellError::ColumnDefinedTwice {
+                                        second_use: inner.span,
+                                        first_use: *orig_span,
+                                    });
+                                } else {
+                                    col_names.insert(col_name.clone(), inner.span);
+                                    record.push(col_name, val);
+                                }
                             }
                         }
                         _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
