@@ -162,9 +162,13 @@ impl Command for Save {
                 )?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
-                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                        .map_err(|err| ShellError::IOError {
+                            msg: err.to_string(),
+                        })?;
                     file.write_all("\n".as_bytes())
-                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                        .map_err(|err| ShellError::IOError {
+                            msg: err.to_string(),
+                        })?;
                 }
                 file.flush()?;
 
@@ -184,8 +188,9 @@ impl Command for Save {
                     force,
                 )?;
 
-                file.write_all(&bytes)
-                    .map_err(|err| ShellError::IOError(err.to_string()))?;
+                file.write_all(&bytes).map_err(|err| ShellError::IOError {
+                    msg: err.to_string(),
+                })?;
 
                 file.flush()?;
 
@@ -453,7 +458,9 @@ fn stream_to_file(
 
             if let Err(err) = writer.write(&buf) {
                 *process_failed_p = true;
-                return Err(ShellError::IOError(err.to_string()));
+                return Err(ShellError::IOError {
+                    msg: err.to_string(),
+                });
             }
             Ok(())
         })

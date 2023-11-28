@@ -136,12 +136,13 @@ impl Command for Touch {
             }
 
             if let Err(err) = OpenOptions::new().write(true).create(true).open(&item) {
-                return Err(ShellError::CreateNotPossible(
-                    format!("Failed to create file: {err}"),
-                    call.positional_nth(index)
+                return Err(ShellError::CreateNotPossible {
+                    msg: format!("Failed to create file: {err}"),
+                    span: call
+                        .positional_nth(index)
                         .expect("already checked positional")
                         .span,
-                ));
+                });
             };
 
             if change_mtime {

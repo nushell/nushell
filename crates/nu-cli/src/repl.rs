@@ -502,10 +502,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(
-                                    tokens.0[0].span,
-                                    path.to_string_lossy().to_string(),
-                                ),
+                                &ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: tokens.0[0].span,
+                                },
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)

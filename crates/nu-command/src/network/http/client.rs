@@ -209,9 +209,9 @@ pub fn send_request(
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-                    "unsupported body input".into(),
-                )));
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                    msg: "unsupported body input".into(),
+                }));
             }
 
             let data = vals
@@ -233,9 +233,9 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-            "unsupported body input".into(),
-        ))),
+        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+            msg: "unsupported body input".into(),
+        })),
     }
 }
 

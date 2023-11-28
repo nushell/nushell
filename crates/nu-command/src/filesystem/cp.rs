@@ -88,10 +88,10 @@ impl Command for Cp {
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
-            return Err(ShellError::DirectoryNotFound(
-                dst.span,
-                destination.to_string_lossy().to_string(),
-            ));
+            return Err(ShellError::DirectoryNotFound {
+                dir: destination.to_string_lossy().to_string(),
+                span: dst.span,
+            });
         }
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
@@ -577,18 +577,36 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
             Ok(meta) => {
                 if meta.permissions().readonly() {
-                    ShellError::PermissionDeniedError(message_dst, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_dst,
+                        span,
+                    }
                 } else {
-                    ShellError::PermissionDeniedError(message_src, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_src,
+                        span,
+                    }
                 }
             }
-            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+            Err(_) => ShellError::PermissionDeniedError {
+                msg: message_dst,
+                span,
+            },
         },
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
+        ErrorKind::Interrupted => ShellError::IOInterrupted {
+            msg: message_src,
+            span,
+        },
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError {
+            msg: message_src,
+            span,
+        },
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
-        _ => ShellError::IOErrorSpanned(message_src, span),
+        _ => ShellError::IOErrorSpanned {
+            msg: message_src,
+            span,
+        },
     };
 
     Value::error(shell_error, span)

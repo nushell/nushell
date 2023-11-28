@@ -110,10 +110,14 @@ impl Command for Mktemp {
         };
 
         let res = match uu_mktemp::mktemp(&options) {
-            Ok(res) => res
-                .into_os_string()
-                .into_string()
-                .map_err(|e| ShellError::IOErrorSpanned(e.to_string_lossy().to_string(), span))?,
+            Ok(res) => {
+                res.into_os_string()
+                    .into_string()
+                    .map_err(|e| ShellError::IOErrorSpanned {
+                        msg: e.to_string_lossy().to_string(),
+                        span,
+                    })?
+            }
             Err(e) => {
                 return Err(ShellError::GenericError(
                     format!("{}", e),

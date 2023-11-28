@@ -301,7 +301,9 @@ fn heuristic_parse_file(
                 }
             }
         } else {
-            Err(ShellError::IOError("Can not read input".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read input".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -402,7 +404,9 @@ fn parse_file_script(
                 call.head,
             )
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -425,7 +429,9 @@ fn parse_file_module(
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })

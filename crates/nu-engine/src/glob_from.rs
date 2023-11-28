@@ -72,10 +72,10 @@ pub fn glob_from(
             let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
                 p
             } else {
-                return Err(ShellError::DirectoryNotFound(
-                    pattern.span,
-                    path.to_string_lossy().to_string(),
-                ));
+                return Err(ShellError::DirectoryNotFound {
+                    dir: path.to_string_lossy().to_string(),
+                    span: pattern.span,
+                });
             };
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }

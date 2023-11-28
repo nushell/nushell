@@ -32,7 +32,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get config directory".into()),
+                ShellError::IOError {
+                    msg: "Could not get config directory".into(),
+                },
                 span,
             )
         },
@@ -49,7 +51,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get config directory".into()),
+                ShellError::IOError {
+                    msg: "Could not get config directory".into(),
+                },
                 span,
             )
         },
@@ -66,7 +70,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find environment path".into()),
+                ShellError::IOError {
+                    msg: "Could not find environment path".into(),
+                },
                 span,
             )
         },
@@ -88,7 +94,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(canon_hist_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find history path".into()),
+                ShellError::IOError {
+                    msg: "Could not find history path".into(),
+                },
                 span,
             )
         },
@@ -103,7 +111,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(canon_login_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find login shell path".into()),
+                ShellError::IOError {
+                    msg: "Could not find login shell path".into(),
+                },
                 span,
             )
         },
@@ -123,7 +133,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 Value::string(plugin_path.to_string_lossy(), span)
             } else {
                 Value::error(
-                    ShellError::IOError("Could not get plugin signature location".into()),
+                    ShellError::IOError {
+                        msg: "Could not get plugin signature location".into(),
+                    },
                     span,
                 )
             },
@@ -136,7 +148,12 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             let canon_home_path = canonicalize_path(engine_state, &path);
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not get home path".into()), span)
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get home path".into(),
+                },
+                span,
+            )
         },
     );
 
@@ -178,7 +195,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(current_exe.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get current executable path".to_string()),
+                ShellError::IOError {
+                    msg: "Could not get current executable path".to_string(),
+                },
                 span,
             )
         },

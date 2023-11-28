@@ -765,7 +765,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O interrupted")]
     #[diagnostic(code(nu::shell::io_interrupted))]
-    IOInterrupted(String, #[label("{0}")] Span),
+    IOInterrupted {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// An I/O operation failed.
     ///
@@ -773,8 +777,8 @@ pub enum ShellError {
     ///
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
-    #[diagnostic(code(nu::shell::io_error), help("{0}"))]
-    IOError(String),
+    #[diagnostic(code(nu::shell::io_error), help("{msg}"))]
+    IOError { msg: String },
 
     /// An I/O operation failed.
     ///
@@ -783,7 +787,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error))]
-    IOErrorSpanned(String, #[label("{0}")] Span),
+    IOErrorSpanned {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Permission for an operation was denied.
     ///
@@ -792,7 +800,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Permission Denied")]
     #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError(String, #[label("{0}")] Span),
+    PermissionDeniedError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Out of memory.
     ///
@@ -801,7 +813,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Out of memory")]
     #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError(String, #[label("{0}")] Span),
+    OutOfMemoryError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Tried to `cd` to a path that isn't a directory.
     ///
@@ -810,7 +826,10 @@ pub enum ShellError {
     /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
     #[error("Cannot change to directory")]
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
-    NotADirectory(#[label("is not a directory")] Span),
+    NotADirectory {
+        #[label("is not a directory")]
+        span: Span,
+    },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///
@@ -818,8 +837,12 @@ pub enum ShellError {
     ///
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
-    #[diagnostic(code(nu::shell::directory_not_found), help("{1} does not exist"))]
-    DirectoryNotFound(#[label("directory not found")] Span, String),
+    #[diagnostic(code(nu::shell::directory_not_found), help("{dir} does not exist"))]
+    DirectoryNotFound {
+        dir: String,
+        #[label("directory not found")]
+        span: Span,
+    },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///
@@ -828,7 +851,11 @@ pub enum ShellError {
     /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found_custom))]
-    DirectoryNotFoundCustom(String, #[label("{0}")] Span),
+    DirectoryNotFoundCustom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// The requested move operation cannot be completed. This is typically because both paths exist,
     /// but are of different types. For example, you might be trying to overwrite an existing file with
@@ -858,7 +885,11 @@ pub enum ShellError {
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible_single))]
     // NOTE: Currently not actively used.
-    MoveNotPossibleSingle(String, #[label("{0}")] Span),
+    MoveNotPossibleSingle {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Failed to create either a file or directory.
     ///
@@ -867,7 +898,11 @@ pub enum ShellError {
     /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible))]
-    CreateNotPossible(String, #[label("{0}")] Span),
+    CreateNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the access time ("atime") of this file is not possible.
     ///
@@ -1201,19 +1236,25 @@ impl ShellError {
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::IOError(input.to_string())
+        ShellError::IOError {
+            msg: input.to_string(),
+        }
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 
