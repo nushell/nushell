@@ -719,6 +719,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "comma"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55b672471b4e9f9e95499ea597ff64941a309b2cdbffcc46f2cc5e2d971fd335"
+
+[[package]]
 name = "console"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -892,7 +898,7 @@ dependencies = [
  "autocfg",
  "cfg-if",
  "crossbeam-utils",
- "memoffset",
+ "memoffset 0.9.0",
  "scopeguard",
 ]
 
@@ -1007,7 +1013,7 @@ version = "3.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82e95fbd621905b854affdc67943b043a0fbb6ed7385fd5a25650d19a8a6cfdf"
 dependencies = [
- "nix",
+ "nix 0.27.1",
  "windows-sys 0.48.0",
 ]
 
@@ -2412,6 +2418,15 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
+name = "memoffset"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a634b1c61a95585bd15607c6ab0c4e5b226e695ff2800ba0cdccddf208c406c"
@@ -2567,6 +2582,20 @@ checksum = "e4a24736216ec316047a1fc4252e27dabb04218aa4a3f37c6e7ddbf1f9782b54"
 
 [[package]]
 name = "nix"
+version = "0.25.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f346ff70e7dbfd675fe90590b92d59ef2de15a8779ae305ebcbfd3f0caf59be4"
+dependencies = [
+ "autocfg",
+ "bitflags 1.3.2",
+ "cfg-if",
+ "libc",
+ "memoffset 0.6.5",
+ "pin-utils",
+]
+
+[[package]]
+name = "nix"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
@@ -2647,7 +2676,7 @@ dependencies = [
  "log",
  "miette",
  "mimalloc",
- "nix",
+ "nix 0.27.1",
  "nu-ansi-term",
  "nu-cli",
  "nu-cmd-base",
@@ -2674,6 +2703,7 @@ dependencies = [
  "openssl",
  "pretty_assertions",
  "reedline",
+ "rexpect",
  "rstest",
  "serde_json",
  "serial_test",
@@ -2853,7 +2883,7 @@ dependencies = [
  "mime_guess",
  "mockito",
  "native-tls",
- "nix",
+ "nix 0.27.1",
  "notify-debouncer-full",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -3076,7 +3106,7 @@ dependencies = [
  "libproc",
  "log",
  "mach2",
- "nix",
+ "nix 0.27.1",
  "ntapi",
  "once_cell",
  "procfs",
@@ -4413,6 +4443,19 @@ name = "relative-path"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c707298afce11da2efef2f600116fa93ffa7a032b5d7b628aa17711ec81383ca"
+
+[[package]]
+name = "rexpect"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01ff60778f96fb5a48adbe421d21bf6578ed58c0872d712e7e08593c195adff8"
+dependencies = [
+ "comma",
+ "nix 0.25.1",
+ "regex",
+ "tempfile",
+ "thiserror",
+]
 
 [[package]]
 name = "rle-decode-fast"
@@ -5777,7 +5820,7 @@ dependencies = [
  "dunce",
  "glob",
  "libc",
- "nix",
+ "nix 0.27.1",
  "once_cell",
  "os_display",
  "uucore_procs",
