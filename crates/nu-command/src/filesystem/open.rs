@@ -48,7 +48,6 @@ impl Command for Open {
                 "optional additional files to open",
             )
             .switch("raw", "open file as raw binary", Some('r'))
-            .switch("in-memory", "open the in-memory sqlite database", Some('i'))
             .category(Category::FileSystem)
     }
 
@@ -60,31 +59,12 @@ impl Command for Open {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag("raw");
-        let inmem = call.has_flag("in-memory");
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
         let req_path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
         let mut path_params = call.rest::<Spanned<String>>(engine_state, stack, 1)?;
 
-        if inmem {
-            #[cfg(feature = "sqlite")]
-            {
-                let db = Box::new(SQLiteDatabase::new(
-                    std::path::Path::new(crate::database::MEMORY_DB),
-                    None,
-                ));
-                return Ok(db.into_value(call.head).into_pipeline_data());
-            }
-
-            #[cfg(not(feature = "sqlite"))]
-            {
-                return Err(ShellError::IncompatibleParametersSingle {
-                    msg: "in-memory is only available with the sqlite feature".into(),
-                    span: call_span,
-                });
-            }
-        }
         // FIXME: JT: what is this doing here?
 
         if let Some(filename) = req_path {
