@@ -584,7 +584,10 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
             }
             Err(_) => ShellError::PermissionDeniedError(message_dst, span),
         },
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
+        ErrorKind::Interrupted => ShellError::IOInterrupted {
+            msg: message_src,
+            span,
+        },
         ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
