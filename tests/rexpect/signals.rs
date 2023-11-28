@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{thread::sleep, time::Duration};
 
 use super::{nu_binary, spawn_nu, NuReplExt};
 
@@ -22,6 +22,22 @@ fn can_be_backgrounded_in_bash() -> Result<(), Error> {
 }
 
 #[test]
+fn internal_ctrl_c() -> Result<(), Error> {
+    let mut p = spawn_nu(Some(3000))?;
+    p.wait_for_prompt()?;
+
+    p.sendline("sleep 5sec")?;
+    sleep(Duration::from_millis(500));
+    p.send_control('c')?;
+    p.exp_string("Operation interrupted by user")?;
+
+    p.sendline("$env.LAST_EXIT_CODE")?;
+    p.exp_string("1")?;
+
+    p.exit()
+}
+
+#[test]
 #[ignore] // currently fails, issue #7154
 fn par_each_ctrl_c() -> Result<(), Error> {
     let mut p = spawn_nu(Some(3000))?;
@@ -37,7 +53,7 @@ fn par_each_ctrl_c() -> Result<(), Error> {
     // Sending ctrl-c too early triggers the internal ctrl-c handler? which will give no output.
     // We need to wait for the child nu processes to become the foreground process group
     // in order for the ctrl-c signal to be passed to them.
-    std::thread::sleep(Duration::from_millis(500));
+    sleep(Duration::from_millis(500));
     p.send_control('c')?;
     p.exp_string(&format!("[{}]", [MSG; N].join(", ")))?;
 
