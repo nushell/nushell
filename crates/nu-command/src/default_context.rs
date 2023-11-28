@@ -408,11 +408,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Stor,
             StorCreate,
+            StorDelete,
+            StorExport,
             StorInsert,
             StorOpen,
-            StorUpdate,
-            StorDelete,
             StorReset,
+            StorUpdate,
         };
 
         working_set.render()

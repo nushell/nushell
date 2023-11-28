@@ -2,9 +2,10 @@ use super::definitions::{
     db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
     db_index::DbIndex, db_table::DbTable,
 };
-
 use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
-use rusqlite::{types::ValueRef, Connection, Error as SqliteError, OpenFlags, Row, Statement};
+use rusqlite::{
+    types::ValueRef, Connection, DatabaseName, Error as SqliteError, OpenFlags, Row, Statement,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
@@ -149,6 +150,48 @@ impl SQLiteDatabase {
             conn.execute(&format!("DROP TABLE {}", table.name), [])?;
         }
 
+        Ok(())
+    }
+
+    pub fn export_in_memory_database_to_file(
+        &self,
+        conn: &Connection,
+        filename: String,
+    ) -> Result<(), SqliteError> {
+        //vacuum main into 'c:\\temp\\foo.db'
+        conn.execute(&format!("vacuum main into '{}'", filename), [])?;
+
+        Ok(())
+    }
+
+    pub fn backup_database_to_file(
+        &self,
+        conn: &Connection,
+        filename: String,
+    ) -> Result<(), SqliteError> {
+        conn.backup(DatabaseName::Main, Path::new(&filename), None)?;
+        Ok(())
+    }
+
+    pub fn restore_database_from_file(
+        &self,
+        conn: &mut Connection,
+        filename: String,
+    ) -> Result<(), SqliteError> {
+        conn.restore(
+            DatabaseName::Main,
+            Path::new(&filename),
+            Some(|p: rusqlite::backup::Progress| {
+                let percent = if p.pagecount == 0 {
+                    100
+                } else {
+                    (p.pagecount - p.remaining) * 100 / p.pagecount
+                };
+                if percent % 10 == 0 {
+                    log::trace!("Restoring: {} %", percent);
+                }
+            }),
+        )?;
         Ok(())
     }
 
