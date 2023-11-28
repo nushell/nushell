@@ -36,7 +36,10 @@ impl Command for Clear {
             CommandSys::new("cmd")
                 .args(["/C", "cls"])
                 .status()
-                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
+                .map_err(|e| ShellError::IOErrorSpanned {
+                    msg: e.to_string(),
+                    span,
+                })?;
         } else if cfg!(unix) {
             let mut cmd = CommandSys::new("/bin/sh");
 
@@ -46,7 +49,10 @@ impl Command for Clear {
 
             cmd.args(["-c", "clear"])
                 .status()
-                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
+                .map_err(|e| ShellError::IOErrorSpanned {
+                    msg: e.to_string(),
+                    span,
+                })?;
         }
 
         Ok(Value::nothing(span).into_pipeline_data())
