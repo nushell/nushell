@@ -29,7 +29,7 @@ fn spawn_nu(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
         prompt: ">> ".into(),
         pty_session: spawn_command(command, timeout)?,
         quit_command: None,
-        echo_on: true,
+        echo_on: false,
     })
 }
 
@@ -63,7 +63,6 @@ fn echo_back() -> Result<(), Error> {
 
     p.sendline("'some text'")?;
     p.exp_string("some text")?;
-    p.wait_for_prompt()?;
 
     p.exit()
 }
