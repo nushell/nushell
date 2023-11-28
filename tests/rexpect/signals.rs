@@ -14,9 +14,6 @@ fn can_be_backgrounded_in_bash() -> Result<(), Error> {
     p.send_line("jobs")?;
     p.exp_string("[1]+  Stopped")?;
 
-    p.send_line("kill %1")?;
-    p.wait_for_prompt()?;
-
     p.send_line("exit")?;
     Ok(())
 }
