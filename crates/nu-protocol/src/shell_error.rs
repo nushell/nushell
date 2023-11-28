@@ -826,7 +826,10 @@ pub enum ShellError {
     /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
     #[error("Cannot change to directory")]
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
-    NotADirectory(#[label("is not a directory")] Span),
+    NotADirectory {
+        #[label("is not a directory")]
+        span: Span,
+    },
 
     /// Attempted to perform an operation on a directory that doesn't exist.
     ///

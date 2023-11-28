@@ -100,7 +100,7 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                return Err(ShellError::NotADirectory(v.span));
+                                return Err(ShellError::NotADirectory { span: v.span });
                             };
                             p
                         }
