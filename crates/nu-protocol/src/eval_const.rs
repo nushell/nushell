@@ -302,6 +302,7 @@ pub fn eval_constant(
                             value_as_string(eval_constant(working_set, col)?, expr.span)?;
                         if let Some(orig_span) = col_names.get(&col_name) {
                             return Err(ShellError::ColumnDefinedTwice {
+                                col_name,
                                 second_use: col.span,
                                 first_use: *orig_span,
                             });
@@ -315,6 +316,7 @@ pub fn eval_constant(
                             for (col_name, val) in inner_val {
                                 if let Some(orig_span) = col_names.get(&col_name) {
                                     return Err(ShellError::ColumnDefinedTwice {
+                                        col_name,
                                         second_use: inner.span,
                                         first_use: *orig_span,
                                     });
@@ -340,6 +342,7 @@ pub fn eval_constant(
                     .position(|existing| existing == &header)
                 {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: header,
                         second_use: expr.span,
                         first_use: headers[idx].span,
                     });

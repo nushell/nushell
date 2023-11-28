@@ -561,6 +561,7 @@ pub fn eval_expression(
                         let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
                         if let Some(orig_span) = col_names.get(&col_name) {
                             return Err(ShellError::ColumnDefinedTwice {
+                                col_name,
                                 second_use: col.span,
                                 first_use: *orig_span,
                             });
@@ -575,6 +576,7 @@ pub fn eval_expression(
                                 for (col_name, val) in inner_val {
                                     if let Some(orig_span) = col_names.get(&col_name) {
                                         return Err(ShellError::ColumnDefinedTwice {
+                                            col_name,
                                             second_use: inner.span,
                                             first_use: *orig_span,
                                         });
@@ -601,6 +603,7 @@ pub fn eval_expression(
                     .position(|existing| existing == &header)
                 {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: header,
                         second_use: expr.span,
                         first_use: headers[idx].span,
                     });

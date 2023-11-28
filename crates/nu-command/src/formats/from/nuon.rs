@@ -399,6 +399,7 @@ fn convert_to_value(
 
                 if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: key_str.clone(),
                         second_use: key.span,
                         first_use: headers[idx].span,
                     });

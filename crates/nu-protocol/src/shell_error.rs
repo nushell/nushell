@@ -597,9 +597,10 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the record to ensure you aren't reusing the same field name
-    #[error("Record field or table column used twice")]
+    #[error("Record field or table column used twice: {col_name}")]
     #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
+        col_name: String,
         #[label = "field redefined here"]
         second_use: Span,
         #[label = "field first defined here"]
