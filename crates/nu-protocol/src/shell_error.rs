@@ -885,7 +885,11 @@ pub enum ShellError {
     #[error("Move not possible")]
     #[diagnostic(code(nu::shell::move_not_possible_single))]
     // NOTE: Currently not actively used.
-    MoveNotPossibleSingle(String, #[label("{0}")] Span),
+    MoveNotPossibleSingle {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Failed to create either a file or directory.
     ///
