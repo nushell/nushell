@@ -577,12 +577,21 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
         ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
             Ok(meta) => {
                 if meta.permissions().readonly() {
-                    ShellError::PermissionDeniedError(message_dst, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_dst,
+                        span,
+                    }
                 } else {
-                    ShellError::PermissionDeniedError(message_src, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_src,
+                        span,
+                    }
                 }
             }
-            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+            Err(_) => ShellError::PermissionDeniedError {
+                msg: message_dst,
+                span,
+            },
         },
         ErrorKind::Interrupted => ShellError::IOInterrupted {
             msg: message_src,

@@ -800,7 +800,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Permission Denied")]
     #[diagnostic(code(nu::shell::permission_denied))]
-    PermissionDeniedError(String, #[label("{0}")] Span),
+    PermissionDeniedError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Out of memory.
     ///
