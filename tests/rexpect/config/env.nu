@@ -1,3 +1,3 @@
 $env.PROMPT_COMMAND = { null }
 $env.PROMPT_COMMAND_RIGHT = { null }
-$env.PROMPT_INDICATOR = '>> '
+$env.PROMPT_INDICATOR = '<REXPECT_PROMPT>'

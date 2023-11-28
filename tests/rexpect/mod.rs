@@ -26,7 +26,7 @@ fn spawn_nu(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
         .arg(config_dir.join("env.nu"));
 
     Ok(PtyReplSession {
-        prompt: ">> ".into(),
+        prompt: "<REXPECT_PROMPT>".into(),
         pty_session: spawn_command(command, timeout)?,
         quit_command: None,
         echo_on: false,
