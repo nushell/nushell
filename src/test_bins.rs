@@ -30,8 +30,6 @@ fn echo_one_env(arg: &str, to_stdout: bool) {
 /// Example:
 ///     * nu --testbin echo_env_mixed out-err FOO BAR
 ///     * nu --testbin echo_env_mixed err-out FOO BAR
-///     * nu --testbin echo_env_mixed out-err-out FOO BAR BAZ
-///     * nu --testbin echo_env_mixed err-out-err FOO BAR BAZ
 /// If it's not present, panic instead
 pub fn echo_env_mixed() {
     let args = args();
@@ -55,7 +53,7 @@ pub fn echo_env_mixed() {
             echo_one_env(err_arg, false);
             echo_one_env(out_arg, true);
         }
-        _ => panic!("The mixed type must be `out_err`, `err_out`, `out_err_out`, `err_out_err`"),
+        _ => panic!("The mixed type must be `out_err`, `err_out`"),
     }
 }
 
