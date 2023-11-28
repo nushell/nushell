@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use super::{nu_binary, spawn_nu, NuReplExt};
 
 use rexpect::{error::Error, spawn_bash};
@@ -26,13 +28,19 @@ fn par_each_ctrl_c() -> Result<(), Error> {
     let mut p = spawn_nu(Some(3000))?;
     p.wait_for_prompt()?;
 
-    p.sendline(r#"1..3 | par-each { python -c 'import time; print("sleeping"); time.sleep(5)' }; print done"#)?;
-    for _ in 1..=3 {
-        p.exp_string("sleeping")?;
-    }
+    const N: usize = 3;
+    const MSG: &str = "sleeping";
 
+    p.sendline(&format!(
+        "1..{N} | par-each {{ {} -c 'print -n {MSG}; sleep 5sec' }} | to nuon",
+        nu_binary()
+    ))?;
+    // Sending ctrl-c too early triggers the internal ctrl-c handler? which will give no output.
+    // We need to wait for the child nu processes to become the foreground process group
+    // in order for the ctrl-c signal to be passed to them.
+    std::thread::sleep(Duration::from_millis(500));
     p.send_control('c')?;
-    p.exp_string("done")?;
+    p.exp_string(&format!("[{}]", [MSG; N].join(", ")))?;
 
     p.exit()
 }
