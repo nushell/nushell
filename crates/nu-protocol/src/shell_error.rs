@@ -813,7 +813,11 @@ pub enum ShellError {
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("Out of memory")]
     #[diagnostic(code(nu::shell::out_of_memory))]
-    OutOfMemoryError(String, #[label("{0}")] Span),
+    OutOfMemoryError {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Tried to `cd` to a path that isn't a directory.
     ///

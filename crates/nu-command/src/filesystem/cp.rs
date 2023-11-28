@@ -597,7 +597,10 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
             msg: message_src,
             span,
         },
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError {
+            msg: message_src,
+            span,
+        },
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
         _ => ShellError::IOErrorSpanned {
