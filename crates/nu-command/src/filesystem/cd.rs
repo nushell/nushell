@@ -135,9 +135,9 @@ impl Command for Cd {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {path}: {reason}"
-            ))),
+            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
+                msg: format!("Cannot change directory to {path}: {reason}"),
+            }),
         }
     }
 

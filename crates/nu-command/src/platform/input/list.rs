@@ -196,7 +196,9 @@ impl Command for InputList {
                 .items(&options)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         } else if call.has_flag("fuzzy") {
             let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
@@ -211,7 +213,9 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         } else {
             let select = Select::new(); //::with_theme(&theme);
@@ -225,7 +229,9 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         };
 

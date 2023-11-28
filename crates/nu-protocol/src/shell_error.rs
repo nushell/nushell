@@ -777,8 +777,8 @@ pub enum ShellError {
     ///
     /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
-    #[diagnostic(code(nu::shell::io_error), help("{0}"))]
-    IOError(String),
+    #[diagnostic(code(nu::shell::io_error), help("{msg}"))]
+    IOError { msg: String },
 
     /// An I/O operation failed.
     ///
@@ -1205,19 +1205,25 @@ impl ShellError {
 
 impl From<std::io::Error> for ShellError {
     fn from(input: std::io::Error) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 
 impl std::convert::From<Box<dyn std::error::Error>> for ShellError {
     fn from(input: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::IOError(input.to_string())
+        ShellError::IOError {
+            msg: input.to_string(),
+        }
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(input: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::IOError(format!("{input:?}"))
+        ShellError::IOError {
+            msg: format!("{input:?}"),
+        }
     }
 }
 
