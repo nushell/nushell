@@ -34,13 +34,13 @@ fn spawn_nu(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
 }
 
 trait NuReplExt {
-    fn sendline(&mut self, line: &str) -> Result<usize, Error>;
+    fn send_nu_line(&mut self, line: &str) -> Result<usize, Error>;
 
     fn exit(&mut self) -> Result<(), Error>;
 }
 
 impl NuReplExt for PtyReplSession {
-    fn sendline(&mut self, line: &str) -> Result<usize, Error> {
+    fn send_nu_line(&mut self, line: &str) -> Result<usize, Error> {
         let len = self.send(line)?;
         let len = len + self.writer.write(&[b'\r'])?;
         self.flush()?;
@@ -51,7 +51,7 @@ impl NuReplExt for PtyReplSession {
     }
 
     fn exit(&mut self) -> Result<(), Error> {
-        self.sendline("exit")?;
+        self.send_nu_line("exit")?;
         Ok(())
     }
 }
@@ -61,7 +61,7 @@ fn echo_back() -> Result<(), Error> {
     let mut p = spawn_nu(Some(3000))?;
     p.wait_for_prompt()?;
 
-    p.sendline("'some text'")?;
+    p.send_nu_line("'some text'")?;
     p.exp_string("some text")?;
 
     p.exit()

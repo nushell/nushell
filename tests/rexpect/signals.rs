@@ -26,12 +26,12 @@ fn internal_ctrl_c() -> Result<(), Error> {
     let mut p = spawn_nu(Some(3000))?;
     p.wait_for_prompt()?;
 
-    p.sendline("sleep 5sec")?;
+    p.send_nu_line("sleep 5sec")?;
     sleep(Duration::from_millis(500));
     p.send_control('c')?;
     p.exp_string("Operation interrupted by user")?;
 
-    p.sendline("$env.LAST_EXIT_CODE")?;
+    p.send_nu_line("$env.LAST_EXIT_CODE")?;
     p.exp_string("1")?;
 
     p.exit()
@@ -46,7 +46,7 @@ fn par_each_ctrl_c() -> Result<(), Error> {
     const N: usize = 3;
     const MSG: &str = "sleeping";
 
-    p.sendline(&format!(
+    p.send_nu_line(&format!(
         "1..{N} | par-each {{ {} -c 'print -n {MSG}; sleep 5sec' }} | to nuon",
         nu_binary()
     ))?;
