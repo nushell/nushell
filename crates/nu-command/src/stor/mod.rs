@@ -5,6 +5,8 @@ mod delete;
 #[cfg(feature = "sqlite")]
 mod export;
 #[cfg(feature = "sqlite")]
+mod import;
+#[cfg(feature = "sqlite")]
 mod insert;
 #[cfg(feature = "sqlite")]
 mod open;
@@ -20,6 +22,8 @@ pub use create::StorCreate;
 pub use delete::StorDelete;
 #[cfg(feature = "sqlite")]
 pub use export::StorExport;
+#[cfg(feature = "sqlite")]
+pub use import::StorImport;
 #[cfg(feature = "sqlite")]
 pub use insert::StorInsert;
 #[cfg(feature = "sqlite")]
