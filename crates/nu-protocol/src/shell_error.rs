@@ -898,7 +898,11 @@ pub enum ShellError {
     /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible))]
-    CreateNotPossible(String, #[label("{0}")] Span),
+    CreateNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the access time ("atime") of this file is not possible.
     ///
