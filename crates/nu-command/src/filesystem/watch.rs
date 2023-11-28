@@ -83,10 +83,10 @@ impl Command for Watch {
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
             Err(_) => {
-                return Err(ShellError::DirectoryNotFound(
-                    path_arg.span,
-                    path_no_whitespace.to_string(),
-                ))
+                return Err(ShellError::DirectoryNotFound {
+                    dir: path_no_whitespace.to_string(),
+                    span: path_arg.span,
+                })
             }
         };
 

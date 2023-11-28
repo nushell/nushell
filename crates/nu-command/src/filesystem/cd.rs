@@ -83,10 +83,10 @@ impl Command for Cd {
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
                             Err(_) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    path.to_string_lossy().to_string(),
-                                ));
+                                return Err(ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: v.span,
+                                });
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -107,10 +107,10 @@ impl Command for Cd {
 
                         // if canonicalize failed, let's check to see if it's abbreviated
                         Err(_) => {
-                            return Err(ShellError::DirectoryNotFound(
-                                v.span,
-                                path_no_whitespace.to_string(),
-                            ));
+                            return Err(ShellError::DirectoryNotFound {
+                                dir: path_no_whitespace.to_string(),
+                                span: v.span,
+                            });
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
