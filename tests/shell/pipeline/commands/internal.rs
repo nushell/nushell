@@ -1,62 +1,50 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use pretty_assertions::assert_eq;
 
 #[test]
 fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
-    Playground::setup("internal_to_external_pipe_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-                JT,1,New Zealand
-                Andrés,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            ",
-        )]);
+    let sample = r#"
+                [[name, rusty_luck, origin];
+                 [Jason, 1, Canada],
+                 [JT, 1, "New Zealand"],
+                 [Andrés, 1, Ecuador],
+                 [AndKitKatz, 1, "Estados Unidos"]]
+            "#;
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
+    let actual = nu!(pipeline(&format!(
         "
-            open nu_times.csv
+            {}
             | get origin
-            | each { |it| nu --testbin cococo $it | nu --testbin chop }
+            | each {{ |it| nu --testbin cococo $it | nu --testbin chop }}
             | get 2
-            "
-        ));
+            ",
+        sample
+    )));
 
-        // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Ecuado");
-    })
+    // chop will remove the last escaped double quote from \"Estados Unidos\"
+    assert_eq!(actual.out, "Ecuado");
 }
 
 #[test]
 fn treats_dot_dot_as_path_not_range() {
-    Playground::setup("dot_dot_dir", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
+    let sample = r#"
                 name,rusty_luck,origin
                 Jason,1,Canada
-            ",
-        )]);
+            "#;
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
+    let actual = nu!(pipeline(&format!(
         "
             mkdir temp;
             cd temp;
-            print (open ../nu_times.csv).name.0 | table;
+            print ({}).name.0 | table;
             cd ..;
             rmdir temp
-            "
-        ));
+            ",
+        sample
+    )));
 
-        // chop will remove the last escaped double quote from \"Estados Unidos\"
-        assert_eq!(actual.out, "Jason");
-    })
+    // chop will remove the last escaped double quote from \"Estados Unidos\"
+    assert_eq!(actual.out, "Jason");
 }
 
 #[test]
@@ -88,30 +76,25 @@ fn for_loop() {
 
 #[test]
 fn subexpression_handles_dot() {
-    Playground::setup("subexpression_handles_dot", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nu_times.csv",
-            "
-                name,rusty_luck,origin
-                Jason,1,Canada
-                JT,1,New Zealand
-                Andrés,1,Ecuador
-                AndKitKatz,1,Estados Unidos
-            ",
-        )]);
+    let sample = r#"
+                [[name, rusty_luck, origin];
+                 [Jason, 1, Canada],
+                 [JT, 1, "New Zealand"],
+                 [Andrés, 1, Ecuador],
+                 [AndKitKatz, 1, "Estados Unidos"]]
+            "#;
 
-        let actual = nu!(
-        cwd: dirs.test(), pipeline(
+    let actual = nu!(pipeline(&format!(
         "
-            echo (open nu_times.csv)
+            {}
             | get name
-            | each { |it| nu --testbin chop $it }
+            | each {{ |it| nu --testbin chop $it }}
             | get 3
-            "
-        ));
+            ",
+        sample
+    )));
 
-        assert_eq!(actual.out, "AndKitKat");
-    })
+    assert_eq!(actual.out, "AndKitKat");
 }
 
 #[test]
