@@ -2,7 +2,6 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn condition_is_met() {
-
     let sample = r#"
                     [["Chicken Collection", "29/04/2020", "30/04/2020", "31/04/2020"];
                      ["Yellow Chickens", "", "", ""],
@@ -22,10 +21,8 @@ fn condition_is_met() {
                      [Yehuda, 1, 1, 3]]
             "#;
 
-    let actual = nu!(
-        pipeline(
-            &format!(
-                r#"
+    let actual = nu!(pipeline(&format!(
+        r#"
                 {}
                 | skip while {{|row| $row."Chicken Collection" != "Blue Chickens" }}
                 | take until {{|row| $row."Chicken Collection" == "Red Chickens" }}
@@ -34,9 +31,8 @@ fn condition_is_met() {
                 | get "31/04/2020"
                 | math sum
                 "#,
-                sample
-            )
-        ));
+        sample
+    )));
 
     assert_eq!(actual.out, "8");
 }

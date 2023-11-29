@@ -28,15 +28,15 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 #[test]
 fn treats_dot_dot_as_path_not_range() {
     let sample = r#"
-                name,rusty_luck,origin
-                Jason,1,Canada
+                [[name, rusty_luck, origin];
+                [Jason, 1, Canada]]
             "#;
 
     let actual = nu!(pipeline(&format!(
         "
             mkdir temp;
             cd temp;
-            print ({}).name.0 | table;
+            print (echo {}).name.0 | table;
             cd ..;
             rmdir temp
             ",
