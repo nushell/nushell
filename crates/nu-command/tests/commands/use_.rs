@@ -309,7 +309,7 @@ fn use_sub_subname_error_if_not_from_submodule() {
 #[test]
 fn can_use_sub_subname_from_submodule() {
     let inp =
-        r#"module spam { export module foo { export fn bar [] {"bar"} } }; use spam foo bar; bar"#;
+        r#"module spam { export module foo { export def bar [] {"bar"} } }; use spam foo bar; bar"#;
     let actual = nu!(inp);
     assert_eq!(actual.out, "bar")
 }
