@@ -296,3 +296,20 @@ fn use_main_not_exported() {
 
     assert!(actual.err.contains("external_command"));
 }
+
+#[test]
+fn use_sub_subname_error_if_not_from_submodule() {
+    let inp = r#"module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar"#;
+    let actual = nu!(inp);
+    assert!(actual
+        .err
+        .contains("You can only use sub-sub names from sub modules"))
+}
+
+#[test]
+fn can_use_sub_subname_from_submodule() {
+    let inp =
+        r#"module spam { export module foo { export fn bar [] {"bar"} } }; use spam foo bar; bar"#;
+    let actual = nu!(inp);
+    assert_eq!(actual.out, "bar")
+}
