@@ -36,6 +36,8 @@ fn spawn_nu(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
 trait NuReplExt {
     fn send_nu_line(&mut self, line: &str) -> Result<usize, Error>;
 
+    fn handle_prompt(&mut self) -> Result<(), Error>;
+
     fn exit(&mut self) -> Result<(), Error>;
 }
 
@@ -50,6 +52,20 @@ impl NuReplExt for PtyReplSession {
         Ok(len)
     }
 
+    fn handle_prompt(&mut self) -> Result<(), Error> {
+        // reedline queries the cursor position before drawing the prompt
+        self.exp_string("\x1B[6n")?;
+
+        // always reply with (1, 1)?
+        self.send("\x1B[1;1R")?;
+        self.flush()?;
+
+        // prompt will be drawn after responding to the query
+        self.wait_for_prompt()?;
+
+        Ok(())
+    }
+
     fn exit(&mut self) -> Result<(), Error> {
         self.send_nu_line("exit")?;
         Ok(())
@@ -59,10 +75,11 @@ impl NuReplExt for PtyReplSession {
 #[test]
 fn echo_back() -> Result<(), Error> {
     let mut p = spawn_nu(Some(3000))?;
-    p.wait_for_prompt()?;
+    p.handle_prompt()?;
 
     p.send_nu_line("'some text'")?;
     p.exp_string("some text")?;
+    p.handle_prompt()?;
 
     p.exit()
 }
