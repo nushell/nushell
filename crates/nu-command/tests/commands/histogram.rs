@@ -1,6 +1,6 @@
 use nu_test_support::{nu, pipeline};
 
-const SAMPLE_INPUT: &'static str = r#"
+const SAMPLE_INPUT: &str = r#"
                     [[first_name, last_name, rusty_at];
                      [Andrés, Robalino, Ecuador],
                      [JT, Turner, "Estados Unidos"],
