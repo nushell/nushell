@@ -301,9 +301,7 @@ fn use_main_not_exported() {
 fn use_sub_subname_error_if_not_from_submodule() {
     let inp = r#"module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar"#;
     let actual = nu!(inp);
-    assert!(actual
-        .err
-        .contains("You can only use sub-sub names from sub modules"))
+    assert!(actual.err.contains("try `use <module> [<name1>, <name2>]`"))
 }
 
 #[test]

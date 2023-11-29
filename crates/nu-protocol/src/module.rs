@@ -161,7 +161,7 @@ impl Module {
                 // `use a b c`: but b is not a sub-module of a.
                 let errors = if !rest.is_empty() && self.submodules.get(name).is_none() {
                     vec![ParseError::WrongImportPattern(
-                        format!("You can only use sub-sub names from sub modules, but `{}` is not a module", String::from_utf8_lossy(name)),
+                        format!("Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`", String::from_utf8_lossy(name)),
                         rest[0].span(),
                     )]
                 } else {
