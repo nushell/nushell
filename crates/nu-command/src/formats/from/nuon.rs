@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
+use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
@@ -316,22 +316,34 @@ fn convert_to_value(
         Expr::Record(key_vals) => {
             let mut record = Record::new();
 
-            for (key, val) in key_vals {
-                let key_str = match key.expr {
-                    Expr::String(key_str) => key_str,
-                    _ => {
+            for key_val in key_vals {
+                match key_val {
+                    RecordItem::Pair(key, val) => {
+                        let key_str = match key.expr {
+                            Expr::String(key_str) => key_str,
+                            _ => {
+                                return Err(ShellError::OutsideSpannedLabeledError(
+                                    original_text.to_string(),
+                                    "Error when loading".into(),
+                                    "only strings can be keys".into(),
+                                    key.span,
+                                ))
+                            }
+                        };
+
+                        let value = convert_to_value(val, span, original_text)?;
+
+                        record.push(key_str, value);
+                    }
+                    RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError(
                             original_text.to_string(),
                             "Error when loading".into(),
-                            "only strings can be keys".into(),
-                            key.span,
-                        ))
+                            "spread operator not supported in nuon".into(),
+                            inner.span,
+                        ));
                     }
-                };
-
-                let value = convert_to_value(val, span, original_text)?;
-
-                record.push(key_str, value);
+                }
             }
 
             Ok(Value::record(record, span))
@@ -387,6 +399,7 @@ fn convert_to_value(
 
                 if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: key_str.clone(),
                         second_use: key.span,
                         first_use: headers[idx].span,
                     });

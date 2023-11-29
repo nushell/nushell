@@ -597,9 +597,10 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the record to ensure you aren't reusing the same field name
-    #[error("Record field or table column used twice")]
+    #[error("Record field or table column used twice: {col_name}")]
     #[diagnostic(code(nu::shell::column_defined_twice))]
     ColumnDefinedTwice {
+        col_name: String,
         #[label = "field redefined here"]
         second_use: Span,
         #[label = "field first defined here"]
@@ -1213,10 +1214,25 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     /// Only lists can be spread inside lists. Try converting the value to a list before spreading.
     #[error("Not a list")]
     #[diagnostic(
-        code(nu::shell::cannot_spread),
+        code(nu::shell::cannot_spread_as_list),
         help("Only lists can be spread inside lists. Try converting the value to a list before spreading")
     )]
     CannotSpreadAsList {
+        #[label = "cannot spread value"]
+        span: Span,
+    },
+
+    /// Tried spreading a non-record inside a record.
+    ///
+    /// ## Resolution
+    ///
+    /// Only records can be spread inside records. Try converting the value to a record before spreading.
+    #[error("Not a record")]
+    #[diagnostic(
+        code(nu::shell::cannot_spread_as_record),
+        help("Only records can be spread inside records. Try converting the value to a record before spreading.")
+    )]
+    CannotSpreadAsRecord {
         #[label = "cannot spread value"]
         span: Span,
     },

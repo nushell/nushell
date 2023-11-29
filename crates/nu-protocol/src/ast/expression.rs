@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::Expr;
+use super::{Expr, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -242,13 +242,22 @@ impl Expression {
                 }
                 false
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    if field_name.has_in_variable(working_set) {
-                        return true;
-                    }
-                    if field_value.has_in_variable(working_set) {
-                        return true;
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            if field_name.has_in_variable(working_set) {
+                                return true;
+                            }
+                            if field_value.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
+                        RecordItem::Spread(_, record) => {
+                            if record.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
                     }
                 }
                 false
@@ -418,10 +427,17 @@ impl Expression {
                     right.replace_in_variable(working_set, new_var_id)
                 }
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    field_name.replace_in_variable(working_set, new_var_id);
-                    field_value.replace_in_variable(working_set, new_var_id);
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            field_name.replace_in_variable(working_set, new_var_id);
+                            field_value.replace_in_variable(working_set, new_var_id);
+                        }
+                        RecordItem::Spread(_, record) => {
+                            record.replace_in_variable(working_set, new_var_id);
+                        }
+                    }
                 }
             }
             Expr::Signature(_) => {}
@@ -581,10 +597,17 @@ impl Expression {
                     right.replace_span(working_set, replaced, new_span)
                 }
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    field_name.replace_span(working_set, replaced, new_span);
-                    field_value.replace_span(working_set, replaced, new_span);
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            field_name.replace_span(working_set, replaced, new_span);
+                            field_value.replace_span(working_set, replaced, new_span);
+                        }
+                        RecordItem::Spread(_, record) => {
+                            record.replace_span(working_set, replaced, new_span);
+                        }
+                    }
                 }
             }
             Expr::Signature(_) => {}

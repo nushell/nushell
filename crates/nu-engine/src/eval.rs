@@ -3,7 +3,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
-        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
+        Expression, Math, Operator, PathMember, PipelineElement, RecordItem, Redirection,
     },
     engine::{Closure, EngineState, Stack},
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
@@ -549,22 +549,45 @@ pub fn eval_expression(
             }
             Ok(Value::list(output, expr.span))
         }
-        Expr::Record(fields) => {
+        Expr::Record(items) => {
             let mut record = Record::new();
 
-            for (col, val) in fields {
-                // avoid duplicate cols.
-                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = record.index_of(&col_name);
-                match pos {
-                    Some(index) => {
-                        return Err(ShellError::ColumnDefinedTwice {
-                            second_use: col.span,
-                            first_use: fields[index].0.span,
-                        })
+            let mut col_names = HashMap::new();
+
+            for item in items {
+                match item {
+                    RecordItem::Pair(col, val) => {
+                        // avoid duplicate cols
+                        let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
+                        if let Some(orig_span) = col_names.get(&col_name) {
+                            return Err(ShellError::ColumnDefinedTwice {
+                                col_name,
+                                second_use: col.span,
+                                first_use: *orig_span,
+                            });
+                        } else {
+                            col_names.insert(col_name.clone(), col.span);
+                            record.push(col_name, eval_expression(engine_state, stack, val)?);
+                        }
                     }
-                    None => {
-                        record.push(col_name, eval_expression(engine_state, stack, val)?);
+                    RecordItem::Spread(_, inner) => {
+                        match eval_expression(engine_state, stack, inner)? {
+                            Value::Record { val: inner_val, .. } => {
+                                for (col_name, val) in inner_val {
+                                    if let Some(orig_span) = col_names.get(&col_name) {
+                                        return Err(ShellError::ColumnDefinedTwice {
+                                            col_name,
+                                            second_use: inner.span,
+                                            first_use: *orig_span,
+                                        });
+                                    } else {
+                                        col_names.insert(col_name.clone(), inner.span);
+                                        record.push(col_name, val);
+                                    }
+                                }
+                            }
+                            _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
+                        }
                     }
                 }
             }
@@ -580,6 +603,7 @@ pub fn eval_expression(
                     .position(|existing| existing == &header)
                 {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: header,
                         second_use: expr.span,
                         first_use: headers[idx].span,
                     });
