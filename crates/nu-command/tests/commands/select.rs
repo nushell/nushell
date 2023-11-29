@@ -48,13 +48,12 @@ fn complex_nested_columns() {
 
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {sample}
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
                 | get nu_releases_version
                 | where $it > "0.8"
                 | get 0
-            "#,
-        sample
+            "#
     )));
 
     assert_eq!(actual.out, "0.9999999");

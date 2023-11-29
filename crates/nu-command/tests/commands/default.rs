@@ -15,13 +15,12 @@ fn adds_row_data_if_column_missing() {
 
     let actual = nu!(pipeline(&format!(
         "
-                {}
+                {sample}
                 | get amigos
                 | default 1 rusty_luck
                 | where rusty_luck == 1
                 | length
-            ",
-        sample
+            "
     )));
 
     assert_eq!(actual.out, "2");

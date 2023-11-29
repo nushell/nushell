@@ -11,12 +11,11 @@ fn rows() {
 
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {sample}
                 | take 3
                 | get lucky_code
                 | math sum
-                "#,
-        &sample
+                "#
     )));
 
     assert_eq!(actual.out, "4");

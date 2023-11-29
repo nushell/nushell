@@ -11,13 +11,12 @@ fn wrap_rows_into_a_row() {
 
     let actual = nu!(pipeline(&format!(
         "
-                {}
+                {sample}
                 | wrap caballeros
                 | get caballeros
                 | get 0
                 | get last_name
-            ",
-        sample
+            "
     )));
 
     assert_eq!(actual.out, "Robalino");
@@ -34,13 +33,12 @@ fn wrap_rows_into_a_table() {
 
     let actual = nu!(pipeline(&format!(
         "
-                {}
+                {sample}
                 | get last_name
                 | wrap caballero
                 | get 2
                 | get caballero
-            ",
-        sample
+            "
     )));
 
     assert_eq!(actual.out, "Katz");

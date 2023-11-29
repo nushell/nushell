@@ -13,13 +13,12 @@ fn splits() {
 
     let actual = nu!(pipeline(&format!(
         r#"
-                  {}
+                  {sample}
                 | group-by rusty_at
                 | split-by type
                 | get A."10/11/2013"
                 | length
-            "#,
-        sample
+            "#
     )));
 
     assert_eq!(actual.out, "2");

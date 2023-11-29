@@ -11,13 +11,12 @@ const SAMPLE_INPUT: &str = r#"
 fn summarizes_by_column_given() {
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {SAMPLE_INPUT}
                 | histogram rusty_at countries --percentage-type relative
                 | where rusty_at == "Ecuador"
                 | get countries
                 | get 0
-            "#,
-        SAMPLE_INPUT
+            "#
     )));
 
     assert_eq!(
@@ -31,13 +30,12 @@ fn summarizes_by_column_given() {
 fn summarizes_by_column_given_with_normalize_percentage() {
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {SAMPLE_INPUT}
                 | histogram rusty_at countries
                 | where rusty_at == "Ecuador"
                 | get countries
                 | get 0
-            "#,
-        SAMPLE_INPUT
+            "#
     )));
 
     assert_eq!(actual.out, "*********************************");
@@ -48,14 +46,13 @@ fn summarizes_by_column_given_with_normalize_percentage() {
 fn summarizes_by_values() {
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {SAMPLE_INPUT}
                 | get rusty_at
                 | histogram
                 | where value == "Estados Unidos"
                 | get count
                 | get 0
-            "#,
-        SAMPLE_INPUT
+            "#
     )));
 
     assert_eq!(actual.out, "2");

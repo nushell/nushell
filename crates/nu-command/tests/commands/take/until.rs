@@ -23,15 +23,14 @@ fn condition_is_met() {
 
     let actual = nu!(pipeline(&format!(
         r#"
-                {}
+                {sample}
                 | skip while {{|row| $row."Chicken Collection" != "Blue Chickens" }}
                 | take until {{|row| $row."Chicken Collection" == "Red Chickens" }}
                 | skip 1
                 | into int "31/04/2020"
                 | get "31/04/2020"
                 | math sum
-                "#,
-        sample
+                "#
     )));
 
     assert_eq!(actual.out, "8");

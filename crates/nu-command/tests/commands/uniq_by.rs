@@ -12,11 +12,10 @@ fn removes_duplicate_rows() {
 
     let actual = nu!(pipeline(&format!(
         "
-                {}
+                {sample}
                 | uniq-by last_name
                 | length
-            ",
-        sample
+            "
     )));
 
     assert_eq!(actual.out, "3");

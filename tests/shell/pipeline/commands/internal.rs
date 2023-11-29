@@ -13,12 +13,11 @@ fn takes_rows_of_nu_value_strings_and_pipes_it_to_stdin_of_external() {
 
     let actual = nu!(pipeline(&format!(
         "
-            {}
+            {sample}
             | get origin
             | each {{ |it| nu --testbin cococo $it | nu --testbin chop }}
             | get 2
-            ",
-        sample
+            "
     )));
 
     // chop will remove the last escaped double quote from \"Estados Unidos\"
@@ -36,11 +35,10 @@ fn treats_dot_dot_as_path_not_range() {
         "
             mkdir temp;
             cd temp;
-            print (echo {}).name.0 | table;
+            print (echo {sample}).name.0 | table;
             cd ..;
             rmdir temp
-            ",
-        sample
+            "
     )));
 
     // chop will remove the last escaped double quote from \"Estados Unidos\"
@@ -86,12 +84,11 @@ fn subexpression_handles_dot() {
 
     let actual = nu!(pipeline(&format!(
         "
-            {}
+            {sample}
             | get name
             | each {{ |it| nu --testbin chop $it }}
             | get 3
-            ",
-        sample
+            "
     )));
 
     assert_eq!(actual.out, "AndKitKat");

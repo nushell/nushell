@@ -15,12 +15,11 @@ fn discards_rows_where_given_column_is_empty() {
 
     let actual = nu!(pipeline(&format!(
         "
-                '{}' | from json
+                {sample_json}
                 | get amigos
                 | compact rusty_luck
                 | length
-            ",
-        sample_json
+            "
     )));
 
     assert_eq!(actual.out, "3");
