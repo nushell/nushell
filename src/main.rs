@@ -80,6 +80,16 @@ fn main() -> Result<()> {
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
 
+    // This is the real secret sauce to having an in-memory sqlite db. You must
+    // start a connection to the memory database in main so it will exist for the
+    // lifetime of the program. If it's created with how MEMORY_DB is defined
+    // you'll be able to access this open connection from anywhere in the program
+    // by using the identical connection string.
+    #[cfg(feature = "sqlite")]
+    let db = nu_command::open_connection_in_memory_custom()?;
+    #[cfg(feature = "sqlite")]
+    db.last_insert_rowid();
+
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
