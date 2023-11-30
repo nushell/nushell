@@ -828,17 +828,17 @@ fn eval_element_with_input(
                                     // save is internal command, normally it exists with non-ExternalStream
                                     // but here in redirection context, we make it returns ExternalStream
                                     // So nu handles exit_code correctly
-                                    (
-                                        PipelineData::ExternalStream {
-                                            stdout: None,
-                                            stderr: None,
-                                            exit_code,
-                                            span: *span,
-                                            metadata: None,
-                                            trim_end_newline: false,
-                                        },
-                                        false,
-                                    )
+                                    //
+                                    // Also, we don't want to run remaining commands if this command exits with non-zero
+                                    // exit code, so we need to consume and check exit_code too
+                                    might_consume_external_result(PipelineData::ExternalStream {
+                                        stdout: None,
+                                        stderr: None,
+                                        exit_code,
+                                        span: *span,
+                                        metadata: None,
+                                        trim_end_newline: false,
+                                    })
                                 })
                             }
                             Some(out_stream) => {
@@ -854,7 +854,7 @@ fn eval_element_with_input(
                                     input,
                                 ));
 
-                                Ok((
+                                Ok(might_consume_external_result(
                                     PipelineData::ExternalStream {
                                         stdout: out_stream,
                                         stderr: None,
@@ -863,7 +863,6 @@ fn eval_element_with_input(
                                         metadata: None,
                                         trim_end_newline: false,
                                     },
-                                    false,
                                 ))
                             }
                         }
@@ -903,17 +902,14 @@ fn eval_element_with_input(
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
-                        (
-                            PipelineData::ExternalStream {
-                                stdout: None,
-                                stderr: None,
-                                exit_code,
-                                span: *out_span,
-                                metadata: None,
-                                trim_end_newline: false,
-                            },
-                            false,
-                        )
+                        might_consume_external_result(PipelineData::ExternalStream {
+                            stdout: None,
+                            stderr: None,
+                            exit_code,
+                            span: *out_span,
+                            metadata: None,
+                            trim_end_newline: false,
+                        })
                     })
                 } else {
                     Err(ShellError::CommandNotFound { span: *out_span })
@@ -1098,9 +1094,6 @@ pub fn eval_block(
             );
 
             match (eval_result, redirect_stderr) {
-                (Ok((pipeline_data, _)), true) => {
-                    input = pipeline_data;
-                }
                 (Err(error), true) => {
                     input = PipelineData::Value(
                         Value::error(
@@ -1110,7 +1103,7 @@ pub fn eval_block(
                         None,
                     )
                 }
-                (output, false) => {
+                (output, _) => {
                     let output = output?;
                     input = output.0;
                     // external command may runs to failed
