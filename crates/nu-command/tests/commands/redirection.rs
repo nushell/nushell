@@ -161,29 +161,32 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
 #[test]
 fn redirection_keep_exit_codes() {
-    Playground::setup(
-        "redirection should keep exit code the same",
-        |dirs, sandbox| {
-            let script_body = r#"exit 10"#;
-            #[cfg(not(windows))]
-            let output = {
-                sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "bash test.sh out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
-                )
-            };
-            #[cfg(windows)]
-            let output = {
-                sandbox.with_files(vec![FileWithContent("test.bat", script_body)]);
-                nu!(
-                    cwd: dirs.test(),
-                    "cmd /D /c test.bat out> out.txt err> err.txt; echo $env.LAST_EXIT_CODE"
-                )
-            };
-            assert_eq!(output.out, "10")
-        },
-    )
+    let out = nu!("do -i { nu --testbin fail e> a.txt } | complete | get exit_code");
+    // needs to use contains "1", because it complete will output `Some(RawStream)`.
+    assert!(out.out.contains("1"));
+}
+
+#[test]
+fn redirection_with_non_zero_exit_code_should_stop_from_running() {
+    Playground::setup("redirection with non zero exit code", |dirs, _| {
+        for redirection in ["o>", "o>>", "e>", "e>>", "o+e>", "o+e>>"] {
+            let output = nu!(
+                cwd: dirs.test(),
+                &format!("nu --testbin fail {redirection} log.txt; echo 3")
+            );
+            assert!(!output.out.contains("3"));
+        }
+    });
+
+    Playground::setup("redirection with non zero exit code", |dirs, _| {
+        for (out, err) in [("o>", "e>"), ("o>>", "e>"), ("o>", "e>>"), ("o>>", "e>>")] {
+            let output = nu!(
+                cwd: dirs.test(),
+                &format!("nu --testbin fail {out} log.txt {err} err_log.txt; echo 3")
+            );
+            assert!(!output.out.contains("3"));
+        }
+    })
 }
 
 #[test]
