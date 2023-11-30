@@ -62,81 +62,90 @@ impl Command for StorCreate {
         let columns: Option<Record> = call.get_flag(engine_state, stack, "columns")?;
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
 
-        if table_name.is_none() {
-            return Err(ShellError::MissingParameter {
-                param_name: "requires at table name".into(),
-                span,
-            });
-        }
-        let new_table_name = table_name.unwrap_or("table".into());
-        if let Ok(conn) = db.open_connection() {
-            match columns {
-                Some(record) => {
-                    let mut create_stmt = format!(
-                        "CREATE TABLE {} ( id INTEGER NOT NULL PRIMARY KEY, ",
-                        new_table_name
-                    );
-                    for (column_name, column_datatype) in record {
-                        match column_datatype.as_string()?.as_str() {
-                            "int" => {
-                                create_stmt.push_str(&format!("{} INTEGER, ", column_name));
-                            }
-                            "float" => {
-                                create_stmt.push_str(&format!("{} REAL, ", column_name));
-                            }
-                            "str" => {
-                                create_stmt.push_str(&format!("{} VARCHAR(255), ", column_name));
-                            }
-
-                            "bool" => {
-                                create_stmt.push_str(&format!("{} BOOLEAN, ", column_name));
-                            }
-                            "datetime" => {
-                                create_stmt.push_str(&format!(
-                                    "{} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), ",
-                                    column_name
-                                ));
-                            }
-
-                            _ => {
-                                return Err(ShellError::UnsupportedInput {
-                                    msg: "unsupported column data type".into(),
-                                    input: format!("{:?}", column_datatype),
-                                    msg_span: column_datatype.span(),
-                                    input_span: column_datatype.span(),
-                                });
-                            }
-                        }
-                    }
-                    if create_stmt.ends_with(", ") {
-                        create_stmt.pop();
-                        create_stmt.pop();
-                    }
-                    create_stmt.push_str(" )");
-
-                    // dbg!(&create_stmt);
-
-                    conn.execute(&create_stmt, []).map_err(|err| {
-                        ShellError::GenericError(
-                            "Failed to open SQLite connection in memory from create".into(),
-                            err.to_string(),
-                            Some(Span::test_data()),
-                            None,
-                            Vec::new(),
-                        )
-                    })?;
-                }
-                None => {
-                    return Err(ShellError::MissingParameter {
-                        param_name: "requires at least one column".into(),
-                        span: call.head,
-                    });
-                }
-            };
-        }
+        process(table_name, span, &db, columns)?;
         // dbg!(db.clone());
         Ok(Value::custom_value(db, span).into_pipeline_data())
     }
+}
+
+fn process(
+    table_name: Option<String>,
+    span: Span,
+    db: &Box<SQLiteDatabase>,
+    columns: Option<Record>,
+) -> Result<(), ShellError> {
+    if table_name.is_none() {
+        return Err(ShellError::MissingParameter {
+            param_name: "requires at table name".into(),
+            span,
+        });
+    }
+    let new_table_name = table_name.unwrap_or("table".into());
+    Ok(if let Ok(conn) = db.open_connection() {
+        match columns {
+            Some(record) => {
+                let mut create_stmt = format!(
+                    "CREATE TABLE {} ( id INTEGER NOT NULL PRIMARY KEY, ",
+                    new_table_name
+                );
+                for (column_name, column_datatype) in record {
+                    match column_datatype.as_string()?.as_str() {
+                        "int" => {
+                            create_stmt.push_str(&format!("{} INTEGER, ", column_name));
+                        }
+                        "float" => {
+                            create_stmt.push_str(&format!("{} REAL, ", column_name));
+                        }
+                        "str" => {
+                            create_stmt.push_str(&format!("{} VARCHAR(255), ", column_name));
+                        }
+
+                        "bool" => {
+                            create_stmt.push_str(&format!("{} BOOLEAN, ", column_name));
+                        }
+                        "datetime" => {
+                            create_stmt.push_str(&format!(
+                                "{} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), ",
+                                column_name
+                            ));
+                        }
+
+                        _ => {
+                            return Err(ShellError::UnsupportedInput {
+                                msg: "unsupported column data type".into(),
+                                input: format!("{:?}", column_datatype),
+                                msg_span: column_datatype.span(),
+                                input_span: column_datatype.span(),
+                            });
+                        }
+                    }
+                }
+                if create_stmt.ends_with(", ") {
+                    create_stmt.pop();
+                    create_stmt.pop();
+                }
+                create_stmt.push_str(" )");
+
+                // dbg!(&create_stmt);
+
+                conn.execute(&create_stmt, []).map_err(|err| {
+                    ShellError::GenericError(
+                        "Failed to open SQLite connection in memory from create".into(),
+                        err.to_string(),
+                        Some(Span::test_data()),
+                        None,
+                        Vec::new(),
+                    )
+                })?;
+            }
+            None => {
+                return Err(ShellError::MissingParameter {
+                    param_name: "requires at least one column".into(),
+                    span,
+                });
+            }
+        };
+    })
 }
 
 #[cfg(test)]
@@ -148,5 +157,81 @@ mod test {
         use crate::test_examples;
 
         test_examples(StorCreate {})
+    }
+
+    #[test]
+    fn test_process_with_valid_parameters() {
+        let table_name = Some("test_table".to_string());
+        let span = Span::unknown();
+        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let mut columns = Record::new();
+        columns.insert(
+            "int_column".to_string(),
+            Value::test_string("int".to_string()),
+        );
+
+        let result = process(table_name, span, &db, Some(columns));
+
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_process_with_missing_table_name() {
+        let table_name = None;
+        let span = Span::unknown();
+        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let mut columns = Record::new();
+        columns.insert(
+            "int_column".to_string(),
+            Value::test_string("int".to_string()),
+        );
+
+        let result = process(table_name, span, &db, Some(columns));
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires at table name"));
+    }
+
+    #[test]
+    fn test_process_with_missing_columns() {
+        let table_name = Some("test_table".to_string());
+        let span = Span::unknown();
+        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+
+        let result = process(table_name, span, &db, None);
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("requires at least one column"));
+    }
+
+    #[test]
+    fn test_process_with_unsupported_column_data_type() {
+        let table_name = Some("test_table".to_string());
+        let span = Span::unknown();
+        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+        let mut columns = Record::new();
+        let column_datatype = "bogus_data_type".to_string();
+        columns.insert(
+            "column0".to_string(),
+            Value::test_string(column_datatype.clone()),
+        );
+
+        let result = process(table_name, span, &db, Some(columns));
+
+        assert!(result.is_err());
+
+        let expected_err = ShellError::UnsupportedInput {
+            msg: "unsupported column data type".into(),
+            input: format!("{:?}", column_datatype.clone()),
+            msg_span: Span::test_data(),
+            input_span: Span::test_data(),
+        };
+        assert_eq!(result.unwrap_err().to_string(), expected_err.to_string());
     }
 }
