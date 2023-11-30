@@ -71,7 +71,7 @@ impl Command for StorCreate {
 fn process(
     table_name: Option<String>,
     span: Span,
-    db: &Box<SQLiteDatabase>,
+    db: &SQLiteDatabase,
     columns: Option<Record>,
 ) -> Result<(), ShellError> {
     if table_name.is_none() {
@@ -81,7 +81,7 @@ fn process(
         });
     }
     let new_table_name = table_name.unwrap_or("table".into());
-    Ok(if let Ok(conn) = db.open_connection() {
+    if let Ok(conn) = db.open_connection() {
         match columns {
             Some(record) => {
                 let mut create_stmt = format!(
@@ -145,7 +145,8 @@ fn process(
                 });
             }
         };
-    })
+    }
+    Ok(())
 }
 
 #[cfg(test)]
