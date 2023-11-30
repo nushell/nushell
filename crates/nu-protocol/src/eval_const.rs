@@ -5,7 +5,7 @@ use crate::{
     },
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
+    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -537,13 +537,20 @@ pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
 struct EvalConst;
 
 impl Eval for EvalConst {
-    type State;
+    type State<'a> = StateWorkingSet<'a>;
 
-    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
+    fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
         todo!()
     }
 
-    fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
-        todo!()
+    fn eval_variable(
+        working_set: &StateWorkingSet,
+        var_id: VarId,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        match working_set.get_variable(var_id).const_val.as_ref() {
+            Some(val) => Ok(val.clone()),
+            None => Err(ShellError::NotAConstant(span)),
+        }
     }
 }

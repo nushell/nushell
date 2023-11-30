@@ -6,6 +6,7 @@ use nu_protocol::{
         Expression, Math, Operator, PathMember, PipelineElement, RecordItem, Redirection,
     },
     engine::{Closure, EngineState, Stack},
+    eval_base::Eval,
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
     ShellError, Span, Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
@@ -1330,13 +1331,17 @@ impl DataSaveJob {
 struct EvalRuntime;
 
 impl Eval for EvalRuntime {
-    type State;
+    type State<'a> = (&'a EngineState, &'a Stack);
 
-    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
-        todo!()
+    fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
+        value.as_string()
     }
 
-    fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
-        todo!()
+    fn eval_variable<'a>(
+        (engine_state, stack): &'a Self::State<'a>,
+        var_id: VarId,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        eval_variable(engine_state, stack, var_id, span)
     }
 }

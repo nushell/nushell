@@ -1,28 +1,20 @@
 use crate::{
-    ast::{
-        eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PipelineElement, RecordItem,
-    },
-    engine::{EngineState, StateWorkingSet},
-    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
+    ast::{eval_operator, Bits, Boolean, Expr, Expression, Math, Operator, RecordItem},
+    Record, ShellError, Span, Value, VarId,
 };
-use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::collections::HashMap;
 
 pub trait Eval {
-    type State;
+    type State<'a>;
 
-    fn eval(state: &Self::State, expr: &Expression) -> Result<Value, ShellError> {
+    fn eval<'a>(state: &'a Self::State<'a>, expr: &Expression) -> Result<Value, ShellError> {
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
             Expr::Filepath(path) => todo!(),
-            Expr::Var(var_id) => todo!(),
+            Expr::Var(var_id) => Self::eval_variable(state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(cell_path) => todo!(),
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
@@ -160,7 +152,7 @@ pub trait Eval {
             }
             Expr::BinaryOp(lhs, op, rhs) => {
                 let op_span = op.span;
-                let op = Self::eval_operator(op)?;
+                let op = eval_operator(op)?;
 
                 match op {
                     Operator::Boolean(boolean) => {
@@ -234,11 +226,14 @@ pub trait Eval {
             Expr::Operator(_) => todo!(),
             Expr::Closure(_) => todo!(),
             Expr::Garbage => todo!(),
-            // _ => todo!(),
         }
     }
 
-    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError>;
+    fn eval_variable<'a>(
+        state: &'a Self::State<'a>,
+        var_id: VarId,
+        span: Span,
+    ) -> Result<Value, ShellError>;
 
-    fn eval_operator(op: &Expression) -> Result<Operator, ShellError>;
+    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError>;
 }
