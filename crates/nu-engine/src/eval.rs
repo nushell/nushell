@@ -1335,16 +1335,16 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
-    fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
-        value.as_string()
-    }
-
-    fn eval_variable(
+    fn eval_var(
         engine_state: Self::State<'_>,
         stack: &mut Stack,
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError> {
         eval_variable(engine_state, stack, var_id, span)
+    }
+
+    fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
+        value.as_string()
     }
 }

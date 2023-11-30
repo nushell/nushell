@@ -541,11 +541,7 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
-    fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
-        todo!()
-    }
-
-    fn eval_variable(
+    fn eval_var(
         working_set: &StateWorkingSet,
         _: &mut (),
         var_id: VarId,
@@ -555,5 +551,9 @@ impl Eval for EvalConst {
             Some(val) => Ok(val.clone()),
             None => Err(ShellError::NotAConstant(span)),
         }
+    }
+
+    fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
+        todo!()
     }
 }

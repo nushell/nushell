@@ -20,7 +20,7 @@ pub trait Eval {
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
             Expr::Filepath(_path) => todo!(),
-            Expr::Var(var_id) => Self::eval_variable(state, mut_state, *var_id, expr.span),
+            Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(_cell_path) => todo!(),
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
@@ -244,7 +244,7 @@ pub trait Eval {
         }
     }
 
-    fn eval_variable(
+    fn eval_var(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         var_id: VarId,
