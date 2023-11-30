@@ -5,18 +5,18 @@ use crate::{
 use std::collections::HashMap;
 
 pub trait Eval {
-    type State<'a>;
+    type State<'a>: std::marker::Copy;
 
-    fn eval<'a>(state: &'a Self::State<'a>, expr: &Expression) -> Result<Value, ShellError> {
+    fn eval(state: Self::State<'_>, expr: &Expression) -> Result<Value, ShellError> {
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-            Expr::Filepath(path) => todo!(),
+            Expr::Filepath(_path) => todo!(),
             Expr::Var(var_id) => Self::eval_variable(state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-            Expr::FullCellPath(cell_path) => todo!(),
+            Expr::FullCellPath(_cell_path) => todo!(),
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(x) => {
                 let mut output = vec![];
@@ -108,9 +108,9 @@ pub trait Eval {
             Expr::Keyword(_, _, expr) => Self::eval(state, expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(expr, unit) => todo!(),
-            Expr::Call(call) => todo!(),
-            Expr::Subexpression(block_id) => todo!(),
+            Expr::ValueWithUnit(_expr, _unit) => todo!(),
+            Expr::Call(_call) => todo!(),
+            Expr::Subexpression(_block_id) => todo!(),
             Expr::Range(from, next, to, operator) => {
                 let from = if let Some(f) = from {
                     Self::eval(state, f)?
@@ -195,7 +195,7 @@ pub trait Eval {
                             Math::Pow => lhs.pow(op_span, &rhs, expr.span),
                         }
                     }
-                    Operator::Comparison(comparison) => todo!(),
+                    Operator::Comparison(_comparison) => todo!(),
                     Operator::Bits(bits) => {
                         let lhs = Self::eval(state, lhs)?;
                         let rhs = Self::eval(state, rhs)?;
@@ -229,8 +229,8 @@ pub trait Eval {
         }
     }
 
-    fn eval_variable<'a>(
-        state: &'a Self::State<'a>,
+    fn eval_variable(
+        state: Self::State<'_>,
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError>;

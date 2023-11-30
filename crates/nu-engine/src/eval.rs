@@ -1337,8 +1337,8 @@ impl Eval for EvalRuntime {
         value.as_string()
     }
 
-    fn eval_variable<'a>(
-        (engine_state, stack): &'a Self::State<'a>,
+    fn eval_variable(
+        (engine_state, stack): Self::State<'_>,
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError> {

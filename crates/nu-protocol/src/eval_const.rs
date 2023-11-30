@@ -537,7 +537,7 @@ pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
 struct EvalConst;
 
 impl Eval for EvalConst {
-    type State<'a> = StateWorkingSet<'a>;
+    type State<'a> = &'a StateWorkingSet<'a>;
 
     fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
         todo!()
