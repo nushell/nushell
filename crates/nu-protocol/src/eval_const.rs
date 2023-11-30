@@ -542,8 +542,8 @@ impl Eval for EvalConst {
     type MutState = ();
 
     fn eval_filepath(
-        _: Self::State<'_>,
-        _: &mut Self::MutState,
+        _: &StateWorkingSet,
+        _: &mut (),
         path: String,
         span: Span,
     ) -> Result<Value, ShellError> {
@@ -563,8 +563,8 @@ impl Eval for EvalConst {
     }
 
     fn eval_call(
-        working_set: Self::State<'_>,
-        _: &mut Self::MutState,
+        working_set: &StateWorkingSet,
+        _: &mut (),
         call: &Call,
         span: Span,
     ) -> Result<Value, ShellError> {
@@ -573,8 +573,8 @@ impl Eval for EvalConst {
     }
 
     fn eval_external_call(
-        _: Self::State<'_>,
-        _: &mut Self::MutState,
+        _: &StateWorkingSet,
+        _: &mut (),
         _: &Expression,
         _: &[Expression],
         _: bool,
@@ -582,6 +582,15 @@ impl Eval for EvalConst {
         // Currently, it gives a generic not_a_constant error,
         // but it may be more helpful to give not_a_const_command
         todo!()
+    }
+
+    fn eval_row_condition_or_closure(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(span))
     }
 
     fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {

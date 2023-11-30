@@ -266,15 +266,16 @@ pub trait Eval {
             Expr::Overlay(_) => todo!(),
             Expr::MatchPattern(_) => todo!(),
             Expr::MatchBlock(_) => todo!(),
-            Expr::RowCondition(_) => todo!(),
+            Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
+                Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
+            }
             Expr::StringInterpolation(_) => todo!(),
             Expr::Directory(_) => todo!(),
             Expr::GlobPattern(_) => todo!(),
+            Expr::VarDecl(_) => todo!(),
             Expr::Signature(_) => todo!(),
             Expr::Spread(_) => todo!(),
-            Expr::VarDecl(_) => todo!(),
             Expr::Operator(_) => todo!(),
-            Expr::Closure(_) => todo!(),
             Expr::Garbage => todo!(),
         }
     }
@@ -306,6 +307,13 @@ pub trait Eval {
         head: &Expression,
         args: &[Expression],
         is_subexpression: bool,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_row_condition_or_closure(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        block_id: usize,
+        span: Span,
     ) -> Result<Value, ShellError>;
 
     fn value_as_string(value: Value, span: Span) -> Result<String, ShellError>;

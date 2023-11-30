@@ -1348,7 +1348,7 @@ impl Eval for EvalRuntime {
     }
 
     fn eval_var(
-        engine_state: Self::State<'_>,
+        engine_state: &EngineState,
         stack: &mut Stack,
         var_id: VarId,
         span: Span,
@@ -1357,8 +1357,8 @@ impl Eval for EvalRuntime {
     }
 
     fn eval_call(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _: Span,
     ) -> Result<Value, ShellError> {
@@ -1367,8 +1367,8 @@ impl Eval for EvalRuntime {
     }
 
     fn eval_external_call(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         head: &Expression,
         args: &[Expression],
         is_subexpression: bool,
@@ -1385,6 +1385,22 @@ impl Eval for EvalRuntime {
             is_subexpression,
         )?
         .into_value(span))
+    }
+
+    fn eval_row_condition_or_closure(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let captures = engine_state
+            .get_block(block_id)
+            .captures
+            .iter()
+            .map(|&id| stack.get_var(id, span).map(|var| (id, var)))
+            .collect::<Result<_, _>>()?;
+
+        Ok(Value::closure(Closure { block_id, captures }, span))
     }
 
     fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
