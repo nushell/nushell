@@ -5,16 +5,22 @@ use crate::{
 use std::collections::HashMap;
 
 pub trait Eval {
-    type State<'a>: std::marker::Copy;
+    type State<'a>: Copy;
 
-    fn eval(state: Self::State<'_>, expr: &Expression) -> Result<Value, ShellError> {
+    type MutState;
+
+    fn eval(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        expr: &Expression,
+    ) -> Result<Value, ShellError> {
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
             Expr::Filepath(_path) => todo!(),
-            Expr::Var(var_id) => Self::eval_variable(state, *var_id, expr.span),
+            Expr::Var(var_id) => Self::eval_variable(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(_cell_path) => todo!(),
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
@@ -22,11 +28,11 @@ pub trait Eval {
                 let mut output = vec![];
                 for expr in x {
                     match &expr.expr {
-                        Expr::Spread(expr) => match Self::eval(state, expr)? {
+                        Expr::Spread(expr) => match Self::eval(state, mut_state, expr)? {
                             Value::List { mut vals, .. } => output.append(&mut vals),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                         },
-                        _ => output.push(Self::eval(state, expr)?),
+                        _ => output.push(Self::eval(state, mut_state, expr)?),
                     }
                 }
                 Ok(Value::list(output, expr.span))
@@ -38,8 +44,10 @@ pub trait Eval {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
-                            let col_name =
-                                Self::value_as_string(Self::eval(state, col)?, expr.span)?;
+                            let col_name = Self::value_as_string(
+                                Self::eval(state, mut_state, col)?,
+                                expr.span,
+                            )?;
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -48,26 +56,32 @@ pub trait Eval {
                                 });
                             } else {
                                 col_names.insert(col_name.clone(), col.span);
-                                record.push(col_name, Self::eval(state, val)?);
+                                record.push(col_name, Self::eval(state, mut_state, val)?);
                             }
                         }
-                        RecordItem::Spread(_, inner) => match Self::eval(state, inner)? {
-                            Value::Record { val: inner_val, .. } => {
-                                for (col_name, val) in inner_val {
-                                    if let Some(orig_span) = col_names.get(&col_name) {
-                                        return Err(ShellError::ColumnDefinedTwice {
-                                            col_name,
-                                            second_use: inner.span,
-                                            first_use: *orig_span,
-                                        });
-                                    } else {
-                                        col_names.insert(col_name.clone(), inner.span);
-                                        record.push(col_name, val);
+                        RecordItem::Spread(_, inner) => {
+                            match Self::eval(state, mut_state, inner)? {
+                                Value::Record { val: inner_val, .. } => {
+                                    for (col_name, val) in inner_val {
+                                        if let Some(orig_span) = col_names.get(&col_name) {
+                                            return Err(ShellError::ColumnDefinedTwice {
+                                                col_name,
+                                                second_use: inner.span,
+                                                first_use: *orig_span,
+                                            });
+                                        } else {
+                                            col_names.insert(col_name.clone(), inner.span);
+                                            record.push(col_name, val);
+                                        }
                                     }
                                 }
+                                _ => {
+                                    return Err(ShellError::CannotSpreadAsRecord {
+                                        span: inner.span,
+                                    })
+                                }
                             }
-                            _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
-                        },
+                        }
                     }
                 }
 
@@ -76,7 +90,8 @@ pub trait Eval {
             Expr::Table(headers, vals) => {
                 let mut output_headers = vec![];
                 for expr in headers {
-                    let header = Self::value_as_string(Self::eval(state, expr)?, expr.span)?;
+                    let header =
+                        Self::value_as_string(Self::eval(state, mut_state, expr)?, expr.span)?;
                     if let Some(idx) = output_headers
                         .iter()
                         .position(|existing| existing == &header)
@@ -95,7 +110,7 @@ pub trait Eval {
                 for val in vals {
                     let mut row = vec![];
                     for expr in val {
-                        row.push(Self::eval(state, expr)?);
+                        row.push(Self::eval(state, mut_state, expr)?);
                     }
                     // length equality already ensured in parser
                     output_rows.push(Value::record(
@@ -105,7 +120,7 @@ pub trait Eval {
                 }
                 Ok(Value::list(output_rows, expr.span))
             }
-            Expr::Keyword(_, _, expr) => Self::eval(state, expr),
+            Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(_expr, _unit) => todo!(),
@@ -113,7 +128,7 @@ pub trait Eval {
             Expr::Subexpression(_block_id) => todo!(),
             Expr::Range(from, next, to, operator) => {
                 let from = if let Some(f) = from {
-                    Self::eval(state, f)?
+                    Self::eval(state, mut_state, f)?
                 } else {
                     Value::Nothing {
                         internal_span: expr.span,
@@ -121,7 +136,7 @@ pub trait Eval {
                 };
 
                 let next = if let Some(s) = next {
-                    Self::eval(state, s)?
+                    Self::eval(state, mut_state, s)?
                 } else {
                     Value::Nothing {
                         internal_span: expr.span,
@@ -129,7 +144,7 @@ pub trait Eval {
                 };
 
                 let to = if let Some(t) = to {
-                    Self::eval(state, t)?
+                    Self::eval(state, mut_state, t)?
                 } else {
                     Value::Nothing {
                         internal_span: expr.span,
@@ -141,7 +156,7 @@ pub trait Eval {
                 })
             }
             Expr::UnaryNot(expr) => {
-                let lhs = Self::eval(state, expr)?;
+                let lhs = Self::eval(state, mut_state, expr)?;
                 match lhs {
                     Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                     other => Err(ShellError::TypeMismatch {
@@ -156,13 +171,13 @@ pub trait Eval {
 
                 match op {
                     Operator::Boolean(boolean) => {
-                        let lhs = Self::eval(state, lhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs)?;
                         match boolean {
                             Boolean::And => {
                                 if lhs.is_false() {
                                     Ok(Value::bool(false, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, rhs)?;
+                                    let rhs = Self::eval(state, mut_state, rhs)?;
                                     lhs.and(op_span, &rhs, expr.span)
                                 }
                             }
@@ -170,19 +185,19 @@ pub trait Eval {
                                 if lhs.is_true() {
                                     Ok(Value::bool(true, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, rhs)?;
+                                    let rhs = Self::eval(state, mut_state, rhs)?;
                                     lhs.or(op_span, &rhs, expr.span)
                                 }
                             }
                             Boolean::Xor => {
-                                let rhs = Self::eval(state, rhs)?;
+                                let rhs = Self::eval(state, mut_state, rhs)?;
                                 lhs.xor(op_span, &rhs, expr.span)
                             }
                         }
                     }
                     Operator::Math(math) => {
-                        let lhs = Self::eval(state, lhs)?;
-                        let rhs = Self::eval(state, rhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs)?;
+                        let rhs = Self::eval(state, mut_state, rhs)?;
 
                         match math {
                             Math::Plus => lhs.add(op_span, &rhs, expr.span),
@@ -197,8 +212,8 @@ pub trait Eval {
                     }
                     Operator::Comparison(_comparison) => todo!(),
                     Operator::Bits(bits) => {
-                        let lhs = Self::eval(state, lhs)?;
-                        let rhs = Self::eval(state, rhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs)?;
+                        let rhs = Self::eval(state, mut_state, rhs)?;
                         match bits {
                             Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
                             Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
@@ -231,6 +246,7 @@ pub trait Eval {
 
     fn eval_variable(
         state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError>;

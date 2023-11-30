@@ -1331,14 +1331,17 @@ impl DataSaveJob {
 struct EvalRuntime;
 
 impl Eval for EvalRuntime {
-    type State<'a> = (&'a EngineState, &'a Stack);
+    type State<'a> = &'a EngineState;
+
+    type MutState = Stack;
 
     fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
         value.as_string()
     }
 
     fn eval_variable(
-        (engine_state, stack): Self::State<'_>,
+        engine_state: Self::State<'_>,
+        stack: &mut Stack,
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError> {

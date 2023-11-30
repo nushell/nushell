@@ -539,12 +539,15 @@ struct EvalConst;
 impl Eval for EvalConst {
     type State<'a> = &'a StateWorkingSet<'a>;
 
+    type MutState = ();
+
     fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
         todo!()
     }
 
     fn eval_variable(
         working_set: &StateWorkingSet,
+        _: &mut (),
         var_id: VarId,
         span: Span,
     ) -> Result<Value, ShellError> {
