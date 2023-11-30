@@ -1,5 +1,8 @@
 use crate::{
-    ast::{eval_operator, Bits, Boolean, Call, Expr, Expression, Math, Operator, RecordItem},
+    ast::{
+        eval_operator, Bits, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
+        RecordItem,
+    },
     Record, ShellError, Span, Value, VarId,
 };
 use std::collections::HashMap;
@@ -226,7 +229,24 @@ pub trait Eval {
                             Math::Pow => lhs.pow(op_span, &rhs, expr.span),
                         }
                     }
-                    Operator::Comparison(_comparison) => todo!(),
+                    Operator::Comparison(comparison) => {
+                        let lhs = Self::eval(state, mut_state, lhs)?;
+                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        match comparison {
+                            Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
+                            Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
+                            Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
+                            Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
+                            Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
+                            Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
+                            Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
+                            Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
+                            Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
+                            Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
+                            Comparison::RegexMatch => todo!(),
+                            Comparison::NotRegexMatch => todo!(),
+                        }
+                    }
                     Operator::Bits(bits) => {
                         let lhs = Self::eval(state, mut_state, lhs)?;
                         let rhs = Self::eval(state, mut_state, rhs)?;
