@@ -1326,3 +1326,17 @@ impl DataSaveJob {
         self.inner.join()
     }
 }
+
+struct EvalRuntime;
+
+impl Eval for EvalRuntime {
+    type State;
+
+    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
+        todo!()
+    }
+
+    fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
+        todo!()
+    }
+}

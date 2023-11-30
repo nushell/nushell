@@ -4,6 +4,7 @@ use crate::{
         PipelineElement, RecordItem,
     },
     engine::{EngineState, StateWorkingSet},
+    eval_base::Eval,
     record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
@@ -530,5 +531,19 @@ pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
     match value {
         Value::String { val, .. } => Ok(val),
         _ => Err(ShellError::NotAConstant(span)),
+    }
+}
+
+struct EvalConst;
+
+impl Eval for EvalConst {
+    type State;
+
+    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
+        todo!()
+    }
+
+    fn eval_operator(op: &Expression) -> Result<Operator, ShellError> {
+        todo!()
     }
 }

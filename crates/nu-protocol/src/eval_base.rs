@@ -13,9 +13,9 @@ use std::{
 };
 
 pub trait Eval {
-    type State<'a>;
+    type State;
 
-    fn eval<'a>(state: Self::State<'a>, expr: &Expression) -> Result<Value, ShellError> {
+    fn eval(state: &Self::State, expr: &Expression) -> Result<Value, ShellError> {
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
@@ -219,7 +219,22 @@ pub trait Eval {
                 }
             }
             Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-            _ => todo!(),
+            Expr::ImportPattern(_) => todo!(),
+            Expr::Overlay(_) => todo!(),
+            Expr::ExternalCall(_, _, _) => todo!(),
+            Expr::MatchPattern(_) => todo!(),
+            Expr::MatchBlock(_) => todo!(),
+            Expr::RowCondition(_) => todo!(),
+            Expr::StringInterpolation(_) => todo!(),
+            Expr::Directory(_) => todo!(),
+            Expr::GlobPattern(_) => todo!(),
+            Expr::Signature(_) => todo!(),
+            Expr::Spread(_) => todo!(),
+            Expr::VarDecl(_) => todo!(),
+            Expr::Operator(_) => todo!(),
+            Expr::Closure(_) => todo!(),
+            Expr::Garbage => todo!(),
+            // _ => todo!(),
         }
     }
 
