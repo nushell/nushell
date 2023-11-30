@@ -163,7 +163,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 fn redirection_keep_exit_codes() {
     let out = nu!("do -i { nu --testbin fail e> a.txt } | complete | get exit_code");
     // needs to use contains "1", because it complete will output `Some(RawStream)`.
-    assert!(out.out.contains("1"));
+    assert!(out.out.contains('1'));
 }
 
 #[test]
@@ -174,7 +174,7 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running() {
                 cwd: dirs.test(),
                 &format!("nu --testbin fail {redirection} log.txt; echo 3")
             );
-            assert!(!output.out.contains("3"));
+            assert!(!output.out.contains('3'));
         }
     });
 
@@ -184,7 +184,7 @@ fn redirection_with_non_zero_exit_code_should_stop_from_running() {
                 cwd: dirs.test(),
                 &format!("nu --testbin fail {out} log.txt {err} err_log.txt; echo 3")
             );
-            assert!(!output.out.contains("3"));
+            assert!(!output.out.contains('3'));
         }
     })
 }
