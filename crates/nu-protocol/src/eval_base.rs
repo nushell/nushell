@@ -1,5 +1,5 @@
 use crate::{
-    ast::{eval_operator, Bits, Boolean, Expr, Expression, Math, Operator, RecordItem},
+    ast::{eval_operator, Bits, Boolean, Call, Expr, Expression, Math, Operator, RecordItem},
     Record, ShellError, Span, Value, VarId,
 };
 use std::collections::HashMap;
@@ -19,10 +19,16 @@ pub trait Eval {
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-            Expr::Filepath(_path) => todo!(),
+            Expr::Filepath(path) => Self::eval_filepath(state, mut_state, path.clone(), expr.span),
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-            Expr::FullCellPath(_cell_path) => todo!(),
+            Expr::FullCellPath(_cell_path) => {
+                // TODO: Both eval.rs and eval_const.rs seem to do the same thing, but
+                // eval_const converts it to a generic error
+                // (there's a todo saying to do better error conversion)
+                // For now, perhaps they could both have the same implementation
+                todo!()
+            }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(x) => {
                 let mut output = vec![];
@@ -123,8 +129,18 @@ pub trait Eval {
             Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(_expr, _unit) => todo!(),
-            Expr::Call(_call) => todo!(),
+            Expr::ValueWithUnit(_expr, _unit) => {
+                // The two implementations seem to differ only in the error they give
+                // when expr doesn't evaluate to an Int
+                // eval.rs gives a CantConvert error, while eval_const says NotAConstant
+                // CantConvert seems more appropriate for eval_const too, since the issue isn't that it's not
+                // a constant, it's that it isn't an Int
+                todo!()
+            }
+            Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
+            Expr::ExternalCall(head, args, is_subexpression) => {
+                Self::eval_external_call(state, mut_state, head, args, *is_subexpression)
+            }
             Expr::Subexpression(_block_id) => todo!(),
             Expr::Range(from, next, to, operator) => {
                 let from = if let Some(f) = from {
@@ -228,7 +244,6 @@ pub trait Eval {
             Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
             Expr::ImportPattern(_) => todo!(),
             Expr::Overlay(_) => todo!(),
-            Expr::ExternalCall(_, _, _) => todo!(),
             Expr::MatchPattern(_) => todo!(),
             Expr::MatchBlock(_) => todo!(),
             Expr::RowCondition(_) => todo!(),
@@ -244,11 +259,33 @@ pub trait Eval {
         }
     }
 
+    fn eval_filepath(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
     fn eval_var(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         var_id: VarId,
         span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_call(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        call: &Call,
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_external_call(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        head: &Expression,
+        args: &[Expression],
+        is_subexpression: bool,
     ) -> Result<Value, ShellError>;
 
     fn value_as_string(value: Value, span: Span) -> Result<String, ShellError>;

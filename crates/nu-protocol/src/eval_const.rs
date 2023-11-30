@@ -541,6 +541,15 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
+    fn eval_filepath(
+        _: Self::State<'_>,
+        _: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Ok(Value::string(path, span))
+    }
+
     fn eval_var(
         working_set: &StateWorkingSet,
         _: &mut (),
@@ -553,7 +562,29 @@ impl Eval for EvalConst {
         }
     }
 
-    fn value_as_string(_value: Value, _span: Span) -> Result<String, ShellError> {
+    fn eval_call(
+        working_set: Self::State<'_>,
+        _: &mut Self::MutState,
+        call: &Call,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        // TODO: eval.rs uses call.head for the span rather than expr.span
+        Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
+    }
+
+    fn eval_external_call(
+        _: Self::State<'_>,
+        _: &mut Self::MutState,
+        _: &Expression,
+        _: &[Expression],
+        _: bool,
+    ) -> Result<Value, ShellError> {
+        // Currently, it gives a generic not_a_constant error,
+        // but it may be more helpful to give not_a_const_command
         todo!()
+    }
+
+    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
+        value_as_string(value, span)
     }
 }

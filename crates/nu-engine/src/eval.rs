@@ -1335,6 +1335,18 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
+    fn eval_filepath(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let cwd = current_dir_str(engine_state, stack)?;
+        let path = expand_path_with(path, cwd);
+
+        Ok(Value::string(path.to_string_lossy(), span))
+    }
+
     fn eval_var(
         engine_state: Self::State<'_>,
         stack: &mut Stack,
@@ -1342,6 +1354,37 @@ impl Eval for EvalRuntime {
         span: Span,
     ) -> Result<Value, ShellError> {
         eval_variable(engine_state, stack, var_id, span)
+    }
+
+    fn eval_call(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        call: &Call,
+        _: Span,
+    ) -> Result<Value, ShellError> {
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
+    }
+
+    fn eval_external_call(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        head: &Expression,
+        args: &[Expression],
+        is_subexpression: bool,
+    ) -> Result<Value, ShellError> {
+        let span = head.span;
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_external(
+            engine_state,
+            stack,
+            head,
+            args,
+            PipelineData::empty(),
+            RedirectTarget::Piped(false, false),
+            is_subexpression,
+        )?
+        .into_value(span))
     }
 
     fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
