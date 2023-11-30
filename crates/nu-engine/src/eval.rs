@@ -829,7 +829,7 @@ fn eval_element_with_input(
                                     // but here in redirection context, we make it returns ExternalStream
                                     // So nu handles exit_code correctly
                                     //
-                                    // Also, we don't want to run commands if it exit with non-zero
+                                    // Also, we don't want to run remaining commands if this command exits with non-zero
                                     // exit code, so we need to consume and check exit_code too
                                     might_consume_external_result(PipelineData::ExternalStream {
                                         stdout: None,
