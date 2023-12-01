@@ -584,10 +584,32 @@ impl Eval for EvalConst {
         todo!()
     }
 
+    fn eval_subexpression(
+        working_set: &StateWorkingSet,
+        _: &mut (),
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let block = working_set.get_block(block_id);
+        Ok(
+            eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
+                .into_value(span),
+        )
+    }
+
     fn eval_row_condition_or_closure(
         _: &StateWorkingSet,
         _: &mut (),
         _: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(span))
+    }
+
+    fn eval_string_interpolation(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: &[Expression],
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant(span))

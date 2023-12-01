@@ -3,12 +3,12 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
         eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
-        Expression, Math, Operator, PathMember, PipelineElement, RecordItem, Redirection,
+        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    ShellError, Span, Spanned, Type, Unit, Value, VarId, ENV_VARIABLE_ID,
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -255,51 +255,7 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-        Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            Value::Int { val, .. } => compute(val, unit.item, unit.span),
-            x => Err(ShellError::CantConvert {
-                to_type: "unit value".into(),
-                from_type: x.get_type().to_string(),
-                span: e.span,
-                help: None,
-            }),
-        },
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                eval_expression(engine_state, stack, f)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            let next = if let Some(s) = next {
-                eval_expression(engine_state, stack, s)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            let to = if let Some(t) = to {
-                eval_expression(engine_state, stack, t)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            Ok(Value::range(
-                Range::new(expr.span, from, next, to, operator)?,
-                expr.span,
-            ))
-        }
-        Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
         Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
-        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-        Expr::FullCellPath(cell_path) => {
-            let value = eval_expression(engine_state, stack, &cell_path.head)?;
-
-            value.follow_cell_path(&cell_path.tail, false)
-        }
         Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
         Expr::Overlay(_) => {
             let name =
@@ -307,38 +263,9 @@ pub fn eval_expression(
 
             Ok(Value::string(name, expr.span))
         }
-        Expr::Call(call) => {
-            // FIXME: protect this collect with ctrl-c
-            Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
-        }
-        Expr::ExternalCall(head, args, is_subexpression) => {
-            let span = head.span;
-            // FIXME: protect this collect with ctrl-c
-            Ok(eval_external(
-                engine_state,
-                stack,
-                head,
-                args,
-                PipelineData::empty(),
-                RedirectTarget::Piped(false, false),
-                *is_subexpression,
-            )?
-            .into_value(span))
-        }
-        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
         Expr::Operator(_) => Ok(Value::nothing(expr.span)),
         Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
         Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
-        Expr::UnaryNot(expr) => {
-            let lhs = eval_expression(engine_state, stack, expr)?;
-            match lhs {
-                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                other => Err(ShellError::TypeMismatch {
-                    err_message: format!("expected bool, found {}", other.get_type()),
-                    span: expr.span,
-                }),
-            }
-        }
         Expr::BinaryOp(lhs, op, rhs) => {
             let op_span = op.span;
             let op = eval_operator(op)?;
@@ -516,132 +443,6 @@ pub fn eval_expression(
                 }
             }
         }
-        Expr::Subexpression(block_id) => {
-            let block = engine_state.get_block(*block_id);
-
-            // FIXME: protect this collect with ctrl-c
-            Ok(
-                eval_subexpression(engine_state, stack, block, PipelineData::empty())?
-                    .into_value(expr.span),
-            )
-        }
-        Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-            let block_id = *block_id;
-            let captures = engine_state
-                .get_block(block_id)
-                .captures
-                .iter()
-                .map(|&id| stack.get_var(id, expr.span).map(|var| (id, var)))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Value::closure(Closure { block_id, captures }, expr.span))
-        }
-        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-        Expr::List(x) => {
-            let mut output = vec![];
-            for expr in x {
-                match &expr.expr {
-                    Expr::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
-                        Value::List { mut vals, .. } => output.append(&mut vals),
-                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                    },
-                    _ => output.push(eval_expression(engine_state, stack, expr)?),
-                }
-            }
-            Ok(Value::list(output, expr.span))
-        }
-        Expr::Record(items) => {
-            let mut record = Record::new();
-
-            let mut col_names = HashMap::new();
-
-            for item in items {
-                match item {
-                    RecordItem::Pair(col, val) => {
-                        // avoid duplicate cols
-                        let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                        if let Some(orig_span) = col_names.get(&col_name) {
-                            return Err(ShellError::ColumnDefinedTwice {
-                                col_name,
-                                second_use: col.span,
-                                first_use: *orig_span,
-                            });
-                        } else {
-                            col_names.insert(col_name.clone(), col.span);
-                            record.push(col_name, eval_expression(engine_state, stack, val)?);
-                        }
-                    }
-                    RecordItem::Spread(_, inner) => {
-                        match eval_expression(engine_state, stack, inner)? {
-                            Value::Record { val: inner_val, .. } => {
-                                for (col_name, val) in inner_val {
-                                    if let Some(orig_span) = col_names.get(&col_name) {
-                                        return Err(ShellError::ColumnDefinedTwice {
-                                            col_name,
-                                            second_use: inner.span,
-                                            first_use: *orig_span,
-                                        });
-                                    } else {
-                                        col_names.insert(col_name.clone(), inner.span);
-                                        record.push(col_name, val);
-                                    }
-                                }
-                            }
-                            _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
-                        }
-                    }
-                }
-            }
-
-            Ok(Value::record(record, expr.span))
-        }
-        Expr::Table(headers, vals) => {
-            let mut output_headers = vec![];
-            for expr in headers {
-                let header = eval_expression(engine_state, stack, expr)?.as_string()?;
-                if let Some(idx) = output_headers
-                    .iter()
-                    .position(|existing| existing == &header)
-                {
-                    return Err(ShellError::ColumnDefinedTwice {
-                        col_name: header,
-                        second_use: expr.span,
-                        first_use: headers[idx].span,
-                    });
-                } else {
-                    output_headers.push(header);
-                }
-            }
-
-            let mut output_rows = vec![];
-            for val in vals {
-                let mut row = vec![];
-                for expr in val {
-                    row.push(eval_expression(engine_state, stack, expr)?);
-                }
-                output_rows.push(Value::record(
-                    Record::from_raw_cols_vals(output_headers.clone(), row),
-                    expr.span,
-                ));
-            }
-            Ok(Value::list(output_rows, expr.span))
-        }
-        Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
-        Expr::StringInterpolation(exprs) => {
-            let mut parts = vec![];
-            for expr in exprs {
-                parts.push(eval_expression(engine_state, stack, expr)?);
-            }
-
-            let config = engine_state.get_config();
-
-            parts
-                .into_iter()
-                .into_pipeline_data(None)
-                .collect_string("", config)
-                .map(|x| Value::string(x, expr.span))
-        }
-        Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
         Expr::Filepath(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
@@ -668,6 +469,7 @@ pub fn eval_expression(
         Expr::Garbage => Ok(Value::nothing(expr.span)),
         Expr::Nothing => Ok(Value::nothing(expr.span)),
         Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
+        _ => <EvalRuntime as Eval>::eval(engine_state, stack, expr),
     }
 }
 
@@ -1223,10 +1025,6 @@ pub fn eval_variable(
     }
 }
 
-fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
-    unit.to_value(size, span)
-}
-
 fn gen_save_call(
     save_decl_id: DeclId,
     out_info: (Span, Expression, bool),
@@ -1387,6 +1185,18 @@ impl Eval for EvalRuntime {
         .into_value(span))
     }
 
+    fn eval_subexpression(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let block = engine_state.get_block(block_id);
+
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_subexpression(engine_state, stack, block, PipelineData::empty())?.into_value(span))
+    }
+
     fn eval_row_condition_or_closure(
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -1401,6 +1211,26 @@ impl Eval for EvalRuntime {
             .collect::<Result<_, _>>()?;
 
         Ok(Value::closure(Closure { block_id, captures }, span))
+    }
+
+    fn eval_string_interpolation(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        exprs: &[Expression],
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let mut parts = vec![];
+        for expr in exprs {
+            parts.push(eval_expression(engine_state, stack, expr)?);
+        }
+
+        let config = engine_state.get_config();
+
+        parts
+            .into_iter()
+            .into_pipeline_data(None)
+            .collect_string("", config)
+            .map(|x| Value::string(x, span))
     }
 
     fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {

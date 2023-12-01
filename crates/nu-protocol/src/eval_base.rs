@@ -3,7 +3,7 @@ use crate::{
         eval_operator, Bits, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
         RecordItem,
     },
-    Record, ShellError, Span, Value, VarId,
+    Range, Record, ShellError, Span, Value, VarId,
 };
 use std::collections::HashMap;
 
@@ -25,12 +25,14 @@ pub trait Eval {
             Expr::Filepath(path) => Self::eval_filepath(state, mut_state, path.clone(), expr.span),
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-            Expr::FullCellPath(_cell_path) => {
+            Expr::FullCellPath(cell_path) => {
                 // TODO: Both eval.rs and eval_const.rs seem to do the same thing, but
                 // eval_const converts it to a generic error
                 // (there's a todo saying to do better error conversion)
                 // For now, perhaps they could both have the same implementation
-                todo!()
+                let value = Self::eval(state, mut_state, &cell_path.head)?;
+
+                value.follow_cell_path(&cell_path.tail, false)
             }
             Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
             Expr::List(x) => {
@@ -132,47 +134,51 @@ pub trait Eval {
             Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(_expr, _unit) => {
+            Expr::ValueWithUnit(e, unit) => {
                 // The two implementations seem to differ only in the error they give
                 // when expr doesn't evaluate to an Int
                 // eval.rs gives a CantConvert error, while eval_const says NotAConstant
                 // CantConvert seems more appropriate for eval_const too, since the issue isn't that it's not
                 // a constant, it's that it isn't an Int
-                todo!()
+                match Self::eval(state, mut_state, e)? {
+                    Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                    x => Err(ShellError::CantConvert {
+                        to_type: "unit value".into(),
+                        from_type: x.get_type().to_string(),
+                        span: e.span,
+                        help: None,
+                    }),
+                }
             }
             Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
             Expr::ExternalCall(head, args, is_subexpression) => {
                 Self::eval_external_call(state, mut_state, head, args, *is_subexpression)
             }
-            Expr::Subexpression(_block_id) => todo!(),
+            Expr::Subexpression(block_id) => {
+                Self::eval_subexpression(state, mut_state, *block_id, expr.span)
+            }
             Expr::Range(from, next, to, operator) => {
                 let from = if let Some(f) = from {
                     Self::eval(state, mut_state, f)?
                 } else {
-                    Value::Nothing {
-                        internal_span: expr.span,
-                    }
+                    Value::nothing(expr.span)
                 };
 
                 let next = if let Some(s) = next {
                     Self::eval(state, mut_state, s)?
                 } else {
-                    Value::Nothing {
-                        internal_span: expr.span,
-                    }
+                    Value::nothing(expr.span)
                 };
 
                 let to = if let Some(t) = to {
                     Self::eval(state, mut_state, t)?
                 } else {
-                    Value::Nothing {
-                        internal_span: expr.span,
-                    }
+                    Value::nothing(expr.span)
                 };
-                Ok(Value::Range {
-                    val: Box::new(crate::Range::new(expr.span, from, next, to, operator)?),
-                    internal_span: expr.span,
-                })
+                Ok(Value::range(
+                    Range::new(expr.span, from, next, to, operator)?,
+                    expr.span,
+                ))
             }
             Expr::UnaryNot(expr) => {
                 let lhs = Self::eval(state, mut_state, expr)?;
@@ -269,7 +275,9 @@ pub trait Eval {
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
-            Expr::StringInterpolation(_) => todo!(),
+            Expr::StringInterpolation(exprs) => {
+                Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
+            }
             Expr::Directory(_) => todo!(),
             Expr::GlobPattern(_) => todo!(),
             Expr::VarDecl(_) => todo!(),
@@ -309,10 +317,24 @@ pub trait Eval {
         is_subexpression: bool,
     ) -> Result<Value, ShellError>;
 
+    fn eval_subexpression(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
     fn eval_row_condition_or_closure(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_string_interpolation(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        exprs: &[Expression],
         span: Span,
     ) -> Result<Value, ShellError>;
 
