@@ -550,6 +550,15 @@ impl Eval for EvalConst {
         Ok(Value::string(path, span))
     }
 
+    fn eval_directory(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(span))
+    }
+
     fn eval_var(
         working_set: &StateWorkingSet,
         _: &mut (),

@@ -266,22 +266,6 @@ pub fn eval_expression(
         Expr::Operator(_) => Ok(Value::nothing(expr.span)),
         Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
         Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
-        Expr::Filepath(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(s, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), expr.span))
-        }
-        Expr::Directory(s) => {
-            if s == "-" {
-                Ok(Value::string("-", expr.span))
-            } else {
-                let cwd = current_dir_str(engine_state, stack)?;
-                let path = expand_path_with(s, cwd);
-
-                Ok(Value::string(path.to_string_lossy(), expr.span))
-            }
-        }
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
@@ -966,6 +950,22 @@ impl Eval for EvalRuntime {
         let path = expand_path_with(path, cwd);
 
         Ok(Value::string(path.to_string_lossy(), span))
+    }
+
+    fn eval_directory(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        if path == "-" {
+            Ok(Value::string("-", span))
+        } else {
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(path, cwd);
+
+            Ok(Value::string(path.to_string_lossy(), span))
+        }
     }
 
     fn eval_var(

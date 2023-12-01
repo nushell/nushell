@@ -23,6 +23,9 @@ pub trait Eval {
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
             Expr::Filepath(path) => Self::eval_filepath(state, mut_state, path.clone(), expr.span),
+            Expr::Directory(path) => {
+                Self::eval_directory(state, mut_state, path.clone(), expr.span)
+            }
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(cell_path) => {
@@ -295,6 +298,13 @@ pub trait Eval {
     }
 
     fn eval_filepath(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_directory(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         path: String,
