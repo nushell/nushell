@@ -173,7 +173,7 @@ fn action(
 
             if s.get(start_index..end_index).is_none() {
                 return Value::error(
-                    ShellError::InvalidRange {
+                    ShellError::OutOfBounds {
                         left_flank: start_index.to_string(),
                         right_flank: end_index.to_string(),
                         span: range_span,

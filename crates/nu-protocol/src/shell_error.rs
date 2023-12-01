@@ -1236,6 +1236,22 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         #[label = "cannot spread value"]
         span: Span,
     },
+
+    /// Out of bounds.
+    ///
+    /// ## Resolution
+    ///
+    /// Make sure the range is within the bounds of the input.
+    #[error(
+        "The selected range {left_flank}..{right_flank} is out of the bounds of the provided input"
+    )]
+    #[diagnostic(code(nu::shell::out_of_bounds))]
+    OutOfBounds {
+        left_flank: String,
+        right_flank: String,
+        #[label = "byte index is not a char boundary or is out of bounds of the input"]
+        span: Span,
+    },
 }
 
 // TODO: Implement as From trait
