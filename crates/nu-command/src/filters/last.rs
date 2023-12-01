@@ -20,7 +20,6 @@ impl Command for Last {
     fn signature(&self) -> Signature {
         Signature::build("last")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::String)), Type::String),
                 (
                     // TODO: This variant duplicates the functionality of
                     // `take`. See #6611, #6611, #6893
