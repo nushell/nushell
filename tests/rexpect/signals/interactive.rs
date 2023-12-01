@@ -1,6 +1,6 @@
 use std::{thread::sleep, time::Duration};
 
-use super::{nu_binary, spawn_nu, spawn_nu_repl, NuReplExt};
+use crate::rexpect::{nu_binary, spawn_nu_repl, NuReplExt};
 
 use rexpect::{
     error::Error,
@@ -57,8 +57,15 @@ fn external_ctrl_c() -> Result<(), Error> {
 #[test]
 fn ctrlc_protection() -> Result<(), Error> {
     let mut p = spawn_nu_repl(Some(1000))?;
+
+    sleep(Duration::from_millis(250));
+    p.process.signal(Signal::SIGINT)?;
+    sleep(Duration::from_millis(250));
+    assert_eq!(p.process.status(), Some(WaitStatus::StillAlive));
+
     p.send_control('c')?;
     p.handle_prompt()?;
+
     p.exit()
 }
 
@@ -66,43 +73,12 @@ fn ctrlc_protection() -> Result<(), Error> {
 fn sigquit_protection() -> Result<(), Error> {
     let mut p = spawn_nu_repl(Some(1000))?;
 
+    sleep(Duration::from_millis(250));
     p.process.signal(Signal::SIGQUIT)?;
-    sleep(Duration::from_millis(500));
-    p.send_nu_line("'still alive'")?;
-    p.exp_string("still alive")?;
-    p.handle_prompt()?;
+    sleep(Duration::from_millis(250));
+    assert_eq!(p.process.status(), Some(WaitStatus::StillAlive));
 
     p.exit()
-}
-
-#[test]
-#[ignore] // currently fails
-fn ctrlc_non_interactive() -> Result<(), Error> {
-    let mut p = spawn_nu("sleep 1sec")?;
-    // there should be no ctrlc protection in non-interactive mode
-    sleep(Duration::from_millis(500));
-    p.signal(Signal::SIGINT)?;
-    let status = p.wait()?;
-    assert!(
-        matches!(status, WaitStatus::Signaled(_, Signal::SIGINT, _)),
-        "process was not killed by SIGINT: {status:?}",
-    );
-    Ok(())
-}
-
-#[test]
-#[ignore] // currently fails
-fn sigquit_non_interactive() -> Result<(), Error> {
-    let mut p = spawn_nu("sleep 1sec")?;
-    // there should be no sigquit protection in non-interactive mode
-    sleep(Duration::from_millis(500));
-    p.signal(Signal::SIGQUIT)?;
-    let status = p.wait()?;
-    assert!(
-        matches!(status, WaitStatus::Signaled(_, Signal::SIGQUIT, _)),
-        "process was not killed by SIGQUIT: {status:?}",
-    );
-    Ok(())
 }
 
 #[test]
