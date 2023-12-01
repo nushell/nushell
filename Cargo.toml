@@ -104,6 +104,8 @@ pretty_assertions = "1.4"
 rstest = { version = "0.18", default-features = false }
 serial_test = "2.0"
 tempfile = "3.8"
+
+[target.'cfg(target_family = "unix")'.dev-dependencies]
 rexpect = "0.5.0"
 
 [features]
