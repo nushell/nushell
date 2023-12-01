@@ -443,8 +443,15 @@ pub fn flatten_expression(
                             output.push((Span::new(last_end, op_span.start), FlatShape::Record));
                         }
                         output.push((*op_span, FlatShape::Operator));
+                        last_end = op_span.end;
 
                         let flattened_inner = flatten_expression(working_set, record);
+                        if let Some(first) = flattened_inner.first() {
+                            if first.0.start > last_end {
+                                output
+                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                            }
+                        }
                         if let Some(last) = flattened_inner.last() {
                             last_end = last.0.end;
                         }
