@@ -277,17 +277,16 @@ pub trait Eval {
                 }
             }
             Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-            Expr::ImportPattern(_) => todo!(),
-            Expr::Overlay(_) => todo!(),
-            Expr::MatchPattern(_) => todo!(),
-            Expr::MatchBlock(_) => todo!(),
             Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
                 Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
             }
-            Expr::Directory(_) => todo!(),
+            Expr::ImportPattern(_) => todo!(),
+            Expr::Overlay(_) => todo!(),
+            Expr::MatchPattern(_) => todo!(),
+            Expr::MatchBlock(_) => todo!(),
             Expr::GlobPattern(_) => todo!(),
             Expr::VarDecl(_) => todo!(),
             Expr::Signature(_) => todo!(),

@@ -1,17 +1,11 @@
 use crate::{
-    ast::{
-        eval_operator, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, PipelineElement, RecordItem,
-    },
+    ast::{Assignment, Block, Call, Expr, Expression, PipelineElement},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
-    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value, VarId,
+    record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -272,257 +266,18 @@ pub fn eval_constant(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-        Expr::Filepath(path) => Ok(Value::string(path.clone(), expr.span)),
-        Expr::Var(var_id) => match working_set.get_variable(*var_id).const_val.as_ref() {
-            Some(val) => Ok(val.clone()),
-            None => Err(ShellError::NotAConstant(expr.span)),
-        },
-        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-        Expr::FullCellPath(cell_path) => {
-            let value = eval_constant(working_set, &cell_path.head)?;
-
-            match value.follow_cell_path(&cell_path.tail, false) {
-                Ok(val) => Ok(val),
-                // TODO: Better error conversion
-                Err(shell_error) => Err(ShellError::GenericError(
-                    "Error when following cell path".to_string(),
-                    format!("{shell_error:?}"),
-                    Some(expr.span),
-                    None,
-                    vec![],
-                )),
-            }
-        }
-        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-        Expr::List(x) => {
-            let mut output = vec![];
-            for expr in x {
-                match &expr.expr {
-                    Expr::Spread(expr) => match eval_constant(working_set, expr)? {
-                        Value::List { mut vals, .. } => output.append(&mut vals),
-                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                    },
-                    _ => output.push(eval_constant(working_set, expr)?),
-                }
-            }
-            Ok(Value::list(output, expr.span))
-        }
-        Expr::Record(items) => {
-            let mut record = Record::new();
-            let mut col_names = HashMap::new();
-            for item in items {
-                match item {
-                    RecordItem::Pair(col, val) => {
-                        // avoid duplicate cols
-                        let col_name =
-                            value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                        if let Some(orig_span) = col_names.get(&col_name) {
-                            return Err(ShellError::ColumnDefinedTwice {
-                                col_name,
-                                second_use: col.span,
-                                first_use: *orig_span,
-                            });
-                        } else {
-                            col_names.insert(col_name.clone(), col.span);
-                            record.push(col_name, eval_constant(working_set, val)?);
-                        }
-                    }
-                    RecordItem::Spread(_, inner) => match eval_constant(working_set, inner)? {
-                        Value::Record { val: inner_val, .. } => {
-                            for (col_name, val) in inner_val {
-                                if let Some(orig_span) = col_names.get(&col_name) {
-                                    return Err(ShellError::ColumnDefinedTwice {
-                                        col_name,
-                                        second_use: inner.span,
-                                        first_use: *orig_span,
-                                    });
-                                } else {
-                                    col_names.insert(col_name.clone(), inner.span);
-                                    record.push(col_name, val);
-                                }
-                            }
-                        }
-                        _ => return Err(ShellError::CannotSpreadAsRecord { span: inner.span }),
-                    },
-                }
-            }
-
-            Ok(Value::record(record, expr.span))
-        }
-        Expr::Table(headers, vals) => {
-            let mut output_headers = vec![];
-            for expr in headers {
-                let header = value_as_string(eval_constant(working_set, expr)?, expr.span)?;
-                if let Some(idx) = output_headers
-                    .iter()
-                    .position(|existing| existing == &header)
-                {
-                    return Err(ShellError::ColumnDefinedTwice {
-                        col_name: header,
-                        second_use: expr.span,
-                        first_use: headers[idx].span,
-                    });
-                } else {
-                    output_headers.push(header);
-                }
-            }
-
-            let mut output_rows = vec![];
-            for val in vals {
-                let mut row = vec![];
-                for expr in val {
-                    row.push(eval_constant(working_set, expr)?);
-                }
-                // length equality already ensured in parser
-                output_rows.push(Value::record(
-                    Record::from_raw_cols_vals(output_headers.clone(), row),
-                    expr.span,
-                ));
-            }
-            Ok(Value::list(output_rows, expr.span))
-        }
-        Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
-        Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
-        Expr::Nothing => Ok(Value::nothing(expr.span)),
-        Expr::ValueWithUnit(expr, unit) => {
-            if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
-                unit.item.to_value(val, unit.span)
-            } else {
-                Err(ShellError::NotAConstant(expr.span))
-            }
-        }
-        Expr::Call(call) => {
-            Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(expr.span))
-        }
-        Expr::Subexpression(block_id) => {
-            let block = working_set.get_block(*block_id);
-            Ok(
-                eval_const_subexpression(working_set, block, PipelineData::empty(), expr.span)?
-                    .into_value(expr.span),
-            )
-        }
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                eval_constant(working_set, f)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-
-            let next = if let Some(s) = next {
-                eval_constant(working_set, s)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-
-            let to = if let Some(t) = to {
-                eval_constant(working_set, t)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-            Ok(Value::Range {
-                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
-                internal_span: expr.span,
-            })
-        }
-        Expr::UnaryNot(expr) => {
-            let lhs = eval_constant(working_set, expr)?;
-            match lhs {
-                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
-                    span: expr.span,
-                }),
-            }
-        }
-        Expr::BinaryOp(lhs, op, rhs) => {
-            let op_span = op.span;
-            let op = eval_operator(op)?;
-
-            match op {
-                Operator::Boolean(boolean) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    match boolean {
-                        Boolean::And => {
-                            if lhs.is_false() {
-                                Ok(Value::bool(false, expr.span))
-                            } else {
-                                let rhs = eval_constant(working_set, rhs)?;
-                                lhs.and(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Or => {
-                            if lhs.is_true() {
-                                Ok(Value::bool(true, expr.span))
-                            } else {
-                                let rhs = eval_constant(working_set, rhs)?;
-                                lhs.or(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Xor => {
-                            let rhs = eval_constant(working_set, rhs)?;
-                            lhs.xor(op_span, &rhs, expr.span)
-                        }
-                    }
-                }
-                Operator::Math(math) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-
-                    match math {
-                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
-                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
-                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
-                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
-                        Math::Append => lhs.append(op_span, &rhs, expr.span),
-                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
-                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
-                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Comparison(comparison) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-                    match comparison {
-                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
-                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
-                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
-                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
-                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
-                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
-                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
-                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
-                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
-                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
-                        // RegEx comparison is not a constant
-                        _ => Err(ShellError::NotAConstant(expr.span)),
-                    }
-                }
-                Operator::Bits(bits) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-                    match bits {
-                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
-                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
-                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
-                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
-                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Assignment(_) => Err(ShellError::NotAConstant(expr.span)),
-            }
-        }
-        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-        _ => Err(ShellError::NotAConstant(expr.span)),
+        Expr::VarDecl(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::Operator(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::MatchBlock(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::GlobPattern(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::ImportPattern(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::Overlay(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::Signature(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::StringInterpolation(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::MatchPattern(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::Spread(_) => Err(ShellError::NotAConstant(expr.span)),
+        Expr::Garbage => Err(ShellError::NotAConstant(expr.span)),
+        _ => <EvalConst as Eval>::eval(working_set, &mut (), expr),
     }
 }
 
