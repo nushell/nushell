@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PipelineElement, RecordItem,
+        eval_operator, Assignment, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math,
+        Operator, PipelineElement, RecordItem,
     },
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
@@ -595,6 +595,29 @@ impl Eval for EvalConst {
             eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
                 .into_value(span),
         )
+    }
+
+    fn regex_match(
+        _: &StateWorkingSet,
+        _op_span: Span,
+        _: &Value,
+        _: &Value,
+        _: bool,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(expr_span))
+    }
+
+    fn eval_assignment(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: &Expression,
+        _: &Expression,
+        _: Assignment,
+        _op_span: Span,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(expr_span))
     }
 
     fn eval_row_condition_or_closure(

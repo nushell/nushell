@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        eval_operator, Bits, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        RecordItem,
+        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, Math,
+        Operator, RecordItem,
     },
     Range, Record, ShellError, Span, Value, VarId,
 };
@@ -249,8 +249,12 @@ pub trait Eval {
                             Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
                             Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
                             Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
-                            Comparison::RegexMatch => todo!(),
-                            Comparison::NotRegexMatch => todo!(),
+                            Comparison::RegexMatch => {
+                                Self::regex_match(state, op_span, &lhs, &rhs, false, expr.span)
+                            }
+                            Comparison::NotRegexMatch => {
+                                Self::regex_match(state, op_span, &lhs, &rhs, true, expr.span)
+                            }
                         }
                     }
                     Operator::Bits(bits) => {
@@ -264,7 +268,9 @@ pub trait Eval {
                             Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
                         }
                     }
-                    Operator::Assignment(_) => todo!(),
+                    Operator::Assignment(assignment) => Self::eval_assignment(
+                        state, mut_state, lhs, rhs, assignment, op_span, expr.span,
+                    ),
                 }
             }
             Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
@@ -322,6 +328,25 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         block_id: usize,
         span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn regex_match(
+        state: Self::State<'_>,
+        op_span: Span,
+        lhs: &Value,
+        rhs: &Value,
+        invert: bool,
+        expr_span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_assignment(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        lhs: &Expression,
+        rhs: &Expression,
+        assignment: Assignment,
+        op_span: Span,
+        expr_span: Span,
     ) -> Result<Value, ShellError>;
 
     fn eval_row_condition_or_closure(

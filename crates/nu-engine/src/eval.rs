@@ -2,8 +2,8 @@ use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
-        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
+        Argument, Assignment, Block, Call, Expr, Expression, PathMember, PipelineElement,
+        Redirection,
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
@@ -266,183 +266,6 @@ pub fn eval_expression(
         Expr::Operator(_) => Ok(Value::nothing(expr.span)),
         Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
         Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
-        Expr::BinaryOp(lhs, op, rhs) => {
-            let op_span = op.span;
-            let op = eval_operator(op)?;
-
-            match op {
-                Operator::Boolean(boolean) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    match boolean {
-                        Boolean::And => {
-                            if lhs.is_false() {
-                                Ok(Value::bool(false, expr.span))
-                            } else {
-                                let rhs = eval_expression(engine_state, stack, rhs)?;
-                                lhs.and(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Or => {
-                            if lhs.is_true() {
-                                Ok(Value::bool(true, expr.span))
-                            } else {
-                                let rhs = eval_expression(engine_state, stack, rhs)?;
-                                lhs.or(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Xor => {
-                            let rhs = eval_expression(engine_state, stack, rhs)?;
-                            lhs.xor(op_span, &rhs, expr.span)
-                        }
-                    }
-                }
-                Operator::Math(math) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-
-                    match math {
-                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
-                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
-                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
-                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
-                        Math::Append => lhs.append(op_span, &rhs, expr.span),
-                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
-                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
-                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Comparison(comparison) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    match comparison {
-                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
-                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
-                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
-                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
-                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
-                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
-                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
-                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
-                        Comparison::RegexMatch => {
-                            lhs.regex_match(engine_state, op_span, &rhs, false, expr.span)
-                        }
-                        Comparison::NotRegexMatch => {
-                            lhs.regex_match(engine_state, op_span, &rhs, true, expr.span)
-                        }
-                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
-                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Bits(bits) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    match bits {
-                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
-                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
-                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
-                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
-                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Assignment(assignment) => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-
-                    let rhs = match assignment {
-                        Assignment::Assign => rhs,
-                        Assignment::PlusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.add(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MinusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.sub(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MultiplyAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.mul(op_span, &rhs, op_span)?
-                        }
-                        Assignment::DivideAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.div(op_span, &rhs, op_span)?
-                        }
-                        Assignment::AppendAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.append(op_span, &rhs, op_span)?
-                        }
-                    };
-
-                    match &lhs.expr {
-                        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                            let var_info = engine_state.get_var(*var_id);
-                            if var_info.mutable {
-                                stack.add_var(*var_id, rhs);
-                                Ok(Value::nothing(lhs.span))
-                            } else {
-                                Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
-                            }
-                        }
-                        Expr::FullCellPath(cell_path) => {
-                            match &cell_path.head.expr {
-                                Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                                    // The $env variable is considered "mutable" in Nushell.
-                                    // As such, give it special treatment here.
-                                    let is_env = var_id == &ENV_VARIABLE_ID;
-                                    if is_env || engine_state.get_var(*var_id).mutable {
-                                        let mut lhs =
-                                            eval_expression(engine_state, stack, &cell_path.head)?;
-
-                                        lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                        if is_env {
-                                            if cell_path.tail.is_empty() {
-                                                return Err(ShellError::CannotReplaceEnv {
-                                                    span: cell_path.head.span,
-                                                });
-                                            }
-
-                                            // The special $env treatment: for something like $env.config.history.max_size = 2000,
-                                            // get $env.config (or whichever one it is) AFTER the above mutation, and set it
-                                            // as the "config" environment variable.
-                                            let vardata = lhs.follow_cell_path(
-                                                &[cell_path.tail[0].clone()],
-                                                false,
-                                            )?;
-                                            match &cell_path.tail[0] {
-                                                PathMember::String { val, span, .. } => {
-                                                    if val == "FILE_PWD"
-                                                        || val == "CURRENT_FILE"
-                                                        || val == "PWD"
-                                                    {
-                                                        return Err(ShellError::AutomaticEnvVarSetManually {
-                                                    envvar_name: val.to_string(),
-                                                    span: *span,
-                                                });
-                                                    } else {
-                                                        stack.add_env_var(val.to_string(), vardata);
-                                                    }
-                                                }
-                                                // In case someone really wants an integer env-var
-                                                PathMember::Int { val, .. } => {
-                                                    stack.add_env_var(val.to_string(), vardata);
-                                                }
-                                            }
-                                        } else {
-                                            stack.add_var(*var_id, lhs);
-                                        }
-                                        Ok(Value::nothing(cell_path.head.span))
-                                    } else {
-                                        Err(ShellError::AssignmentRequiresMutableVar {
-                                            lhs_span: lhs.span,
-                                        })
-                                    }
-                                }
-                                _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
-                            }
-                        }
-                        _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
-                    }
-                }
-            }
-        }
         Expr::Filepath(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
@@ -1195,6 +1018,118 @@ impl Eval for EvalRuntime {
 
         // FIXME: protect this collect with ctrl-c
         Ok(eval_subexpression(engine_state, stack, block, PipelineData::empty())?.into_value(span))
+    }
+
+    fn regex_match(
+        engine_state: &EngineState,
+        op_span: Span,
+        lhs: &Value,
+        rhs: &Value,
+        invert: bool,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
+    }
+
+    fn eval_assignment(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        lhs: &Expression,
+        rhs: &Expression,
+        assignment: Assignment,
+        op_span: Span,
+        _expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        let rhs = eval_expression(engine_state, stack, rhs)?;
+
+        let rhs = match assignment {
+            Assignment::Assign => rhs,
+            Assignment::PlusAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.add(op_span, &rhs, op_span)?
+            }
+            Assignment::MinusAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.sub(op_span, &rhs, op_span)?
+            }
+            Assignment::MultiplyAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.mul(op_span, &rhs, op_span)?
+            }
+            Assignment::DivideAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.div(op_span, &rhs, op_span)?
+            }
+            Assignment::AppendAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.append(op_span, &rhs, op_span)?
+            }
+        };
+
+        match &lhs.expr {
+            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                let var_info = engine_state.get_var(*var_id);
+                if var_info.mutable {
+                    stack.add_var(*var_id, rhs);
+                    Ok(Value::nothing(lhs.span))
+                } else {
+                    Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                }
+            }
+            Expr::FullCellPath(cell_path) => {
+                match &cell_path.head.expr {
+                    Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                        // The $env variable is considered "mutable" in Nushell.
+                        // As such, give it special treatment here.
+                        let is_env = var_id == &ENV_VARIABLE_ID;
+                        if is_env || engine_state.get_var(*var_id).mutable {
+                            let mut lhs = eval_expression(engine_state, stack, &cell_path.head)?;
+
+                            lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
+                            if is_env {
+                                if cell_path.tail.is_empty() {
+                                    return Err(ShellError::CannotReplaceEnv {
+                                        span: cell_path.head.span,
+                                    });
+                                }
+
+                                // The special $env treatment: for something like $env.config.history.max_size = 2000,
+                                // get $env.config (or whichever one it is) AFTER the above mutation, and set it
+                                // as the "config" environment variable.
+                                let vardata =
+                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], false)?;
+                                match &cell_path.tail[0] {
+                                    PathMember::String { val, span, .. } => {
+                                        if val == "FILE_PWD"
+                                            || val == "CURRENT_FILE"
+                                            || val == "PWD"
+                                        {
+                                            return Err(ShellError::AutomaticEnvVarSetManually {
+                                                envvar_name: val.to_string(),
+                                                span: *span,
+                                            });
+                                        } else {
+                                            stack.add_env_var(val.to_string(), vardata);
+                                        }
+                                    }
+                                    // In case someone really wants an integer env-var
+                                    PathMember::Int { val, .. } => {
+                                        stack.add_env_var(val.to_string(), vardata);
+                                    }
+                                }
+                            } else {
+                                stack.add_var(*var_id, lhs);
+                            }
+                            Ok(Value::nothing(cell_path.head.span))
+                        } else {
+                            Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                        }
+                    }
+                    _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+                }
+            }
+            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+        }
     }
 
     fn eval_row_condition_or_closure(
