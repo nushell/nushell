@@ -1,8 +1,12 @@
 use std::{thread::sleep, time::Duration};
 
-use super::{nu_binary, spawn_nu, NuReplExt};
+use super::{nu_binary, spawn_nu, spawn_nu_repl, NuReplExt};
 
-use rexpect::{error::Error, spawn_bash};
+use rexpect::{
+    error::Error,
+    process::{signal::Signal, wait::WaitStatus},
+    spawn_bash,
+};
 
 #[test]
 fn can_be_backgrounded_in_bash() -> Result<(), Error> {
@@ -20,8 +24,7 @@ fn can_be_backgrounded_in_bash() -> Result<(), Error> {
 
 #[test]
 fn internal_ctrl_c() -> Result<(), Error> {
-    let mut p = spawn_nu(Some(3000))?;
-    p.handle_prompt()?;
+    let mut p = spawn_nu_repl(Some(1000))?;
 
     p.send_nu_line("sleep 5sec")?;
     sleep(Duration::from_millis(500));
@@ -37,10 +40,75 @@ fn internal_ctrl_c() -> Result<(), Error> {
 }
 
 #[test]
+fn external_ctrl_c() -> Result<(), Error> {
+    let mut p = spawn_nu_repl(Some(1000))?;
+
+    p.send_nu_line("bash -c read")?;
+    sleep(Duration::from_millis(500));
+    p.send_control('c')?;
+    p.handle_prompt()?;
+
+    // TODO: exp exit code > 0 ?
+    // currently exit code is -1 for some reason
+
+    p.exit()
+}
+
+#[test]
+fn ctrlc_protection() -> Result<(), Error> {
+    let mut p = spawn_nu_repl(Some(1000))?;
+    p.send_control('c')?;
+    p.handle_prompt()?;
+    p.exit()
+}
+
+#[test]
+fn sigquit_protection() -> Result<(), Error> {
+    let mut p = spawn_nu_repl(Some(1000))?;
+
+    p.process.signal(Signal::SIGQUIT)?;
+    sleep(Duration::from_millis(500));
+    p.send_nu_line("'still alive'")?;
+    p.exp_string("still alive")?;
+    p.handle_prompt()?;
+
+    p.exit()
+}
+
+#[test]
+#[ignore] // currently fails
+fn ctrlc_non_interactive() -> Result<(), Error> {
+    let mut p = spawn_nu("sleep 1sec")?;
+    // there should be no ctrlc protection in non-interactive mode
+    sleep(Duration::from_millis(500));
+    p.signal(Signal::SIGINT)?;
+    let status = p.wait()?;
+    assert!(
+        matches!(status, WaitStatus::Signaled(_, Signal::SIGINT, _)),
+        "process was not killed by SIGINT: {status:?}",
+    );
+    Ok(())
+}
+
+#[test]
+#[ignore] // currently fails
+fn sigquit_non_interactive() -> Result<(), Error> {
+    let mut p = spawn_nu("sleep 1sec")?;
+    // there should be no sigquit protection in non-interactive mode
+    sleep(Duration::from_millis(500));
+    p.signal(Signal::SIGQUIT)?;
+    let status = p.wait()?;
+    assert!(
+        matches!(status, WaitStatus::Signaled(_, Signal::SIGQUIT, _)),
+        "process was not killed by SIGQUIT: {status:?}",
+    );
+    Ok(())
+}
+
+#[test]
 #[ignore] // currently fails, issue #7154
 fn par_each_ctrl_c() -> Result<(), Error> {
-    let mut p = spawn_nu(Some(3000))?;
-    p.handle_prompt()?;
+    let mut p = spawn_nu_repl(Some(3000))?;
 
     const N: usize = 3;
     const MSG: &str = "sleeping";
