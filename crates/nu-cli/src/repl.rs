@@ -44,12 +44,31 @@ const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
 // const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
+// Todo: Find a better place for this or simply make HistorySessionId accessible from the outside
+/// Bypasses the `HistorySessionId` struct not being creatable with a unique value
+/// due to it being private without having to modify the reedline crate.
+/// The unsafe transmute below is also a part of this
+pub(crate) struct HistorySessionIdPublic(pub i64);
+
+impl From<HistorySessionId> for HistorySessionIdPublic {
+    fn from(value: HistorySessionId) -> Self {
+        unsafe { std::mem::transmute(value) }
+    }
+}
+
+impl Into<HistorySessionId> for HistorySessionIdPublic {
+    fn into(self) -> HistorySessionId {
+        unsafe { std::mem::transmute(self) }
+    }
+}
+
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
+    session_id: Option<Spanned<i64>>,
     entire_start_time: Instant,
 ) -> Result<()> {
     use nu_cmd_base::hook;
@@ -111,7 +130,11 @@ pub fn evaluate_repl(
     // Setup history_isolation aka "history per session"
     let history_isolation = engine_state.get_config().history_isolation;
     let history_session_id = if history_isolation {
-        Reedline::create_history_session_id()
+        if let Some(session_id_nanos) = session_id {
+            Some(HistorySessionIdPublic(session_id_nanos.item).into())
+        } else {
+            Reedline::create_history_session_id()
+        }
     } else {
         None
     };
@@ -122,8 +145,13 @@ pub fn evaluate_repl(
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        line_editor =
-            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
+        line_editor = update_line_editor_history(
+            engine_state,
+            history_path,
+            line_editor,
+            history_session_id,
+            // history_session_timestamp,
+        )?
     };
     perf(
         "setup history",
@@ -716,7 +744,33 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
         .unwrap_or(0);
 
     engine_state.history_session_id = session_id;
+
+    engine_state.add_env_var(
+        "NU_SESSION_ID".to_string(),
+        Value::int(session_id, Span::unknown()),
+    );
 }
+
+// pub(crate) fn update_history_id_in_engine(
+//     engine_state: &mut EngineState,
+//     line_editor: &mut Reedline,
+//     history_session: Option<HistorySessionId>,
+// ) {
+//     let session_id = history_session.map(i64::from).unwrap_or(0);
+//     engine_state.history_session_id = session_id;
+
+//     line_editor
+//         .set_history_session_id(history_session)
+//         .expect("Ok as result");
+
+//     line_editor.history_mut().update_session(history_session);
+
+//     // Does this call work when NU_SESSION_ID is already set?
+//     engine_state.add_env_var(
+//         "NU_SESSION_ID".to_string(),
+//         Value::int(session_id, Span::unknown()),
+//     );
+// }
 
 fn update_line_editor_history(
     engine_state: &mut EngineState,
@@ -734,12 +788,8 @@ fn update_line_editor_history(
             .into_diagnostic()?,
         ),
         HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
-                history_session_id,
-                Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
+            SqliteBackedHistory::with_file(history_path.to_path_buf(), history_session_id)
+                .into_diagnostic()?,
         ),
     };
     let line_editor = line_editor

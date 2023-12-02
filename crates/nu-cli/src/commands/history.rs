@@ -71,7 +71,7 @@ impl Command for History {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
                     match engine_state.config.history_file_format {
                         HistoryFileFormat::Sqlite => {
-                            SqliteBackedHistory::with_file(history_path, None, None)
+                            SqliteBackedHistory::with_file(history_path, None)
                                 .map(|inner| {
                                     let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                                     boxed
