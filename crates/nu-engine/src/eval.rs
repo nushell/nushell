@@ -255,27 +255,19 @@ pub fn eval_expression(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
-        Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
         Expr::Overlay(_) => {
             let name =
                 String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
 
             Ok(Value::string(name, expr.span))
         }
-        Expr::Operator(_) => Ok(Value::nothing(expr.span)),
         Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
-        Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
         Expr::GlobPattern(s) => {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(s, cwd);
 
             Ok(Value::string(path.to_string_lossy(), expr.span))
         }
-        Expr::Signature(_) => Ok(Value::nothing(expr.span)),
-        Expr::Garbage => Ok(Value::nothing(expr.span)),
-        Expr::Nothing => Ok(Value::nothing(expr.span)),
-        Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
         _ => <EvalRuntime as Eval>::eval(engine_state, stack, expr),
     }
 }

@@ -283,16 +283,16 @@ pub trait Eval {
             Expr::StringInterpolation(exprs) => {
                 Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
             }
-            Expr::ImportPattern(_) => todo!(),
             Expr::Overlay(_) => todo!(),
-            Expr::MatchPattern(_) => todo!(),
-            Expr::MatchBlock(_) => todo!(),
             Expr::GlobPattern(_) => todo!(),
-            Expr::VarDecl(_) => todo!(),
-            Expr::Signature(_) => todo!(),
-            Expr::Spread(_) => todo!(),
-            Expr::Operator(_) => todo!(),
-            Expr::Garbage => todo!(),
+            Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
+            Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
+            Expr::MatchPattern(_) => todo!(),
+            Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
+            Expr::Signature(_) => Ok(Value::nothing(expr.span)),
+            Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
+            Expr::Operator(_) => Ok(Value::nothing(expr.span)),
+            Expr::Garbage => Ok(Value::nothing(expr.span)),
         }
     }
 

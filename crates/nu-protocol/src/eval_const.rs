@@ -266,17 +266,9 @@ pub fn eval_constant(
     expr: &Expression,
 ) -> Result<Value, ShellError> {
     match &expr.expr {
-        Expr::VarDecl(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::Operator(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::MatchBlock(_) => Err(ShellError::NotAConstant(expr.span)),
         Expr::GlobPattern(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::ImportPattern(_) => Err(ShellError::NotAConstant(expr.span)),
         Expr::Overlay(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::Signature(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::StringInterpolation(_) => Err(ShellError::NotAConstant(expr.span)),
         Expr::MatchPattern(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::Spread(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::Garbage => Err(ShellError::NotAConstant(expr.span)),
         _ => <EvalConst as Eval>::eval(working_set, &mut (), expr),
     }
 }
