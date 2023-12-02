@@ -1,6 +1,7 @@
-use polars::error::PolarsError;
-use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit};
-
+use polars::{
+    error::PolarsError,
+    prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit},
+};
 use sqlparser::ast::{
     BinaryOperator as SQLBinaryOperator, DataType as SQLDataType, Expr as SqlExpr,
     Function as SQLFunction, Value as SqlValue, WindowType,
@@ -181,7 +182,8 @@ fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
             _ => {
                 return Err(PolarsError::ComputeError(
                     format!(
-                        "Function {function_name:?} with args {args:?} was not supported in polars-sql yet!"
+                        "Function {function_name:?} with args {args:?} was not supported in \
+                         polars-sql yet!"
                     )
                     .into(),
                 ))

@@ -9,9 +9,8 @@ mod values;
 pub use eager::add_eager_decls;
 pub use expressions::add_expressions;
 pub use lazy::add_lazy_decls;
-pub use series::add_series_decls;
-
 use nu_protocol::engine::{EngineState, StateWorkingSet};
+pub use series::add_series_decls;
 
 pub fn add_dataframe_context(mut engine_state: EngineState) -> EngineState {
     let delta = {

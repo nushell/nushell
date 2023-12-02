@@ -1,6 +1,3 @@
-use crate::help::help_aliases;
-use crate::help::help_commands;
-use crate::help::help_modules;
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_engine::CallExt;
@@ -11,6 +8,8 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
+
+use crate::help::{help_aliases, help_commands, help_modules};
 #[derive(Clone)]
 pub struct Help;
 
@@ -196,7 +195,8 @@ pub fn highlight_search_in_table(
     Ok(matches)
 }
 
-// Highlight the search string using ANSI escape sequences and regular expressions.
+// Highlight the search string using ANSI escape sequences and regular
+// expressions.
 pub fn highlight_search_string(
     haystack: &str,
     needle: &str,

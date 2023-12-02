@@ -1,6 +1,8 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code, pipeline};
+use nu_test_support::{
+    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    nu, nu_repl_code, pipeline,
+    playground::Playground,
+};
 use pretty_assertions::assert_eq;
 
 #[cfg(feature = "which-support")]
@@ -8,7 +10,7 @@ mod environment;
 
 mod pipeline;
 
-//FIXME: jt: we need to focus some fixes on wix as the plugins will differ
+// FIXME: jt: we need to focus some fixes on wix as the plugins will differ
 #[ignore]
 #[test]
 fn plugins_are_declared_with_wix() {

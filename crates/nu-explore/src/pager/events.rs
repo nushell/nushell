@@ -38,8 +38,8 @@ impl UIEvents {
             Ok(true) => {
                 if let Event::Key(event) = read()? {
                     // We are only interested in Pressed events;
-                    // It's crucial because there are cases where terminal MIGHT produce false events;
-                    // 2 events 1 for release 1 for press.
+                    // It's crucial because there are cases where terminal MIGHT produce false
+                    // events; 2 events 1 for release 1 for press.
                     // Want to react only on 1 of them so we do.
                     if event.kind == KeyEventKind::Press {
                         return Ok(Some(event));

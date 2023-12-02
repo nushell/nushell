@@ -5,9 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
-
 use super::super::values::{Column, NuDataFrame};
+use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
 
 #[derive(Clone)]
 pub struct RenameDF;
@@ -172,8 +171,7 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

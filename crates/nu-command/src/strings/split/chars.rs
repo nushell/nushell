@@ -1,10 +1,11 @@
-use crate::grapheme_flags;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::grapheme_flags;
 
 #[derive(Clone)]
 pub struct SubCommand;

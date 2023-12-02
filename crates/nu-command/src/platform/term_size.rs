@@ -1,6 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 use terminal_size::{terminal_size, Height, Width};
@@ -14,7 +14,8 @@ impl Command for TermSize {
     }
 
     fn usage(&self) -> &str {
-        "Returns a record containing the number of columns (width) and rows (height) of the terminal."
+        "Returns a record containing the number of columns (width) and rows (height) of the \
+         terminal."
     }
 
     fn signature(&self) -> Signature {

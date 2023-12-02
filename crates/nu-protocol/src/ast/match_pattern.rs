@@ -1,6 +1,7 @@
+use serde::{Deserialize, Serialize};
+
 use super::Expression;
 use crate::{Span, VarId};
-use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MatchPattern {

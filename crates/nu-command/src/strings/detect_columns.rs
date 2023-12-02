@@ -1,11 +1,10 @@
-use std::iter::Peekable;
-use std::str::CharIndices;
+use std::{iter::Peekable, str::CharIndices};
 
 use itertools::Itertools;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
@@ -70,20 +69,20 @@ impl Command for DetectColumns {
             },
             Example {
                 description: "",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns \
+                          0..1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns \
+                          -2..-1",
                 result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example:
-                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2..",
+                example: "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns \
+                          2..",
                 result: None,
             },
             Example {
@@ -294,14 +293,12 @@ fn baseline(src: &mut Input) -> Spanned<String> {
 
     // The process of slurping up a baseline token repeats:
     //
-    // - String literal, which begins with `'`, `"` or `\``, and continues until
-    //   the same character is encountered again.
-    // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until
-    //   the matching closing delimiter is found, skipping comments and string
-    //   literals.
-    // - When not nested inside of a delimiter pair, when a terminating
-    //   character (whitespace, `|`, `;` or `#`) is encountered, the baseline
-    //   token is done.
+    // - String literal, which begins with `'`, `"` or `\``, and continues until the
+    //   same character is encountered again.
+    // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until the
+    //   matching closing delimiter is found, skipping comments and string literals.
+    // - When not nested inside of a delimiter pair, when a terminating character
+    //   (whitespace, `|`, `;` or `#`) is encountered, the baseline token is done.
     // - Otherwise, accumulate the character into the current baseline token.
     while let Some((_, c)) = src.peek() {
         let c = *c;
@@ -374,10 +371,10 @@ fn baseline(src: &mut Input) -> Spanned<String> {
     }
 
     if quote_start.is_some() {
-        // The non-lite parse trims quotes on both sides, so we add the expected quote so that
-        // anyone wanting to consume this partial parse (e.g., completions) will be able to get
-        // correct information from the non-lite parse.
-        // token_contents.push(delimiter);
+        // The non-lite parse trims quotes on both sides, so we add the expected quote
+        // so that anyone wanting to consume this partial parse (e.g.,
+        // completions) will be able to get correct information from the
+        // non-lite parse. token_contents.push(delimiter);
 
         // return (
         //     token_contents.spanned(span),

@@ -1,6 +1,6 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
+    ast::{Call, Expr, Expression, PipelineElement},
+    engine::{Command, EngineState, Stack, StateWorkingSet},
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
     Signature, Span, Type, Unit, Value,
 };

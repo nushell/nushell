@@ -1,13 +1,15 @@
-use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
+use std::{
+    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
+    sync::Arc,
+};
+
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::{
-    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
-    sync::Arc,
-};
+
+use crate::completions::{file_path_completion, Completer, CompletionOptions, SortBy};
 
 #[derive(Clone)]
 pub struct DotNuCompletion {

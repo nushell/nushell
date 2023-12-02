@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, nu, pipeline, playground::Playground};
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -154,7 +152,7 @@ fn string_interpolation_and_paren() {
 
 #[test]
 fn string_interpolation_with_unicode() {
-    //カ = U+30AB : KATAKANA LETTER KA
+    // カ = U+30AB : KATAKANA LETTER KA
     let actual = nu!(r#"
             $"カ"
         "#);
@@ -246,14 +244,15 @@ fn run_custom_command_with_rest_and_flag() {
 #[test]
 fn run_custom_command_with_empty_rest() {
     let actual = nu!("
-            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | is-empty
+            def rest-me-with-empty-rest [...rest: string] { $rest }; rest-me-with-empty-rest | \
+                      is-empty
         ");
 
     assert_eq!(actual.out, "true");
     assert_eq!(actual.err, "");
 }
 
-//FIXME: jt: blocked on https://github.com/nushell/engine-q/issues/912
+// FIXME: jt: blocked on https://github.com/nushell/engine-q/issues/912
 #[ignore]
 #[test]
 fn run_custom_command_with_rest_other_name() {
@@ -274,7 +273,8 @@ fn run_custom_command_with_rest_other_name() {
 #[test]
 fn alias_a_load_env() {
     let actual = nu!("
-            def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); activate; $env.BOB
+            def activate-helper [] { {BOB: SAM} }; alias activate = load-env (activate-helper); \
+                      activate; $env.BOB
         ");
 
     assert_eq!(actual.out, "SAM");
@@ -430,7 +430,8 @@ fn proper_shadow_load_env_aliases() {
     assert_eq!(actual.out, "truefalsetrue");
 }
 
-//FIXME: jt: load-env can not currently hide variables because null no longer hides
+// FIXME: jt: load-env can not currently hide variables because null no longer
+// hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs() {
@@ -445,7 +446,8 @@ fn load_env_can_hide_var_envs() {
     assert!(actual.err.contains("Unknown column"));
 }
 
-//FIXME: jt: load-env can not currently hide variables because null no longer hides
+// FIXME: jt: load-env can not currently hide variables because null no longer
+// hides
 #[ignore]
 #[test]
 fn load_env_can_hide_var_envs_in_parent_scope() {
@@ -466,7 +468,8 @@ fn load_env_can_hide_var_envs_in_parent_scope() {
 #[test]
 fn proper_shadow_let_aliases() {
     let actual = nu!("
-        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; print $DEBUG
+        let DEBUG = false; print $DEBUG | table; do { let DEBUG = true; print $DEBUG } | table; \
+                      print $DEBUG
         ");
     assert_eq!(actual.out, "falsetruefalse");
 }
@@ -945,7 +948,8 @@ fn hide_alias_shadowing() {
     assert_eq!(actual.out, "hello");
 }
 
-// FIXME: Seems like subexpression are no longer scoped. Should we remove this test?
+// FIXME: Seems like subexpression are no longer scoped. Should we remove this
+// test?
 #[ignore]
 #[test]
 fn hide_alias_does_not_escape_scope() {
@@ -981,16 +985,14 @@ fn hide_alias_hides_alias() {
 mod parse {
     use nu_test_support::nu;
 
-    /*
-        The debug command's signature is:
-
-        Usage:
-        > debug {flags}
-
-        flags:
-        -h, --help: Display the help message for this command
-        -r, --raw: Prints the raw value representation.
-    */
+    // The debug command's signature is:
+    //
+    // Usage:
+    // > debug {flags}
+    //
+    // flags:
+    // -h, --help: Display the help message for this command
+    // -r, --raw: Prints the raw value representation.
 
     #[test]
     fn errors_if_flag_passed_is_not_exact() {
@@ -1090,7 +1092,8 @@ mod variable_scoping {
                 == "ZZZ"
         );
         test_variable_scope!(
-            " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { echo $input } } }
+            " def test [input] { echo [0 1 2] | do { if $input == $input { echo $input } else { \
+             echo $input } } }
                 test ZZZ "
                 == "ZZZ"
         );
@@ -1100,12 +1103,14 @@ mod variable_scoping {
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo $input}} }
+            " def test [input] { echo [0 1 2] | each { |it| if $it > 0 {echo $input} else {echo \
+             $input}} }
                 test ZZZ "
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );
         test_variable_scope_list!(
-            " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else {echo $input}} }
+            " def test [input] { echo [0 1 2] | each { |_| if $input == $input {echo $input} else \
+             {echo $input}} }
                 test ZZZ "
                 == ["ZZZ", "ZZZ", "ZZZ"]
         );

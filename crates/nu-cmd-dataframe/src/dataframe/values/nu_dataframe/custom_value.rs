@@ -1,5 +1,6 @@
-use super::NuDataFrame;
 use nu_protocol::{ast::Operator, CustomValue, ShellError, Span, Value};
+
+use super::NuDataFrame;
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuDataFrame {

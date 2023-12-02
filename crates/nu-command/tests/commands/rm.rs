@@ -1,8 +1,10 @@
-use nu_test_support::fs::{files_exist_at, Stub::EmptyFile};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
+
+use nu_test_support::{
+    fs::{files_exist_at, Stub::EmptyFile},
+    nu,
+    playground::Playground,
+};
 
 #[test]
 fn removes_a_file() {
@@ -401,8 +403,8 @@ fn set_dir_read_only(directory: &Path, read_only: bool) {
 }
 
 impl<'a> Drop for Cleanup<'a> {
-    /// Restores write permissions to the given directory so that the Playground can be successfully
-    /// cleaned up.
+    /// Restores write permissions to the given directory so that the Playground
+    /// can be successfully cleaned up.
     fn drop(&mut self) {
         set_dir_read_only(self.dir_to_clean, false);
     }
@@ -430,7 +432,8 @@ fn rm_prints_filenames_on_error() {
             dir_to_clean: test_dir,
         };
 
-        // This rm is expected to fail, and stderr output indicating so is also expected.
+        // This rm is expected to fail, and stderr output indicating so is also
+        // expected.
         let actual = nu!(cwd: test_dir, "rm test*.txt");
 
         assert!(files_exist_at(file_names.clone(), test_dir));

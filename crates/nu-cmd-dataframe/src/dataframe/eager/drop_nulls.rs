@@ -5,8 +5,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use super::super::values::utils::convert_columns_string;
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::{utils::convert_columns_string, Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct DropNulls;
@@ -129,9 +128,10 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::super::WithColumn;
-    use super::*;
+    use super::{
+        super::{super::test_dataframe::test_dataframe, WithColumn},
+        *,
+    };
 
     #[test]
     fn test_examples() {

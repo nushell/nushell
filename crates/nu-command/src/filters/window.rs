@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
@@ -85,26 +85,18 @@ impl Command for Window {
             Example {
                 example: "[1 2 3 4] | window 2",
                 description: "A sliding window of two elements",
-                result: Some(Value::list(
-                    stream_test_1,
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(stream_test_1, Span::test_data())),
             },
             Example {
                 example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
                 description: "A sliding window of two elements, with a stride of 3",
-                result: Some(Value::list(
-                    stream_test_2,
-                    Span::test_data(),
-                )),
+                result: Some(Value::list(stream_test_2, Span::test_data())),
             },
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
-                description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
-                result: Some(Value::list(
-                    stream_test_3,
-                    Span::test_data(),
-                )),
+                description: "A sliding window of equal stride that includes remainder. \
+                              Equivalent to chunking",
+                result: Some(Value::list(stream_test_3, Span::test_data())),
             },
         ]
     }
@@ -124,7 +116,8 @@ impl Command for Window {
 
         let stride = stride.unwrap_or(1);
 
-        //FIXME: add in support for external redirection when engine-q supports it generally
+        // FIXME: add in support for external redirection when engine-q supports it
+        // generally
 
         let each_group_iterator = EachWindowIterator {
             group_size: group_size.item,
@@ -157,7 +150,8 @@ impl Iterator for EachWindowIterator {
         let mut group = self.previous.take().unwrap_or_else(|| {
             let mut vec = Vec::new();
 
-            // We default to a Vec of capacity size + stride as striding pushes n extra elements to the end
+            // We default to a Vec of capacity size + stride as striding pushes n extra
+            // elements to the end
             vec.try_reserve(self.group_size + self.stride).ok();
 
             vec

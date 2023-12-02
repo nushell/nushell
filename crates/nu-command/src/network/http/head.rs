@@ -1,10 +1,9 @@
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
 
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
@@ -135,8 +134,9 @@ fn run_head(
     helper(engine_state, stack, call, args, ctrl_c)
 }
 
-// Helper function that actually goes to retrieve the resource from the url given
-// The Option<String> return a possible file extension which can be used in AutoConvert commands
+// Helper function that actually goes to retrieve the resource from the url
+// given The Option<String> return a possible file extension which can be used
+// in AutoConvert commands
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,

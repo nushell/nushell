@@ -1,8 +1,7 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
-use rstest::rstest;
 use std::path::{Path, PathBuf};
+
+use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
+use rstest::rstest;
 
 #[test]
 fn empty_glob_pattern_triggers_error() {
@@ -121,7 +120,8 @@ fn glob_ignore_files() {
     })
 }
 
-// clone of fs::create_file_at removing the parent panic, whose purpose I do not grok.
+// clone of fs::create_file_at removing the parent panic, whose purpose I do not
+// grok.
 pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error> {
     let full_path = full_path.as_ref();
     std::fs::write(full_path, b"fake data")
@@ -129,7 +129,8 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 
 // playground has root directory and subdirectories foo and foo/bar to play with
 // specify all test files relative to root directory.
-// OK to use fwd slash in paths, they're hacked to OS dir separator when needed (windows)
+// OK to use fwd slash in paths, they're hacked to OS dir separator when needed
+// (windows)
 #[rstest]
 #[case(".", r#"'*z'"#, &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
 #[case(".", r#"'qqq'"#, &["ablez", "baker", "charliez"], &[], "glob matches none")]

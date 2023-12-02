@@ -1,5 +1,6 @@
-use crate::tests::{fail_test, run_test, TestResult};
 use rstest::rstest;
+
+use crate::tests::{fail_test, run_test, TestResult};
 
 #[test]
 fn concrete_variable_assignment() -> TestResult {

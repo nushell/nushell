@@ -1,3 +1,7 @@
+use std::path::{Path, PathBuf};
+
+use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
+
 use crate::{
     ast::{
         eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
@@ -6,8 +10,6 @@ use crate::{
     engine::{EngineState, StateWorkingSet},
     record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
 };
-use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
-use std::path::{Path, PathBuf};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -199,8 +201,9 @@ fn eval_const_call(
     }
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        // It would require re-implementing get_full_help() for const evaluation. Assuming that
-        // getting help messages at parse-time is rare enough, we can simply disallow it.
+        // It would require re-implementing get_full_help() for const evaluation.
+        // Assuming that getting help messages at parse-time is rare enough, we
+        // can simply disallow it.
         return Err(ShellError::NotAConstHelp(call.head));
     }
 

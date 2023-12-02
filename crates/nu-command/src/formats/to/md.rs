@@ -1,8 +1,8 @@
 use indexmap::map::IndexMap;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Config, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
@@ -317,8 +317,9 @@ fn get_padded_string(text: String, desired_length: usize, padding_character: cha
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nu_protocol::{record, Config, IntoPipelineData, Value};
+
+    use super::*;
 
     fn one(string: &str) -> String {
         string

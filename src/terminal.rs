@@ -106,7 +106,8 @@ fn take_control() -> Pid {
                 sig,
                 &SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty()),
             ) {
-                // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
+                // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the
+                // same
                 if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
                     let _ = signal::sigaction(sig, &old_act);
                 }
@@ -129,7 +130,8 @@ fn take_control() -> Pid {
                 std::process::exit(1);
             }
             _ => {
-                // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
+                // fish also has other heuristics than "too many attempts" for the orphan check,
+                // but they're optional
                 if signal::killpg(shell_pgid, Signal::SIGTTIN).is_err() {
                     eprintln!("ERROR: failed to SIGTTIN ourselves");
                     std::process::exit(1);

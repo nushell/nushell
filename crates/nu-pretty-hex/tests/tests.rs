@@ -6,6 +6,7 @@ extern crate nu_pretty_hex;
 
 #[cfg(feature = "alloc")]
 use alloc::{format, string::String, vec, vec::Vec};
+
 use nu_pretty_hex::*;
 
 #[cfg(feature = "alloc")]
@@ -66,8 +67,9 @@ fn test_config() {
         group: 8,
         ..HexConfig::default()
     };
-    let hex = "0000:   6b 4e 1a c3 af 03 d2 1e  7e 73 ba c8 bd 84 0f 83   kN......~s......\n\
-         0010:   89 d5 cf 90 23 67 4b 48  db b1 bc 35 bf ee         ....#gKH...5..";
+    let hex =
+        "0000:   6b 4e 1a c3 af 03 d2 1e  7e 73 ba c8 bd 84 0f 83   kN......~s......\n0010:   89 \
+         d5 cf 90 23 67 4b 48  db b1 bc 35 bf ee         ....#gKH...5..";
     assert_eq!(hex, config_hex(&v, cfg));
     assert_eq!(hex, format!("{:?}", v.hex_conf(cfg)));
     let mut str = String::new();
@@ -82,8 +84,8 @@ fn test_config() {
                 ..cfg
             }
         ),
-        "0000:   6b 4e 1a c3 af 03 d2 1e  7e 73 ba c8 bd 84 0f 83\n\
-         0010:   89 d5 cf 90 23 67 4b 48  db b1 bc 35 bf ee"
+        "0000:   6b 4e 1a c3 af 03 d2 1e  7e 73 ba c8 bd 84 0f 83\n0010:   89 d5 cf 90 23 67 4b \
+         48  db b1 bc 35 bf ee"
     );
 
     assert_eq!(
@@ -96,8 +98,8 @@ fn test_config() {
                 ..cfg
             }
         ),
-        "0000:   6b4e 1ac3 af03 d21e  7e73 bac8 bd84 0f83\n\
-         0010:   89d5 cf90 2367 4b48  dbb1 bc35 bfee"
+        "0000:   6b4e 1ac3 af03 d21e  7e73 bac8 bd84 0f83\n0010:   89d5 cf90 2367 4b48  dbb1 bc35 \
+         bfee"
     );
 
     let v: Vec<u8> = (0..21).collect();
@@ -118,8 +120,7 @@ fn test_config() {
                 chunk: 3
             }
         ),
-        "0000:   000102 030405  060708 090a   ...........\n\
-         000b:   0b0c                         .."
+        "0000:   000102 030405  060708 090a   ...........\n000b:   0b0c                         .."
     );
 
     let v: Vec<u8> = (0..19).collect();
@@ -145,8 +146,8 @@ fn test_config() {
     };
     assert_eq!(
         format!("{:?}", v.hex_conf(cfg)),
-        "0000:   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f   ................\n\
-         0010:   10 11 12                                          ..."
+        "0000:   00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f   ................\n0010:   10 \
+         11 12                                          ..."
     );
     assert_eq!(
         v.hex_conf(cfg).to_string(),
@@ -165,7 +166,8 @@ fn test_hex_write_with_simple_config() {
     let expected =
         core::str::from_utf8(b"00 01 02 03  04 05 06 07  08 09 0a 0b  0c 0d 0e 0f").unwrap();
     // let expected =
-    //     "\u{1b}[38;5;242m00\u{1b}[0m \u{1b}[1;35m01\u{1b}[0m \u{1b}[1;35m02\u{1b}[0m \u{1b}[1;";
+    //     "\u{1b}[38;5;242m00\u{1b}[0m \u{1b}[1;35m01\u{1b}[0m
+    // \u{1b}[1;35m02\u{1b}[0m \u{1b}[1;";
     let mut buffer = heapless::Vec::<u8, 50>::new();
 
     hex_write(&mut buffer, &bytes, config, None).unwrap();

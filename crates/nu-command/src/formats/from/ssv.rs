@@ -1,8 +1,8 @@
 use indexmap::map::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
@@ -36,39 +36,38 @@ impl Command for FromSsv {
     }
 
     fn usage(&self) -> &str {
-        "Parse text as space-separated values and create a table. The default minimum number of spaces counted as a separator is 2."
+        "Parse text as space-separated values and create a table. The default minimum number of \
+         spaces counted as a separator is 2."
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: r#"'FOO   BAR
+        vec![
+            Example {
+                example: r#"'FOO   BAR
 1   2' | from ssv"#,
-            description: "Converts ssv formatted string to table",
-            result: Some(Value::test_list(
-                vec![Value::test_record(record! {
+                description: "Converts ssv formatted string to table",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
                     "FOO" => Value::test_string("1"),
                     "BAR" => Value::test_string("2"),
-                })],
-            )),
-        }, Example {
-            example: r#"'FOO   BAR
+                })])),
+            },
+            Example {
+                example: r#"'FOO   BAR
 1   2' | from ssv --noheaders"#,
-            description: "Converts ssv formatted string to table but not treating the first row as column names",
-            result: Some(
-                Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "column1" => Value::test_string("FOO"),
-                            "column2" => Value::test_string("BAR"),
-                        }),
-                        Value::test_record(record! {
-                            "column1" => Value::test_string("1"),
-                            "column2" => Value::test_string("2"),
-                        }),
-                    ],
-                )
-            ),
-        }]
+                description: "Converts ssv formatted string to table but not treating the first \
+                              row as column names",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("FOO"),
+                        "column2" => Value::test_string("BAR"),
+                    }),
+                    Value::test_record(record! {
+                        "column1" => Value::test_string("1"),
+                        "column2" => Value::test_string("2"),
+                    }),
+                ])),
+            },
+        ]
     }
 
     fn run(

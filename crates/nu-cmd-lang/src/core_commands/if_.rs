@@ -1,8 +1,8 @@
 use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Block, Command, EngineState, Stack, StateWorkingSet};
-use nu_protocol::eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input};
 use nu_protocol::{
+    ast::Call,
+    engine::{Block, Command, EngineState, Stack, StateWorkingSet},
+    eval_const::{eval_const_subexpression, eval_constant, eval_constant_with_input},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 

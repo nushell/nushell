@@ -97,19 +97,18 @@ pub fn trim_from_str(trim: Option<Value>) -> Result<Trim, ShellError> {
         Some(v) => {
             let span = v.span();
             match v {
-                Value::String {val: item, ..} => match item.as_str() {
-
-            "all" => Ok(Trim::All),
-            "headers" => Ok(Trim::Headers),
-            "fields" => Ok(Trim::Fields),
-            "none" => Ok(Trim::None),
-            _ => Err(ShellError::TypeMismatch {
-                err_message:
-                    "the only possible values for trim are 'all', 'headers', 'fields' and 'none'"
-                        .into(),
-                span,
-            }),
-                }
+                Value::String { val: item, .. } => match item.as_str() {
+                    "all" => Ok(Trim::All),
+                    "headers" => Ok(Trim::Headers),
+                    "fields" => Ok(Trim::Fields),
+                    "none" => Ok(Trim::None),
+                    _ => Err(ShellError::TypeMismatch {
+                        err_message: "the only possible values for trim are 'all', 'headers', \
+                                      'fields' and 'none'"
+                            .into(),
+                        span,
+                    }),
+                },
                 _ => Ok(Trim::None),
             }
         }

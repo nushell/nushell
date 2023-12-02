@@ -1,8 +1,11 @@
-use nu_test_support::fs::AbsolutePath;
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::nu;
-use nu_test_support::pipeline;
-use nu_test_support::playground::Playground;
+use nu_test_support::{
+    fs::{
+        AbsolutePath,
+        Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    },
+    nu, pipeline,
+    playground::Playground,
+};
 
 #[test]
 fn use_module_file_within_block() {

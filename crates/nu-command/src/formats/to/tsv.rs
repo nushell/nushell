@@ -1,9 +1,10 @@
-use crate::formats::to::delimited::to_delimited_data;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Config, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+
+use crate::formats::to::delimited::to_delimited_data;
 
 #[derive(Clone)]
 pub struct ToTsv;

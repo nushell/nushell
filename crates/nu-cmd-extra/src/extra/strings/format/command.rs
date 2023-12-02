@@ -2,9 +2,9 @@ use std::vec;
 
 use nu_engine::{eval_expression, CallExt};
 use nu_parser::parse_expression;
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
+    ast::{Call, PathMember},
+    engine::{Command, EngineState, Stack, StateWorkingSet},
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
@@ -97,11 +97,12 @@ impl Command for Format {
 
 // NOTE: The reason to split {column1.column2} and {$it.column1.column2}:
 // for {column1.column2}, we just need to follow given record or list.
-// for {$it.column1.column2} or {$variable}, we need to manually evaluate the expression.
+// for {$it.column1.column2} or {$variable}, we need to manually evaluate the
+// expression.
 //
-// Have thought about converting from {column1.column2} to {$it.column1.column2}, but that
-// will extend input relative span, finally make `nu` panic out with message: span missing in file
-// contents cache.
+// Have thought about converting from {column1.column2} to
+// {$it.column1.column2}, but that will extend input relative span, finally make
+// `nu` panic out with message: span missing in file contents cache.
 #[derive(Debug)]
 enum FormatOperation {
     FixedText(String),
@@ -111,14 +112,14 @@ enum FormatOperation {
     ValueNeedEval(String, Span),
 }
 
-/// Given a pattern that is fed into the Format command, we can process it and subdivide it
-/// in two kind of operations.
-/// FormatOperation::FixedText contains a portion of the pattern that has to be placed
-/// there without any further processing.
-/// FormatOperation::ValueFromColumn contains the name of a column whose values will be
-/// formatted according to the input pattern.
-/// FormatOperation::ValueNeedEval contains expression which need to eval, it has the following form:
-/// "$it.column1.column2" or "$variable"
+/// Given a pattern that is fed into the Format command, we can process it and
+/// subdivide it in two kind of operations.
+/// FormatOperation::FixedText contains a portion of the pattern that has to be
+/// placed there without any further processing.
+/// FormatOperation::ValueFromColumn contains the name of a column whose values
+/// will be formatted according to the input pattern.
+/// FormatOperation::ValueNeedEval contains expression which need to eval, it
+/// has the following form: "$it.column1.column2" or "$variable"
 fn extract_formatting_operations(
     input: String,
     error_span: Span,

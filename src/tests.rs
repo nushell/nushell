@@ -26,11 +26,10 @@ mod test_strings;
 mod test_table_operations;
 mod test_type_check;
 
+use std::{collections::HashMap, io::Write, process::Command};
+
 use assert_cmd::prelude::*;
 use pretty_assertions::assert_eq;
-use std::collections::HashMap;
-use std::io::Write;
-use std::process::Command;
 use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;

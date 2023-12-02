@@ -1,9 +1,7 @@
-use crate::engine::{EngineState, Stack};
-use crate::PipelineData;
 use crate::{
     ast::{Call, Expression},
-    engine::Command,
-    ShellError, Signature,
+    engine::{Command, EngineState, Stack},
+    PipelineData, ShellError, Signature,
 };
 
 #[derive(Clone)]

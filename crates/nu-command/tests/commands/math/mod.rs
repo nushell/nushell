@@ -434,7 +434,8 @@ fn compound_where_paren() {
     assert_eq!(actual.out, r#"[{"a": 2,"b": 1},{"a": 2,"b": 2}]"#);
 }
 
-// TODO: these ++ tests are not really testing *math* functionality, maybe find another place for them
+// TODO: these ++ tests are not really testing *math* functionality, maybe find
+// another place for them
 
 #[test]
 fn adding_lists() {

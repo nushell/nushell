@@ -13,12 +13,11 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, StatefulWidget, Widget},
 };
 
+use super::Layout;
 use crate::{
     nu_common::{truncate_str, NuStyle, NuText},
     views::util::{nu_style_to_tui, text_style_to_tui_style},
 };
-
-use super::Layout;
 
 #[derive(Debug, Clone)]
 pub struct TableW<'a> {
@@ -31,7 +30,8 @@ pub struct TableW<'a> {
     style_computer: &'a StyleComputer<'a>,
 }
 
-// Basically: where's the header of the value being displayed? Usually at the top for tables, on the left for records
+// Basically: where's the header of the value being displayed? Usually at the
+// top for tables, on the left for records
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Orientation {
     Top,

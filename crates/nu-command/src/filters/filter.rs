@@ -1,11 +1,12 @@
-use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, SyntaxShape, Type, Value,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Filter;
@@ -223,19 +224,19 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "List all numbers above 3, using an existing closure condition",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
-                result: None, // TODO: This should work
-                              // result: Some(Value::test_list(
-                              //     vec![
-                              //         Value::Int {
-                              //             val: 5,
-                              //             Span::test_data(),
-                              //         },
-                              //         Value::Int {
-                              //             val: 6,
-                              //             span: Span::test_data(),
-                              //         },
-                              //     ],
-                              // }),
+                result: None, /* TODO: This should work
+                               * result: Some(Value::test_list(
+                               *     vec![
+                               *         Value::Int {
+                               *             val: 5,
+                               *             Span::test_data(),
+                               *         },
+                               *         Value::Int {
+                               *             val: 6,
+                               *             span: Span::test_data(),
+                               *         },
+                               *     ],
+                               * }), */
             },
         ]
     }

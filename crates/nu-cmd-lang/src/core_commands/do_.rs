@@ -1,9 +1,9 @@
 use std::thread;
 
 use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
     Type, Value,
 };
@@ -137,10 +137,10 @@ impl Command for Do {
                 // Or we may get a deadlock if child process sends out too much bytes to stderr.
                 //
                 // For example: in normal linux system, stderr pipe's limit is 65535 bytes.
-                // if child process sends out 65536 bytes, the process will be hanged because no consumer
-                // consumes the first 65535 bytes
-                // So we need a thread to receive stdout message, then the current thread can continue to consume
-                // stderr messages.
+                // if child process sends out 65536 bytes, the process will be hanged because no
+                // consumer consumes the first 65535 bytes
+                // So we need a thread to receive stdout message, then the current thread can
+                // continue to consume stderr messages.
                 let stdout_handler = stdout.map(|stdout_stream| {
                     thread::Builder::new()
                         .name("stderr redirector".to_string())
@@ -159,8 +159,9 @@ impl Command for Do {
                         .expect("Failed to create thread")
                 });
 
-                // Intercept stderr so we can return it in the error if the exit code is non-zero.
-                // The threading issues mentioned above dictate why we also need to intercept stdout.
+                // Intercept stderr so we can return it in the error if the exit code is
+                // non-zero. The threading issues mentioned above dictate why we
+                // also need to intercept stdout.
                 let mut stderr_ctrlc = None;
                 let stderr_msg = match stderr {
                     None => "".to_string(),

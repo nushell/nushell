@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, nu, pipeline, playground::Playground};
 
 #[test]
 fn rows() {
@@ -45,7 +43,8 @@ fn fails_on_string() {
 }
 
 #[test]
-// covers a situation where `take` used to behave strangely on list<binary> input
+// covers a situation where `take` used to behave strangely on list<binary>
+// input
 fn works_with_binary_list() {
     let actual = nu!(r#"
             ([0x[01 11]] | take 1 | get 0) == 0x[01 11]

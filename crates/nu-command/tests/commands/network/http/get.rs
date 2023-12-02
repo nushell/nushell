@@ -176,8 +176,9 @@ fn http_get_full_response() {
     assert_eq!(header["value"], "close");
 }
 
-// These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
-// Revisit this if these tests prove to be flaky or unstable.
+// These tests require network access; they use badssl.com which is a
+// Google-affiliated site for testing various SSL errors. Revisit this if these
+// tests prove to be flaky or unstable.
 
 #[test]
 fn http_get_expired_cert_fails() {

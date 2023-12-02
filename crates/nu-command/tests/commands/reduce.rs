@@ -62,7 +62,8 @@ fn reduce_enumerate_example() {
     let actual = nu!(pipeline(
         "
         echo one longest three bar | enumerate
-        | reduce { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else {echo $acc}}
+        | reduce { |it, acc| if ($it.item | str length) > ($acc.item | str length) {echo $it} else \
+         {echo $acc}}
         | get index
         "
     ));
@@ -120,7 +121,8 @@ fn error_reduce_empty() {
 #[test]
 fn enumerate_reduce_example() {
     let actual = nu!(pipeline(
-        "[one longest three bar] | enumerate | reduce {|it, acc| if ($it.item | str length) > ($acc.item | str length) { $it } else { $acc }} | get index"
+        "[one longest three bar] | enumerate | reduce {|it, acc| if ($it.item | str length) > \
+         ($acc.item | str length) { $it } else { $acc }} | get index"
     ));
 
     assert_eq!(actual.out, "1");

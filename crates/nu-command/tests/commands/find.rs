@@ -61,7 +61,8 @@ fn find_takes_into_account_linebreaks_in_string() {
 #[test]
 fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex ce | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex ce | get name | to json \
+         -r"
     );
 
     assert_eq!(actual.out, r#"["Maurice","Laurence"]"#);
@@ -70,7 +71,8 @@ fn find_with_regex_in_table_keeps_row_if_one_column_matches() {
 #[test]
 fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex moe --invert | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find --regex moe --invert | get name \
+         | to json -r"
     );
 
     assert_eq!(actual.out, r#"["Laurence"]"#);
@@ -79,7 +81,8 @@ fn inverted_find_with_regex_in_table_keeps_row_if_none_of_the_columns_matches() 
 #[test]
 fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] | get \
+         name | to json -r"
     );
 
     assert!(actual.out.contains("Laurence"));
@@ -89,7 +92,8 @@ fn find_in_table_only_keep_rows_with_matches_on_selected_columns() {
 #[test]
 fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
     let actual = nu!(
-        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] --invert | get name | to json -r"
+        "[[name nickname]; [Maurice moe] [Laurence larry]] | find r --columns [nickname] --invert \
+         | get name | to json -r"
     );
 
     assert_eq!(actual.out, r#"["Maurice"]"#);
@@ -97,7 +101,10 @@ fn inverted_find_in_table_keeps_row_if_none_of_the_selected_columns_matches() {
 
 #[test]
 fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
-    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find Maurice");
+    let actual = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18]] | find \
+         Maurice"
+    );
 
     println!("{:?}", actual.out);
     assert!(actual.out.contains("moe"));
@@ -107,7 +114,10 @@ fn find_in_table_keeps_row_with_single_matched_and_keeps_other_columns() {
 
 #[test]
 fn find_in_table_keeps_row_with_multiple_matched_and_keeps_other_columns() {
-    let actual = nu!("[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William bill 60]] | find moe William");
+    let actual = nu!(
+        "[[name nickname Age]; [Maurice moe 23] [Laurence larry 67] [William will 18] [William \
+         bill 60]] | find moe William"
+    );
 
     println!("{:?}", actual.out);
     assert!(actual.out.contains("moe"));

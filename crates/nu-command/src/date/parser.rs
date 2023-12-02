@@ -9,7 +9,8 @@ pub enum ParseErrorKind {
     /// Given field is out of permitted range.
     OutOfRange,
 
-    /// The input string has some invalid character sequence for given formatting items.
+    /// The input string has some invalid character sequence for given
+    /// formatting items.
     Invalid,
 
     /// The input string has been prematurely ended.

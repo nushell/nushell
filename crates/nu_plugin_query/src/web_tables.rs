@@ -1,6 +1,8 @@
-use crate::query_web::css;
-use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
 use std::collections::HashMap;
+
+use scraper::{element_ref::ElementRef, Html, Selector as ScraperSelector};
+
+use crate::query_web::css;
 
 pub type Headers = HashMap<String, usize>;
 
@@ -165,8 +167,8 @@ impl WebTable {
 }
 
 impl<'a> IntoIterator for &'a WebTable {
-    type Item = Row<'a>;
     type IntoIter = Iter<'a>;
+    type Item = Row<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -257,8 +259,8 @@ impl<'a> Row<'a> {
 }
 
 impl<'a> IntoIterator for Row<'a> {
-    type Item = &'a String;
     type IntoIter = std::slice::Iter<'a, String>;
+    type Item = &'a String;
 
     fn into_iter(self) -> Self::IntoIter {
         self.cells.iter()
@@ -465,193 +467,205 @@ mod tests {
 </html>
 "#;
 
-    /*
-        const HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES: &str = r#"
-        <table class="wikitable">
-        <caption>Excel 2007 formats
-        </caption>
-        <tbody><tr>
-        <th>Format
-        </th>
-        <th>Extension
-        </th>
-        <th>Description
-        </th></tr>
-        <tr>
-        <td>Excel Workbook
-        </td>
-        <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id="" style="" dir="ltr">.xlsx</code>
-        </td>
-        <td>The default Excel 2007 and later workbook format. In reality, a <a href="/wiki/Zip_(file_format)" class="medirect" title="Zip (file format)">Zip</a> compressed archive with a directory structure of <a href="/wiki/XML" title="XML">XML</a> text documents.Functions as the primary replacement for the former binary .xls format, although it does not support Excel macroor security reasons. Saving as .xlsx offers file size reduction over .xls<sup id="cite_ref-38" class="referencea href="&#35;cite_note-38">[38]</a></sup>
-        </td></tr>     <tr>
-        <td>Excel ro-enabled Workbook
-        </td>     <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id="" style="" dir="ltr">.xlsm<de>     </td>
-        <As Excel Workbook, but with macro support.
-        <></tr>
-        <
-        <Excel Binary Workbook
-        <>
-        <<code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id="" style="" dir="ltr">.xlsb</code>
-        <>
-        <As Excel Macro-enabled Workbook, but storing information in binary form rather than XML documents for openingd ing documents more quickly and efficiently. Intended especially for very large documents with tens of thousands s, and/or several hundreds
-    f umns. This format is very useful for shrinking large Excel files as is often the case when doing data analysis.  </td></tr>
-     <tr>
-     <td>Excel Macro-enabled Template
-     </td>
-        <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id="" style="" dir="ltr">.xltm</code>
-        </td>
-        <td>A template document that forms a basis for actual workbooks, with macro support. The replacement for the o.xlt format.
-        </td></tr>     <tr>
-        <td>Excel -in
-        </td>     <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id="" style="" dir="ltr">.xlam<de>     </td>
-        <Excel add-in to add extra functionality and tools. Inherent macro support because of the file purpose.
-        <></tr></tbody></table>
-        "
-        ct HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS: &str = r#"
-    <tabllass="infobox vevent">
-      <caon class="infobox-title summary">
-        Mosoft Excel
-      </cion>
-      <tb>
-        <
-         d colspan="2" class="infobox-image">
-         <a
-           href="/wiki/File:Microsoft_Office_Excel_(2019%E2%80%93present).svg"
-           class="image"
-           ><img
-             alt="Microsoft Office Excel (2019–present).svg"
-             src="//upload.wikimedia.org/wikipedia/commons/thumb/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%2vgpx-Microsoft_Office_Excel_%282019%E2%80%93present%29.svg.png"
-              decoding="async"          width="69"
-              height="64"          srcset="
-                //upload.imedia.org/wikipedia/commons/thumb/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%29.svgx-Microsoft_Office_el_%282019%E2%80%93present%29.svg.png 1.5x,
-                //uploadkimedia.org/wikipedia/commons/thumb/3/34/Microsoft_Office_Excel_%282019%E2%80%93present%29.svgx-Microsoft_Officecel_%282019%E2%80%93present%29.svg.png 2x
-              "          data-file-width="512"
-              d-file-height="476"
-          /></a/    </td>
-       /tr>   tr>
-        <tdlspan="2" class="infobox-image">
-          <ref="/wiki/File:Microsoft_Excel.png" class="image"
-           img
-           alt="Microsoft Excel.png"
-           src="//upload.wikimedia.org/wikipedia/en/thumb/9/94/Microsoft_Excel.png/300px-Microsoft_Excel.png"
-           decoding="async"
-           width="300"
-           height="190"
-           srcset="
-             //upload.wikimedia.org/wikipedia/en/thumb/9/94/Microsoft_Excel.png/450px-Microsoft_Excel.png 1.5x,
-             //upload.wikimedia.org/wikipedia/en/thumb/9/94/Microsoft_Excel.png/600px-Microsoft_Excel.png 2x
-           "
-           data-file-width="800"
-           data-file-height="507"
-          /a>
-          < class="infobox-caption">
-           simple
-            href="/wiki/Line_chart" title="Line chart">line chart</a> being
-            created in Excel, running on
-            <a href="/wiki/Windows_10" title="Windows 10">Windows 10</a>
-           /div>
-           d>
-         </
-         <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
-           a href="/wiki/Programmer" title="Programmer">Developer(s)</a>
-           h>
-            class="infobox-data">
-           a href="/wiki/Microsoft" title="Microsoft">Microsoft</a>
-           d>
-         </
-         <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
-           nitial release
-           h>
-            class="infobox-data">
-           987<span class="noprint">; 34&nbsp;years ago</span
-           <span style="display: none"
-            >&nbsp;(<span class="bday dtstart published updated">1987</span
-            >)</span
-
-           d>
-         </
-         <ttyle="display: none">
-            colspan="2" class="infobox-full-data"></td>
-         </
-         <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
-           a
-               href="/wiki/Software_release_life_cycle"
-               title="Software release life cycle"
-               >Stable release</a
-             >
-           </th>
-           <td class="infobox-data">
-             <div style="margin: 0px">
-               2103 (16.0.13901.20400) / April&nbsp;13, 2021<span class="noprint"
-                 >; 4 months ago</span
-               ><span style="display: none"
-                 >&nbsp;(<span class="bday dtstart published updated"
-                   >2021-04-13</span
-                 >)</span
-               ><sup id="cite_ref-1" class="reference"
-                 ><a href="&#35;cite_note-1">[1]</a></sup
-               >
-             </div>
-           </td>
-         </tr>
-         <tr style="display: none">
-           <td colspan="2"></td>
-         </tr>
-         <tr>
-           <th scope="row" class="infobox-label" style="white-space: nowrap">
-             <a href="/wiki/Operating_system" title="Operating system"
-               >Operating system</a
-             >
-           </th>
-           <td class="infobox-data">
-             <a href="/wiki/Microsoft_Windows" title="Microsoft Windows"
-               >Microsoft Windows</a
-             >
-           </td>
-         </tr>
-         <tr>
-           <th scope="row" class="infobox-label" style="white-space: nowrap">
-             <a
-               href="/wiki/Software_categories#Categorization_approaches"
-               title="Software categories"
-               >Type</a
-             >
-           </th>
-           <td class="infobox-data">
-             <a href="/wiki/Spreadsheet" title="Spreadsheet">Spreadsheet</a>
-           </td>
-         </tr>
-         <tr>
-           <th scope="row" class="infobox-label" style="white-space: nowrap">
-             <a href="/wiki/Software_license" title="Software license">License</a>
-           </th>
-           <td class="infobox-data">
-             <a href="/wiki/Trialware" class="mw-redirect" title="Trialware"
-               >Trialware</a
-             ><sup id="cite_ref-2" class="reference"
-               ><a href="&#35;cite_note-2">[2]</a></sup
-             >
-           </td>
-         </tr>
-         <tr>
-           <th scope="row" class="infobox-label" style="white-space: nowrap">
-             Website
-           </th>
-           <td class="infobox-data">
-             <span class="url"
-               ><a
-                 rel="nofollow"
-                 class="external text"
-                 href="http://products.office.com/en-us/excel"
-                 >products<wbr />.office<wbr />.com<wbr />/en-us<wbr />/excel</a
-               ></span
-             >
-           </td>
-         </tr>
-       </tbody>
-     </table>
-     "#;
-    */
+    // const HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES: &str = r#"
+    // <table class="wikitable">
+    // <caption>Excel 2007 formats
+    // </caption>
+    // <tbody><tr>
+    // <th>Format
+    // </th>
+    // <th>Extension
+    // </th>
+    // <th>Description
+    // </th></tr>
+    // <tr>
+    // <td>Excel Workbook
+    // </td>
+    // <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id=""
+    // style="" dir="ltr">.xlsx</code> </td>
+    // <td>The default Excel 2007 and later workbook format. In reality, a <a
+    // href="/wiki/Zip_(file_format)" class="medirect" title="Zip (file
+    // format)">Zip</a> compressed archive with a directory structure of <a
+    // href="/wiki/XML" title="XML">XML</a> text documents.Functions as the primary
+    // replacement for the former binary .xls format, although it does not support
+    // Excel macroor security reasons. Saving as .xlsx offers file size reduction
+    // over .xls<sup id="cite_ref-38" class="referencea
+    // href="&#35;cite_note-38">[38]</a></sup> </td></tr>     <tr>
+    // <td>Excel ro-enabled Workbook
+    // </td>     <td><code class="mw-highlight mw-highlight-lang-text
+    // mw-content-ltr" id="" style="" dir="ltr">.xlsm<de>     </td>
+    // <As Excel Workbook, but with macro support.
+    // <></tr>
+    // <
+    // <Excel Binary Workbook
+    // <>
+    // <<code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id=""
+    // style="" dir="ltr">.xlsb</code> <>
+    // <As Excel Macro-enabled Workbook, but storing information in binary form
+    // rather than XML documents for openingd ing documents more quickly and
+    // efficiently. Intended especially for very large documents with tens of
+    // thousands s, and/or several hundreds f umns. This format is very useful
+    // for shrinking large Excel files as is often the case when doing data
+    // analysis.  </td></tr> <tr>
+    // <td>Excel Macro-enabled Template
+    // </td>
+    // <td><code class="mw-highlight mw-highlight-lang-text mw-content-ltr" id=""
+    // style="" dir="ltr">.xltm</code> </td>
+    // <td>A template document that forms a basis for actual workbooks, with macro
+    // support. The replacement for the o.xlt format. </td></tr>     <tr>
+    // <td>Excel -in
+    // </td>     <td><code class="mw-highlight mw-highlight-lang-text
+    // mw-content-ltr" id="" style="" dir="ltr">.xlam<de>     </td>
+    // <Excel add-in to add extra functionality and tools. Inherent macro support
+    // because of the file purpose. <></tr></tbody></table>
+    // "
+    // ct HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS: &str = r#"
+    // <tabllass="infobox vevent">
+    // <caon class="infobox-title summary">
+    // Mosoft Excel
+    // </cion>
+    // <tb>
+    // <
+    // d colspan="2" class="infobox-image">
+    // <a
+    // href="/wiki/File:Microsoft_Office_Excel_(2019%E2%80%93present).svg"
+    // class="image"
+    // ><img
+    // alt="Microsoft Office Excel (2019–present).svg"
+    // src="//upload.wikimedia.org/wikipedia/commons/thumb/3/34/
+    // Microsoft_Office_Excel_%282019%E2%80%93present%2vgpx-Microsoft_Office_Excel_%
+    // 282019%E2%80%93present%29.svg.png" decoding="async"          width="69"
+    // height="64"          srcset="
+    // upload.imedia.org/wikipedia/commons/thumb/3/34/Microsoft_Office_Excel_%
+    // 282019%E2%80%93present%29.svgx-Microsoft_Office_el_%282019%E2%80%93present%
+    // 29.svg.png 1.5x, uploadkimedia.org/wikipedia/commons/thumb/3/34/
+    // Microsoft_Office_Excel_%282019%E2%80%93present%29.svgx-Microsoft_Officecel_%
+    // 282019%E2%80%93present%29.svg.png 2x "          data-file-width="512"
+    // d-file-height="476"
+    // /></a/    </td>
+    // /tr>   tr>
+    // <tdlspan="2" class="infobox-image">
+    // <ref="/wiki/File:Microsoft_Excel.png" class="image"
+    // img
+    // alt="Microsoft Excel.png"
+    // src="//upload.wikimedia.org/wikipedia/en/thumb/9/94/Microsoft_Excel.png/
+    // 300px-Microsoft_Excel.png" decoding="async"
+    // width="300"
+    // height="190"
+    // srcset="
+    // upload.wikimedia.org/wikipedia/en/thumb/9/94/Microsoft_Excel.png/
+    // 450px-Microsoft_Excel.png 1.5x, upload.wikimedia.org/wikipedia/en/thumb/
+    // 9/94/Microsoft_Excel.png/600px-Microsoft_Excel.png 2x "
+    // data-file-width="800"
+    // data-file-height="507"
+    // /a>
+    // < class="infobox-caption">
+    // simple
+    // href="/wiki/Line_chart" title="Line chart">line chart</a> being
+    // created in Excel, running on
+    // <a href="/wiki/Windows_10" title="Windows 10">Windows 10</a>
+    // /div>
+    // d>
+    // </
+    // <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // a href="/wiki/Programmer" title="Programmer">Developer(s)</a>
+    // h>
+    // class="infobox-data">
+    // a href="/wiki/Microsoft" title="Microsoft">Microsoft</a>
+    // d>
+    // </
+    // <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // nitial release
+    // h>
+    // class="infobox-data">
+    // 987<span class="noprint">; 34&nbsp;years ago</span
+    // <span style="display: none"
+    // >&nbsp;(<span class="bday dtstart published updated">1987</span
+    // >)</span
+    //
+    // d>
+    // </
+    // <ttyle="display: none">
+    // colspan="2" class="infobox-full-data"></td>
+    // </
+    // <t//       <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // a
+    // href="/wiki/Software_release_life_cycle"
+    // title="Software release life cycle"
+    // >Stable release</a
+    // >
+    // </th>
+    // <td class="infobox-data">
+    // <div style="margin: 0px">
+    // 2103 (16.0.13901.20400) / April&nbsp;13, 2021<span class="noprint"
+    // >; 4 months ago</span
+    // ><span style="display: none"
+    // >&nbsp;(<span class="bday dtstart published updated"
+    // >2021-04-13</span
+    // >)</span
+    // ><sup id="cite_ref-1" class="reference"
+    // ><a href="&#35;cite_note-1">[1]</a></sup
+    // >
+    // </div>
+    // </td>
+    // </tr>
+    // <tr style="display: none">
+    // <td colspan="2"></td>
+    // </tr>
+    // <tr>
+    // <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // <a href="/wiki/Operating_system" title="Operating system"
+    // >Operating system</a
+    // >
+    // </th>
+    // <td class="infobox-data">
+    // <a href="/wiki/Microsoft_Windows" title="Microsoft Windows"
+    // >Microsoft Windows</a
+    // >
+    // </td>
+    // </tr>
+    // <tr>
+    // <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // <a
+    // href="/wiki/Software_categories#Categorization_approaches"
+    // title="Software categories"
+    // >Type</a
+    // >
+    // </th>
+    // <td class="infobox-data">
+    // <a href="/wiki/Spreadsheet" title="Spreadsheet">Spreadsheet</a>
+    // </td>
+    // </tr>
+    // <tr>
+    // <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // <a href="/wiki/Software_license" title="Software license">License</a>
+    // </th>
+    // <td class="infobox-data">
+    // <a href="/wiki/Trialware" class="mw-redirect" title="Trialware"
+    // >Trialware</a
+    // ><sup id="cite_ref-2" class="reference"
+    // ><a href="&#35;cite_note-2">[2]</a></sup
+    // >
+    // </td>
+    // </tr>
+    // <tr>
+    // <th scope="row" class="infobox-label" style="white-space: nowrap">
+    // Website
+    // </th>
+    // <td class="infobox-data">
+    // <span class="url"
+    // ><a
+    // rel="nofollow"
+    // class="external text"
+    // href="http://products.office.com/en-us/excel"
+    // >products<wbr />.office<wbr />.com<wbr />/en-us<wbr />/excel</a
+    // ></span
+    // >
+    // </td>
+    // </tr>
+    // </tbody>
+    // </table>
+    // "#;
 
     #[test]
     fn test_find_first_none() {
@@ -1150,75 +1164,88 @@ mod tests {
         assert_eq!(None, iter_2.next());
     }
 }
-/*
-    #[test]
-    fn test_wikipedia_swapped_rows_columns() {
-        // empty columns
-        let cols = nu_protocol::value::Value {
-            value: nu_protocol::UntaggedValue::Primitive(nu_protocol::Primitive::String(
-                "".to_string(),
-            )),
-            tag: nu_source::Tag::unknown(),
-        };
-
-        // this table is taken straight from wikipedia with no changes
-        let table = retrieve_tables(HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS, &cols, true);
-
-        let expected = vec![UntaggedValue::row(indexmap! {
-                 "Stable release".to_string() => UntaggedValue::string("\n          2103 (16.0.13901.20400) / April\u{a0}13, 2021; 4 months ago\u{a0}(2021-04-13)[1]\n        ").into(),
-                 "Developer(s)".to_string() => UntaggedValue::string("Microsoft").into(),
-                 "Operating system".to_string() => UntaggedValue::string("Microsoft Windows").into(),
-                 "Type".to_string() => UntaggedValue::string("Spreadsheet").into(),
-                 "License".to_string() => UntaggedValue::string("Trialware[2]").into(),
-                 "".to_string() => UntaggedValue::string("").into(),
-                 "Website".to_string() => UntaggedValue::string("products.office.com/en-us/excel").into(),
-                 "Initial release".to_string() => UntaggedValue::string("1987; 34\u{a0}years ago\u{a0}(1987)").into(),
-             }).into()];
-
-        assert_eq!(table, expected);
-    }
-
-    #[test]
-    fn test_wikipedia_table_with_column_headers() {
-        let cols = UntaggedValue::table(&[
-            UntaggedValue::string("Format".to_string()).into(),
-            UntaggedValue::string("Extension".to_string()).into(),
-            UntaggedValue::string("Description".to_string()).into(),
-        ])
-        .into();
-
-        // this table is taken straight from wikipedia with no changes
-        let table = retrieve_tables(HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES, &cols, true);
-        let expected = vec![
-                 UntaggedValue::row(indexmap! {
-                     "Format".to_string() => UntaggedValue::string("Excel Workbook").into(),
-                     "Extension".to_string() => UntaggedValue::string(".xlsx").into(),
-                     "Description".to_string() => UntaggedValue::string("The default Excel 2007 and later workbook format. In reality, a Zip compressed archive with a directory structure of XML text documents. Functions as the primary
-
-    //replacement for the former binary .xls format, although it does not support Excel macros for security reasons. Saving as .xlsx offers file size reduction over .xls[38]").into(),
-                 }).into(),
-                 UntaggedValue::row(indexmap! {
-                     "Format".to_string() => UntaggedValue::string("Excel Macro-enabled Workbook").into(),
-                     "Extension".to_string() => UntaggedValue::string(".xlsm").into(),
-                     "Description".to_string() => UntaggedValue::string("As Excel Workbook, but with macro support.").into(),
-                 }).into(),
-                 UntaggedValue::row(indexmap! {
-                     "Format".to_string() => UntaggedValue::string("Excel Binary Workbook").into(),
-                     "Extension".to_string() => UntaggedValue::string(".xlsb").into(),
-                     "Description".to_string() => UntaggedValue::string("As Excel Macro-enabled Workbook, but storing information in binary form rather than XML documents for opening and saving documents more quickly and efficiently. Intended especially for very large documents with tens of thousands of rows, and/or several hundreds of columns. This format is very useful for shrinking large Excel files as is often the case when doing data analysis.").into(),
-                 }).into(),
-                 UntaggedValue::row(indexmap! {
-                     "Format".to_string() => UntaggedValue::string("Excel Macro-enabled Template").into(),
-                     "Extension".to_string() => UntaggedValue::string(".xltm").into(),
-                     "Description".to_string() => UntaggedValue::string("A template document that forms a basis for actual workbooks, with macro support. The replacement for the old .xlt format.").into(),
-                 }).into(),
-                 UntaggedValue::row(indexmap! {
-                     "Format".to_string() => UntaggedValue::string("Excel Add-in").into(),
-                     "Extension".to_string() => UntaggedValue::string(".xlam").into(),
-                     "Description".to_string() => UntaggedValue::string("Excel add-in to add extra functionality and tools. Inherent macro support because of the file purpose.").into(),
-                 }).into(),
-             ];
-
-        assert_eq!(table, expected);
-    }
-*/
+// #[test]
+// fn test_wikipedia_swapped_rows_columns() {
+// empty columns
+// let cols = nu_protocol::value::Value {
+// value: nu_protocol::UntaggedValue::Primitive(nu_protocol::Primitive::String(
+// "".to_string(),
+// )),
+// tag: nu_source::Tag::unknown(),
+// };
+//
+// this table is taken straight from wikipedia with no changes
+// let table = retrieve_tables(HTML_TABLE_WIKIPEDIA_COLUMNS_AS_ROWS, &cols,
+// true);
+//
+// let expected = vec![UntaggedValue::row(indexmap! {
+// "Stable release".to_string() => UntaggedValue::string("\n          2103
+// (16.0.13901.20400) / April\u{a0}13, 2021; 4 months ago\u{a0}(2021-04-13)[1]\n
+// ").into(), "Developer(s)".to_string() =>
+// UntaggedValue::string("Microsoft").into(), "Operating system".to_string() =>
+// UntaggedValue::string("Microsoft Windows").into(), "Type".to_string() =>
+// UntaggedValue::string("Spreadsheet").into(), "License".to_string() =>
+// UntaggedValue::string("Trialware[2]").into(), "".to_string() =>
+// UntaggedValue::string("").into(), "Website".to_string() =>
+// UntaggedValue::string("products.office.com/en-us/excel").into(),
+// "Initial release".to_string() => UntaggedValue::string("1987; 34\u{a0}years
+// ago\u{a0}(1987)").into(), }).into()];
+//
+// assert_eq!(table, expected);
+// }
+//
+// #[test]
+// fn test_wikipedia_table_with_column_headers() {
+// let cols = UntaggedValue::table(&[
+// UntaggedValue::string("Format".to_string()).into(),
+// UntaggedValue::string("Extension".to_string()).into(),
+// UntaggedValue::string("Description".to_string()).into(),
+// ])
+// .into();
+//
+// this table is taken straight from wikipedia with no changes
+// let table = retrieve_tables(HTML_TABLE_WIKIPEDIA_WITH_COLUMN_NAMES, &cols,
+// true); let expected = vec![
+// UntaggedValue::row(indexmap! {
+// "Format".to_string() => UntaggedValue::string("Excel Workbook").into(),
+// "Extension".to_string() => UntaggedValue::string(".xlsx").into(),
+// "Description".to_string() => UntaggedValue::string("The default Excel 2007
+// and later workbook format. In reality, a Zip compressed archive with a
+// directory structure of XML text documents. Functions as the primary
+//
+// replacement for the former binary .xls format, although it does not support
+// Excel macros for security reasons. Saving as .xlsx offers file size reduction
+// over .xls[38]").into(), }).into(),
+// UntaggedValue::row(indexmap! {
+// "Format".to_string() => UntaggedValue::string("Excel Macro-enabled
+// Workbook").into(), "Extension".to_string() =>
+// UntaggedValue::string(".xlsm").into(), "Description".to_string() =>
+// UntaggedValue::string("As Excel Workbook, but with macro support.").into(),
+// }).into(),
+// UntaggedValue::row(indexmap! {
+// "Format".to_string() => UntaggedValue::string("Excel Binary
+// Workbook").into(), "Extension".to_string() =>
+// UntaggedValue::string(".xlsb").into(), "Description".to_string() =>
+// UntaggedValue::string("As Excel Macro-enabled Workbook, but storing
+// information in binary form rather than XML documents for opening and saving
+// documents more quickly and efficiently. Intended especially for very large
+// documents with tens of thousands of rows, and/or several hundreds of columns.
+// This format is very useful for shrinking large Excel files as is often the
+// case when doing data analysis.").into(), }).into(),
+// UntaggedValue::row(indexmap! {
+// "Format".to_string() => UntaggedValue::string("Excel Macro-enabled
+// Template").into(), "Extension".to_string() =>
+// UntaggedValue::string(".xltm").into(), "Description".to_string() =>
+// UntaggedValue::string("A template document that forms a basis for actual
+// workbooks, with macro support. The replacement for the old .xlt
+// format.").into(), }).into(),
+// UntaggedValue::row(indexmap! {
+// "Format".to_string() => UntaggedValue::string("Excel Add-in").into(),
+// "Extension".to_string() => UntaggedValue::string(".xlam").into(),
+// "Description".to_string() => UntaggedValue::string("Excel add-in to add extra
+// functionality and tools. Inherent macro support because of the file
+// purpose.").into(), }).into(),
+// ];
+//
+// assert_eq!(table, expected);
+// }

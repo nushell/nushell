@@ -1,10 +1,13 @@
-use crate::util::get_guaranteed_cwd;
 use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
-use nu_protocol::cli_error::{report_error, report_error_new};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
+use nu_protocol::{
+    cli_error::{report_error, report_error_new},
+    engine::{EngineState, Stack, StateWorkingSet},
+    BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId,
+};
+
+use crate::util::get_guaranteed_cwd;
 
 pub fn eval_env_change_hook(
     env_change_hook: Option<Value>,
@@ -146,8 +149,9 @@ pub fn eval_hook(
             //     condition: {|before, after| ... }  # block that evaluates to true/false
             //     code: # block or a string
             // }
-            // The condition block will be run to check whether the main hook (in `code`) should be run.
-            // If it returns true (the default if a condition block is not specified), the hook should be run.
+            // The condition block will be run to check whether the main hook (in `code`)
+            // should be run. If it returns true (the default if a condition
+            // block is not specified), the hook should be run.
             let do_run_hook = if let Some(condition) = val.get("condition") {
                 let other_span = condition.span();
                 if let Ok(block_id) = condition.as_block() {

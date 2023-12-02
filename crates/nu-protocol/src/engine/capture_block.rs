@@ -1,6 +1,6 @@
-use crate::{BlockId, Value, VarId};
-
 use serde::{Deserialize, Serialize};
+
+use crate::{BlockId, Value, VarId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Closure {

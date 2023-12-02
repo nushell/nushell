@@ -1,18 +1,19 @@
-use indexmap::indexmap;
-use indexmap::map::IndexMap;
+use indexmap::{indexmap, map::IndexMap};
 use nu_engine::CallExt;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::record;
 use nu_protocol::{
-    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 
-// Character used to separate directories in a Path Environment variable on windows is ";"
+// Character used to separate directories in a Path Environment variable on
+// windows is ";"
 #[cfg(target_family = "windows")]
 const ENV_PATH_SEPARATOR_CHAR: char = ';';
-// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
+// Character used to separate directories in a Path Environment variable on
+// linux/mac/unix is ":"
 #[cfg(not(target_family = "windows"))]
 const ENV_PATH_SEPARATOR_CHAR: char = ':';
 

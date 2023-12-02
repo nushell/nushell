@@ -1,5 +1,4 @@
-use std::cmp::max;
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::column::get_columns;
@@ -160,9 +159,11 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
             let value_width = string_width(&text);
             if value_width > available_width {
                 // it must only happen when a string is produced, so we can safely wrap it.
-                // (it might be string table representation as well) (I guess I mean default { table ...} { list ...})
+                // (it might be string table representation as well) (I guess I mean default {
+                // table ...} { list ...})
                 //
-                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller code?
+                // todo: Maybe convert_to_table2_entry could do for strings to not mess caller
+                // code?
 
                 text = wrap_text(&text, available_width, cfg.opts.config);
             }
@@ -209,8 +210,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         let mut column_width = string_width(&header);
 
         if !is_last_column {
-            // we need to make sure that we have a space for a next column if we use available width
-            // so we might need to decrease a bit it.
+            // we need to make sure that we have a space for a next column if we use
+            // available width so we might need to decrease a bit it.
 
             // we consider a header width be a minimum width
             let pad_space = PADDING_SPACE + TRUNCATE_CONTENT_WIDTH;
@@ -284,9 +285,11 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
         // so there's no point in rendering the table.
         //
         // It's actually quite important in case it's called recursively,
-        // cause we will back up to the basic table view as a string e.g. '[table 123 columns]'.
+        // cause we will back up to the basic table view as a string e.g. '[table 123
+        // columns]'.
         //
-        // But potentially if its reached as a 1st called function we might would love to see the index.
+        // But potentially if its reached as a 1st called function we might would love
+        // to see the index.
 
         return Ok(None);
     }
@@ -294,7 +297,8 @@ fn expanded_table_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     if truncate {
         if available_width < TRUNCATE_CELL_WIDTH {
             // back up by removing last column.
-            // it's LIKELY that removing only 1 column will leave us enough space for a shift column.
+            // it's LIKELY that removing only 1 column will leave us enough space for a
+            // shift column.
 
             while let Some(width) = widths.pop() {
                 for row in &mut data {

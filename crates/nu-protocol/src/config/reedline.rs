@@ -1,8 +1,9 @@
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
+
 use super::{extract_value, helper::ReconstructVal};
 use crate::{record, Config, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
 
 /// Definition of a parsed keybinding from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -24,7 +25,8 @@ pub struct ParsedMenu {
     pub source: Value,
 }
 
-/// Definition of a Nushell CursorShape (to be mapped to crossterm::cursor::CursorShape)
+/// Definition of a Nushell CursorShape (to be mapped to
+/// crossterm::cursor::CursorShape)
 #[derive(Serialize, Deserialize, Clone, Debug, Copy, Default)]
 pub enum NuCursorShape {
     UnderScore,
@@ -42,14 +44,17 @@ impl FromStr for NuCursorShape {
 
     fn from_str(s: &str) -> Result<NuCursorShape, &'static str> {
         match s.to_ascii_lowercase().as_str() {
-        "line" => Ok(NuCursorShape::Line),
-        "block" => Ok(NuCursorShape::Block),
-        "underscore" => Ok(NuCursorShape::UnderScore),
-        "blink_line" => Ok(NuCursorShape::BlinkLine),
-        "blink_block" => Ok(NuCursorShape::BlinkBlock),
-        "blink_underscore" => Ok(NuCursorShape::BlinkUnderScore),
-        "inherit" => Ok(NuCursorShape::Inherit),
-        _ => Err("expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', 'blink_underscore' or 'inherit'"),
+            "line" => Ok(NuCursorShape::Line),
+            "block" => Ok(NuCursorShape::Block),
+            "underscore" => Ok(NuCursorShape::UnderScore),
+            "blink_line" => Ok(NuCursorShape::BlinkLine),
+            "blink_block" => Ok(NuCursorShape::BlinkBlock),
+            "blink_underscore" => Ok(NuCursorShape::BlinkUnderScore),
+            "inherit" => Ok(NuCursorShape::Inherit),
+            _ => Err(
+                "expected either 'line', 'block', 'underscore', 'blink_line', 'blink_block', \
+                 'blink_underscore' or 'inherit'",
+            ),
         }
     }
 }
@@ -75,7 +80,8 @@ impl ReconstructVal for NuCursorShape {
 pub enum HistoryFileFormat {
     /// Store history as an SQLite database with additional context
     Sqlite,
-    /// store history as a plain text file where every line is one command (without any context such as timestamps)
+    /// store history as a plain text file where every line is one command
+    /// (without any context such as timestamps)
     PlainText,
 }
 
@@ -134,7 +140,8 @@ impl ReconstructVal for EditBindings {
     }
 }
 
-/// Parses the config object to extract the strings that will compose a keybinding for reedline
+/// Parses the config object to extract the strings that will compose a
+/// keybinding for reedline
 pub(super) fn create_keybindings(value: &Value) -> Result<Vec<ParsedKeybinding>, ShellError> {
     let span = value.span();
     match value {
@@ -200,7 +207,8 @@ pub(super) fn reconstruct_keybindings(config: &Config, span: Span) -> Value {
     )
 }
 
-/// Parses the config object to extract the strings that will compose a keybinding for reedline
+/// Parses the config object to extract the strings that will compose a
+/// keybinding for reedline
 pub fn create_menus(value: &Value) -> Result<Vec<ParsedMenu>, ShellError> {
     let span = value.span();
     match value {
@@ -255,7 +263,8 @@ pub(super) fn reconstruct_menus(config: &Config, span: Span) -> Value {
                      only_buffer_difference,
                      marker,
                      style,
-                     menu_type, // WARNING: this is not the same name as what is used in Config.nu! ("type")
+                     menu_type, /* WARNING: this is not the same name as what is used in
+                                 * Config.nu! ("type") */
                      source,
                  }| {
                     Value::record(

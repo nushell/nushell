@@ -27,9 +27,11 @@ impl Command for SubCommand {
                 "the value that denotes what separates the list",
             )
             .switch(
-                "regex", 
-                "separator is a regular expression, matching values that can be coerced into a string", 
-                Some('r'))
+                "regex",
+                "separator is a regular expression, matching values that can be coerced into a \
+                 string",
+                Some('r'),
+            )
             .category(Category::Filters)
     }
 

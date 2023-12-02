@@ -1,8 +1,7 @@
-use nu_engine::column::get_columns;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{column::get_columns, CallExt};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError,
     Signature, Spanned, SyntaxShape, Type, Value,
 };
@@ -113,8 +112,8 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description:
-                    "Transposes the table without column names and specify a new column name",
+                description: "Transposes the table without column names and specify a new column \
+                              name",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

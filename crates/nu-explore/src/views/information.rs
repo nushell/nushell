@@ -3,12 +3,11 @@ use nu_color_config::TextStyle;
 use nu_protocol::engine::{EngineState, Stack};
 use ratatui::{layout::Rect, widgets::Paragraph};
 
+use super::{Layout, View, ViewConfig};
 use crate::{
     nu_common::NuText,
     pager::{Frame, Transition, ViewInfo},
 };
-
-use super::{Layout, View, ViewConfig};
 
 #[derive(Debug, Default)]
 pub struct InformationView;

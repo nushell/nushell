@@ -64,10 +64,10 @@ fn is_item_terminator(
             || special_tokens.contains(&c))
 }
 
-// A special token is one that is a byte that stands alone as its own token. For example
-// when parsing a signature you may want to have `:` be able to separate tokens and also
-// to be handled as its own token to notify you you're about to parse a type in the example
-// `foo:bar`
+// A special token is one that is a byte that stands alone as its own token. For
+// example when parsing a signature you may want to have `:` be able to separate
+// tokens and also to be handled as its own token to notify you you're about to
+// parse a type in the example `foo:bar`
 fn is_special_item(block_level: &[BlockKind], c: u8, special_tokens: &[u8]) -> bool {
     block_level.is_empty() && special_tokens.contains(&c)
 }
@@ -94,14 +94,12 @@ pub fn lex_item(
 
     // The process of slurping up a baseline token repeats:
     //
-    // - String literal, which begins with `'` or `"`, and continues until
-    //   the same character is encountered again.
-    // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until
-    //   the matching closing delimiter is found, skipping comments and string
-    //   literals.
-    // - When not nested inside of a delimiter pair, when a terminating
-    //   character (whitespace, `|`, `;` or `#`) is encountered, the baseline
-    //   token is done.
+    // - String literal, which begins with `'` or `"`, and continues until the same
+    //   character is encountered again.
+    // - Delimiter pair, which begins with `[`, `(`, or `{`, and continues until the
+    //   matching closing delimiter is found, skipping comments and string literals.
+    // - When not nested inside of a delimiter pair, when a terminating character
+    //   (whitespace, `|`, `;` or `#`) is encountered, the baseline token is done.
     // - Otherwise, accumulate the character into the current baseline token.
     while let Some(c) = input.get(*curr_offset) {
         let c = *c;
@@ -228,9 +226,10 @@ pub fn lex_item(
     }
 
     if let Some(delim) = quote_start {
-        // The non-lite parse trims quotes on both sides, so we add the expected quote so that
-        // anyone wanting to consume this partial parse (e.g., completions) will be able to get
-        // correct information from the non-lite parse.
+        // The non-lite parse trims quotes on both sides, so we add the expected quote
+        // so that anyone wanting to consume this partial parse (e.g.,
+        // completions) will be able to get correct information from the
+        // non-lite parse.
         return (
             Token {
                 contents: TokenContents::Item,
@@ -431,7 +430,8 @@ fn lex_internal(
             // Ignore a stand-alone carriage return
             curr_offset += 1;
         } else if c == b'\n' {
-            // If the next character is a newline, we're looking at an EOL (end of line) token.
+            // If the next character is a newline, we're looking at an EOL (end of line)
+            // token.
             let idx = curr_offset;
             curr_offset += 1;
             if !additional_whitespace.contains(&c) {

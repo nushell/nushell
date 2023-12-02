@@ -1,7 +1,9 @@
 use nu_engine::eval_block;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct Let;

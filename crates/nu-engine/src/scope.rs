@@ -1,10 +1,10 @@
+use std::{cmp::Ordering, collections::HashMap};
+
 use nu_protocol::{
     ast::Expr,
     engine::{Command, EngineState, Stack, Visibility},
     record, ModuleId, Record, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::cmp::Ordering;
-use std::collections::HashMap;
 
 pub struct ScopeData<'e, 's> {
     engine_state: &'e EngineState,
@@ -275,7 +275,8 @@ impl<'e, 's> ScopeData<'e, 's> {
                     extract_custom_completion_from_arg(self.engine_state, &rest.shape),
                     span,
                 ),
-                Value::nothing(span), // rest_positional does have default, but parser prohibits specifying it?!
+                Value::nothing(span), /* rest_positional does have default, but parser prohibits
+                                       * specifying it?! */
             ];
 
             sig_records.push(Value::record(
@@ -574,7 +575,8 @@ fn sort_rows(decls: &mut [Value]) {
     decls.sort_by(|a, b| match (a, b) {
         (Value::Record { val: rec_a, .. }, Value::Record { val: rec_b, .. }) => {
             // Comparing the first value from the record
-            // It is expected that the first value is the name of the entry (command, module, alias, etc.)
+            // It is expected that the first value is the name of the entry (command,
+            // module, alias, etc.)
             match (rec_a.values().next(), rec_b.values().next()) {
                 (Some(val_a), Some(val_b)) => match (val_a, val_b) {
                     (Value::String { val: str_a, .. }, Value::String { val: str_b, .. }) => {

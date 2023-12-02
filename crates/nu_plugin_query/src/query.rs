@@ -1,10 +1,13 @@
-use crate::query_json::execute_json_query;
-use crate::query_web::parse_selector_params;
-use crate::query_xml::execute_xpath_query;
+use std::fmt::Write;
+
 use nu_engine::documentation::get_flags_section;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{PluginSignature, Spanned, Value};
-use std::fmt::Write;
+
+use crate::{
+    query_json::execute_json_query, query_web::parse_selector_params,
+    query_xml::execute_xpath_query,
+};
 
 #[derive(Default)]
 pub struct Query;
@@ -38,6 +41,7 @@ impl Query {
     ) -> Result<Value, LabeledError> {
         execute_json_query(name, call, input, query)
     }
+
     pub fn query_web(
         &self,
         _name: &str,
@@ -47,6 +51,7 @@ impl Query {
     ) -> Result<Value, LabeledError> {
         parse_selector_params(call, input)
     }
+
     pub fn query_xml(
         &self,
         name: &str,

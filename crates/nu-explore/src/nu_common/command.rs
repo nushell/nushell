@@ -69,7 +69,8 @@ fn eval_source2(
         (output, working_set.render())
     };
 
-    // We need to merge different info other wise things like PIPEs etc will not work.
+    // We need to merge different info other wise things like PIPEs etc will not
+    // work.
     if let Err(err) = engine_state.merge_delta(delta) {
         return Err(ShellError::IOError(err.to_string()));
     }

@@ -1,11 +1,11 @@
-use super::super::values::NuExpression;
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
+
+use super::super::values::NuExpression;
 
 #[derive(Clone)]
 pub struct ExprAlias;
@@ -76,10 +76,8 @@ impl Command for ExprAlias {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::eager::ToNu;
-    use crate::dataframe::expressions::ExprCol;
+    use super::{super::super::test_dataframe::test_dataframe, *};
+    use crate::dataframe::{eager::ToNu, expressions::ExprCol};
 
     #[test]
     fn test_examples() {

@@ -1,9 +1,8 @@
 mod common;
 
+use common::{create_row, test_table, TestCase};
 use nu_protocol::TrimStrategy;
 use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
-
-use common::{create_row, test_table, TestCase};
 use tabled::grid::records::vec_records::CellInfo;
 
 #[test]
@@ -20,12 +19,8 @@ fn data_and_header_has_different_size_doesnt_work() {
     assert_eq!(
         table.as_deref(),
         Some(
-            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┗━━━┻━━━┻━━━┻━━━┻━━━┛"
+            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n┣━━━╋━━━╋━━━╋━━━╋━━━┫\n┃ 0 ┃ 1 ┃ 2 ┃ 3 \
+             ┃ 4 ┃\n┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n┗━━━┻━━━┻━━━┻━━━┻━━━┛"
         )
     );
 
@@ -36,12 +31,8 @@ fn data_and_header_has_different_size_doesnt_work() {
     assert_eq!(
         table.as_deref(),
         Some(
-            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
-             ┗━━━┻━━━┻━━━┻━━━┻━━━┛"
+            "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n┣━━━╋━━━╋━━━╋━━━╋━━━┫\n┃ 0 ┃ 1 ┃ 2 ┃ 3 \
+             ┃ 4 ┃\n┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n┗━━━┻━━━┻━━━┻━━━┻━━━┛"
         )
     );
 }

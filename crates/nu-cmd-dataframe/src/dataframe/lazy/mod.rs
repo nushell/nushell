@@ -14,23 +14,17 @@ mod select;
 mod sort_by_expr;
 mod to_lazy;
 
-use nu_protocol::engine::StateWorkingSet;
-
-use crate::dataframe::lazy::aggregate::LazyAggregate;
-pub use crate::dataframe::lazy::collect::LazyCollect;
-use crate::dataframe::lazy::fetch::LazyFetch;
-use crate::dataframe::lazy::fill_nan::LazyFillNA;
-use crate::dataframe::lazy::fill_null::LazyFillNull;
-use crate::dataframe::lazy::filter::LazyFilter;
-use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-use crate::dataframe::lazy::join::LazyJoin;
-pub(crate) use crate::dataframe::lazy::macro_commands::*;
-use crate::dataframe::lazy::quantile::LazyQuantile;
-pub(crate) use crate::dataframe::lazy::select::LazySelect;
-use crate::dataframe::lazy::sort_by_expr::LazySortBy;
-pub use crate::dataframe::lazy::to_lazy::ToLazyFrame;
 pub use explode::LazyExplode;
 pub use flatten::LazyFlatten;
+use nu_protocol::engine::StateWorkingSet;
+
+use crate::dataframe::lazy::{
+    aggregate::LazyAggregate, fetch::LazyFetch, fill_nan::LazyFillNA, fill_null::LazyFillNull,
+    filter::LazyFilter, groupby::ToLazyGroupBy, join::LazyJoin, quantile::LazyQuantile,
+    sort_by_expr::LazySortBy,
+};
+pub use crate::dataframe::lazy::{collect::LazyCollect, to_lazy::ToLazyFrame};
+pub(crate) use crate::dataframe::lazy::{macro_commands::*, select::LazySelect};
 
 pub fn add_lazy_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {

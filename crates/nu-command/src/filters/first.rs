@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
@@ -45,7 +45,8 @@ impl Command for First {
     }
 
     fn usage(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
+        "Return only the first several rows of the input. Counterpart of `last`. Opposite of \
+         `skip`."
     }
 
     fn run(
@@ -91,9 +92,9 @@ fn first_helper(
     let head = call.head;
     let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
-    // return a single element and otherwise we return a single list. We should probably
-    // remove `rows` so that `first` always returns a single element; getting a list of
-    // the first N elements is covered by `take`
+    // return a single element and otherwise we return a single list. We should
+    // probably remove `rows` so that `first` always returns a single element;
+    // getting a list of the first N elements is covered by `take`
     let return_single_element = rows.is_none();
     let rows_desired: usize = match rows {
         Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),

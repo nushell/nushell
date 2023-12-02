@@ -1,10 +1,10 @@
+use std::thread;
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Type, Value,
 };
-
-use std::thread;
 
 #[derive(Clone)]
 pub struct Complete;
@@ -48,10 +48,10 @@ impl Command for Complete {
                 // Or we may get a deadlock if child process sends out too much bytes to stdout.
                 //
                 // For example: in normal linux system, stdout pipe's limit is 65535 bytes.
-                // if child process sends out 65536 bytes, the process will be hanged because no consumer
-                // consumes the first 65535 bytes
-                // So we need a thread to receive stderr message, then the current thread can continue to consume
-                // stdout messages.
+                // if child process sends out 65536 bytes, the process will be hanged because no
+                // consumer consumes the first 65535 bytes
+                // So we need a thread to receive stderr message, then the current thread can
+                // continue to consume stdout messages.
                 let stderr_handler = stderr.map(|stderr| {
                     let stderr_span = stderr.span;
                     (
@@ -114,14 +114,14 @@ impl Command for Complete {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Run the external command to completion, capturing stdout and exit_code",
+                description: "Run the external command to completion, capturing stdout and \
+                              exit_code",
                 example: "^external arg1 | complete",
                 result: None,
             },
             Example {
-                description:
-                    "Run external command to completion, capturing, stdout, stderr and exit_code",
+                description: "Run external command to completion, capturing, stdout, stderr and \
+                              exit_code",
                 example: "do { ^external arg1 } | complete",
                 result: None,
             },

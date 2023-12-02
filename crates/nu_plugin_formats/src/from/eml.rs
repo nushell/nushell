@@ -1,5 +1,4 @@
-use eml_parser::eml::*;
-use eml_parser::EmlParser;
+use eml_parser::{eml::*, EmlParser};
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{record, PluginExample, ShellError, Span, Value};

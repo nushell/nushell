@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
@@ -49,52 +49,48 @@ impl Command for Move {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
+                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index \
+                          --before name",
                 description: "Move a column before the first column",
-                result:
-                    Some(Value::test_list(
-                        vec![
-                            Value::test_record(record! {
-                                "index" => Value::test_int(1),
-                                "name" =>  Value::test_string("foo"),
-                                "value" => Value::test_string("a"),
-                            }),
-                            Value::test_record(record! {
-                                "index" => Value::test_int(2),
-                                "name" =>  Value::test_string("bar"),
-                                "value" => Value::test_string("b"),
-                            }),
-                            Value::test_record(record! {
-                                "index" => Value::test_int(3),
-                                "name" =>  Value::test_string("baz"),
-                                "value" => Value::test_string("c"),
-                            }),
-                        ],
-                    ))
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "index" => Value::test_int(1),
+                        "name" =>  Value::test_string("foo"),
+                        "value" => Value::test_string("a"),
+                    }),
+                    Value::test_record(record! {
+                        "index" => Value::test_int(2),
+                        "name" =>  Value::test_string("bar"),
+                        "value" => Value::test_string("b"),
+                    }),
+                    Value::test_record(record! {
+                        "index" => Value::test_int(3),
+                        "name" =>  Value::test_string("baz"),
+                        "value" => Value::test_string("c"),
+                    }),
+                ])),
             },
             Example {
-                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
+                example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name \
+                          --after index",
                 description: "Move multiple columns after the last column and reorder them",
-                result:
-                    Some(Value::test_list(
-                        vec![
-                            Value::test_record(record! {
-                                "index" => Value::test_int(1),
-                                "value" => Value::test_string("a"),
-                                "name" =>  Value::test_string("foo"),
-                            }),
-                            Value::test_record(record! {
-                                "index" => Value::test_int(2),
-                                "value" => Value::test_string("b"),
-                                "name" =>  Value::test_string("bar"),
-                            }),
-                            Value::test_record(record! {
-                                "index" => Value::test_int(3),
-                                "value" => Value::test_string("c"),
-                                "name" =>  Value::test_string("baz"),
-                            }),
-                        ],
-                    ))
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "index" => Value::test_int(1),
+                        "value" => Value::test_string("a"),
+                        "name" =>  Value::test_string("foo"),
+                    }),
+                    Value::test_record(record! {
+                        "index" => Value::test_int(2),
+                        "value" => Value::test_string("b"),
+                        "name" =>  Value::test_string("bar"),
+                    }),
+                    Value::test_record(record! {
+                        "index" => Value::test_int(3),
+                        "value" => Value::test_string("c"),
+                        "name" =>  Value::test_string("baz"),
+                    }),
+                ])),
             },
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
@@ -103,7 +99,7 @@ impl Command for Move {
                     "value" => Value::test_string("a"),
                     "name" => Value::test_string("foo"),
                     "index" => Value::test_int(1),
-                }))
+                })),
             },
         ]
     }

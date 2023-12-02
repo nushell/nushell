@@ -1,12 +1,13 @@
-use crate::{
-    engine::{EngineState, StateWorkingSet},
-    ErrorStyle,
-};
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
 };
 use thiserror::Error;
+
+use crate::{
+    engine::{EngineState, StateWorkingSet},
+    ErrorStyle,
+};
 
 /// This error exists so that we can defer SourceCode handling. It simply
 /// forwards most methods, except for `.source_code()`, which we provide.
@@ -68,8 +69,9 @@ impl std::fmt::Debug for CliError<'_> {
             ),
         };
 
-        // Ignore error to prevent format! panics. This can happen if span points at some
-        // inaccessible location, for example by calling `report_error()` with wrong working set.
+        // Ignore error to prevent format! panics. This can happen if span points at
+        // some inaccessible location, for example by calling `report_error()`
+        // with wrong working set.
         let _ = miette_handler.debug(self, f);
 
         Ok(())

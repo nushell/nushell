@@ -1,17 +1,24 @@
+use std::{
+    cmp,
+    path::{Path, PathBuf},
+    thread,
+    time::{Duration, Instant},
+};
+
 use libc::{c_int, c_void, size_t};
-use libproc::libproc::bsd_info::BSDInfo;
-use libproc::libproc::file_info::{pidfdinfo, ListFDs, ProcFDType};
-use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
-use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
-use libproc::libproc::proc_pid::{listpidinfo, pidinfo, ListThreads};
-use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
-use libproc::libproc::thread_info::ThreadInfo;
-use libproc::processes::{pids_by_type, ProcFilter};
+use libproc::{
+    libproc::{
+        bsd_info::BSDInfo,
+        file_info::{pidfdinfo, ListFDs, ProcFDType},
+        net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo},
+        pid_rusage::{pidrusage, RUsageInfoV2},
+        proc_pid::{listpidinfo, pidinfo, ListThreads},
+        task_info::{TaskAllInfo, TaskInfo},
+        thread_info::ThreadInfo,
+    },
+    processes::{pids_by_type, ProcFilter},
+};
 use mach2::mach_time;
-use std::cmp;
-use std::path::{Path, PathBuf};
-use std::thread;
-use std::time::{Duration, Instant};
 
 pub struct ProcessInfo {
     pub pid: i32,
@@ -409,10 +416,11 @@ impl ProcessInfo {
     }
 }
 
-/// The Macos kernel returns process times in mach ticks rather than nanoseconds.  To get times in
-/// nanoseconds, we need to multiply by the mach timebase, a fractional value reported by the
-/// kernel.  It is uncertain if the kernel returns the same value on each call to
-/// mach_timebase_info; if it does, it may be worth reimplementing this as a lazy_static value.
+/// The Macos kernel returns process times in mach ticks rather than
+/// nanoseconds.  To get times in nanoseconds, we need to multiply by the mach
+/// timebase, a fractional value reported by the kernel.  It is uncertain if the
+/// kernel returns the same value on each call to mach_timebase_info; if it
+/// does, it may be worth reimplementing this as a lazy_static value.
 fn mach_ticktime() -> f64 {
     let mut timebase = mach_time::mach_timebase_info_data_t::default();
     let err = unsafe { mach_time::mach_timebase_info(&mut timebase) };

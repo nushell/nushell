@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, nu, pipeline, playground::Playground};
 
 #[test]
 fn removes_duplicate_rows() {
@@ -84,7 +82,8 @@ fn uniq_unique() {
 fn table() {
     let actual = nu!(pipeline(
         "
-            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear \
+         monday] [orange tuesday]]
             | uniq-by fruit
         "
     ));
@@ -110,14 +109,16 @@ fn uniq_by_empty() {
 fn uniq_by_multiple_columns() {
     let actual = nu!(pipeline(
         "
-            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear monday] [orange tuesday]]
+            [[fruit day]; [apple monday] [apple friday] [Apple friday] [apple monday] [pear \
+         monday] [orange tuesday]]
             | uniq-by fruit day
         "
     ));
 
     let expected = nu!(pipeline(
         "
-        echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange tuesday]]
+        echo [[fruit day]; [apple monday] [apple friday] [Apple friday] [pear monday] [orange \
+         tuesday]]
         "
     ));
     assert_eq!(actual.out, expected.out);

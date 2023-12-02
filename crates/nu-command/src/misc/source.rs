@@ -1,7 +1,9 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -43,8 +45,8 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
+        // Note: this hidden positional is the block_id that corresponded to the 0th
+        // position it is put here by the parser
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
 
         let block = engine_state.get_block(block_id as usize).clone();
@@ -66,7 +68,8 @@ impl Command for Source {
                 result: None,
             },
             Example {
-                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
+                description: "Runs foo.nu in current context and call the command defined, \
+                              suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
                 example: r#"source ./foo.nu; say-hi"#,
                 result: None,
             },

@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -34,7 +34,8 @@ repeating this process with row 1, and so on."#
             ])
             .required(
                 "value",
-                // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
+                // Both this and `update` should have a shape more like <record> | <table> than
+                // just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,
                 "the new value to merge with",
             )
@@ -130,7 +131,8 @@ repeating this process with row 1, and so on."#
             ) => Ok(Value::record(do_merge(inp, &to_merge), call.head).into_pipeline_data()),
             (PipelineData::Value(val, ..), ..) => {
                 // Only point the "value originates here" arrow at the merge value
-                // if it was generated from a block. Otherwise, point at the pipeline value. -Leon 2022-10-27
+                // if it was generated from a block. Otherwise, point at the pipeline value.
+                // -Leon 2022-10-27
                 let span = if val.span() == Span::test_data() {
                     Span::new(call.head.start, call.head.start)
                 } else {

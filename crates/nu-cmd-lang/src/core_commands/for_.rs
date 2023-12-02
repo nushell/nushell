@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Block, Command, EngineState, Stack},
     record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
@@ -104,7 +104,7 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
+                    // let block = engine_state.get_block(block_id);
                     match eval_block(
                         &engine_state,
                         stack,
@@ -150,7 +150,7 @@ impl Command for For {
                         },
                     );
 
-                    //let block = engine_state.get_block(block_id);
+                    // let block = engine_state.get_block(block_id);
                     match eval_block(
                         &engine_state,
                         stack,
@@ -210,8 +210,8 @@ impl Command for For {
             },
             Example {
                 description: "Number each item and print a message",
-                example:
-                    "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
+                example: "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is \
+                          ($it.item)\" }",
                 result: None,
             },
         ]

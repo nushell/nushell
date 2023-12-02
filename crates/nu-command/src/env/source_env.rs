@@ -3,9 +3,9 @@ use std::path::PathBuf;
 use nu_engine::{
     eval_block_with_early_return, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt,
 };
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
@@ -23,7 +23,8 @@ impl Command for SourceEnv {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "filename",
-                SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
+                SyntaxShape::String, /* type is string to avoid automatically canonicalizing the
+                                      * path */
                 "the filepath to the script file to source the environment from",
             )
             .category(Category::Core)
@@ -42,8 +43,8 @@ impl Command for SourceEnv {
     ) -> Result<PipelineData, ShellError> {
         let source_filename: Spanned<String> = call.req(engine_state, caller_stack, 0)?;
 
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
+        // Note: this hidden positional is the block_id that corresponded to the 0th
+        // position it is put here by the parser
         let block_id: i64 = call.req_parser_info(engine_state, caller_stack, "block_id")?;
 
         // Set the currently evaluated directory (file-relative PWD)

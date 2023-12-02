@@ -5,9 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use crate::dataframe::values::Column;
-
 use super::super::values::NuDataFrame;
+use crate::dataframe::values::Column;
 
 #[derive(Clone)]
 pub struct SliceDF;
@@ -79,8 +78,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

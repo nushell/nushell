@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, CellPath, PathMember},
+    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
@@ -64,34 +64,33 @@ impl Command for Update {
             },
             Example {
                 description: "Use in closure form for more involved updating logic",
-                example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "count" => Value::test_int(5),
-                        "fruit" => Value::test_string("apple"),
-                    })],
-                )),
+                example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| \
+                          ($e.item.fruit | str length) + $e.index } | get item",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "count" => Value::test_int(5),
+                    "fruit" => Value::test_string("apple"),
+                })])),
             },
             Example {
-                description: "Alter each value in the 'authors' column to use a single string instead of a list",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
+                description: "Alter each value in the 'authors' column to use a single string \
+                              instead of a list",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update \
+                          authors {|row| $row.authors | str join ','}",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
             },
             Example {
-                description: "You can also use a simple command to update 'authors' to a single string",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "project" => Value::test_string("nu"),
-                        "authors" => Value::test_string("Andrés,JT,Yehuda"),
-                    })],
-                )),
-            }
+                description: "You can also use a simple command to update 'authors' to a single \
+                              string",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update \
+                          authors {|| str join ','}",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "project" => Value::test_string("nu"),
+                    "authors" => Value::test_string("Andrés,JT,Yehuda"),
+                })])),
+            },
         ]
     }
 }
@@ -117,7 +116,8 @@ fn update(
     let metadata = input.metadata();
     let mdclone = metadata.clone();
 
-    // Replace is a block, so set it up and run it instead of using it as the replacement
+    // Replace is a block, so set it up and run it instead of using it as the
+    // replacement
     if replacement.as_block().is_ok() {
         let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();

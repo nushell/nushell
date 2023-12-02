@@ -1,9 +1,10 @@
+use std::io::IsTerminal as _;
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     span, Category, Example, PipelineData, ShellError, Signature, Type, Value,
 };
-use std::io::IsTerminal as _;
 
 #[derive(Clone)]
 pub struct IsTerminal;

@@ -1,13 +1,14 @@
+use std::collections::VecDeque;
+
 use chrono::{Datelike, Local, NaiveDate};
 use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use std::collections::VecDeque;
 
 #[derive(Clone)]
 pub struct Cal;
@@ -341,8 +342,9 @@ fn add_month_to_table(
 
                 if let Some(current_day) = current_day_option {
                     if current_day == adjusted_day_number {
-                        // TODO: Update the value here with a color when color support is added
-                        // This colors the current day
+                        // TODO: Update the value here with a color when color
+                        // support is added This colors
+                        // the current day
                     }
                 }
             }

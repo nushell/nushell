@@ -1,11 +1,11 @@
-use crate::dataframe::values::{Column, NuDataFrame};
-
-use super::super::values::NuLazyFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+
+use super::super::values::NuLazyFrame;
+use crate::dataframe::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct LazyCollect;
@@ -66,8 +66,7 @@ impl Command for LazyCollect {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

@@ -1,13 +1,12 @@
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
-
-use super::super::values::{Column, NuDataFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::super::values::{Column, NuDataFrame};
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct Shift;
@@ -108,9 +107,10 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::eager::DropNulls;
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{
+        super::super::{eager::DropNulls, test_dataframe::test_dataframe},
+        *,
+    };
 
     #[test]
     fn test_examples() {

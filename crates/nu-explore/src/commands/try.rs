@@ -5,9 +5,8 @@ use nu_protocol::{
     Value,
 };
 
-use crate::views::InteractiveView;
-
 use super::{default_color_list, ConfigOption, HelpExample, HelpManual, Shortcode, ViewCommand};
+use crate::views::InteractiveView;
 
 #[derive(Debug, Default, Clone)]
 pub struct TryCmd {
@@ -15,13 +14,13 @@ pub struct TryCmd {
 }
 
 impl TryCmd {
+    pub const NAME: &'static str = "try";
+
     pub fn new() -> Self {
         Self {
             command: String::new(),
         }
     }
-
-    pub const NAME: &'static str = "try";
 }
 
 impl ViewCommand for TryCmd {
@@ -58,7 +57,8 @@ impl ViewCommand for TryCmd {
 
         Some(HelpManual {
             name: "try",
-            description: "Opens a panel in which to run Nushell commands and explore their output. The explorer acts like `:table`.",
+            description: "Opens a panel in which to run Nushell commands and explore their \
+                          output. The explorer acts like `:table`.",
             arguments: vec![],
             examples,
             input: shortcuts,

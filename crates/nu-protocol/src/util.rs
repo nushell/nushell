@@ -1,5 +1,6 @@
-use crate::ShellError;
 use std::io::{BufRead, BufReader, Read};
+
+use crate::ShellError;
 
 pub struct BufferedReader<R: Read> {
     pub input: BufReader<R>,

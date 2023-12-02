@@ -1,5 +1,3 @@
-use super::super::values::{Column, NuDataFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -14,6 +12,8 @@ use polars::{
     },
 };
 
+use super::super::values::{Column, NuDataFrame};
+
 #[derive(Clone)]
 pub struct Summary;
 
@@ -23,7 +23,8 @@ impl Command for Summary {
     }
 
     fn usage(&self) -> &str {
-        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric columns."
+        "For a dataframe, produces descriptive statistics (summary statistics) for its numeric \
+         columns."
     }
 
     fn signature(&self) -> Signature {
@@ -264,8 +265,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

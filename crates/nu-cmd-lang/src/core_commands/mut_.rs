@@ -1,7 +1,9 @@
 use nu_engine::eval_block;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct Mut;
@@ -70,7 +72,7 @@ impl Command for Mut {
             call.redirect_stderr,
         )?;
 
-        //println!("Adding: {:?} to {}", rhs, var_id);
+        // println!("Adding: {:?} to {}", rhs, var_id);
 
         stack.add_var(var_id, pipeline_data.into_value(call.head));
         Ok(PipelineData::empty())

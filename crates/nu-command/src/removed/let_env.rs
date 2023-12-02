@@ -1,6 +1,8 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, PipelineData, ShellError, Signature, SyntaxShape, Type,
+};
 
 #[derive(Clone)]
 pub struct LetEnv;

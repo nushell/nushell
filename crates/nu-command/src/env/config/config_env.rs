@@ -1,3 +1,4 @@
+use nu_cmd_base::util::get_editor;
 use nu_engine::env_to_strings;
 use nu_protocol::{
     ast::Call,
@@ -6,7 +7,6 @@ use nu_protocol::{
 };
 
 use super::utils::gen_command;
-use nu_cmd_base::util::get_editor;
 
 #[derive(Clone)]
 pub struct ConfigEnv;
@@ -24,7 +24,8 @@ impl Command for ConfigEnv {
                 (Type::Nothing, Type::String),
             ])
             .switch("default", "Print default `env.nu` file instead.", Some('d'))
-        // TODO: Signature narrower than what run actually supports theoretically
+        // TODO: Signature narrower than what run actually supports
+        // theoretically
     }
 
     fn usage(&self) -> &str {

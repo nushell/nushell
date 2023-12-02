@@ -1,5 +1,6 @@
-use crate::{ModuleId, Span};
 use std::collections::HashMap;
+
+use crate::{ModuleId, Span};
 
 /// Organizes usage messages for various primitives
 #[derive(Debug, Clone)]

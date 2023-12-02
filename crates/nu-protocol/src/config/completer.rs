@@ -2,9 +2,8 @@ use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{record, Config, Span, Value};
-
 use super::helper::ReconstructVal;
+use crate::{record, Config, Span, Value};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
 pub enum CompletionAlgorithm {

@@ -1,16 +1,15 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
+use super::client::RequestFlags;
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
     request_handle_response, request_set_timeout, send_request,
 };
-
-use super::client::RequestFlags;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -111,8 +110,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Patch content to example.com, with username and password",
-                example:
-                    "http patch --user myuser --password mypass https://www.example.com 'body'",
+                example: "http patch --user myuser --password mypass https://www.example.com \
+                          'body'",
                 result: None,
             },
             Example {
@@ -123,7 +122,8 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Patch content to example.com, with JSON body",
-                example: "http patch --content-type application/json https://www.example.com { field: value }",
+                example: "http patch --content-type application/json https://www.example.com { \
+                          field: value }",
                 result: None,
             },
         ]
@@ -167,8 +167,9 @@ fn run_patch(
     helper(engine_state, stack, call, args)
 }
 
-// Helper function that actually goes to retrieve the resource from the url given
-// The Option<String> return a possible file extension which can be used in AutoConvert commands
+// Helper function that actually goes to retrieve the resource from the url
+// given The Option<String> return a possible file extension which can be used
+// in AutoConvert commands
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,

@@ -3,14 +3,14 @@ mod conversion;
 mod custom_value;
 mod operations;
 
-pub use conversion::{Column, ColumnMap};
-pub use operations::Axis;
+use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
+pub use conversion::{Column, ColumnMap};
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
+pub use operations::Axis;
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
 use super::{utils::DEFAULT_ROWS, NuLazyFrame};
 
@@ -435,7 +435,8 @@ impl NuDataFrame {
         Ok(values)
     }
 
-    // Dataframes are considered equal if they have the same shape, column name and values
+    // Dataframes are considered equal if they have the same shape, column name and
+    // values
     pub fn is_equal(&self, other: &Self) -> Option<Ordering> {
         if self.as_ref().width() == 0 {
             // checking for empty dataframe

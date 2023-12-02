@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
@@ -98,8 +98,8 @@ impl Command for ErrorMake {
                 )),
             },
             Example {
-                description:
-                    "Create a custom error for a custom command that shows the span of the argument",
+                description: "Create a custom error for a custom command that shows the span of \
+                              the argument",
                 example: r#"def foo [x] {
         error make {
             msg: "this is fishy"

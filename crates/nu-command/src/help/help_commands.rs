@@ -1,4 +1,5 @@
-use crate::help::highlight_search_in_table;
+use std::borrow::Borrow;
+
 use nu_color_config::StyleComputer;
 use nu_engine::{get_full_help, CallExt};
 use nu_protocol::{
@@ -7,7 +8,8 @@ use nu_protocol::{
     record, span, Category, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use std::borrow::Borrow;
+
+use crate::help::highlight_search_in_table;
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -62,8 +64,8 @@ pub fn help_commands(
     // 🚩The following two-lines are copied from filters/find.rs:
     let style_computer = StyleComputer::from_config(engine_state, stack);
     // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
+    // Also note that this sample string is passed into user-written code (the
+    // closure that may or may not be defined for "string").
     let string_style = style_computer.compute("string", &Value::string("search result", head));
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", head));

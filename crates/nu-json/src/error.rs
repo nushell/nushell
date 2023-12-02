@@ -1,16 +1,11 @@
 //! JSON Errors
 //!
-//! This module is centered around the `Error` and `ErrorCode` types, which represents all possible
-//! `serde_hjson` errors.
+//! This module is centered around the `Error` and `ErrorCode` types, which
+//! represents all possible `serde_hjson` errors.
 
-use std::error;
-use std::fmt;
-use std::io;
-use std::result;
-use std::string::FromUtf8Error;
+use std::{error, fmt, io, result, string::FromUtf8Error};
 
-use serde::de;
-use serde::ser;
+use serde::{de, ser};
 
 /// The errors that can arise while parsing a JSON stream.
 #[derive(Clone, PartialEq, Eq)]
@@ -72,7 +67,7 @@ pub enum ErrorCode {
 
 impl fmt::Debug for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        //use std::fmt::Debug;
+        // use std::fmt::Debug;
 
         match *self {
             ErrorCode::Custom(ref msg) => write!(f, "{msg}"),
@@ -101,8 +96,8 @@ impl fmt::Debug for ErrorCode {
     }
 }
 
-/// This type represents all possible errors that can occur when serializing or deserializing a
-/// value into JSON.
+/// This type represents all possible errors that can occur when serializing or
+/// deserializing a value into JSON.
 #[derive(Debug)]
 pub enum Error {
     /// The JSON value had some syntactic error.

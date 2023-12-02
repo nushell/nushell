@@ -1,6 +1,6 @@
-use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
-
 use nu_protocol::{engine::StateWorkingSet, ParseError, Span, SyntaxShape, Type};
+
+use crate::{lex::lex_signature, parser::parse_value, trim_quotes, TokenContents};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum ShapeDescriptorUse {
@@ -10,8 +10,8 @@ pub enum ShapeDescriptorUse {
     Type,
 }
 
-/// equivalent to [`parse_shape_name`] with [`ShapeDescriptorUse::Type`] converting the
-/// [`SyntaxShape`] to its [`Type`]
+/// equivalent to [`parse_shape_name`] with [`ShapeDescriptorUse::Type`]
+/// converting the [`SyntaxShape`] to its [`Type`]
 pub fn parse_type(working_set: &mut StateWorkingSet, bytes: &[u8], span: Span) -> Type {
     parse_shape_name(working_set, bytes, span, ShapeDescriptorUse::Type).to_type()
 }
@@ -48,7 +48,7 @@ pub fn parse_shape_name(
         }
         b"bool" => SyntaxShape::Boolean,
         b"cell-path" => SyntaxShape::CellPath,
-        b"closure" => SyntaxShape::Closure(None), //FIXME: Blocks should have known output types
+        b"closure" => SyntaxShape::Closure(None), // FIXME: Blocks should have known output types
         b"datetime" => SyntaxShape::DateTime,
         b"directory" => SyntaxShape::Directory,
         b"duration" => SyntaxShape::Duration,
@@ -109,7 +109,7 @@ pub fn parse_shape_name(
                     return shape;
                 }
             } else {
-                //TODO: Handle error case for unknown shapes
+                // TODO: Handle error case for unknown shapes
                 working_set.error(ParseError::UnknownType(span));
                 return SyntaxShape::Any;
             }
@@ -258,7 +258,8 @@ fn parse_list_shape(
         };
 
         let inner_text = String::from_utf8_lossy(working_set.get_span_contents(inner_span));
-        // remove any extra whitespace, for example `list< string >` becomes `list<string>`
+        // remove any extra whitespace, for example `list< string >` becomes
+        // `list<string>`
         let inner_bytes = inner_text.trim().as_bytes().to_vec();
 
         // list<>

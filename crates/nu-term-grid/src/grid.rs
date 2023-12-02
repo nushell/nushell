@@ -5,16 +5,17 @@
 //! needed. For example:
 //!
 //! ```rust
-//! use nu_term_grid::grid::{Grid, GridOptions, Direction, Filling, Cell};
+//! use nu_term_grid::grid::{Cell, Direction, Filling, Grid, GridOptions};
 //!
 //! let mut grid = Grid::new(GridOptions {
-//!     filling:    Filling::Spaces(1),
-//!     direction:  Direction::LeftToRight,
+//!     filling: Filling::Spaces(1),
+//!     direction: Direction::LeftToRight,
 //! });
 //!
-//! for s in &["one", "two", "three", "four", "five", "six", "seven",
-//!            "eight", "nine", "ten", "eleven", "twelve"]
-//! {
+//! for s in &[
+//!     "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+//!     "twelve",
+//! ] {
 //!     grid.add(Cell::from(*s));
 //! }
 //!
@@ -38,51 +39,52 @@
 //! There are two options that must be specified in the [`GridOptions`] value
 //! that dictate how the grid is formatted:
 //!
-//! - `filling`: what to put in between two columns — either a number of
-//!    spaces, or a text string;
-//! - `direction`, which specifies whether the cells should go along
-//!    rows, or columns:
-//!     - `Direction::LeftToRight` starts them in the top left and
-//!        moves *rightwards*, going to the start of a new row after reaching the
-//!        final column;
+//! - `filling`: what to put in between two columns — either a number of spaces,
+//!   or a text string;
+//! - `direction`, which specifies whether the cells should go along rows, or
+//!   columns:
+//!     - `Direction::LeftToRight` starts them in the top left and moves
+//!       *rightwards*, going to the start of a new row after reaching the final
+//!       column;
 //!     - `Direction::TopToBottom` starts them in the top left and moves
-//!        *downwards*, going to the top of a new column after reaching the final
-//!        row.
+//!       *downwards*, going to the top of a new column after reaching the final
+//!       row.
 //!
 //!
 //! ## Displaying a grid
 //!
-//! When display a grid, you can either specify the number of columns in advance,
-//! or try to find the maximum number of columns that can fit in an area of a
-//! given width.
+//! When display a grid, you can either specify the number of columns in
+//! advance, or try to find the maximum number of columns that can fit in an
+//! area of a given width.
 //!
-//! Splitting a series of cells into columns — or, in other words, starting a new
-//! row every <var>n</var> cells — is achieved with the [`fit_into_columns`] function
-//! on a `Grid` value. It takes as its argument the number of columns.
+//! Splitting a series of cells into columns — or, in other words, starting a
+//! new row every <var>n</var> cells — is achieved with the [`fit_into_columns`]
+//! function on a `Grid` value. It takes as its argument the number of columns.
 //!
 //! Trying to fit as much data onto one screen as possible is the main use case
 //! for specifying a maximum width instead. This is achieved with the
 //! [`fit_into_width`] function. It takes the maximum allowed width, including
 //! separators, as its argument. However, it returns an *optional* [`Display`]
-//! value, depending on whether any of the cells actually had a width greater than
-//! the maximum width! If this is the case, your best bet is to just output the
-//! cells with one per line.
+//! value, depending on whether any of the cells actually had a width greater
+//! than the maximum width! If this is the case, your best bet is to just output
+//! the cells with one per line.
 //!
 //!
 //! ## Cells and data
 //!
 //! Grids to not take `String`s or `&str`s — they take [`Cell`] values.
 //!
-//! A **Cell** is a struct containing an individual cell’s contents, as a string,
-//! and its pre-computed length, which gets used when calculating a grid’s final
-//! dimensions. Usually, you want the *Unicode width* of the string to be used for
-//! this, so you can turn a `String` into a `Cell` with the `.into()` function.
+//! A **Cell** is a struct containing an individual cell’s contents, as a
+//! string, and its pre-computed length, which gets used when calculating a
+//! grid’s final dimensions. Usually, you want the *Unicode width* of the string
+//! to be used for this, so you can turn a `String` into a `Cell` with the
+//! `.into()` function.
 //!
-//! However, you may also want to supply your own width: when you already know the
-//! width in advance, or when you want to change the measurement, such as skipping
-//! over terminal control characters. For cases like these, the fields on the
-//! `Cell` values are public, meaning you can construct your own instances as
-//! necessary.
+//! However, you may also want to supply your own width: when you already know
+//! the width in advance, or when you want to change the measurement, such as
+//! skipping over terminal control characters. For cases like these, the fields
+//! on the `Cell` values are public, meaning you can construct your own
+//! instances as necessary.
 //!
 //! [`Cell`]: ./struct.Cell.html
 //! [`Display`]: ./struct.Display.html
@@ -91,9 +93,8 @@
 //! [`fit_into_width`]: ./struct.Grid.html#method.fit_into_width
 //! [`GridOptions`]: ./struct.GridOptions.html
 
-use std::cmp::max;
-use std::fmt;
-use std::iter::repeat;
+use std::{cmp::max, fmt, iter::repeat};
+
 use unicode_width::UnicodeWidthStr;
 
 fn unicode_width_strip_ansi(astring: &str) -> usize {

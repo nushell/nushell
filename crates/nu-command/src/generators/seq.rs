@@ -93,10 +93,11 @@ fn seq(
     let span = call.head;
     let rest_nums: Vec<Spanned<f64>> = call.rest(engine_state, stack, 0)?;
 
-    // note that the check for int or float has to occur here. prior, the check would occur after
-    // everything had been generated; this does not work well with ListStreams.
-    // As such, the simple test is to check if this errors out: that means there is a float in the
-    // input, which necessarily means that parts of the output will be floats.
+    // note that the check for int or float has to occur here. prior, the check
+    // would occur after everything had been generated; this does not work well
+    // with ListStreams. As such, the simple test is to check if this errors
+    // out: that means there is a float in the input, which necessarily means
+    // that parts of the output will be floats.
     let rest_nums_check: Result<Vec<Spanned<i64>>, ShellError> = call.rest(engine_state, stack, 0);
     let contains_decimals = rest_nums_check.is_err();
 
@@ -179,10 +180,11 @@ struct FloatSeq {
 
 impl Iterator for FloatSeq {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         let count = self.first + self.index as f64 * self.step;
-        // Accuracy guaranteed as far as possible; each time, the value is re-evaluated from the
-        // base arguments
+        // Accuracy guaranteed as far as possible; each time, the value is re-evaluated
+        // from the base arguments
         if (count > self.last && self.step >= 0.0) || (count < self.last && self.step <= 0.0) {
             return None;
         }
@@ -200,6 +202,7 @@ struct IntSeq {
 
 impl Iterator for IntSeq {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         if (self.count > self.last && self.step >= 0) || (self.count < self.last && self.step <= 0)
         {

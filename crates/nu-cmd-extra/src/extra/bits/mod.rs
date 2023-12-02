@@ -13,14 +13,13 @@ pub use and::BitsAnd;
 pub use bits_::Bits;
 pub use into::BitsInto;
 pub use not::BitsNot;
+use nu_protocol::Spanned;
 pub use or::BitsOr;
 pub use rotate_left::BitsRol;
 pub use rotate_right::BitsRor;
 pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
-
-use nu_protocol::Spanned;
 
 #[derive(Clone, Copy)]
 enum NumberBytes {
@@ -66,11 +65,11 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
             NumberBytes::Four => InputNumType::SignedFour,
             NumberBytes::Eight => InputNumType::SignedEight,
             NumberBytes::Auto => {
-                if val <= 0x7F && val >= -(2i64.pow(7)) {
+                if val <= 0x7f && val >= -(2i64.pow(7)) {
                     InputNumType::SignedOne
-                } else if val <= 0x7FFF && val >= -(2i64.pow(15)) {
+                } else if val <= 0x7fff && val >= -(2i64.pow(15)) {
                     InputNumType::SignedTwo
-                } else if val <= 0x7FFFFFFF && val >= -(2i64.pow(31)) {
+                } else if val <= 0x7fffffff && val >= -(2i64.pow(31)) {
                     InputNumType::SignedFour
                 } else {
                     InputNumType::SignedEight
@@ -85,11 +84,11 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
             NumberBytes::Four => InputNumType::Four,
             NumberBytes::Eight => InputNumType::Eight,
             NumberBytes::Auto => {
-                if val <= 0xFF {
+                if val <= 0xff {
                     InputNumType::One
-                } else if val <= 0xFFFF {
+                } else if val <= 0xffff {
                     InputNumType::Two
-                } else if val <= 0xFFFFFFFF {
+                } else if val <= 0xffffffff {
                     InputNumType::Four
                 } else {
                     InputNumType::Eight

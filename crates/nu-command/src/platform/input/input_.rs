@@ -1,3 +1,5 @@
+use std::{io::Write, time::Duration};
+
 use crossterm::{
     cursor,
     event::{Event, KeyCode, KeyEventKind, KeyModifiers},
@@ -7,14 +9,12 @@ use crossterm::{
 };
 use itertools::Itertools;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Type, Value,
 };
-use std::io::Write;
-use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Input;

@@ -1,16 +1,18 @@
-use nu_engine::current_dir;
-use nu_engine::CallExt;
+use std::{
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    thread,
+};
+
+use nu_engine::{current_dir, CallExt};
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
     Type, Value,
 };
-use std::fs::File;
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::thread;
 
 use crate::progress_bar;
 
@@ -245,7 +247,8 @@ fn convert_to_extension(
     value_to_bytes(output)
 }
 
-/// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`] of bytes
+/// Convert [`Value::String`] [`Value::Binary`] or [`Value::List`] into [`Vec`]
+/// of bytes
 ///
 /// Propagates [`Value::Error`] and creates error otherwise
 fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
@@ -403,7 +406,8 @@ fn stream_to_file(
 
             // If the `progress` flag is set then
             if progress {
-                // Update the total amount of bytes that has been saved and then print the progress bar
+                // Update the total amount of bytes that has been saved and then print the
+                // progress bar
                 *bytes_processed_p += buf.len() as u64;
                 if let Some(bar) = &mut bar_opt {
                     bar.update_bar(*bytes_processed_p);

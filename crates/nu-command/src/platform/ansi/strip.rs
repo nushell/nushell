@@ -1,8 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,14 +18,18 @@ impl Command for SubCommand {
         Signature::build("ansi strip")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
-                "for a data structure input, remove ANSI sequences from strings at the given cell paths",
+                "for a data structure input, remove ANSI sequences from strings at the given cell \
+                 paths",
             )
             .allow_variants_without_examples(true)
             .category(Category::Platform)
@@ -77,8 +82,9 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, _span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::{action, SubCommand};
     use nu_protocol::{Span, Value};
+
+    use super::{action, SubCommand};
 
     #[test]
     fn examples_work_as_expected() {

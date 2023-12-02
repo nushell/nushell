@@ -1,9 +1,10 @@
-use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::base64::{operate, ActionType, CHARACTER_SET_DESC};
 
 #[derive(Clone)]
 pub struct DecodeBase64;

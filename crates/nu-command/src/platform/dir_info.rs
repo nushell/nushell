@@ -1,9 +1,11 @@
+use std::{
+    path::PathBuf,
+    sync::{atomic::AtomicBool, Arc},
+};
+
 use filesize::file_real_size_fast;
 use nu_glob::Pattern;
 use nu_protocol::{record, ShellError, Span, Value};
-use std::path::PathBuf;
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct DirBuilder {

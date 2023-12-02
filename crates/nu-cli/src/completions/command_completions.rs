@@ -1,11 +1,13 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
+use std::sync::Arc;
+
 use nu_parser::FlatShape;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     Span,
 };
 use reedline::Suggestion;
-use std::sync::Arc;
+
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 
 pub struct CommandCompletion {
     engine_state: Arc<EngineState>,
@@ -166,7 +168,8 @@ impl Completer for CommandCompletion {
             })
             .last();
 
-        // The last item here would be the earliest shape that could possible by part of this subcommand
+        // The last item here would be the earliest shape that could possible by part of
+        // this subcommand
         let subcommands = if let Some(last) = last {
             self.complete_commands(
                 working_set,

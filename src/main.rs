@@ -13,12 +13,12 @@ mod tests;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use crate::{
-    command::parse_commandline_args,
-    config_files::set_config_path,
-    logger::{configure, logger},
-    terminal::acquire_terminal,
+use std::{
+    io::BufReader,
+    str::FromStr,
+    sync::{atomic::AtomicBool, Arc},
 };
+
 use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
@@ -33,10 +33,12 @@ use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
-use std::{
-    io::BufReader,
-    str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
+
+use crate::{
+    command::parse_commandline_args,
+    config_files::set_config_path,
+    logger::{configure, logger},
+    terminal::acquire_terminal,
 };
 
 fn get_engine_state() -> EngineState {
@@ -164,7 +166,8 @@ fn main() -> Result<()> {
         let span = include_path.span;
         let vals: Vec<_> = include_path
             .item
-            .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
+            .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a
+            // path)
             .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
@@ -283,7 +286,8 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
+    // Set up the $nu constant before evaluating config files (need to have $nu
+    // available in them)
     let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 

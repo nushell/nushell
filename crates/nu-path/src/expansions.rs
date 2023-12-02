@@ -1,11 +1,16 @@
-use std::io;
-use std::path::{Path, PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
-use super::dots::{expand_dots, expand_ndots};
-use super::helpers;
-use super::tilde::expand_tilde;
+use super::{
+    dots::{expand_dots, expand_ndots},
+    helpers,
+    tilde::expand_tilde,
+};
 
-// Join a path relative to another path. Paths starting with tilde are considered as absolute.
+// Join a path relative to another path. Paths starting with tilde are
+// considered as absolute.
 fn join_path_relative<P, Q>(path: P, relative_to: Q) -> PathBuf
 where
     P: AsRef<Path>,
@@ -34,8 +39,8 @@ fn canonicalize(path: impl AsRef<Path>) -> io::Result<PathBuf> {
     helpers::canonicalize(&path)
 }
 
-/// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its
-/// absolute form.
+/// Resolve all symbolic links and all components (tilde, ., .., ...+) and
+/// return the path in its absolute form.
 ///
 /// Fails under the same conditions as
 /// [std::fs::canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
@@ -57,10 +62,11 @@ fn expand_path(path: impl AsRef<Path>) -> PathBuf {
 
 /// Resolve only path components (tilde, ., .., ...+), if possible.
 ///
-/// The function works in a "best effort" mode: It does not fail but rather returns the unexpanded
-/// version if the expansion is not possible.
+/// The function works in a "best effort" mode: It does not fail but rather
+/// returns the unexpanded version if the expansion is not possible.
 ///
-/// Furthermore, unlike canonicalize(), it does not use sys calls (such as readlink).
+/// Furthermore, unlike canonicalize(), it does not use sys calls (such as
+/// readlink).
 ///
 /// Does not convert to absolute form nor does it resolve symlinks.
 /// The input path is specified relative to another path
@@ -74,12 +80,15 @@ where
     expand_path(path)
 }
 
-/// Resolve to a path that is accepted by the system and no further - tilde is expanded, and ndot path components are expanded.
+/// Resolve to a path that is accepted by the system and no further - tilde is
+/// expanded, and ndot path components are expanded.
 ///
-/// This function will take a leading tilde path component, and expand it to the user's home directory;
-/// it will also expand any path elements consisting of only dots into the correct number of `..` path elements.
-/// It does not do any normalization except to what will be accepted by Path::open,
-/// and it does not touch the system at all, except for getting the home directory of the current user.
+/// This function will take a leading tilde path component, and expand it to the
+/// user's home directory; it will also expand any path elements consisting of
+/// only dots into the correct number of `..` path elements. It does not do any
+/// normalization except to what will be accepted by Path::open, and it does not
+/// touch the system at all, except for getting the home directory of the
+/// current user.
 pub fn expand_to_real_path<P>(path: P) -> PathBuf
 where
     P: AsRef<Path>,

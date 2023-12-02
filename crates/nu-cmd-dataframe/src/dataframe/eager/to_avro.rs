@@ -6,8 +6,10 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
-use polars_io::avro::{AvroCompression, AvroWriter};
-use polars_io::SerWriter;
+use polars_io::{
+    avro::{AvroCompression, AvroWriter},
+    SerWriter,
+};
 
 use super::super::values::NuDataFrame;
 

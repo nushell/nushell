@@ -1,35 +1,39 @@
+use std::path::Path;
+
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
-use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
-    engine::{EngineState, Stack},
-    print_if_stream, PipelineData, ShellError, Span, Value,
+    engine::{EngineState, Stack, StateWorkingSet},
+    print_if_stream, report_error, report_error_new, PipelineData, ShellError, Span, Value,
 };
-use nu_protocol::{report_error, report_error_new};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
-use std::path::Path;
 
-// This will collect environment variables from std::env and adds them to a stack.
+// This will collect environment variables from std::env and adds them to a
+// stack.
 //
-// In order to ensure the values have spans, it first creates a dummy file, writes the collected
-// env vars into it (in a "NAME"="value" format, quite similar to the output of the Unix 'env'
-// tool), then uses the file to get the spans. The file stays in memory, no filesystem IO is done.
+// In order to ensure the values have spans, it first creates a dummy file,
+// writes the collected env vars into it (in a "NAME"="value" format, quite
+// similar to the output of the Unix 'env' tool), then uses the file to get the
+// spans. The file stays in memory, no filesystem IO is done.
 //
 // The "PWD" env value will be forced to `init_cwd`.
 // The reason to use `init_cwd`:
 //
-// While gathering parent env vars, the parent `PWD` may not be the same as `current working directory`.
-// Consider to the following command as the case (assume we execute command inside `/tmp`):
+// While gathering parent env vars, the parent `PWD` may not be the same as
+// `current working directory`. Consider to the following command as the case
+// (assume we execute command inside `/tmp`):
 //
 //     tmux split-window -v -c "#{pane_current_path}"
 //
-// Here nu execute external command `tmux`, and tmux starts a new `nushell`, with `init_cwd` value "#{pane_current_path}".
-// But at the same time `PWD` still remains to be `/tmp`.
+// Here nu execute external command `tmux`, and tmux starts a new `nushell`,
+// with `init_cwd` value "#{pane_current_path}". But at the same time `PWD`
+// still remains to be `/tmp`.
 //
-// In this scenario, the new `nushell`'s PWD should be "#{pane_current_path}" rather init_cwd.
+// In this scenario, the new `nushell`'s PWD should be "#{pane_current_path}"
+// rather init_cwd.
 pub fn gather_parent_env_vars(engine_state: &mut EngineState, init_cwd: &Path) {
     gather_env_vars(std::env::vars(), engine_state, init_cwd);
 }

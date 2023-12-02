@@ -10,8 +10,6 @@ mod record;
 mod string;
 mod value;
 
-pub use self::bool::SubCommand as IntoBool;
-pub use self::filesize::SubCommand as IntoFilesize;
 pub use binary::SubCommand as IntoBinary;
 pub use command::Into;
 pub use datetime::SubCommand as IntoDatetime;
@@ -21,3 +19,5 @@ pub use int::SubCommand as IntoInt;
 pub use record::SubCommand as IntoRecord;
 pub use string::SubCommand as IntoString;
 pub use value::IntoValue;
+
+pub use self::{bool::SubCommand as IntoBool, filesize::SubCommand as IntoFilesize};

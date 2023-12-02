@@ -1,43 +1,55 @@
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    thread,
+};
+
+use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+
 use crate::{
     ast::{Call, PathMember},
     engine::{EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
-use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
-use std::sync::{atomic::AtomicBool, Arc};
-use std::thread;
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
 /// The foundational abstraction for input and output to commands
 ///
-/// This represents either a single Value or a stream of values coming into the command or leaving a command.
+/// This represents either a single Value or a stream of values coming into the
+/// command or leaving a command.
 ///
 /// A note on implementation:
 ///
-/// We've tried a few variations of this structure. Listing these below so we have a record.
+/// We've tried a few variations of this structure. Listing these below so we
+/// have a record.
 ///
-/// * We tried always assuming a stream in Nushell. This was a great 80% solution, but it had some rough edges.
-/// Namely, how do you know the difference between a single string and a list of one string. How do you know
-/// when to flatten the data given to you from a data source into the stream or to keep it as an unflattened
-/// list?
+/// * We tried always assuming a stream in Nushell. This was a great 80%
+///   solution, but it had some rough edges.
+/// Namely, how do you know the difference between a single string and a list of
+/// one string. How do you know when to flatten the data given to you from a
+/// data source into the stream or to keep it as an unflattened list?
 ///
-/// * We tried putting the stream into Value. This had some interesting properties as now commands "just worked
+/// * We tried putting the stream into Value. This had some interesting
+///   properties as now commands "just worked
 /// on values", but lead to a few unfortunate issues.
 ///
-/// The first is that you can't easily clone Values in a way that felt largely immutable. For example, if
-/// you cloned a Value which contained a stream, and in one variable drained some part of it, then the second
-/// variable would see different values based on what you did to the first.
+/// The first is that you can't easily clone Values in a way that felt largely
+/// immutable. For example, if you cloned a Value which contained a stream, and
+/// in one variable drained some part of it, then the second variable would see
+/// different values based on what you did to the first.
 ///
-/// To make this kind of mutation thread-safe, we would have had to produce a lock for the stream, which in
-/// practice would have meant always locking the stream before reading from it. But more fundamentally, it
-/// felt wrong in practice that observation of a value at runtime could affect other values which happen to
-/// alias the same stream. By separating these, we don't have this effect. Instead, variables could get
-/// concrete list values rather than streams, and be able to view them without non-local effects.
+/// To make this kind of mutation thread-safe, we would have had to produce a
+/// lock for the stream, which in practice would have meant always locking the
+/// stream before reading from it. But more fundamentally, it felt wrong in
+/// practice that observation of a value at runtime could affect other values
+/// which happen to alias the same stream. By separating these, we don't have
+/// this effect. Instead, variables could get concrete list values rather than
+/// streams, and be able to view them without non-local effects.
 ///
-/// * A balance of the two approaches is what we've landed on: Values are thread-safe to pass, and we can stream
-/// them into any sources. Streams are still available to model the infinite streams approach of original
-/// Nushell.
+/// * A balance of the two approaches is what we've landed on: Values are
+///   thread-safe to pass, and we can stream
+/// them into any sources. Streams are still available to model the infinite
+/// streams approach of original Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
     Value(Value, Option<PipelineMetadata>),
@@ -346,8 +358,9 @@ impl PipelineData {
 
     /// Retrieves string from pipeline data.
     ///
-    /// As opposed to `collect_string` this raises error rather than converting non-string values.
-    /// The `span` will be used if `ListStream` is encountered since it doesn't carry a span.
+    /// As opposed to `collect_string` this raises error rather than converting
+    /// non-string values. The `span` will be used if `ListStream` is
+    /// encountered since it doesn't carry a span.
     pub fn collect_string_strict(
         self,
         span: Span,
@@ -417,7 +430,8 @@ impl PipelineData {
         }
     }
 
-    /// Simplified mapper to help with simple values also. For full iterator support use `.into_iter()` instead
+    /// Simplified mapper to help with simple values also. For full iterator
+    /// support use `.into_iter()` instead
     pub fn map<F>(
         self,
         mut f: F,
@@ -462,7 +476,8 @@ impl PipelineData {
         }
     }
 
-    /// Simplified flatmapper. For full iterator support use `.into_iter()` instead
+    /// Simplified flatmapper. For full iterator support use `.into_iter()`
+    /// instead
     pub fn flat_map<U: 'static, F>(
         self,
         mut f: F,
@@ -569,10 +584,11 @@ impl PipelineData {
         }
     }
 
-    /// Try to catch external stream exit status and detect if it runs to failed.
+    /// Try to catch external stream exit status and detect if it runs to
+    /// failed.
     ///
-    /// This is useful to commands with semicolon, we can detect errors early to avoid
-    /// commands after semicolon running.
+    /// This is useful to commands with semicolon, we can detect errors early to
+    /// avoid commands after semicolon running.
     ///
     /// Returns self and a flag indicates if the external stream runs to failed.
     /// If `self` is not Pipeline::ExternalStream, the flag will be false.
@@ -597,10 +613,11 @@ impl PipelineData {
             //
             // In this clause, we already make sure that `stdout` is None
             // But not the case of `stderr`, so if `stderr` is not None
-            // We need to consume stderr message before reading external commands' exit code.
+            // We need to consume stderr message before reading external commands' exit
+            // code.
             //
-            // Or we'll never have a chance to read exit_code if stderr producer produce too much stderr message.
-            // So we consume stderr stream and rebuild it.
+            // Or we'll never have a chance to read exit_code if stderr producer produce too
+            // much stderr message. So we consume stderr stream and rebuild it.
             let stderr = stderr.map(|stderr_stream| {
                 let stderr_ctrlc = stderr_stream.ctrlc.clone();
                 let stderr_span = stderr_stream.span;
@@ -654,9 +671,10 @@ impl PipelineData {
             (self, false)
         }
     }
+
     /// Try to convert Value from Value::Range to Value::List.
-    /// This is useful to expand Value::Range into array notation, specifically when
-    /// converting `to json` or `to nuon`.
+    /// This is useful to expand Value::Range into array notation, specifically
+    /// when converting `to json` or `to nuon`.
     /// `1..3 | to XX -> [1,2,3]`
     pub fn try_expand_range(self) -> Result<PipelineData, ShellError> {
         let input = match self {
@@ -705,7 +723,8 @@ impl PipelineData {
     /// Consume and print self data immediately.
     ///
     /// `no_newline` controls if we need to attach newline character to output.
-    /// `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    /// `to_stderr` controls if data is output to stderr, when the value is
+    /// false, the data is output to stdout.
     pub fn print(
         self,
         engine_state: &EngineState,
@@ -750,8 +769,10 @@ impl PipelineData {
     ///
     /// Unlike [print] does not call `table` to format data and just prints it
     /// one element on a line
-    /// * `no_newline` controls if we need to attach newline character to output.
-    /// * `to_stderr` controls if data is output to stderr, when the value is false, the data is output to stdout.
+    /// * `no_newline` controls if we need to attach newline character to
+    ///   output.
+    /// * `to_stderr` controls if data is output to stderr, when the value is
+    ///   false, the data is output to stdout.
     pub fn print_not_formatted(
         self,
         engine_state: &EngineState,
@@ -810,9 +831,8 @@ impl PipelineData {
 pub struct PipelineIterator(PipelineData);
 
 impl IntoIterator for PipelineData {
-    type Item = Value;
-
     type IntoIter = PipelineIterator;
+    type Item = Value;
 
     fn into_iter(self) -> Self::IntoIter {
         match self {
@@ -857,7 +877,8 @@ pub fn print_if_stream(
     exit_code: Option<ListStream>,
 ) -> Result<i64, ShellError> {
     // NOTE: currently we don't need anything from stderr
-    // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
+    // so we just consume and throw away `stderr_stream` to make sure the pipe
+    // doesn't fill up
 
     thread::Builder::new()
         .name("stderr consumer".to_string())
@@ -911,7 +932,7 @@ impl Iterator for PipelineIterator {
                 Ok(x) => x,
                 Err(err) => Value::error(
                     err,
-                    Span::unknown(), //FIXME: unclear where this span should come from
+                    Span::unknown(), // FIXME: unclear where this span should come from
                 ),
             }),
         }

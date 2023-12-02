@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
@@ -19,7 +19,9 @@ impl Command for ViewSpan {
     }
 
     fn extra_usage(&self) -> &str {
-        "This command is meant for debugging purposes.\nIt allows you to view the contents of nushell spans.\nOne way to get spans is to pipe something into 'debug --raw'.\nThen you can use the Span { start, end } values as the start and end values for this command."
+        "This command is meant for debugging purposes.\nIt allows you to view the contents of \
+         nushell spans.\nOne way to get spans is to pipe something into 'debug --raw'.\nThen you \
+         can use the Span { start, end } values as the start and end values for this command."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -60,7 +62,8 @@ impl Command for ViewSpan {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "View the source of a span. 1 and 2 are just example values. Use the return of debug --raw to get the actual values",
+            description: "View the source of a span. 1 and 2 are just example values. Use the \
+                          return of debug --raw to get the actual values",
             example: r#"some | pipeline | or | variable | debug --raw; view span 1 2"#,
             result: None,
         }]

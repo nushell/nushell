@@ -140,8 +140,7 @@ mod tests {
     mod semver {
         use nu_protocol::{Span, Value};
 
-        use crate::inc::SemVerAction;
-        use crate::Inc;
+        use crate::{inc::SemVerAction, Inc};
 
         #[test]
         fn major() {

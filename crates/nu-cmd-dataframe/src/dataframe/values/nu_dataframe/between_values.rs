@@ -1,4 +1,5 @@
-use super::{operations::Axis, NuDataFrame};
+use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+
 use nu_protocol::{
     ast::{Boolean, Comparison, Math, Operator},
     span, ShellError, Span, Spanned, Value,
@@ -8,7 +9,8 @@ use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
     NumOpsDispatchChecked, PolarsError, Series, Utf8NameSpaceImpl,
 };
-use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
+
+use super::{operations::Axis, NuDataFrame};
 
 pub(super) fn between_dataframes(
     operator: Spanned<Operator>,

@@ -1,15 +1,16 @@
-use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
+use std::io::{Cursor, Write};
+
 use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
-use std::io::Cursor;
-use std::io::Write;
+
+use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 
 #[derive(Clone)]
 pub struct ToXml;
@@ -52,7 +53,8 @@ Additionally any field which is: empty record, empty list or null, can be omitte
                 )),
             },
             Example {
-                description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record",
+                description: "When formatting xml null and empty record fields can be omitted and \
+                              strings can be written without a wrapping record",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
@@ -205,8 +207,8 @@ fn to_tag_like<W: Write>(
         to_processing_instruction(entry_span, tag, attrs, content, writer)
     } else {
         // Allow tag to have no attributes or content for short hand input
-        // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
-        // content: null}, {tag: a}. See to_xml_entry for more
+        // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes:
+        // null content: null}, {tag: a}. See to_xml_entry for more
         let attrs = match attrs {
             Value::Record { val, .. } => val,
             Value::Nothing { .. } => Record::new(),

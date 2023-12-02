@@ -1,9 +1,12 @@
 // utilities for expanding globs in command arguments
 
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
 use nu_glob::{glob_with_parent, MatchOptions, Paths};
 use nu_protocol::{ShellError, Spanned};
-use std::fs;
-use std::path::{Path, PathBuf};
 
 // standard glob options to use for filesystem command arguments
 
@@ -24,7 +27,8 @@ pub fn arg_glob(
     arg_glob_opt(pattern, cwd, GLOB_PARAMS)
 }
 
-// variant of [arg_glob] that requires literal dot prefix in pattern to match dot-prefixed path.
+// variant of [arg_glob] that requires literal dot prefix in pattern to match
+// dot-prefixed path.
 pub fn arg_glob_leading_dot(pattern: &Spanned<String>, cwd: &Path) -> Result<Paths, ShellError> {
     arg_glob_opt(
         pattern,
@@ -57,7 +61,8 @@ fn arg_glob_opt(
         Ok(_metadata) => {
             return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
         }
-        // file not found, but also "invalid chars in file" (e.g * on Windows).  Fall through and glob
+        // file not found, but also "invalid chars in file" (e.g * on Windows).  Fall through and
+        // glob
         Err(_) => {}
     }
 
@@ -75,12 +80,12 @@ fn arg_glob_opt(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use nu_glob::GlobResult;
     use nu_protocol::{Span, Spanned};
-    use nu_test_support::fs::Stub::EmptyFile;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{fs::Stub::EmptyFile, playground::Playground};
     use rstest::rstest;
+
+    use super::*;
 
     fn spanned_string(str: &str) -> Spanned<String> {
         Spanned {
@@ -135,7 +140,8 @@ mod test {
                 " case: {case} ",
             );
 
-            // expected behavior -- that directories are included in results (if name matches pattern)
+            // expected behavior -- that directories are included in results (if name
+            // matches pattern)
             let t = p
                 .iter()
                 .any(|i| i.as_ref().unwrap().to_string_lossy().contains(".children"));
@@ -173,7 +179,8 @@ mod test {
                 );
                 assert_eq!(
                     &res[0].as_ref().unwrap().to_string_lossy(),
-                    pat, // todo: is it OK for glob to return relative paths (not to current cwd, but to arg cwd of arg_glob)?
+                    pat, /* todo: is it OK for glob to return relative paths (not to current
+                          * cwd, but to arg cwd of arg_glob)? */
                 );
             } else {
                 assert_eq!(exp_count, res.len(), " case: {}: matched glob", case);

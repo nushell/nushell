@@ -1,11 +1,12 @@
-use super::utils::chain_error_with_input;
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Each;
@@ -90,8 +91,8 @@ with 'transpose' first."#
             },
             Example {
                 example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
-                description:
-                    "Iterate over each element, producing a list showing indexes of any 2s",
+                description: "Iterate over each element, producing a list showing indexes of any \
+                              2s",
                 result: Some(Value::list(
                     vec![Value::test_string("found 2 at 1!")],
                     Span::test_data(),

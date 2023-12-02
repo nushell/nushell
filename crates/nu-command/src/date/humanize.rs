@@ -1,9 +1,12 @@
-use crate::date::utils::parse_date_from_string;
 use chrono::{DateTime, FixedOffset, Local};
 use chrono_humanize::HumanTime;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
+
+use crate::date::utils::parse_date_from_string;
 #[derive(Clone)]
 pub struct SubCommand;
 

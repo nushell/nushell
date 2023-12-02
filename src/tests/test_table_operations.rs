@@ -41,7 +41,8 @@ fn flatten_get_simple_list() -> TestResult {
 #[test]
 fn flatten_table_get() -> TestResult {
     run_test(
-        "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal.0",
+        "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | \
+         get meal.0",
         "arepa",
     )
 }
@@ -49,7 +50,8 @@ fn flatten_table_get() -> TestResult {
 #[test]
 fn flatten_table_column_get_last() -> TestResult {
     run_test(
-        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
+        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten \
+         versions --all | last | get versions",
         "0.22",
     )
 }
@@ -57,16 +59,18 @@ fn flatten_table_column_get_last() -> TestResult {
 #[test]
 fn flatten_should_just_flatten_one_level() -> TestResult {
     run_test(
-        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten crate | get crate.name.0",
-        "nu-cli"
+        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten \
+         crate | get crate.name.0",
+        "nu-cli",
     )
 }
 
 #[test]
 fn flatten_nest_table_when_all_provided() -> TestResult {
     run_test(
-        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten crate --all | get name.0",
-        "nu-cli"
+        "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten \
+         crate --all | get name.0",
+        "nu-cli",
     )
 }
 

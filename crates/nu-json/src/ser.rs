@@ -2,13 +2,16 @@
 //!
 //! This module provides for Hjson serialization with the type `Serializer`.
 
-use std::fmt::{Display, LowerExp};
-use std::io;
-use std::io::{BufRead, BufReader};
-use std::num::FpCategory;
+use std::{
+    fmt::{Display, LowerExp},
+    io,
+    io::{BufRead, BufReader},
+    num::FpCategory,
+};
+
+use serde::ser;
 
 use super::error::{Error, ErrorCode, Result};
-use serde::ser;
 
 /// A structure for serializing Rust values into Hjson.
 pub struct Serializer<W, F> {
@@ -70,16 +73,15 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
-
+    type Ok = ();
+    type SerializeMap = Compound<'a, W, F>;
     type SerializeSeq = Compound<'a, W, F>;
+    type SerializeStruct = Compound<'a, W, F>;
+    type SerializeStructVariant = Compound<'a, W, F>;
     type SerializeTuple = Compound<'a, W, F>;
     type SerializeTupleStruct = Compound<'a, W, F>;
     type SerializeTupleVariant = Compound<'a, W, F>;
-    type SerializeMap = Compound<'a, W, F>;
-    type SerializeStruct = Compound<'a, W, F>;
-    type SerializeStructVariant = Compound<'a, W, F>;
 
     #[inline]
     fn serialize_bool(self, value: bool) -> Result<()> {
@@ -316,8 +318,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
     where
@@ -343,8 +345,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_element<T: ?Sized>(&mut self, value: &T) -> Result<()>
     where
@@ -363,8 +365,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
     where
@@ -383,8 +385,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_field<T: ?Sized>(&mut self, value: &T) -> Result<()>
     where
@@ -407,8 +409,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_key<T: ?Sized>(&mut self, key: &T) -> Result<()>
     where
@@ -444,8 +446,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
@@ -464,8 +466,8 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
 
     fn serialize_field<T: ?Sized>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
@@ -492,21 +494,20 @@ where
     W: io::Write,
     F: Formatter,
 {
-    type Ok = ();
     type Error = Error;
+    type Ok = ();
+    type SerializeMap = ser::Impossible<(), Error>;
+    type SerializeSeq = ser::Impossible<(), Error>;
+    type SerializeStruct = ser::Impossible<(), Error>;
+    type SerializeStructVariant = ser::Impossible<(), Error>;
+    type SerializeTuple = ser::Impossible<(), Error>;
+    type SerializeTupleStruct = ser::Impossible<(), Error>;
+    type SerializeTupleVariant = ser::Impossible<(), Error>;
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
         escape_key(&mut self.ser.writer, value).map_err(From::from)
     }
-
-    type SerializeSeq = ser::Impossible<(), Error>;
-    type SerializeTuple = ser::Impossible<(), Error>;
-    type SerializeTupleStruct = ser::Impossible<(), Error>;
-    type SerializeTupleVariant = ser::Impossible<(), Error>;
-    type SerializeMap = ser::Impossible<(), Error>;
-    type SerializeStruct = ser::Impossible<(), Error>;
-    type SerializeStructVariant = ser::Impossible<(), Error>;
 
     fn serialize_bool(self, _value: bool) -> Result<()> {
         Err(Error::Syntax(ErrorCode::KeyMustBeAString, 0, 0))

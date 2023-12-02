@@ -8,19 +8,21 @@ pub fn test_examples(cmd: impl Command + 'static) {
 
 #[cfg(test)]
 mod test_examples {
-    use crate::example_support::{
-        check_all_signature_input_output_types_entries_have_examples,
-        check_example_evaluates_to_expected_output,
-        check_example_input_and_output_types_match_command_signature,
-    };
-    use crate::{
-        Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
-    };
+    use std::collections::HashSet;
+
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type, Value,
     };
-    use std::collections::HashSet;
+
+    use crate::{
+        example_support::{
+            check_all_signature_input_output_types_entries_have_examples,
+            check_example_evaluates_to_expected_output,
+            check_example_input_and_output_types_match_command_signature,
+        },
+        Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
+    };
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();

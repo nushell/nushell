@@ -1,9 +1,14 @@
+use std::{
+    path::PathBuf,
+    thread,
+    time::{Duration, Instant},
+};
+
 use log::info;
-use procfs::process::{FDInfo, Io, Process, Stat, Status};
-use procfs::{ProcError, ProcessCGroups, WithCurrentSystemInfo};
-use std::path::PathBuf;
-use std::thread;
-use std::time::{Duration, Instant};
+use procfs::{
+    process::{FDInfo, Io, Process, Stat, Status},
+    ProcError, ProcessCGroups, WithCurrentSystemInfo,
+};
 
 pub enum ProcessTask {
     Process(Process),
@@ -78,7 +83,8 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     let mut base_procs = Vec::new();
     let mut ret = Vec::new();
 
-    // Take an initial snapshot of process I/O and CPU info, so we can calculate changes over time
+    // Take an initial snapshot of process I/O and CPU info, so we can calculate
+    // changes over time
     if let Ok(all_proc) = procfs::process::all_processes() {
         for proc in all_proc.flatten() {
             let io = proc.io().ok();
@@ -97,7 +103,10 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
         let curr_proc = if let Ok(p) = Process::new(curr_proc_pid) {
             p
         } else {
-            info!("failed to retrieve info for pid={curr_proc_pid}, process probably died between snapshots");
+            info!(
+                "failed to retrieve info for pid={curr_proc_pid}, process probably died between \
+                 snapshots"
+            );
             continue;
         };
         let cwd = curr_proc.cwd().unwrap_or_default();

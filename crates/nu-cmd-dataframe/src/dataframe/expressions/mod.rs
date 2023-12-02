@@ -12,17 +12,14 @@ mod when;
 
 use nu_protocol::engine::StateWorkingSet;
 
-pub(crate) use crate::dataframe::expressions::alias::ExprAlias;
 use crate::dataframe::expressions::arg_where::ExprArgWhere;
-pub(super) use crate::dataframe::expressions::col::ExprCol;
-pub(super) use crate::dataframe::expressions::concat_str::ExprConcatStr;
-pub(crate) use crate::dataframe::expressions::datepart::ExprDatePart;
-pub(crate) use crate::dataframe::expressions::expressions_macro::*;
-pub(super) use crate::dataframe::expressions::is_in::ExprIsIn;
-pub(super) use crate::dataframe::expressions::lit::ExprLit;
-pub(super) use crate::dataframe::expressions::otherwise::ExprOtherwise;
-pub(super) use crate::dataframe::expressions::quantile::ExprQuantile;
-pub(super) use crate::dataframe::expressions::when::ExprWhen;
+pub(crate) use crate::dataframe::expressions::{
+    alias::ExprAlias, datepart::ExprDatePart, expressions_macro::*,
+};
+pub(super) use crate::dataframe::expressions::{
+    col::ExprCol, concat_str::ExprConcatStr, is_in::ExprIsIn, lit::ExprLit,
+    otherwise::ExprOtherwise, quantile::ExprQuantile, when::ExprWhen,
+};
 
 pub fn add_expressions(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {

@@ -1,6 +1,8 @@
-use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
-use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
+
+use serde::{Deserialize, Serialize};
+
+use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum Redirection {
@@ -9,7 +11,8 @@ pub enum Redirection {
     StdoutAndStderr,
 }
 
-// Note: Span in the below is for the span of the connector not the whole element
+// Note: Span in the below is for the span of the connector not the whole
+// element
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
@@ -68,6 +71,7 @@ impl PipelineElement {
             },
         }
     }
+
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match self {
             PipelineElement::Expression(_, expression)

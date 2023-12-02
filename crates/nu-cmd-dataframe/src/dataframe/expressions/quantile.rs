@@ -1,4 +1,3 @@
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -6,6 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{lit, QuantileInterpolOptions};
+
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct ExprQuantile;
@@ -86,10 +87,8 @@ impl Command for ExprQuantile {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::lazy::aggregate::LazyAggregate;
-    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+    use super::{super::super::test_dataframe::test_dataframe, *};
+    use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
 
     #[test]
     fn test_examples() {

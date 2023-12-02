@@ -1,11 +1,11 @@
-use super::super::super::values::{Column, NuDataFrame};
-
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
+
+use super::super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct IsDuplicated;
@@ -52,8 +52,8 @@ impl Command for IsDuplicated {
             },
             Example {
                 description: "Create mask indicating duplicated rows in a dataframe",
-                example:
-                    "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | dfr into-df | dfr is-duplicated",
+                example: "[[a, b]; [1 2] [1 2] [3 3] [3 3] [1 1]] | dfr into-df | dfr \
+                          is-duplicated",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![Column::new(
                         "is_duplicated".to_string(),
@@ -113,8 +113,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

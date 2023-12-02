@@ -5,15 +5,15 @@ mod upcase;
 
 pub use capitalize::SubCommand as StrCapitalize;
 pub use downcase::SubCommand as StrDowncase;
+use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
+use nu_engine::CallExt;
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{EngineState, Stack},
+    PipelineData, ShellError, Span, Value,
+};
 pub use str_::Str;
 pub use upcase::SubCommand as StrUpcase;
-
-use nu_engine::CallExt;
-
-use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Value};
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,

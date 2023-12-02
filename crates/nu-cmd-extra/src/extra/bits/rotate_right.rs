@@ -1,12 +1,15 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
+use std::fmt::Display;
+
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use num_traits::int::PrimInt;
-use std::fmt::Display;
+
+use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 
 #[derive(Clone)]
 pub struct BitsRor;

@@ -1,11 +1,11 @@
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct LazyFilter;
@@ -76,8 +76,7 @@ impl Command for LazyFilter {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

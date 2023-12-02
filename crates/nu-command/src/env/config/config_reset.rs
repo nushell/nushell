@@ -1,3 +1,5 @@
+use std::io::Write;
+
 use chrono::Local;
 use nu_protocol::{
     ast::Call,
@@ -5,7 +7,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Type,
 };
 use nu_utils::{get_default_config, get_default_env};
-use std::io::Write;
 
 #[derive(Clone)]
 pub struct ConfigReset;
@@ -26,7 +27,8 @@ impl Command for ConfigReset {
     }
 
     fn usage(&self) -> &str {
-        "Reset nushell environment configurations to default, and saves old config files in the config location as oldconfig.nu and oldenv.nu."
+        "Reset nushell environment configurations to default, and saves old config files in the \
+         config location as oldconfig.nu and oldenv.nu."
     }
 
     fn examples(&self) -> Vec<Example> {

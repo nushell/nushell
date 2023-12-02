@@ -1,11 +1,11 @@
-use super::super::values::{Column, NuDataFrame};
-
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{ArgAgg, IntoSeries, NewChunkedArray, UInt32Chunked};
+
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct ArgMin;
@@ -80,8 +80,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

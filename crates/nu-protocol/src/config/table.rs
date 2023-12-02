@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
+use serde::{Deserialize, Serialize};
+
 use super::helper::ReconstructVal;
 use crate::{record, Config, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
 pub enum TableMode {
@@ -46,7 +48,11 @@ impl FromStr for TableMode {
             "restructured" => Ok(Self::Restructured),
             "ascii_rounded" => Ok(Self::AsciiRounded),
             "basic_compact" => Ok(Self::BasicCompact),
-            _ => Err("expected either 'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'"),
+            _ => Err(
+                "expected either 'basic', 'thin', 'light', 'compact', 'with_love', \
+                 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', \
+                 'dots', 'restructured', 'ascii_rounded', or 'basic_compact'",
+            ),
         }
     }
 }
@@ -85,7 +91,8 @@ pub enum FooterMode {
     Always,
     /// Only show the footer if there are more than RowCount rows
     RowCount(u64),
-    /// Calculate the screen height, calculate row count, if display will be bigger than screen, add the footer
+    /// Calculate the screen height, calculate row count, if display will be
+    /// bigger than screen, add the footer
     Auto,
 }
 
@@ -272,14 +279,17 @@ pub(super) fn try_parse_trim_strategy(
 fn try_parse_trim_methodology(value: &Value) -> Option<TrimStrategy> {
     if let Ok(value) = value.as_string() {
         match value.to_lowercase().as_str() {
-        "wrapping" => {
-            return Some(TrimStrategy::Wrap {
-                try_to_keep_words: false,
-            });
+            "wrapping" => {
+                return Some(TrimStrategy::Wrap {
+                    try_to_keep_words: false,
+                });
+            }
+            "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
+            _ => eprintln!(
+                "unrecognized $config.table.trim.methodology value; expected either 'truncating' \
+                 or 'wrapping'"
+            ),
         }
-        "truncating" => return Some(TrimStrategy::Truncate { suffix: None }),
-        _ => eprintln!("unrecognized $config.table.trim.methodology value; expected either 'truncating' or 'wrapping'"),
-    }
     } else {
         eprintln!("$env.config.table.trim.methodology is not a string")
     }
@@ -319,8 +329,9 @@ pub struct TableIndent {
 }
 
 pub(super) fn reconstruct_padding(config: &Config, span: Span) -> Value {
-    // For better completions always reconstruct the record version even though unsigned int would
-    // be supported, `as` conversion is sane as it came from an i64 original
+    // For better completions always reconstruct the record version even though
+    // unsigned int would be supported, `as` conversion is sane as it came from
+    // an i64 original
     Value::record(
         record!(
             "left" => Value::int(config.table_indent.left as i64, span),

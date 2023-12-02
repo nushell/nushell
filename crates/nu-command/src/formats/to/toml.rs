@@ -1,6 +1,6 @@
-use nu_protocol::ast::{Call, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, PathMember},
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
@@ -180,7 +180,6 @@ mod tests {
 
     #[test]
     fn test_value_to_toml_value() {
-        //
         // Positive Tests
         //
 
@@ -209,7 +208,6 @@ mod tests {
                 toml::Value::String("array".to_owned())
             ]))
         );
-        //
         // Negative Tests
         //
         value_to_toml_value(

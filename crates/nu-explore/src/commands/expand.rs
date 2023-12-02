@@ -6,12 +6,11 @@ use nu_protocol::{
     Value,
 };
 
+use super::{HelpManual, Shortcode, ViewCommand};
 use crate::{
     nu_common::{self, collect_input},
     views::Preview,
 };
-
-use super::{HelpManual, Shortcode, ViewCommand};
 
 #[derive(Default, Clone)]
 pub struct ExpandCmd;
@@ -51,8 +50,8 @@ impl ViewCommand for ExpandCmd {
 
         Some(HelpManual {
             name: "expand",
-            description:
-                "View the currently selected cell's data using the `table` Nushell command",
+            description: "View the currently selected cell's data using the `table` Nushell \
+                          command",
             arguments: vec![],
             examples: vec![],
             config_options: vec![],

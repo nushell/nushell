@@ -1,8 +1,8 @@
 use itertools::Either;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, RangeInclusion};
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, RangeInclusion},
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, PipelineIterator, Range,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
@@ -23,7 +23,8 @@ impl Command for DropNth {
             )])
             .required(
                 "row number or row range",
-                // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
+                // FIXME: we can make this accept either Int or Range when we can compose
+                // SyntaxShapes
                 SyntaxShape::Any,
                 "the number of the row to drop or a range to drop consecutive rows",
             )
@@ -126,19 +127,21 @@ impl Command for DropNth {
                         span: span.span,
                     });
                 }
-                // check if the upper bound is smaller than the lower bound, e.g., do not accept 4..2
+                // check if the upper bound is smaller than the lower bound, e.g., do not accept
+                // 4..2
                 if to < from {
                     let span: Spanned<Range> = call.req(engine_state, stack, 0)?;
                     return Err(ShellError::TypeMismatch {
-                        err_message:
-                            "The upper bound needs to be equal or larger to the lower bound"
-                                .to_string(),
+                        err_message: "The upper bound needs to be equal or larger to the lower \
+                                      bound"
+                            .to_string(),
                         span: span.span,
                     });
                 }
 
                 // check for equality to isize::MAX because for some reason,
-                // the parser returns isize::MAX when we provide a range without upper bound (e.g., 5.. )
+                // the parser returns isize::MAX when we provide a range without upper bound
+                // (e.g., 5.. )
                 let mut to = to as usize;
                 let from = from as usize;
 

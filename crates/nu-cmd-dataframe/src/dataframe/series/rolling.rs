@@ -1,5 +1,3 @@
-use super::super::values::{Column, NuDataFrame};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -8,6 +6,8 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{DataType, Duration, IntoSeries, RollingOptionsImpl, SeriesOpsTime};
+
+use super::super::values::{Column, NuDataFrame};
 
 enum RollType {
     Min,
@@ -177,9 +177,10 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::eager::DropNulls;
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{
+        super::super::{eager::DropNulls, test_dataframe::test_dataframe},
+        *,
+    };
 
     #[test]
     fn test_examples() {

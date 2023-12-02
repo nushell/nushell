@@ -1,8 +1,9 @@
-use crate::{
-    parse_block,
-    parser_path::ParserPath,
-    type_check::{check_block_input_output, type_compatible},
+use std::{
+    collections::{HashMap, HashSet},
+    ffi::OsStr,
+    path::{Path, PathBuf},
 };
+
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -16,9 +17,12 @@ use nu_protocol::{
     span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
-use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+
+use crate::{
+    parse_block,
+    parser_path::ParserPath,
+    type_check::{check_block_input_output, type_compatible},
+};
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 #[cfg(feature = "plugin")]
@@ -40,7 +44,8 @@ use crate::{
 /// These parser keywords can be aliased
 pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide", b"overlay new", b"overlay use"];
 
-/// These parser keywords cannot be aliased (either not possible, or support not yet added)
+/// These parser keywords cannot be aliased (either not possible, or support not
+/// yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export",
     b"def",
@@ -84,8 +89,9 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
     }
 }
 
-/// This is a new more compact method of calling parse_xxx() functions without repeating the
-/// parse_call() in each function. Remaining keywords can be moved here.
+/// This is a new more compact method of calling parse_xxx() functions without
+/// repeating the parse_call() in each function. Remaining keywords can be moved
+/// here.
 pub fn parse_keyword(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
@@ -217,12 +223,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let starting_error_count = working_set.parse_errors.len();
 
     working_set.enter_scope();
-    // FIXME: because parse_signature will update the scope with the variables it sees
-    // we end up parsing the signature twice per def. The first time is during the predecl
-    // so that we can see the types that are part of the signature, which we need for parsing.
-    // The second time is when we actually parse the body itworking_set.
-    // We can't reuse the first time because the variables that are created during parse_signature
-    // are lost when we exit the scope below.
+    // FIXME: because parse_signature will update the scope with the variables it
+    // sees we end up parsing the signature twice per def. The first time is
+    // during the predecl so that we can see the types that are part of the
+    // signature, which we need for parsing. The second time is when we actually
+    // parse the body itworking_set. We can't reuse the first time because the
+    // variables that are created during parse_signature are lost when we exit
+    // the scope below.
     let sig = parse_full_signature(working_set, &spans[signature_pos..]);
     working_set.parse_errors.truncate(starting_error_count);
     working_set.exit_scope();
@@ -256,8 +263,9 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     }
 
     // Parsing the spans and checking that they match the register signature
-    // Using a parsed call makes more sense than checking for how many spans are in the call
-    // Also, by creating a call, it can be checked if it matches the declaration signature
+    // Using a parsed call makes more sense than checking for how many spans are in
+    // the call Also, by creating a call, it can be checked if it matches the
+    // declaration signature
     let (call, call_span) = match working_set.find_decl(b"for") {
         None => {
             working_set.error(ParseError::UnknownState(
@@ -381,8 +389,9 @@ pub fn parse_def(
     }
 
     // Parsing the spans and checking that they match the register signature
-    // Using a parsed call makes more sense than checking for how many spans are in the call
-    // Also, by creating a call, it can be checked if it matches the declaration signature
+    // Using a parsed call makes more sense than checking for how many spans are in
+    // the call Also, by creating a call, it can be checked if it matches the
+    // declaration signature
     let (call, call_span) = match working_set.find_decl(&def_call) {
         None => {
             working_set.error(ParseError::UnknownState(
@@ -526,7 +535,13 @@ pub fn parse_def(
                             Type::List(Box::new(Type::String)),
                             rest_var.ty.clone(),
                             rest_var.declaration_span,
-                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+                            format!(
+                                "...rest-like positional argument used in 'def --wrapped' \
+                                 supports only strings. Change the type annotation of ...{} to \
+                                 'string'.",
+                                &rest.name
+                            ),
+                        ));
 
                         return (
                             Pipeline::from_vec(vec![Expression {
@@ -540,7 +555,13 @@ pub fn parse_def(
                     }
                 }
             } else {
-                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+                working_set.error(ParseError::MissingPositional(
+                    "...rest-like positional argument".to_string(),
+                    name_expr.span,
+                    "def --wrapped must have a ...rest-like positional argument. Add '...rest: \
+                     string' to the command's signature."
+                        .to_string(),
+                ));
 
                 return (
                     Pipeline::from_vec(vec![Expression {
@@ -595,7 +616,8 @@ pub fn parse_def(
         };
     }
 
-    // It's OK if it returns None: The decl was already merged in previous parse pass.
+    // It's OK if it returns None: The decl was already merged in previous parse
+    // pass.
     working_set.merge_predecl(name.as_bytes());
 
     (
@@ -638,8 +660,9 @@ pub fn parse_extern(
     }
 
     // Parsing the spans and checking that they match the register signature
-    // Using a parsed call makes more sense than checking for how many spans are in the call
-    // Also, by creating a call, it can be checked if it matches the declaration signature
+    // Using a parsed call makes more sense than checking for how many spans are in
+    // the call Also, by creating a call, it can be checked if it matches the
+    // declaration signature
     let (call, call_span) = match working_set.find_decl(&extern_call) {
         None => {
             working_set.error(ParseError::UnknownState(
@@ -669,8 +692,8 @@ pub fn parse_extern(
             working_set.exit_scope();
 
             let call_span = span(spans);
-            //let decl = working_set.get_decl(decl_id);
-            //let sig = decl.signature();
+            // let decl = working_set.get_decl(decl_id);
+            // let sig = decl.signature();
 
             (call, call_span)
         }
@@ -749,7 +772,8 @@ pub fn parse_extern(
             };
         }
         if let Some(name) = name_expr.as_string() {
-            // It's OK if it returns None: The decl was already merged in previous parse pass.
+            // It's OK if it returns None: The decl was already merged in previous parse
+            // pass.
             working_set.merge_predecl(name.as_bytes());
         } else {
             working_set.error(ParseError::UnknownState(
@@ -1399,7 +1423,8 @@ pub fn parse_export_in_module(
                         return (garbage_pipeline(spans), vec![]);
                     };
 
-                // Trying to warp the 'module' call into the 'export module' in a very clumsy way
+                // Trying to warp the 'module' call into the 'export module' in a very clumsy
+                // way
                 if let Some(PipelineElement::Expression(
                     _,
                     Expression {
@@ -1838,7 +1863,9 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def, const, extern, alias, use, module, export or export-env keyword".into(),
+                                "def, const, extern, alias, use, module, export or export-env \
+                                 keyword"
+                                    .into(),
                                 command.parts[0],
                             ));
 
@@ -2064,8 +2091,9 @@ pub fn parse_module(
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
 ) -> (Pipeline, Option<ModuleId>) {
-    // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
-    // visible and usable in this module's scope). We want to disable that for files.
+    // TODO: Currently, module is closing over its parent scope (i.e., defs in the
+    // parent scope are visible and usable in this module's scope). We want to
+    // disable that for files.
 
     let spans = &lite_command.parts;
     let mut module_comments = lite_command.comments.clone();
@@ -2587,8 +2615,8 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
             import_pattern.with_hidden(decls)
         };
 
-        // TODO: `use spam; use spam foo; hide foo` will hide both `foo` and `spam foo` since
-        // they point to the same DeclId. Do we want to keep it that way?
+        // TODO: `use spam; use spam foo; hide foo` will hide both `foo` and `spam foo`
+        // since they point to the same DeclId. Do we want to keep it that way?
         working_set.hide_decls(&decls_to_hide);
 
         // Create a new Use command call to pass the new import pattern
@@ -2757,9 +2785,10 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 if new_name.item != overlay_name {
                     working_set.error(ParseError::CantAddOverlayHelp(
                         format!(
-                        "Cannot add overlay as '{}' because it already exists under the name '{}'",
-                        new_name.item, overlay_name
-                    ),
+                            "Cannot add overlay as '{}' because it already exists under the name \
+                             '{}'",
+                            new_name.item, overlay_name
+                        ),
                         new_name.span,
                     ));
                     return pipeline;
@@ -2946,15 +2975,16 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     trace!("parsing: let");
 
-    // JT: Disabling check_name because it doesn't work with optional types in the declaration
-    // if let Some(span) = check_name(working_set, spans) {
+    // JT: Disabling check_name because it doesn't work with optional types in the
+    // declaration if let Some(span) = check_name(working_set, spans) {
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
     if let Some(decl_id) = working_set.find_decl(b"let") {
         if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
+            // This is a bit of by-hand parsing to get around the issue where we want to
+            // parse in the reverse order so that the var-id created by the
+            // variable isn't visible in the expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // https://github.com/nushell/nushell/issues/9596, let = if $
@@ -3064,8 +3094,8 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     trace!("parsing: const");
 
-    // JT: Disabling check_name because it doesn't work with optional types in the declaration
-    // if let Some(span) = check_name(working_set, spans) {
+    // JT: Disabling check_name because it doesn't work with optional types in the
+    // declaration if let Some(span) = check_name(working_set, spans) {
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
@@ -3074,8 +3104,9 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
         let call_signature = cmd.signature().call_signature();
 
         if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
+            // This is a bit of by-hand parsing to get around the issue where we want to
+            // parse in the reverse order so that the var-id created by the
+            // variable isn't visible in the expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // const x = 'f', = at least start from index 2
@@ -3196,15 +3227,16 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
 pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     trace!("parsing: mut");
 
-    // JT: Disabling check_name because it doesn't work with optional types in the declaration
-    // if let Some(span) = check_name(working_set, spans) {
+    // JT: Disabling check_name because it doesn't work with optional types in the
+    // declaration if let Some(span) = check_name(working_set, spans) {
     //     return Pipeline::from_vec(vec![garbage(*span)]);
     // }
 
     if let Some(decl_id) = working_set.find_decl(b"mut") {
         if spans.len() >= 4 {
-            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-            // so that the var-id created by the variable isn't visible in the expression that init it
+            // This is a bit of by-hand parsing to get around the issue where we want to
+            // parse in the reverse order so that the var-id created by the
+            // variable isn't visible in the expression that init it
             for span in spans.iter().enumerate() {
                 let item = working_set.get_span_contents(*span.1);
                 // mut x = 'f', = at least start from index 2
@@ -3389,8 +3421,9 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
 
                         let mut call_with_block = call;
 
-                        // FIXME: Adding this expression to the positional creates a syntax highlighting error
-                        // after writing `source example.nu`
+                        // FIXME: Adding this expression to the positional creates a syntax
+                        // highlighting error after writing `source
+                        // example.nu`
                         call_with_block.set_parser_info(
                             "block_id".to_string(),
                             Expression {
@@ -3508,8 +3541,9 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     }
 
     // Parsing the spans and checking that they match the register signature
-    // Using a parsed call makes more sense than checking for how many spans are in the call
-    // Also, by creating a call, it can be checked if it matches the declaration signature
+    // Using a parsed call makes more sense than checking for how many spans are in
+    // the call Also, by creating a call, it can be checked if it matches the
+    // declaration signature
     let (call, call_span) = match working_set.find_decl(b"register") {
         None => {
             working_set.error(ParseError::UnknownState(
@@ -3540,7 +3574,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
         }
     };
 
-    // Extracting the required arguments from the call and keeping them together in a tuple
+    // Extracting the required arguments from the call and keeping them together in
+    // a tuple
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
@@ -3613,7 +3648,8 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     };
 
     // We need the current environment variables for `python` based plugins
-    // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
+    // Or we'll likely have a problem when a plugin is implemented in a virtual
+    // Python environment.
     let stack = Stack::new();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
@@ -3692,9 +3728,9 @@ pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<Va
 ///
 /// Then, if the file is not found in the actual cwd, dirs_var is checked.
 /// For now, we first check for a const with the name of `dirs_var_name`,
-/// and if that's not found, then we try to look for an environment variable of the same name.
-/// If there is a relative path in dirs_var, it is assumed to be relative to the actual cwd
-/// determined in the first step.
+/// and if that's not found, then we try to look for an environment variable of
+/// the same name. If there is a relative path in dirs_var, it is assumed to be
+/// relative to the actual cwd determined in the first step.
 ///
 /// Always returns an absolute path
 pub fn find_in_dirs(
@@ -3831,12 +3867,15 @@ fn detect_params_in_name(
             .find_position(|c| **c == delim)
             .unwrap_or((name.len(), &b' '));
         let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
-        let error = ParseError::LabeledErrorWithHelp{
+        let error = ParseError::LabeledErrorWithHelp {
             error: "no space between name and parameters".into(),
             label: "expected space".into(),
-            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            help: format!(
+                "consider adding a space between the `{decl_name}` command's name and its \
+                 parameters"
+            ),
             span: param_span,
-            };
+        };
         Some(error)
     };
 

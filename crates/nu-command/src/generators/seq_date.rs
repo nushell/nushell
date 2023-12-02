@@ -1,9 +1,8 @@
-use chrono::naive::NaiveDate;
-use chrono::{Duration, Local};
+use chrono::{naive::NaiveDate, Duration, Local};
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
@@ -66,12 +65,14 @@ impl Command for SeqDate {
                 result: None,
             },
             Example {
-                description: "print the previous 10 days in YYYY-MM-DD format with newline separator",
+                description: "print the previous 10 days in YYYY-MM-DD format with newline \
+                              separator",
                 example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
-                description: "print the previous 10 days starting today in MM/DD/YYYY format with newline separator",
+                description: "print the previous 10 days starting today in MM/DD/YYYY format with \
+                              newline separator",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
@@ -79,7 +80,7 @@ impl Command for SeqDate {
                 description: "print the first 10 days in January, 2020",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10'",
                 result: Some(Value::list(
-                     vec![
+                    vec![
                         Value::test_string("2020-01-01"),
                         Value::test_string("2020-01-02"),
                         Value::test_string("2020-01-03"),
@@ -91,7 +92,7 @@ impl Command for SeqDate {
                         Value::test_string("2020-01-09"),
                         Value::test_string("2020-01-10"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
             Example {
@@ -99,15 +100,15 @@ impl Command for SeqDate {
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
-                    Value::test_string("2020-01-01"),
-                    Value::test_string("2020-01-06"),
-                    Value::test_string("2020-01-11"),
-                    Value::test_string("2020-01-16"),
-                    Value::test_string("2020-01-21"),
-                    Value::test_string("2020-01-26"),
-                    Value::test_string("2020-01-31"),
+                        Value::test_string("2020-01-01"),
+                        Value::test_string("2020-01-06"),
+                        Value::test_string("2020-01-11"),
+                        Value::test_string("2020-01-16"),
+                        Value::test_string("2020-01-21"),
+                        Value::test_string("2020-01-26"),
+                        Value::test_string("2020-01-31"),
                     ],
-                     Span::test_data(),
+                    Span::test_data(),
                 )),
             },
         ]
@@ -293,8 +294,9 @@ pub fn run_seq_dates(
         }
     }
 
-    // conceptually counting down with a positive step or counting up with a negative step
-    // makes no sense, attempt to do what one means by inverting the signs in those cases.
+    // conceptually counting down with a positive step or counting up with a
+    // negative step makes no sense, attempt to do what one means by inverting
+    // the signs in those cases.
     if (start_date > end_date) && (step_size > 0) || (start_date < end_date) && step_size < 0 {
         step_size = -step_size;
     }

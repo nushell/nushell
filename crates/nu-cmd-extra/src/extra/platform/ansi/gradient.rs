@@ -1,8 +1,9 @@
 use nu_ansi_term::{build_all_gradient_text, gradient::TargetGround, Gradient, Rgb};
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, ast::CellPath, engine::Command, engine::EngineState, engine::Stack, Category,
-    Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -74,29 +75,31 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-            description: "draw text in a gradient with foreground start and end colors",
-            example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff'",
-            result: None,
-        },
-        Example {
-            description: "draw text in a gradient with foreground start and end colors and background start and end colors",
-            example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff' --fgend '0xe81cff' --bgstart '0xe81cff' --bgend '0x40c9ff'",
-            result: None,
-        },
-        Example {
-            description: "draw text in a gradient by specifying foreground start color - end color is assumed to be black",
-            example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart '0x40c9ff'",
-            result: None,
-        },
-        Example {
-            description: "draw text in a gradient by specifying foreground end color - start color is assumed to be black",
-            example:
-                "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend '0xe81cff'",
-            result: None,
-        },
+                description: "draw text in a gradient with foreground start and end colors",
+                example: "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart \
+                          '0x40c9ff' --fgend '0xe81cff'",
+                result: None,
+            },
+            Example {
+                description: "draw text in a gradient with foreground start and end colors and \
+                              background start and end colors",
+                example: "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart \
+                          '0x40c9ff' --fgend '0xe81cff' --bgstart '0xe81cff' --bgend '0x40c9ff'",
+                result: None,
+            },
+            Example {
+                description: "draw text in a gradient by specifying foreground start color - end \
+                              color is assumed to be black",
+                example: "'Hello, Nushell! This is a gradient.' | ansi gradient --fgstart \
+                          '0x40c9ff'",
+                result: None,
+            },
+            Example {
+                description: "draw text in a gradient by specifying foreground end color - start \
+                              color is assumed to be black",
+                example: "'Hello, Nushell! This is a gradient.' | ansi gradient --fgend '0xe81cff'",
+                result: None,
+            },
         ]
     }
 }
@@ -164,8 +167,9 @@ fn action(
                     // Error - no colors
                     Value::error(
                         ShellError::MissingParameter {
-                            param_name:
-                                "please supply foreground and/or background color parameters".into(),
+                            param_name: "please supply foreground and/or background color \
+                                         parameters"
+                                .into(),
                             span: command_span,
                         },
                         span,
@@ -304,9 +308,10 @@ fn action(
 
 #[cfg(test)]
 mod tests {
-    use super::{action, SubCommand};
     use nu_ansi_term::Rgb;
     use nu_protocol::{Span, Value};
+
+    use super::{action, SubCommand};
 
     #[test]
     fn examples_work_as_expected() {
@@ -318,7 +323,12 @@ mod tests {
     #[test]
     fn test_fg_gradient() {
         let input_string = Value::test_string("Hello, World!");
-        let expected = Value::test_string("\u{1b}[38;2;64;201;255mH\u{1b}[38;2;76;187;254me\u{1b}[38;2;89;174;254ml\u{1b}[38;2;102;160;254ml\u{1b}[38;2;115;147;254mo\u{1b}[38;2;128;133;254m,\u{1b}[38;2;141;120;254m \u{1b}[38;2;153;107;254mW\u{1b}[38;2;166;94;254mo\u{1b}[38;2;179;80;254mr\u{1b}[38;2;192;67;254ml\u{1b}[38;2;205;53;254md\u{1b}[38;2;218;40;254m!\u{1b}[0m");
+        let expected = Value::test_string(
+            "\u{1b}[38;2;64;201;255mH\u{1b}[38;2;76;187;254me\u{1b}[38;2;89;174;254ml\u{1b}[38;2;\
+             102;160;254ml\u{1b}[38;2;115;147;254mo\u{1b}[38;2;128;133;254m,\u{1b}[38;2;141;120;\
+             254m \u{1b}[38;2;153;107;254mW\u{1b}[38;2;166;94;254mo\u{1b}[38;2;179;80;254mr\\
+             u{1b}[38;2;192;67;254ml\u{1b}[38;2;205;53;254md\u{1b}[38;2;218;40;254m!\u{1b}[0m",
+        );
         let fg_start = Rgb::from_hex_string("0x40c9ff".to_string());
         let fg_end = Rgb::from_hex_string("0xe81cff".to_string());
         let actual = action(

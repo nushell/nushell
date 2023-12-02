@@ -1,5 +1,3 @@
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -7,6 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::{datatypes::DataType, prelude::Expr};
+
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
 
 #[derive(Clone)]
 pub struct LazyAggregate;
@@ -129,7 +129,11 @@ impl Command for LazyAggregate {
                             "Object type column not supported for aggregation".into(),
                             format!("Column '{name}' is type Object"),
                             Some(call.head),
-                            Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
+                            Some(
+                                "Aggregations cannot be performed on Object type columns. Use \
+                                 dtype command to check column types"
+                                    .into(),
+                            ),
                             Vec::new(),
                         ));
                     }
@@ -195,10 +199,11 @@ fn get_col_name(expr: &Expr) -> Option<String> {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
-    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+    use super::{super::super::test_dataframe::test_dataframe, *};
+    use crate::dataframe::{
+        expressions::{ExprAlias, ExprMax, ExprMin, ExprSum},
+        lazy::groupby::ToLazyGroupBy,
+    };
 
     #[test]
     fn test_examples() {

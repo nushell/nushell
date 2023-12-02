@@ -23,7 +23,7 @@ impl Command for SubCommand {
                 (Type::String, Type::Duration),
                 (Type::Duration, Type::Duration),
                 (Type::Table(vec![]), Type::Table(vec![])),
-                //todo: record<hour,minute,sign> | into duration -> Duration
+                // todo: record<hour,minute,sign> | into duration -> Duration
                 //(Type::Record(vec![]), Type::Record(vec![])),
             ])
             //.allow_variants_without_examples(true)
@@ -74,13 +74,21 @@ impl Command for SubCommand {
                 description: "Convert compound duration string to duration value",
                 example: "'1day 2hr 3min 4sec' | into duration",
                 result: Some(Value::test_duration(
-                    (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
+                    (((((
+                        // 1 *
+                        24
+                    ) + 2)
+                        * 60)
+                        + 3)
+                        * 60
+                        + 4)
+                        * NS_PER_SEC,
                 )),
             },
             Example {
                 description: "Convert table of duration strings to table of duration values",
-                example:
-                    "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
+                example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration \
+                          value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "value" => Value::test_duration(NS_PER_SEC),
@@ -271,8 +279,9 @@ fn action(input: &Value, unit: &str, span: Span) -> Value {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[test]
     fn test_examples() {

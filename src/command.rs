@@ -1,18 +1,16 @@
 use nu_engine::{get_full_help, CallExt};
-use nu_parser::parse;
-use nu_parser::{escape_for_script_arg, escape_quote_string};
-use nu_protocol::report_error;
+use nu_parser::{escape_for_script_arg, escape_quote_string, parse};
 use nu_protocol::{
     ast::{Call, Expr, Expression, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
-    Value,
+    report_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
+    Spanned, SyntaxShape, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
 
 pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
-    // Would be nice if we had a way to parse this. The first flags we see will be going to nushell
-    // then it'll be the script name
+    // Would be nice if we had a way to parse this. The first flags we see will be
+    // going to nushell then it'll be the script name
     // then the args to the script
     let mut args_to_nushell = Vec::from(["nu".into()]);
     let mut script_name = String::new();
@@ -331,12 +329,8 @@ impl Command for Nu {
                 "start with an alternate environment config file",
                 None,
             )
-            .switch(
-               "lsp",
-               "start nu's language server protocol",
-               None,
-            )
-           .named(
+            .switch("lsp", "start nu's language server protocol", None)
+            .named(
                 "ide-goto-def",
                 SyntaxShape::Int,
                 "go to the definition of the item at the given position",
@@ -347,7 +341,7 @@ impl Command for Nu {
                 SyntaxShape::Int,
                 "give information about the item at the given position",
                 None,
-             )
+            )
             .named(
                 "ide-complete",
                 SyntaxShape::Int,
@@ -357,7 +351,8 @@ impl Command for Nu {
             .named(
                 "ide-check",
                 SyntaxShape::Int,
-                "run a diagnostic check on the given source and limit number of errors returned to provided number",
+                "run a diagnostic check on the given source and limit number of errors returned \
+                 to provided number",
                 None,
             )
             .switch("ide-ast", "generate the ast on the given source", None);

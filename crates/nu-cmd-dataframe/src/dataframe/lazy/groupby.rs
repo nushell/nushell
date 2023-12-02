@@ -1,4 +1,3 @@
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -6,6 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::Expr;
+
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame, NuLazyGroupBy};
 
 #[derive(Clone)]
 pub struct ToLazyGroupBy;
@@ -140,10 +141,11 @@ impl Command for ToLazyGroupBy {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::expressions::{ExprAlias, ExprMax, ExprMin, ExprSum};
-    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use super::{super::super::test_dataframe::test_dataframe, *};
+    use crate::dataframe::{
+        expressions::{ExprAlias, ExprMax, ExprMin, ExprSum},
+        lazy::aggregate::LazyAggregate,
+    };
 
     #[test]
     fn test_examples() {

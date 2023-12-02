@@ -57,7 +57,8 @@ fn long_stream_binary() {
 
 #[test]
 fn long_stream_binary_overflow() {
-    // .. ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
+    // .. ranges are inclusive..inclusive, so we don't need to +1 to check for an
+    // overflow
     let actual = nu!(r#"
             nu --testbin repeater (0x[01]) 32768 | bytes starts-with (0..32768 | each {|| 0x[01] } | bytes collect)
         "#);
@@ -67,7 +68,8 @@ fn long_stream_binary_overflow() {
 
 #[test]
 fn long_stream_binary_exact() {
-    // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
+    // ranges are inclusive..inclusive, so we don't need to +1 to check for an
+    // overflow
     let actual = nu!(r#"
             nu --testbin repeater (0x[01020304]) 8192 | bytes starts-with (0..<8192 | each {|| 0x[01020304] } | bytes collect)
         "#);
@@ -77,7 +79,8 @@ fn long_stream_binary_exact() {
 
 #[test]
 fn long_stream_string_exact() {
-    // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
+    // ranges are inclusive..inclusive, so we don't need to +1 to check for an
+    // overflow
     let actual = nu!(r#"
             nu --testbin repeater hell 8192 | bytes starts-with (0..<8192 | each {|| "hell" | into binary } | bytes collect)
         "#);
@@ -87,7 +90,8 @@ fn long_stream_string_exact() {
 
 #[test]
 fn long_stream_mixed_exact() {
-    // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
+    // ranges are inclusive..inclusive, so we don't need to +1 to check for an
+    // overflow
     let actual = nu!(r#"
             let binseg = (0..<2048 | each {|| 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each {|| "hell" | into binary } | bytes collect)
@@ -104,7 +108,8 @@ fn long_stream_mixed_exact() {
 
 #[test]
 fn long_stream_mixed_overflow() {
-    // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
+    // ranges are inclusive..inclusive, so we don't need to +1 to check for an
+    // overflow
     let actual = nu!(r#"
             let binseg = (0..<2048 | each {|| 0x[003d9fbf] } | bytes collect)
             let strseg = (0..<2048 | each {|| "hell" | into binary } | bytes collect)

@@ -1,10 +1,13 @@
-use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
-    PipelineElement,
-};
-use nu_protocol::{engine::StateWorkingSet, Span};
-use nu_protocol::{DeclId, VarId};
 use std::fmt::{Display, Formatter, Result};
+
+use nu_protocol::{
+    ast::{
+        Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
+        PipelineElement,
+    },
+    engine::StateWorkingSet,
+    DeclId, Span, VarId,
+};
 
 #[derive(Debug, Eq, PartialEq, Ord, Clone, PartialOrd)]
 pub enum FlatShape {
@@ -229,7 +232,7 @@ pub fn flatten_expression(
             }
 
             for arg in args {
-                //output.push((*arg, FlatShape::ExternalArg));
+                // output.push((*arg, FlatShape::ExternalArg));
                 match arg {
                     Expression {
                         expr: Expr::String(..),

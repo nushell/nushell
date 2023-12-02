@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Block, Closure, Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
@@ -122,8 +122,9 @@ fn handle_catch(
     }
 }
 
-/// The flow control commands `break`/`continue`/`return` emit their own [`ShellError`] variants
-/// We need to ignore those in `try` and bubble them through
+/// The flow control commands `break`/`continue`/`return` emit their own
+/// [`ShellError`] variants We need to ignore those in `try` and bubble them
+/// through
 ///
 /// `Err` when flow control to bubble up with `?`
 fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
@@ -135,7 +136,8 @@ fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> 
     }
 }
 
-/// Convert from `error` to [`Value::Record`] so the error information can be easily accessed in catch.
+/// Convert from `error` to [`Value::Record`] so the error information can be
+/// easily accessed in catch.
 fn err_to_record(error: ShellError, head: Span) -> Value {
     Value::record(
         record! {

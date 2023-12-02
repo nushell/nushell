@@ -1,13 +1,12 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use std::sync::{atomic::AtomicBool, Arc};
+
+use nu_engine::{env::current_dir, CallExt};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
 use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
@@ -46,7 +45,8 @@ impl Command for Glob {
             .named(
                 "exclude",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Patterns to exclude from the search: `glob` will not walk the inside of directories matching the excluded patterns.",
+                "Patterns to exclude from the search: `glob` will not walk the inside of \
+                 directories matching the excluded patterns.",
                 Some('e'),
             )
             .category(Category::FileSystem)
@@ -73,14 +73,14 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                description: "Search for files and folders that begin with uppercase C and \
+                              lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description:
-                    "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a \
+                              character for ?",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
@@ -100,17 +100,20 @@ impl Command for Glob {
                 result: None,
             },
             Example {
-                description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times",
+                description: "Search for files or folders with only a, b, c, or d in the file \
+                              name between 1 and 10 times",
                 example: "glob <[a-d]:1,10>",
                 result: None,
             },
             Example {
-                description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks",
+                description: "Search for folders that begin with an uppercase ASCII letter, \
+                              ignoring files and symlinks",
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
             Example {
-                description: "Search for files named tsconfig.json that are not in node_modules directories",
+                description: "Search for files named tsconfig.json that are not in node_modules \
+                              directories",
                 example: r#"glob **/tsconfig.json --exclude [**/node_modules/**]"#,
                 result: None,
             },
@@ -192,7 +195,8 @@ impl Command for Glob {
             Err(e) if e.to_string().contains("os error 2") =>
             // path we're trying to glob doesn't exist,
             {
-                std::path::PathBuf::new() // user should get empty list not an error
+                std::path::PathBuf::new() // user should get empty list not an
+                                          // error
             }
             Err(e) => {
                 return Err(ShellError::GenericError(

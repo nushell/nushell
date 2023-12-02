@@ -1,4 +1,3 @@
-use crate::grapheme_flags;
 use fancy_regex::Regex;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -7,6 +6,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::grapheme_flags;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -22,7 +23,7 @@ impl Command for SubCommand {
                 (Type::String, Type::List(Box::new(Type::String))),
                 (
                     Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::List(Box::new(Type::String))))
+                    Type::List(Box::new(Type::List(Box::new(Type::String)))),
                 ),
             ])
             .allow_variants_without_examples(true)
@@ -55,7 +56,8 @@ impl Command for SubCommand {
             )
             .switch(
                 "utf-8-bytes",
-                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
+                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are \
+                 length 2+)",
                 Some('b'),
             )
     }
@@ -79,8 +81,8 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "Split the string's words, of at least 3 characters, into separate rows",
+                description: "Split the string's words, of at least 3 characters, into separate \
+                              rows",
                 example: "'hello to the world' | split words --min-word-length 3",
                 result: Some(Value::list(
                     vec![
@@ -92,9 +94,10 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description:
-                    "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
+                description: "A real-world example of splitting words",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | \
+                          split words --min-word-length 2 | uniq --count | sort-by count \
+                          --reverse | first 10",
                 result: None,
             },
         ]
@@ -148,9 +151,10 @@ fn split_words(
 fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphemes: bool) -> Value {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
-    // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
-    // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
-    // Let's go with the unicode one in hopes that it works on more than just ascii characters
+    // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or
+    // apostrophes [^\p{L}\'] = do not match any unicode uppercase or lowercase
+    // letters or apostrophes Let's go with the unicode one in hopes that it
+    // works on more than just ascii characters
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
     let v_span = v.span();
 
@@ -230,9 +234,9 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 //     403 alice
 
 // regex means, replace everything that is not A-Z or a-z or ' with a space
-// ❯ $contents | str replace "[^A-Za-z\']" " " -a | split row ' ' | where ($it | str length) > 1 | uniq -i -c | sort-by count --reverse | first 10
-// benchmark: 1sec 775ms 471µs 600ns
-// ╭───┬───────┬───────╮
+// ❯ $contents | str replace "[^A-Za-z\']" " " -a | split row ' ' | where ($it |
+// str length) > 1 | uniq -i -c | sort-by count --reverse | first 10 benchmark:
+// 1sec 775ms 471µs 600ns ╭───┬───────┬───────╮
 // │ # │ value │ count │
 // ├───┼───────┼───────┤
 // │ 0 │ the   │  1839 │
@@ -247,8 +251,8 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 // │ 9 │ alice │   403 │
 // ╰───┴───────┴───────╯
 
-// $alice |str replace "[^A-Za-z\']" " " -a | split row ' ' | uniq -i -c | sort-by count --reverse | first 10
-// benchmark: 1sec 518ms 701µs 200ns
+// $alice |str replace "[^A-Za-z\']" " " -a | split row ' ' | uniq -i -c |
+// sort-by count --reverse | first 10 benchmark: 1sec 518ms 701µs 200ns
 // ╭───┬───────┬───────╮
 // │ # │ value │ count │
 // ├───┼───────┼───────┤
@@ -267,8 +271,8 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 // ╰───┴───────┴───────╯
 
 // s.unicode_words()
-// $alice | str downcase | split words | sort | uniq -c | sort-by count | reverse | first 10
-// benchmark: 4sec 965ms 285µs 800ns
+// $alice | str downcase | split words | sort | uniq -c | sort-by count |
+// reverse | first 10 benchmark: 4sec 965ms 285µs 800ns
 // ╭───┬───────┬───────╮
 // │ # │ value │ count │
 // ├───┼───────┼───────┤
@@ -313,8 +317,8 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 //         .replace("'s", "")
 //         .replace(
 //             &[
-//                 '(', ')', ',', '\"', '.', ';', ':', '=', '[', ']', '{', '}', '-', '_', '/', '\'',
-//                 '’', '?', '!', '“', '‘',
+//                 '(', ')', ',', '\"', '.', ';', ':', '=', '[', ']', '{', '}',
+// '-', '_', '/', '\'',                 '’', '?', '!', '“', '‘',
 //             ][..],
 //             "",
 //         )
@@ -344,8 +348,8 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 // ╰───┴───────┴───────╯
 
 // current
-// $alice | str downcase | split words | uniq -c | sort-by count --reverse | first 10
-// benchmark: 1sec 481ms 604µs 700ns
+// $alice | str downcase | split words | uniq -c | sort-by count --reverse |
+// first 10 benchmark: 1sec 481ms 604µs 700ns
 // ╭───┬───────┬───────╮
 // │ # │ value │ count │
 // ├───┼───────┼───────┤
@@ -365,8 +369,9 @@ fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphem
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use nu_test_support::nu;
+
+    use super::*;
 
     #[test]
     fn test_incompat_flags() {

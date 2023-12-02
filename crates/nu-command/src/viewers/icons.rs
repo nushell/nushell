@@ -1,7 +1,7 @@
+use std::{collections::HashMap, path::Path};
+
 use nu_protocol::{ShellError, Span};
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
-use std::path::Path;
 
 // Attribution: Thanks exa. Most of this file is taken from around here
 // https://github.com/ogham/exa/blob/dbd11d38042284cc890fdd91760c2f93b65e8553/src/output/icons.rs
@@ -27,13 +27,13 @@ impl Icons {
     }
 }
 
-// keeping this for now in case we have to revert to ansi style instead of crossterm style
-// Helper function to convert ansi_term style to nu_ansi_term. unfortunately
-// this is necessary because ls_colors has a dependency on ansi_term vs nu_ansi_term
-// double unfortunately, now we have a dependency on both. we may have to bring
-// in ls_colors crate to nushell
-// pub fn iconify_style_ansi_to_nu<'a>(style: ansi_term::Style) -> nu_ansi_term::Style {
-//     let bg = match style.background {
+// keeping this for now in case we have to revert to ansi style instead of
+// crossterm style Helper function to convert ansi_term style to nu_ansi_term.
+// unfortunately this is necessary because ls_colors has a dependency on
+// ansi_term vs nu_ansi_term double unfortunately, now we have a dependency on
+// both. we may have to bring in ls_colors crate to nushell
+// pub fn iconify_style_ansi_to_nu<'a>(style: ansi_term::Style) ->
+// nu_ansi_term::Style {     let bg = match style.background {
 //         Some(c) => match c {
 //             ansi_term::Color::Black => Some(nu_ansi_term::Color::Black),
 //             ansi_term::Color::Red => Some(nu_ansi_term::Color::Red),
@@ -43,9 +43,9 @@ impl Icons {
 //             ansi_term::Color::Purple => Some(nu_ansi_term::Color::Purple),
 //             ansi_term::Color::Cyan => Some(nu_ansi_term::Color::Cyan),
 //             ansi_term::Color::White => Some(nu_ansi_term::Color::White),
-//             ansi_term::Color::Fixed(f) => Some(nu_ansi_term::Color::Fixed(f)),
-//             ansi_term::Color::RGB(r, g, b) => Some(nu_ansi_term::Color::Rgb(r, g, b)),
-//         },
+//             ansi_term::Color::Fixed(f) =>
+// Some(nu_ansi_term::Color::Fixed(f)),             ansi_term::Color::RGB(r, g,
+// b) => Some(nu_ansi_term::Color::Rgb(r, g, b)),         },
 //         None => None,
 //     };
 
@@ -59,9 +59,9 @@ impl Icons {
 //             ansi_term::Color::Purple => Some(nu_ansi_term::Color::Purple),
 //             ansi_term::Color::Cyan => Some(nu_ansi_term::Color::Cyan),
 //             ansi_term::Color::White => Some(nu_ansi_term::Color::White),
-//             ansi_term::Color::Fixed(f) => Some(nu_ansi_term::Color::Fixed(f)),
-//             ansi_term::Color::RGB(r, g, b) => Some(nu_ansi_term::Color::Rgb(r, g, b)),
-//         },
+//             ansi_term::Color::Fixed(f) =>
+// Some(nu_ansi_term::Color::Fixed(f)),             ansi_term::Color::RGB(r, g,
+// b) => Some(nu_ansi_term::Color::Rgb(r, g, b)),         },
 //         None => None,
 //     };
 
@@ -475,14 +475,14 @@ pub fn extension_is_one_of(path: &Path, choices: &[&str]) -> bool {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct FileExtensions;
 
-// TODO: We may want to re-add these FileExtensions impl fns back. I have disabled
-// it now because it's hard coding colors which kind of defeats the LS_COLORS
-// functionality. We may want to enable and augment at some point.
+// TODO: We may want to re-add these FileExtensions impl fns back. I have
+// disabled it now because it's hard coding colors which kind of defeats the
+// LS_COLORS functionality. We may want to enable and augment at some point.
 
 impl FileExtensions {
     //     /// An “immediate” file is something that can be run or activated somehow
-    //     /// in order to kick off the build of a project. It’s usually only present
-    //     /// in directories full of source code.
+    //     /// in order to kick off the build of a project. It’s usually only
+    // present     /// in directories full of source code.
     //     #[allow(clippy::case_sensitive_file_extension_comparisons)]
     //     #[allow(dead_code)]
     //     fn is_immediate(&self, file_path: &Path) -> bool {
@@ -581,9 +581,9 @@ impl FileExtensions {
     //         extension_is_one_of(
     //             file,
     //             &[
-    //                 "djvu", "doc", "docx", "dvi", "eml", "eps", "fotd", "key", "keynote", "numbers",
-    //                 "odp", "odt", "pages", "pdf", "ppt", "pptx", "rtf", "xls", "xlsx",
-    //             ],
+    //                 "djvu", "doc", "docx", "dvi", "eml", "eps", "fotd", "key",
+    // "keynote", "numbers",                 "odp", "odt", "pages", "pdf",
+    // "ppt", "pptx", "rtf", "xls", "xlsx",             ],
     //         )
     //     }
 
@@ -592,9 +592,9 @@ impl FileExtensions {
     //         extension_is_one_of(
     //             file,
     //             &[
-    //                 "zip", "tar", "Z", "z", "gz", "bz2", "a", "ar", "7z", "iso", "dmg", "tc", "rar",
-    //                 "par", "tgz", "xz", "txz", "lz", "tlz", "lzma", "deb", "rpm", "zst", "lz4",
-    //             ],
+    //                 "zip", "tar", "Z", "z", "gz", "bz2", "a", "ar", "7z", "iso",
+    // "dmg", "tc", "rar",                 "par", "tgz", "xz", "txz", "lz",
+    // "tlz", "lzma", "deb", "rpm", "zst", "lz4",             ],
     //         )
     //     }
 
@@ -602,14 +602,15 @@ impl FileExtensions {
     //     fn is_temp(&self, file: &Path) -> bool {
     //         file.file_name().unwrap().to_str().unwrap().ends_with('~')
     //             || (file.file_name().unwrap().to_str().unwrap().starts_with('#')
-    //                 && file.file_name().unwrap().to_str().unwrap().ends_with('#'))
-    //             || extension_is_one_of(file, &["tmp", "swp", "swo", "swn", "bak", "bkp", "bk"])
+    //                 &&
+    // file.file_name().unwrap().to_str().unwrap().ends_with('#'))             ||
+    // extension_is_one_of(file, &["tmp", "swp", "swo", "swn", "bak", "bkp", "bk"])
     //     }
 
     //     #[allow(dead_code)]
     //     fn is_compiled(&self, file: &Path) -> bool {
-    //         if extension_is_one_of(file, &["class", "elc", "hi", "o", "pyc", "zwc", "ko"]) {
-    //             true
+    //         if extension_is_one_of(file, &["class", "elc", "hi", "o", "pyc",
+    // "zwc", "ko"]) {             true
     //         // } else if let Some(dir) = file.parent() {
     //         //     file.get_source_files()
     //         //         .iter()

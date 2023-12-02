@@ -1,12 +1,13 @@
-use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::map::IndexMap;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     Type, Value,
 };
 use roxmltree::NodeType;
+
+use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 
 #[derive(Clone)]
 pub struct FromXml;
@@ -294,10 +295,9 @@ fn make_cant_convert_error(help: impl Into<String>, span: Span) -> ShellError {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use indexmap::{indexmap, IndexMap};
 
-    use indexmap::indexmap;
-    use indexmap::IndexMap;
+    use super::*;
 
     fn string(input: impl Into<String>) -> Value {
         Value::test_string(input)

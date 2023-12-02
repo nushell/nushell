@@ -1,14 +1,14 @@
-use dialoguer::{console::Term, Select};
-use dialoguer::{FuzzySelect, MultiSelect};
+use std::fmt::{Display, Formatter};
+
+use dialoguer::{console::Term, FuzzySelect, MultiSelect, Select};
 use nu_ansi_term::Color;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
-use std::fmt::{Display, Formatter};
 
 enum InteractMode {
     Single(Option<usize>),
@@ -166,7 +166,9 @@ impl Command for InputList {
 
         if options.is_empty() {
             return Err(ShellError::TypeMismatch {
-                err_message: "expected a list or table, it can also be a problem with the an inner type of your list.".to_string(),
+                err_message: "expected a list or table, it can also be a problem with the an \
+                              inner type of your list."
+                    .to_string(),
                 span: head,
             });
         }

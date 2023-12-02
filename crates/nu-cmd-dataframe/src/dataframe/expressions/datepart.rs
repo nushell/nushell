@@ -1,6 +1,3 @@
-use super::super::values::NuExpression;
-
-use crate::dataframe::values::{Column, NuDataFrame};
 use chrono::{DateTime, FixedOffset};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -9,6 +6,9 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
     Value,
 };
+
+use super::super::values::NuExpression;
+use crate::dataframe::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct ExprDatePart;
@@ -27,7 +27,8 @@ impl Command for ExprDatePart {
             .required(
                 "Datepart name",
                 SyntaxShape::String,
-                "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",
+                "Part of the date to capture.  Possible values are year, quarter, month, week, \
+                 weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",
             )
             .input_output_type(
                 Type::Custom("expression".into()),
@@ -125,13 +126,18 @@ impl Command for ExprDatePart {
             "nanosecond" => expr_dt.nanosecond(),
             _ => {
                 return Err(ShellError::UnsupportedInput {
-                    msg: format!("{} is not a valid datepart, expected one of year, month, day, hour, minute, second, millisecond, microsecond, nanosecond", part.item),
+                    msg: format!(
+                        "{} is not a valid datepart, expected one of year, month, day, hour, \
+                         minute, second, millisecond, microsecond, nanosecond",
+                        part.item
+                    ),
                     input: "value originates from here".to_string(),
                     msg_span: call.head,
                     input_span: part.span,
                 });
             }
-        }.into();
+        }
+        .into();
 
         Ok(PipelineData::Value(
             NuExpression::into_value(expr, call.head),
@@ -142,13 +148,12 @@ impl Command for ExprDatePart {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
-    use crate::dataframe::eager::ToNu;
-    use crate::dataframe::eager::WithColumn;
-    use crate::dataframe::expressions::ExprAlias;
-    use crate::dataframe::expressions::ExprCol;
-    use crate::dataframe::series::AsDateTime;
+    use super::{super::super::test_dataframe::test_dataframe, *};
+    use crate::dataframe::{
+        eager::{ToNu, WithColumn},
+        expressions::{ExprAlias, ExprCol},
+        series::AsDateTime,
+    };
 
     #[test]
     fn test_examples() {

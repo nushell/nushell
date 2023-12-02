@@ -12,7 +12,8 @@ use tabled::{
 
 use crate::{string_width, string_wrap, TableTheme};
 
-/// UnstructuredTable has a recursive table representation of nu_protocol::Value.
+/// UnstructuredTable has a recursive table representation of
+/// nu_protocol::Value.
 ///
 /// It doesn't support alignment and a proper width control.
 pub struct UnstructuredTable {
@@ -70,9 +71,10 @@ fn build_table(
     if let Ok(color) = Color::try_from(color) {
         // # SAFETY
         //
-        // It's perfectly save to do cause table does not store the reference internally.
-        // We just need this unsafe section to cope with some limitations of [`PoolTable`].
-        // Mitigation of this is definitely on a todo list.
+        // It's perfectly save to do cause table does not store the reference
+        // internally. We just need this unsafe section to cope with some
+        // limitations of [`PoolTable`]. Mitigation of this is definitely on a
+        // todo list.
 
         let color: AnsiColor<'_> = color.into();
         let prefix = color.get_prefix();

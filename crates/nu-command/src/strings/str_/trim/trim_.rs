@@ -69,6 +69,7 @@ impl Command for SubCommand {
             )
             .category(Category::Strings)
     }
+
     fn usage(&self) -> &str {
         "Trim whitespace or specific character."
     }
@@ -221,7 +222,7 @@ fn trim(s: &str, char_: Option<char>, trim_side: &TrimSide) -> String {
             '\x0B', // vertical tab
             '\x0C', // form feed, new page
             '\x0D', // carriage return
-        ], //whitespace
+        ], // whitespace
     };
 
     match trim_side {
@@ -233,8 +234,9 @@ fn trim(s: &str, char_: Option<char>, trim_side: &TrimSide) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::strings::str_::trim::trim_::*;
     use nu_protocol::{Span, Value};
+
+    use crate::strings::str_::trim::trim_::*;
 
     #[test]
     fn test_examples() {

@@ -11,9 +11,10 @@ where
     pub span: Span,
 }
 
-/// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
-/// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
-/// a given point of interest.
+/// Spans are a global offset across all seen files, which are cached in the
+/// engine's state. The start and end offset together make the inclusive
+/// start/exclusive end pair for where to underline to highlight a given point
+/// of interest.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
@@ -41,8 +42,8 @@ impl Span {
         Span { start: 0, end: 0 }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point
+    /// into unknown source when used in errors.
     pub const fn test_data() -> Span {
         Self::unknown()
     }
@@ -73,7 +74,7 @@ impl Span {
 pub fn span(spans: &[Span]) -> Span {
     let length = spans.len();
 
-    //TODO debug_assert!(length > 0, "expect spans > 0");
+    // TODO debug_assert!(length > 0, "expect spans > 0");
     if length == 0 {
         Span::unknown()
     } else if length == 1 {

@@ -1,10 +1,12 @@
+use std::collections::HashMap;
+
+use nu_ansi_term::Style;
+use nu_protocol::{Record, Value};
+
 use crate::{
     nu_style::{color_from_hex, lookup_style},
     parse_nustyle, NuStyle,
 };
-use nu_ansi_term::Style;
-use nu_protocol::{Record, Value};
-use std::collections::HashMap;
 
 pub fn lookup_ansi_color_style(s: &str) -> Style {
     if s.starts_with('#') {
@@ -90,9 +92,10 @@ fn color_string_to_nustyle(color_string: String) -> Style {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nu_ansi_term::{Color, Style};
     use nu_protocol::{Span, Value};
+
+    use super::*;
 
     #[test]
     fn test_color_string_to_nustyle_empty_string() {

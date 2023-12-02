@@ -1,11 +1,11 @@
-use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
-
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
+
+use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
 
 #[derive(Clone)]
 pub struct FromCsv;
@@ -21,7 +21,8 @@ impl Command for FromCsv {
             .named(
                 "separator",
                 SyntaxShape::String,
-                "a character to separate columns (either single char or 4 byte unicode sequence), defaults to ','",
+                "a character to separate columns (either single char or 4 byte unicode sequence), \
+                 defaults to ','",
                 Some('s'),
             )
             .named(
@@ -81,12 +82,10 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::test_list (
-                    vec![Value::test_record(record! {
-                        "ColA" => Value::test_int(1),
-                        "ColB" => Value::test_int(2),
-                    })],
-                ))
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_int(1),
+                    "ColB" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Convert comma-separated data to a table, ignoring headers",
@@ -99,22 +98,26 @@ impl Command for FromCsv {
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                description: "Convert comma-separated data to a table, ignoring lines starting \
+                              with '#'",
                 example: "open data.txt | from csv --comment '#'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around header names and field values",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around header names",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible \
+                              whitespaces around field values",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },

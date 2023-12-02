@@ -1,18 +1,11 @@
 #[cfg(not(feature = "preserve_order"))]
 use std::collections::{btree_map, BTreeMap};
+use std::{fmt, io, str, vec};
 
 #[cfg(feature = "preserve_order")]
 use linked_hash_map::{self, LinkedHashMap};
-
-use std::fmt;
-use std::io;
-use std::str;
-use std::vec;
-
 use num_traits::NumCast;
-
-use serde::de;
-use serde::ser;
+use serde::{de, ser};
 
 use crate::error::{Error, ErrorCode};
 
@@ -74,8 +67,8 @@ pub enum Value {
 }
 
 impl Value {
-    /// If the `Value` is an Object, returns the value associated with the provided key.
-    /// Otherwise, returns None.
+    /// If the `Value` is an Object, returns the value associated with the
+    /// provided key. Otherwise, returns None.
     pub fn find<'a>(&'a self, key: &str) -> Option<&'a Value> {
         match *self {
             Value::Object(ref map) => map.get(key),
@@ -104,10 +97,10 @@ impl Value {
     /// JSON Pointer defines a string syntax for identifying a specific value
     /// within a JavaScript Object Notation (JSON) document.
     ///
-    /// A Pointer is a Unicode string with the reference tokens separated by `/`.
-    /// Inside tokens `/` is replaced by `~1` and `~` is replaced by `~0`. The
-    /// addressed value is returned and if there is no such value `None` is
-    /// returned.
+    /// A Pointer is a Unicode string with the reference tokens separated by
+    /// `/`. Inside tokens `/` is replaced by `~1` and `~` is replaced by
+    /// `~0`. The addressed value is returned and if there is no such value
+    /// `None` is returned.
     ///
     /// For more information read [RFC6901](https://tools.ietf.org/html/rfc6901).
     pub fn pointer<'a>(&'a self, pointer: &str) -> Option<&'a Value> {
@@ -467,6 +460,7 @@ impl fmt::Display for Value {
 
 impl str::FromStr for Value {
     type Err = Error;
+
     fn from_str(s: &str) -> Result<Value> {
         super::de::from_str(s)
     }
@@ -477,16 +471,15 @@ impl str::FromStr for Value {
 pub struct Serializer;
 
 impl ser::Serializer for Serializer {
-    type Ok = Value;
     type Error = Error;
-
+    type Ok = Value;
+    type SerializeMap = SerializeMap;
     type SerializeSeq = SerializeVec;
+    type SerializeStruct = SerializeMap;
+    type SerializeStructVariant = SerializeStructVariant;
     type SerializeTuple = SerializeVec;
     type SerializeTupleStruct = SerializeVec;
     type SerializeTupleVariant = SerializeTupleVariant;
-    type SerializeMap = SerializeMap;
-    type SerializeStruct = SerializeMap;
-    type SerializeStructVariant = SerializeStructVariant;
 
     #[inline]
     fn serialize_bool(self, value: bool) -> Result<Value> {
@@ -714,8 +707,8 @@ pub struct SerializeStructVariant {
 }
 
 impl ser::SerializeSeq for SerializeVec {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
@@ -731,8 +724,8 @@ impl ser::SerializeSeq for SerializeVec {
 }
 
 impl ser::SerializeTuple for SerializeVec {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
     where
@@ -747,8 +740,8 @@ impl ser::SerializeTuple for SerializeVec {
 }
 
 impl ser::SerializeTupleStruct for SerializeVec {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
@@ -763,8 +756,8 @@ impl ser::SerializeTupleStruct for SerializeVec {
 }
 
 impl ser::SerializeTupleVariant for SerializeTupleVariant {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
@@ -784,8 +777,8 @@ impl ser::SerializeTupleVariant for SerializeTupleVariant {
 }
 
 impl ser::SerializeMap for SerializeMap {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<()>
     where
@@ -816,8 +809,8 @@ impl ser::SerializeMap for SerializeMap {
 }
 
 impl ser::SerializeStruct for SerializeMap {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
@@ -832,8 +825,8 @@ impl ser::SerializeStruct for SerializeMap {
 }
 
 impl ser::SerializeStructVariant for SerializeStructVariant {
-    type Ok = Value;
     type Error = Error;
+    type Ok = Value;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<()>
     where
@@ -854,6 +847,12 @@ impl ser::SerializeStructVariant for SerializeStructVariant {
 
 impl<'de> de::Deserializer<'de> for Value {
     type Error = Error;
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf unit unit_struct seq tuple
+        tuple_struct map struct identifier ignored_any
+    }
 
     #[inline]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
@@ -942,12 +941,6 @@ impl<'de> de::Deserializer<'de> for Value {
     {
         visitor.visit_newtype_struct(self)
     }
-
-    serde::forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf unit unit_struct seq tuple
-        tuple_struct map struct identifier ignored_any
-    }
 }
 
 struct EnumDeserializer {
@@ -957,7 +950,6 @@ struct EnumDeserializer {
 
 impl<'de> de::EnumAccess<'de> for EnumDeserializer {
     type Error = Error;
-
     type Variant = VariantDeserializer;
 
     fn variant_seed<V>(self, seed: V) -> Result<(V::Value, Self::Variant), Self::Error>

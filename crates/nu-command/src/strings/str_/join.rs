@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
@@ -30,7 +30,8 @@ impl Command for StrJoin {
     }
 
     fn usage(&self) -> &str {
-        "Concatenate multiple strings into a single string, with an optional separator between each."
+        "Concatenate multiple strings into a single string, with an optional separator between \
+         each."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -49,8 +50,8 @@ impl Command for StrJoin {
         let config = engine_state.get_config();
 
         // let output = input.collect_string(&separator.unwrap_or_default(), &config)?;
-        // Hmm, not sure what we actually want. If you don't use debug_string, Date comes out as human readable
-        // which feels funny
+        // Hmm, not sure what we actually want. If you don't use debug_string, Date
+        // comes out as human readable which feels funny
         let mut strings: Vec<String> = vec![];
 
         for value in input {

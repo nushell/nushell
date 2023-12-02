@@ -1,8 +1,7 @@
 use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
@@ -29,7 +28,8 @@ impl Command for Drop {
     }
 
     fn usage(&self) -> &str {
-        "Remove items/rows from the end of the input list/table. Counterpart of `skip`. Opposite of `last`."
+        "Remove items/rows from the end of the input list/table. Counterpart of `skip`. Opposite \
+         of `last`."
     }
 
     fn search_terms(&self) -> Vec<&str> {

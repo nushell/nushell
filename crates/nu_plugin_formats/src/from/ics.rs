@@ -1,9 +1,9 @@
-use ical::parser::ical::component::*;
-use ical::property::Property;
+use std::io::BufReader;
+
+use ical::{parser::ical::component::*, property::Property};
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{record, PluginExample, ShellError, Span, Value};
-use std::io::BufReader;
 
 pub const CMD_NAME: &str = "from ics";
 

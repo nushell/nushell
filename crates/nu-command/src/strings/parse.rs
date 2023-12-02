@@ -1,11 +1,13 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use fancy_regex::Regex;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
@@ -62,47 +64,39 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
                 example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "name" => Value::test_string("bar"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "name" => Value::test_string("bar"),
+                })])),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {
-                            "capture0" => Value::test_string(""),
-                            "capture1" => Value::test_string("foo"),
-                        }),
-                        Value::test_record(record! {
-                            "capture0" => Value::test_string("bar"),
-                            "capture1" => Value::test_string(""),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "capture0" => Value::test_string(""),
+                        "capture1" => Value::test_string("foo"),
+                    }),
+                    Value::test_record(record! {
+                        "capture0" => Value::test_string("bar"),
+                        "capture1" => Value::test_string(""),
+                    }),
+                ])),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
-                example:
-                    "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "capture0" => Value::test_string("@another"),
-                        "capture1" => Value::test_string("(foo bar)"),
-                    })],
-                )),
+                example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() \
+                          ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "capture0" => Value::test_string("@another"),
+                    "capture1" => Value::test_string("(foo bar)"),
+                })])),
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
                 example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "capture0" => Value::test_string("b"),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "capture0" => Value::test_string("b"),
+                })])),
             },
         ]
     }
@@ -241,13 +235,14 @@ fn operate(
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
-    //let mut loop_input = input;
+    // let mut loop_input = input;
     let mut loop_input = input.chars().peekable();
     loop {
         let mut before = String::new();
         while let Some(c) = loop_input.next() {
             if c == '{' {
-                // If '{{', still creating a plaintext parse command, but just for a single '{' char
+                // If '{{', still creating a plaintext parse command, but just for a single '{'
+                // char
                 if loop_input.peek() == Some(&'{') {
                     let _ = loop_input.next();
                 } else {
@@ -315,6 +310,7 @@ pub struct ParseStreamer {
 
 impl Iterator for ParseStreamer {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         if !self.excess.is_empty() {
             return Some(self.excess.remove(0));
@@ -369,6 +365,7 @@ pub struct ParseStreamerExternal {
 
 impl Iterator for ParseStreamerExternal {
     type Item = Value;
+
     fn next(&mut self) -> Option<Value> {
         if !self.excess.is_empty() {
             return Some(self.excess.remove(0));
@@ -376,10 +373,10 @@ impl Iterator for ParseStreamerExternal {
 
         let mut chunk = self.stream.next();
 
-        // Collect all `stream` chunks into a single `chunk` to be able to deal with matches that
-        // extend across chunk boundaries.
-        // This is a stop-gap solution until the `regex` crate supports streaming or an alternative
-        // solution is found.
+        // Collect all `stream` chunks into a single `chunk` to be able to deal with
+        // matches that extend across chunk boundaries.
+        // This is a stop-gap solution until the `regex` crate supports streaming or an
+        // alternative solution is found.
         // See https://github.com/nushell/nushell/issues/9795
         while let Some(Ok(chunks)) = &mut chunk {
             match self.stream.next() {

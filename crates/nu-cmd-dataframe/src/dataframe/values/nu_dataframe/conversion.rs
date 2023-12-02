@@ -3,23 +3,26 @@ use std::ops::{Deref, DerefMut};
 use chrono::{DateTime, Duration, FixedOffset, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use indexmap::map::{Entry, IndexMap};
-use polars::chunked_array::builder::AnonymousOwnedListBuilder;
-use polars::chunked_array::object::builder::ObjectChunkedBuilder;
-use polars::chunked_array::ChunkedArray;
-use polars::datatypes::AnyValue;
-use polars::export::arrow::array::{
-    Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
-    UInt16Array, UInt32Array, UInt64Array, UInt8Array,
-};
-use polars::export::arrow::Either;
-use polars::prelude::{
-    ArrayRef, DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
-    LargeBinaryArray, LargeListArray, LargeStringArray, ListBooleanChunkedBuilder,
-    ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom,
-    NewChunkedArray, ObjectType, Series, StructArray, TemporalMethods, TimeUnit,
-};
-
 use nu_protocol::{Record, ShellError, Span, Value};
+use polars::{
+    chunked_array::{
+        builder::AnonymousOwnedListBuilder, object::builder::ObjectChunkedBuilder, ChunkedArray,
+    },
+    datatypes::AnyValue,
+    export::arrow::{
+        array::{
+            Array, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+            Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+        },
+        Either,
+    },
+    prelude::{
+        ArrayRef, DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
+        LargeBinaryArray, LargeListArray, LargeStringArray, ListBooleanChunkedBuilder,
+        ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom,
+        NewChunkedArray, ObjectType, Series, StructArray, TemporalMethods, TimeUnit,
+    },
+};
 
 use super::{DataFrameValue, NuDataFrame};
 
@@ -56,8 +59,8 @@ impl Column {
 }
 
 impl IntoIterator for Column {
-    type Item = Value;
     type IntoIter = std::vec::IntoIter<Self::Item>;
+    type Item = Value;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -1196,9 +1199,13 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
-    use polars::export::arrow::array::{ListArray, NullArray, PrimitiveArray};
-    use polars::export::arrow::buffer::Buffer;
-    use polars::prelude::Field;
+    use polars::{
+        export::arrow::{
+            array::{ListArray, NullArray, PrimitiveArray},
+            buffer::Buffer,
+        },
+        prelude::Field,
+    };
 
     use super::*;
 

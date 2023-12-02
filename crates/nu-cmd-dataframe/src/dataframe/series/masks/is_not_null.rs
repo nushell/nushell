@@ -1,10 +1,11 @@
-use super::super::super::values::{Column, NuDataFrame, NuExpression};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::IntoSeries;
+
+use super::super::super::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct IsNotNull;
@@ -101,9 +102,10 @@ fn command(
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::dataframe::lazy::aggregate::LazyAggregate;
-    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
-    use crate::dataframe::test_dataframe::{build_test_engine_state, test_dataframe_example};
+    use crate::dataframe::{
+        lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy},
+        test_dataframe::{build_test_engine_state, test_dataframe_example},
+    };
 
     #[test]
     fn test_examples_dataframe() {

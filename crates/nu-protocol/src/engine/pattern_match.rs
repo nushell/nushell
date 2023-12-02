@@ -56,7 +56,8 @@ impl Matcher for Pattern {
                                     matches.push((*var_id, Value::nothing(items[vals.len()].span)))
                                 }
                                 _ => {
-                                    // There is a pattern which can't skip missing values, so we fail
+                                    // There is a pattern which can't skip missing values, so we
+                                    // fail
                                     return false;
                                 }
                             }
@@ -66,8 +67,9 @@ impl Matcher for Pattern {
                         }
                     }
                     for (val_idx, val) in vals.iter().enumerate() {
-                        // We require that the pattern and the value have the same number of items, or the pattern does not match
-                        // The only exception is if the pattern includes a `..` pattern
+                        // We require that the pattern and the value have the same number of items,
+                        // or the pattern does not match The only exception
+                        // is if the pattern includes a `..` pattern
                         if let Some(pattern) = items.get(val_idx) {
                             match &pattern.pattern {
                                 Pattern::IgnoreRest => {
@@ -211,7 +213,8 @@ impl Matcher for Pattern {
                     let mut local_matches = vec![];
                     if !result {
                         if pattern.match_value(value, &mut local_matches) {
-                            // TODO: do we need to replace previous variables that defaulted to nothing?
+                            // TODO: do we need to replace previous variables that defaulted to
+                            // nothing?
                             matches.append(&mut local_matches);
                             result = true;
                         } else {

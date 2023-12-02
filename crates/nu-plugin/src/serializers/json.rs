@@ -2,8 +2,8 @@ use nu_protocol::ShellError;
 
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
-/// A `PluginEncoder` that enables the plugin to communicate with Nushel with JSON
-/// serialized data.
+/// A `PluginEncoder` that enables the plugin to communicate with Nushel with
+/// JSON serialized data.
 #[derive(Clone, Debug)]
 pub struct JsonSerializer;
 
@@ -55,11 +55,12 @@ impl PluginEncoder for JsonSerializer {
 
 #[cfg(test)]
 mod tests {
+    use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
+
     use super::*;
     use crate::protocol::{
         CallInfo, CallInput, EvaluatedCall, LabeledError, PluginCall, PluginData, PluginResponse,
     };
-    use nu_protocol::{PluginSignature, Span, Spanned, SyntaxShape, Value};
 
     #[test]
     fn callinfo_round_trip_signature() {

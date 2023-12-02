@@ -9,7 +9,7 @@ pub fn detect_encoding_name(
 ) -> Result<&'static Encoding, ShellError> {
     let mut detector = EncodingDetector::new();
     let _non_ascii = detector.feed(bytes, false);
-    //Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
+    // Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
     let (encoding, is_certain) = detector.guess_assess(None, true);
     if !is_certain {
         return Err(ShellError::UnsupportedInput {
@@ -51,8 +51,9 @@ pub fn encode(
         parse_encoding(encoding_name.span, &encoding_name.item)
     }?;
     let (result, _actual_encoding, replacements) = encoding.encode(s);
-    // Because encoding_rs is a Web-facing crate, it defaults to replacing unknowns with HTML entities.
-    // This behaviour can be enabled with -i. Otherwise, it becomes an error.
+    // Because encoding_rs is a Web-facing crate, it defaults to replacing unknowns
+    // with HTML entities. This behaviour can be enabled with -i. Otherwise, it
+    // becomes an error.
     if replacements && !ignore_errors {
         // TODO: make GenericError accept two spans (including head)
         Err(ShellError::GenericError(
@@ -76,12 +77,14 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
     };
     match Encoding::for_label_no_replacement(label.as_bytes()) {
         None => Err(ShellError::GenericError(
-            format!(
-                r#"{label} is not a valid encoding"#
-            ),
+            format!(r#"{label} is not a valid encoding"#),
             "invalid encoding".into(),
             Some(span),
-            Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
+            Some(
+                "refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a \
+                 valid list of encodings"
+                    .into(),
+            ),
             vec![],
         )),
         Some(encoding) => Ok(encoding),
@@ -90,8 +93,9 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use rstest::rstest;
+
+    use super::*;
 
     #[rstest]
     #[case::big5("big5", "簡体字")]
@@ -130,7 +134,8 @@ mod test {
          209, 166, 202, 172, 236, 178, 106, 161, 67, 169, 108, 167, 64, 170, 204, 161, 65, 186, 251, 176,
          242, 180, 67, 197, 233, 176, 242, 170, 247, 183, 124, 164, 93, 161, 67], "Big5")]
     // FIXME: chardetng fails on this
-    //#[case::shiftjis(&[130, 162, 130, 235, 130, 205, 130, 201, 130, 217, 130, 214, 130, 198, 129, 64, 130,
+    //#[case::shiftjis(&[130, 162, 130, 235, 130, 205, 130, 201, 130, 217, 130, 214, 130, 198, 129,
+    //#[case::shiftjis(&[130, 64, 130,
     //    191, 130, 232, 130, 202, 130, 233, 130, 240], "SHIFT_JIS")]
     #[case::eucjp(&[164, 164, 164, 237, 164, 207, 164, 203, 164, 219, 164, 216, 164, 200, 161, 161, 164, 193,
         164, 234, 164, 204, 164, 235, 164, 242],"EUC-JP")]

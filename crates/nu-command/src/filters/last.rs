@@ -1,10 +1,9 @@
 use std::collections::VecDeque;
 
 use nu_engine::CallExt;
-
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
@@ -46,7 +45,8 @@ impl Command for Last {
     }
 
     fn usage(&self) -> &str {
-        "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
+        "Return only the last several rows of the input. Counterpart of `first`. Opposite of \
+         `drop`."
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -82,8 +82,8 @@ impl Command for Last {
         let head = call.head;
         let rows: Option<i64> = call.opt(engine_state, stack, 0)?;
 
-        // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
-        // It has the same issue.
+        // FIXME: Please read the FIXME message in `first.rs`'s `first_helper`
+        // implementation. It has the same issue.
         let return_single_element = rows.is_none();
         let rows_desired: usize = match rows {
             Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),

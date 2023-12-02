@@ -1,9 +1,8 @@
 use indexmap::IndexMap;
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, CellPath, PathMember},
+    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape,
     Type, Value,
 };
@@ -53,31 +52,32 @@ impl Command for Flatten {
             Example {
                 description: "flatten a table",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_string("N"),
-                        Value::test_string("u"),
-                        Value::test_string("s"),
-                        Value::test_string("h"),
-                        Value::test_string("e"),
-                        Value::test_string("l"),
-                        Value::test_string("l")],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_string("N"),
+                    Value::test_string("u"),
+                    Value::test_string("s"),
+                    Value::test_string("h"),
+                    Value::test_string("e"),
+                    Value::test_string("l"),
+                    Value::test_string("l"),
+                ])),
             },
             Example {
                 description: "flatten a table, get the first item",
                 example: "[[N, u, s, h, e, l, l]] | flatten | first",
-                result: None,//Some(Value::test_string("N")),
+                result: None, // Some(Value::test_string("N")),
             },
             Example {
                 description: "flatten a column having a nested table",
-                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
-                result: None,//Some(Value::test_string("arepa")),
+                example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | \
+                          flatten --all | get meal",
+                result: None, // Some(Value::test_string("arepa")),
             },
             Example {
                 description: "restrict the flattening by passing column names",
-                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
-                result: None, //Some(Value::test_string("0.22")),
+                example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', \
+                          '0.22']]] | flatten versions --all | last | get versions",
+                result: None, // Some(Value::test_string("0.22")),
             },
             Example {
                 description: "Flatten inner table",
@@ -115,7 +115,7 @@ impl Command for Flatten {
                     ],
                     Span::test_data(),
                 )),
-            }
+            },
         ]
     }
 }
@@ -144,9 +144,10 @@ enum TableInside {
     Entries(String, Vec<Value>, usize),
     // handle for a column which contains a table, we can flatten the inner column to outer level
     // `records` is the nested/inner table to flatten to the outer level
-    // `parent_column_name` is handled for conflicting column name, the nested table may contains columns which has the same name
-    // to outer level, for that case, the output column name should be f"{parent_column_name}_{inner_column_name}".
-    // `parent_column_index` is the column index in original table.
+    // `parent_column_name` is handled for conflicting column name, the nested table may contains
+    // columns which has the same name to outer level, for that case, the output column name
+    // should be f"{parent_column_name}_{inner_column_name}". `parent_column_index` is the
+    // column index in original table.
     FlattenedRows {
         records: Vec<Record>,
         parent_column_name: String,
@@ -187,10 +188,13 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         if need_flatten && inner_table.is_some() {
                             return vec![Value::error(
                                 ShellError::UnsupportedInput {
-                                    msg: "can only flatten one inner list at a time. tried flattening more than one column with inner lists... but is flattened already".into(),
+                                    msg: "can only flatten one inner list at a time. tried \
+                                          flattening more than one column with inner lists... but \
+                                          is flattened already"
+                                        .into(),
                                     input: "value originates from here".into(),
                                     msg_span: tag,
-                                    input_span: span
+                                    input_span: span,
                                 },
                                 span,
                             )];

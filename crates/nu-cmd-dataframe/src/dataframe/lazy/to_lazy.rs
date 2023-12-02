@@ -1,10 +1,10 @@
-use super::super::values::{NuDataFrame, NuLazyFrame};
-
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Type, Value,
 };
+
+use super::super::values::{NuDataFrame, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct ToLazyFrame;

@@ -2,8 +2,7 @@ mod cool_custom_value;
 mod second_custom_value;
 
 use cool_custom_value::CoolCustomValue;
-use nu_plugin::{serve_plugin, MsgPackSerializer, Plugin};
-use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
 use nu_protocol::{Category, PluginSignature, ShellError, Value};
 use second_custom_value::SecondCustomValue;
 
@@ -36,7 +35,9 @@ impl Plugin for CustomValuePlugin {
             "custom-value update" => self.update(call, input),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
-                msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),
+                msg: "the signature used to call the plugin does not match any name in the plugin \
+                      signature vector"
+                    .into(),
                 span: Some(call.head),
             }),
         }

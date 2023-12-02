@@ -57,8 +57,8 @@ impl Command for SampleDF {
             },
             Example {
                 description: "Shows sample row using fraction and replace",
-                example:
-                    "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample --fraction 0.5 --replace",
+                example: "[[a b]; [1 2] [3 4] [5 6]] | dfr into-df | dfr sample --fraction 0.5 \
+                          --replace",
                 result: None, // No expected value because sampling is random
             },
         ]

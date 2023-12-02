@@ -1,5 +1,3 @@
-use super::super::super::values::NuDataFrame;
-
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -7,6 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 use polars::prelude::{IntoSeries, Utf8Methods};
+
+use super::super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct AsDate;
@@ -30,7 +30,12 @@ impl Command for AsDate {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("format", SyntaxShape::String, "formatting date string")
-            .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
+            .switch(
+                "not-exact",
+                "the format string may be contained in the date (e.g. foo-2021-01-01-bar could \
+                 match 2021-01-01)",
+                Some('n'),
+            )
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),

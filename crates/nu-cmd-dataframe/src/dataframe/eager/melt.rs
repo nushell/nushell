@@ -6,9 +6,8 @@ use nu_protocol::{
     Value,
 };
 
-use crate::dataframe::values::utils::convert_columns_string;
-
 use super::super::values::{Column, NuDataFrame};
+use crate::dataframe::values::utils::convert_columns_string;
 
 #[derive(Clone)]
 pub struct MeltDF;
@@ -58,8 +57,8 @@ impl Command for MeltDF {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "melt dataframe",
-            example:
-                "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr into-df | dfr melt -c [b c] -v [a d]",
+            example: "[[a b c d]; [x 1 4 a] [y 2 5 b] [z 3 6 c]] | dfr into-df | dfr melt -c [b \
+                      c] -v [a d]",
             result: Some(
                 NuDataFrame::try_from_columns(vec![
                     Column::new(
@@ -251,8 +250,7 @@ fn check_column_datatypes<T: AsRef<str>>(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

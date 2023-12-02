@@ -1,10 +1,8 @@
 use nu_parser::*;
-use nu_protocol::ast::{Argument, Call, PathMember};
-use nu_protocol::Span;
 use nu_protocol::{
-    ast::{Expr, Expression, PipelineElement},
+    ast::{Argument, Call, Expr, Expression, PathMember, PipelineElement},
     engine::{Command, EngineState, Stack, StateWorkingSet},
-    ParseError, PipelineData, ShellError, Signature, SyntaxShape,
+    ParseError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
 use rstest::rstest;
 
@@ -95,8 +93,9 @@ fn test_int(
 fn compare_rhs_binaryOp(
     test_tag: &str,
     expected: &Expr, // the rhs expr we hope to see (::Int, ::Float, not ::B)
-    observed: &Expr, // the Expr actually provided: can be ::Int, ::Float, ::String,
-                     // or ::BinOp (in which case rhs is checked), or ::Call (in which case cmd is checked)
+    observed: &Expr, /* the Expr actually provided: can be ::Int, ::Float, ::String,
+                      * or ::BinOp (in which case rhs is checked), or ::Call (in which case cmd
+                      * is checked) */
 ) {
     match observed {
         Expr::Int(..) | Expr::Float(..) | Expr::String(..) => {
@@ -107,7 +106,8 @@ fn compare_rhs_binaryOp(
         }
         Expr::BinaryOp(_, _, e) => {
             let observed_expr = &e.expr;
-            // can't pattern match Box<Foo>, but can match the box, then deref in separate statement.
+            // can't pattern match Box<Foo>, but can match the box, then deref in separate
+            // statement.
             assert_eq!(
                 expected, observed_expr,
                 "{test_tag}: Expected: {expected:#?}, observed: {observed:#?}"
@@ -131,7 +131,8 @@ pub fn multi_test_parse_int() {
     struct Test<'a>(&'a str, &'a [u8], Expr, Option<&'a str>);
 
     // use test expression of form '0 + x' to force parse() to parse x as numeric.
-    // if expression were just 'x', parse() would try other items that would mask the error we're looking for.
+    // if expression were just 'x', parse() would try other items that would mask
+    // the error we're looking for.
     let tests = vec![
         Test("binary literal int", b"0 + 0b0", Expr::Int(0), None),
         Test(
@@ -213,10 +214,11 @@ pub fn multi_test_parse_number() {
     struct Test<'a>(&'a str, &'a [u8], Expr, Option<&'a str>);
 
     // use test expression of form '0 + x' to force parse() to parse x as numeric.
-    // if expression were just 'x', parse() would try other items that would mask the error we're looking for.
+    // if expression were just 'x', parse() would try other items that would mask
+    // the error we're looking for.
     let tests = vec![
         Test("float decimal", b"0 + 43.5", Expr::Float(43.5), None),
-        //Test("float with leading + sign", b"0 + +41.7", Expr::Float(-41.7), None),
+        // Test("float with leading + sign", b"0 + +41.7", Expr::Float(-41.7), None),
         Test(
             "float with leading - sign",
             b"0 + -41.7",
@@ -248,7 +250,7 @@ pub fn multi_test_parse_number() {
             Expr::Int(0),
             Some("UnsupportedOperation"),
         ),
-        //Test(
+        // Test(
         //    ".<string> should not be taken as float",
         //    b"abc + .foo",
         //    Expr::String("..".into()),
@@ -1044,8 +1046,9 @@ fn test_semi_open_brace(#[case] phrase: &[u8]) {
 }
 
 mod range {
-    use super::*;
     use nu_protocol::ast::{RangeInclusion, RangeOperator};
+
+    use super::*;
 
     #[rstest]
     #[case(b"0..10", RangeInclusion::Inclusive, "inclusive")]
@@ -1323,9 +1326,12 @@ mod range {
 
 #[cfg(test)]
 mod input_types {
+    use nu_protocol::{
+        ast::{Argument, Call},
+        Category, PipelineData, ShellError, Type,
+    };
+
     use super::*;
-    use nu_protocol::ast::Call;
-    use nu_protocol::{ast::Argument, Category, PipelineData, ShellError, Type};
 
     #[derive(Clone)]
     pub struct LsTest;

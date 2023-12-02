@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
+use serde::{Deserialize, Serialize};
+
 use super::Expression;
 use crate::Span;
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 
 #[derive(Debug, Clone, PartialOrd, Serialize, Deserialize)]
 pub enum PathMember {

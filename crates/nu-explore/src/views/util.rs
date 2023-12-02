@@ -140,7 +140,8 @@ pub fn make_styled_string(
             }
         }
         None => {
-            // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
+            // Though holes are not the same as null, the closure for "empty" is passed a
+            // null anyway.
             (
                 text,
                 TextStyle::with_style(

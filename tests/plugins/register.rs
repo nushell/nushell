@@ -1,5 +1,4 @@
-use nu_test_support::nu_with_plugins;
-use nu_test_support::playground::Playground;
+use nu_test_support::{nu_with_plugins, playground::Playground};
 
 #[test]
 fn help() {

@@ -1,8 +1,8 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 #[cfg(test)]
 use strum_macros::EnumIter;
-
-use std::fmt::Display;
 
 use crate::SyntaxShape;
 
@@ -75,7 +75,8 @@ impl Type {
         matches!(self, Type::List(_))
     }
 
-    /// Does this type represent a data structure containing values that can be addressed using 'cell paths'?
+    /// Does this type represent a data structure containing values that can be
+    /// addressed using 'cell paths'?
     pub fn accepts_cell_paths(&self) -> bool {
         matches!(self, Type::List(_) | Type::Record(_) | Type::Table(_))
     }
@@ -205,8 +206,9 @@ impl Display for Type {
 
 #[cfg(test)]
 mod tests {
-    use super::Type;
     use strum::IntoEnumIterator;
+
+    use super::Type;
 
     mod subtype_relation {
         use super::*;

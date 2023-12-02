@@ -1,6 +1,6 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
 use std::fs;
+
+use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn def_with_comment() {

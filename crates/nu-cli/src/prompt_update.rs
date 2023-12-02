@@ -1,14 +1,14 @@
-use crate::NushellPrompt;
+use std::{borrow::Cow, sync::Arc};
+
 use log::trace;
 use nu_engine::eval_subexpression;
-use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    Config, PipelineData, Value,
+    report_error, Config, PipelineData, Value,
 };
 use reedline::Prompt;
-use std::borrow::Cow;
-use std::sync::Arc;
+
+use crate::NushellPrompt;
 
 // Name of environment variable where the prompt could be stored
 pub(crate) const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -43,7 +43,8 @@ fn get_prompt_string(
             Value::Closure { val, .. } => {
                 let block = engine_state.get_block(val.block_id);
                 let mut stack = stack.captures_to_stack(val.captures);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
+                // Use eval_subexpression to force a redirection of output, so we can use
+                // everything in prompt
                 let ret_val =
                     eval_subexpression(engine_state, &mut stack, block, PipelineData::empty());
                 trace!(
@@ -62,7 +63,8 @@ fn get_prompt_string(
             }
             Value::Block { val: block_id, .. } => {
                 let block = engine_state.get_block(block_id);
-                // Use eval_subexpression to force a redirection of output, so we can use everything in prompt
+                // Use eval_subexpression to force a redirection of output, so we can use
+                // everything in prompt
                 let ret_val = eval_subexpression(engine_state, stack, block, PipelineData::empty());
                 trace!(
                     "get_prompt_string (block) {}:{}:{}",
@@ -158,7 +160,8 @@ struct TransientPrompt {
     stack: Stack,
 }
 
-/// Try getting `$env.TRANSIENT_PROMPT_<X>`, and get `$env.PROMPT_<X>` if that fails
+/// Try getting `$env.TRANSIENT_PROMPT_<X>`, and get `$env.PROMPT_<X>` if that
+/// fails
 fn get_transient_prompt_string(
     transient_prompt: &str,
     prompt: &str,

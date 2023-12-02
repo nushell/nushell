@@ -1,5 +1,6 @@
-use super::NuLazyFrame;
 use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+
+use super::NuLazyFrame;
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyFrame {

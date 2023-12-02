@@ -6,9 +6,8 @@ use nu_protocol::{
 };
 use polars::prelude::LazyFrame;
 
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
-
 use super::super::values::{Column, NuDataFrame};
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct FilterWith;
@@ -149,8 +148,7 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
     use crate::dataframe::expressions::ExprCol;
 
     #[test]

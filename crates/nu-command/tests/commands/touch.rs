@@ -1,7 +1,5 @@
 use chrono::{DateTime, Local};
-use nu_test_support::fs::Stub;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub, nu, playground::Playground};
 
 #[test]
 fn creates_a_file_when_it_doesnt_exist() {

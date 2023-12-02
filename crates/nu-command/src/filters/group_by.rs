@@ -1,12 +1,11 @@
+use indexmap::IndexMap;
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
-
-use indexmap::IndexMap;
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -66,7 +65,8 @@ impl Command for GroupBy {
                 result: None,
             },
             Example {
-                description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column",
+                description: "Group items by the \"foo\" column's values, ignoring records \
+                              without a \"foo\" column",
                 example: r#"open cool.json | group-by foo?"#,
                 result: None,
             },
@@ -109,40 +109,34 @@ impl Command for GroupBy {
                 description: "You can also output a table instead of a record",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("1"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                    Value::test_string("1"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("3"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("3"),
-                                    Value::test_string("3"),
-                                ]
-                            )
-                        }
-                    ),
-                    Value::test_record(
-                        record! {
-                            "group" => Value::test_string("2"),
-                            "items" => Value::test_list(
-                                vec![
-                                    Value::test_string("2"),
-                                ]
-                            )
-                        }
-                    ),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("1"),
+                        "items" => Value::test_list(
+                            vec![
+                                Value::test_string("1"),
+                                Value::test_string("1"),
+                                Value::test_string("1"),
+                                Value::test_string("1"),
+                            ]
+                        )
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("3"),
+                        "items" => Value::test_list(
+                            vec![
+                                Value::test_string("3"),
+                                Value::test_string("3"),
+                            ]
+                        )
+                    }),
+                    Value::test_record(record! {
+                        "group" => Value::test_string("2"),
+                        "items" => Value::test_list(
+                            vec![
+                                Value::test_string("2"),
+                            ]
+                        )
+                    }),
                 ])),
             },
         ]
@@ -208,7 +202,8 @@ pub fn group_cell_path(
             .clone()
             .follow_cell_path(&column_name.members, false)?;
         if matches!(group_key, Value::Nothing { .. }) {
-            continue; // likely the result of a failed optional access, ignore this value
+            continue; // likely the result of a failed optional access, ignore
+                      // this value
         }
 
         let group_key = group_key.as_string()?;

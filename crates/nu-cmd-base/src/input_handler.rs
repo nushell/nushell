@@ -1,7 +1,6 @@
-use nu_protocol::ast::CellPath;
-use nu_protocol::{PipelineData, ShellError, Span, Value};
-use std::sync::atomic::AtomicBool;
-use std::sync::Arc;
+use std::sync::{atomic::AtomicBool, Arc};
+
+use nu_protocol::{ast::CellPath, PipelineData, ShellError, Span, Value};
 
 pub trait CmdArgument {
     fn take_cell_paths(&mut self) -> Option<Vec<CellPath>>;
@@ -9,8 +8,8 @@ pub trait CmdArgument {
 
 /// Arguments with only cell_path.
 ///
-/// If commands is going to use `operate` function, and it only required optional cell_paths
-/// Using this to simplify code.
+/// If commands is going to use `operate` function, and it only required
+/// optional cell_paths Using this to simplify code.
 pub struct CellPathOnlyArgs {
     cell_paths: Option<Vec<CellPath>>,
 }
@@ -33,8 +32,8 @@ impl From<Vec<CellPath>> for CellPathOnlyArgs {
 ///
 /// In detail, for each elements, invoking relative `cmd` with `arg`.
 ///
-/// If `arg` tell us that its cell path is not None, only map over data under these columns.
-/// Else it will apply each column inside a table.
+/// If `arg` tell us that its cell path is not None, only map over data under
+/// these columns. Else it will apply each column inside a table.
 ///
 /// The validation of input element should be handle by `cmd` itself.
 pub fn operate<C, A>(

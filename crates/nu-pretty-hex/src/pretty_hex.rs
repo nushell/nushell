@@ -1,16 +1,17 @@
-use core::primitive::str;
-use core::{default::Default, fmt};
+use core::{default::Default, fmt, primitive::str};
+
 use nu_ansi_term::{Color, Style};
 
-/// Returns a one-line hexdump of `source` grouped in default format without header
-/// and ASCII column.
+/// Returns a one-line hexdump of `source` grouped in default format without
+/// header and ASCII column.
 pub fn simple_hex<T: AsRef<[u8]>>(source: &T) -> String {
     let mut writer = String::new();
     hex_write(&mut writer, source, HexConfig::simple(), None).unwrap_or(());
     writer
 }
 
-/// Dump `source` as hex octets in default format without header and ASCII column to the `writer`.
+/// Dump `source` as hex octets in default format without header and ASCII
+/// column to the `writer`.
 pub fn simple_hex_write<T, W>(writer: &mut W, source: &T) -> fmt::Result
 where
     T: AsRef<[u8]>,
@@ -19,16 +20,16 @@ where
     hex_write(writer, source, HexConfig::simple(), None)
 }
 
-/// Return a multi-line hexdump in default format complete with addressing, hex digits,
-/// and ASCII representation.
+/// Return a multi-line hexdump in default format complete with addressing, hex
+/// digits, and ASCII representation.
 pub fn pretty_hex<T: AsRef<[u8]>>(source: &T) -> String {
     let mut writer = String::new();
     hex_write(&mut writer, source, HexConfig::default(), Some(true)).unwrap_or(());
     writer
 }
 
-/// Write multi-line hexdump in default format complete with addressing, hex digits,
-/// and ASCII representation to the writer.
+/// Write multi-line hexdump in default format complete with addressing, hex
+/// digits, and ASCII representation to the writer.
 pub fn pretty_hex_write<T, W>(writer: &mut W, source: &T) -> fmt::Result
 where
     T: AsRef<[u8]>,
@@ -65,8 +66,9 @@ pub struct HexConfig {
     pub length: Option<usize>,
 }
 
-/// Default configuration with `title`, `ascii`, 16 source bytes `width` grouped to 4 separate
-/// hex bytes. Using in `pretty_hex`, `pretty_hex_write` and `fmt::Debug` implementation.
+/// Default configuration with `title`, `ascii`, 16 source bytes `width` grouped
+/// to 4 separate hex bytes. Using in `pretty_hex`, `pretty_hex_write` and
+/// `fmt::Debug` implementation.
 impl Default for HexConfig {
     fn default() -> HexConfig {
         HexConfig {
@@ -83,7 +85,8 @@ impl Default for HexConfig {
 }
 
 impl HexConfig {
-    /// Returns configuration for `simple_hex`, `simple_hex_write` and `fmt::Display` implementation.
+    /// Returns configuration for `simple_hex`, `simple_hex_write` and
+    /// `fmt::Display` implementation.
     pub fn simple() -> Self {
         HexConfig::default().to_simple()
     }
@@ -178,7 +181,8 @@ where
         if use_color {
             writeln!(
                 writer,
-                "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other {4}non_ascii{5}",
+                "Length: {0} (0x{0:x}) bytes | {1}printable {2}whitespace {3}ascii_other \
+                 {4}non_ascii{5}",
                 source_part_vec.len(),
                 Style::default().fg(Color::Cyan).bold().prefix(),
                 Style::default().fg(Color::Green).bold().prefix(),
@@ -292,6 +296,7 @@ where
     fn hex_dump(&self) -> Hex<Self> {
         Hex(self, HexConfig::default())
     }
+
     fn hex_conf(&self, cfg: HexConfig) -> Hex<Self> {
         Hex(self, cfg)
     }

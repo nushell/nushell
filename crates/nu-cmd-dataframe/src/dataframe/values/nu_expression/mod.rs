@@ -117,7 +117,8 @@ impl NuExpression {
         expr_to_value(self.as_ref(), span)
     }
 
-    // Convenient function to extract multiple Expr that could be inside a nushell Value
+    // Convenient function to extract multiple Expr that could be inside a nushell
+    // Value
     pub fn extract_exprs(value: Value) -> Result<Vec<Expr>, ShellError> {
         ExtractedExpr::extract_exprs(value).map(ExtractedExpr::into_exprs)
     }

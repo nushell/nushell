@@ -1,8 +1,9 @@
-use crate::*;
 use std::{
     fmt::Debug,
     sync::{atomic::AtomicBool, Arc},
 };
+
+use crate::*;
 
 pub struct RawStream {
     pub stream: Box<dyn Iterator<Item = Result<Vec<u8>, ShellError>> + Send + 'static>,
@@ -136,15 +137,19 @@ impl Iterator for RawStream {
                                 } else if v.len() > 3
                                     && (v.len() - err.utf8_error().valid_up_to() > 3)
                                 {
-                                    // As UTF-8 characters are max 4 bytes, if we have more than that in error we know
+                                    // As UTF-8 characters are max 4 bytes, if we have more than
+                                    // that in error we know
                                     // that it's not just a character spanning two frames.
-                                    // We now know we are definitely binary, so switch to binary and stay there.
+                                    // We now know we are definitely binary, so switch to binary and
+                                    // stay there.
                                     self.is_binary = true;
                                     Some(Ok(Value::binary(v, self.span)))
                                 } else {
-                                    // Okay, we have a tiny bit of error at the end of the buffer. This could very well be
-                                    // a character that spans two frames. Since this is the case, remove the error from
-                                    // the current frame an dput it in the leftover buffer.
+                                    // Okay, we have a tiny bit of error at the end of the buffer.
+                                    // This could very well be a
+                                    // character that spans two frames. Since this is the case,
+                                    // remove the error from the
+                                    // current frame an dput it in the leftover buffer.
                                     self.leftover = v[err.utf8_error().valid_up_to()..].to_vec();
 
                                     let buf = v[0..err.utf8_error().valid_up_to()].to_vec();
@@ -152,7 +157,8 @@ impl Iterator for RawStream {
                                     match String::from_utf8(buf) {
                                         Ok(s) => Some(Ok(Value::string(s, self.span))),
                                         Err(_) => {
-                                            // Something is definitely wrong. Switch to binary, and stay there
+                                            // Something is definitely wrong. Switch to binary, and
+                                            // stay there
                                             self.is_binary = true;
                                             Some(Ok(Value::binary(v, self.span)))
                                         }
@@ -175,12 +181,13 @@ impl Iterator for RawStream {
     }
 }
 
-/// A potentially infinite stream of values, optionally with a mean to send a Ctrl-C signal to stop
-/// the stream from continuing.
+/// A potentially infinite stream of values, optionally with a mean to send a
+/// Ctrl-C signal to stop the stream from continuing.
 ///
-/// In practice, a "stream" here means anything which can be iterated and produce Values as it iterates.
-/// Like other iterators in Rust, observing values from this stream will drain the items as you view them
-/// and the stream cannot be replayed.
+/// In practice, a "stream" here means anything which can be iterated and
+/// produce Values as it iterates. Like other iterators in Rust, observing
+/// values from this stream will drain the items as you view them and the stream
+/// cannot be replayed.
 pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,

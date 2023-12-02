@@ -1,12 +1,15 @@
+use std::{
+    cmp::max,
+    collections::{HashMap, HashSet},
+};
+
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Config, Example, PipelineData, Record, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
 
 #[derive(Clone)]
 pub struct Join;
@@ -177,8 +180,8 @@ fn join(
         None
     };
 
-    // For the "other" table, create a map from value in `on` column to a list of the
-    // rows having that value.
+    // For the "other" table, create a map from value in `on` column to a list of
+    // the rows having that value.
     let mut result: Vec<Value> = Vec::new();
     let is_outer = matches!(join_type, JoinType::Outer);
     let (this, this_join_key, other, other_keys, join_type) = match join_type {

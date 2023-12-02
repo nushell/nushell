@@ -1,5 +1,6 @@
-use super::NuLazyGroupBy;
 use nu_protocol::{record, CustomValue, ShellError, Span, Value};
+
+use super::NuLazyGroupBy;
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuLazyGroupBy {

@@ -149,14 +149,16 @@ fn record_annotations() -> TestResult {
 
 #[test]
 fn record_annotations_two_types() -> TestResult {
-    let input = "def run [rec: record<name: string age: int>] { $rec }; run {name: nushell age: 3} | describe";
+    let input = "def run [rec: record<name: string age: int>] { $rec }; run {name: nushell age: \
+                 3} | describe";
     let expected = "record<name: string, age: int>";
     run_test(input, expected)
 }
 
 #[test]
 fn record_annotations_two_types_comma_sep() -> TestResult {
-    let input = "def run [rec: record<name: string, age: int>] { $rec }; run {name: nushell age: 3} | describe";
+    let input = "def run [rec: record<name: string, age: int>] { $rec }; run {name: nushell age: \
+                 3} | describe";
     let expected = "record<name: string, age: int>";
     run_test(input, expected)
 }

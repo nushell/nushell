@@ -1,14 +1,17 @@
-use crate::util::eval_source;
+use std::path::PathBuf;
+
 #[cfg(feature = "plugin")]
 use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::report_error;
-use nu_protocol::{HistoryFileFormat, PipelineData};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, HistoryFileFormat, PipelineData,
+};
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, Spanned};
 #[cfg(feature = "plugin")]
 use nu_utils::utils::perf;
-use std::path::PathBuf;
+
+use crate::util::eval_source;
 
 #[cfg(feature = "plugin")]
 const PLUGIN_FILE: &str = "plugin.nu";
@@ -26,7 +29,8 @@ pub fn read_plugin_file(
     let start_time = std::time::Instant::now();
     let mut plug_path = String::new();
     // Reading signatures from signature file
-    // The plugin.nu file stores the parsed signature collected from each registered plugin
+    // The plugin.nu file stores the parsed signature collected from each registered
+    // plugin
     add_plugin_file(engine_state, plugin_file, storage_path);
 
     let plugin_path = engine_state.plugin_signatures.clone();

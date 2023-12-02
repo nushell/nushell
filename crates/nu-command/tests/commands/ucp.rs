@@ -1,13 +1,14 @@
-use nu_test_support::fs::file_contents;
-use nu_test_support::fs::{
-    files_exist_at, AbsoluteFile,
-    Stub::{EmptyFile, FileWithContent, FileWithPermission},
-};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
-
-use rstest::rstest;
 use std::path::Path;
+
+use nu_test_support::{
+    fs::{
+        file_contents, files_exist_at, AbsoluteFile,
+        Stub::{EmptyFile, FileWithContent, FileWithPermission},
+    },
+    nu,
+    playground::Playground,
+};
+use rstest::rstest;
 
 #[cfg(not(target_os = "windows"))]
 const PATH_SEPARATOR: &str = "/";
@@ -426,7 +427,8 @@ fn copy_dir_contains_symlink_ignored_impl(progress: bool) {
             progress_flag
         );
 
-        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't
+        // exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected));
         // GNU cp will copy the broken symlink, so following their behavior
@@ -459,7 +461,8 @@ fn copy_dir_contains_symlink_impl(progress: bool) {
             progress_flag
         );
 
-        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists
+        // inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");
@@ -551,8 +554,8 @@ fn copy_ignores_ansi_impl(progress: bool) {
     });
 }
 
-//apparently on windows error msg is different, but linux(where i test) is fine.
-//fix later FIXME
+// apparently on windows error msg is different, but linux(where i test) is
+// fine. fix later FIXME
 #[cfg(unix)]
 #[test]
 fn copy_file_not_exists_dst() {
@@ -578,10 +581,10 @@ fn copy_file_not_exists_dst_impl(progress: bool) {
     });
 }
 
-//again slightly different error message on windows on tests
+// again slightly different error message on windows on tests
 // compared to linux
 #[test]
-#[ignore] //FIXME: This test needs to be re-enabled once uu_cp has fixed the bug
+#[ignore] // FIXME: This test needs to be re-enabled once uu_cp has fixed the bug
 fn copy_file_with_read_permission() {
     copy_file_with_read_permission_impl(false);
     copy_file_with_read_permission_impl(true);
@@ -689,7 +692,7 @@ fn test_cp_multiple_files() {
         let src1_hash = get_file_hash(src1.display());
         let src2_hash = get_file_hash(src2.display());
 
-        //Create target directory
+        // Create target directory
         sandbox.mkdir(TEST_COPY_TO_FOLDER);
 
         // Start test
@@ -743,7 +746,7 @@ fn test_cp_with_dirs() {
         let src = dirs.fixtures.join("cp").join(TEST_HELLO_WORLD_SOURCE);
         let src_hash = get_file_hash(src.display());
 
-        //Create target directory
+        // Create target directory
         sandbox.mkdir(TEST_COPY_TO_FOLDER);
         // Start test
         nu!(
@@ -880,7 +883,8 @@ fn test_cp_arg_no_clobber_twice() {
         "source_with_body.txt",
         "dest.txt"
         );
-        // Should have same contents of original empty file as --no-clobber should not overwrite dest.txt
+        // Should have same contents of original empty file as --no-clobber should not
+        // overwrite dest.txt
         assert_eq!(file_contents(dirs.test().join("dest.txt")), "fake data");
     });
 }

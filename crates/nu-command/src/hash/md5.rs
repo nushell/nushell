@@ -1,6 +1,7 @@
-use super::generic_digest::{GenericDigest, HashDigest};
 use ::md5::Md5;
 use nu_protocol::{Example, Span, Value};
+
+use super::generic_digest::{GenericDigest, HashDigest};
 
 pub type HashMd5 = GenericDigest<Md5>;
 
@@ -69,7 +70,7 @@ mod tests {
 
     #[test]
     fn hash_bytes() {
-        let binary = Value::binary(vec![0xC0, 0xFF, 0xEE], Span::test_data());
+        let binary = Value::binary(vec![0xc0, 0xff, 0xee], Span::test_data());
         let expected = Value::string(
             "5f80e231382769b0102b1164cf722d83".to_owned(),
             Span::test_data(),

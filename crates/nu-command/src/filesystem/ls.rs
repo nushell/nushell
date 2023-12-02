@@ -1,23 +1,24 @@
-use crate::DirBuilder;
-use crate::DirInfo;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{
+    path::PathBuf,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
+use nu_engine::{env::current_dir, CallExt};
 use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use pathdiff::diff_paths;
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use crate::{DirBuilder, DirInfo};
 
 #[derive(Clone)]
 pub struct Ls;
@@ -54,7 +55,8 @@ impl Command for Ls {
             .switch("full-paths", "display paths as absolute paths", Some('f'))
             .switch(
                 "du",
-                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
+                "Display the apparent directory size (\"disk usage\") in place of the directory \
+                 metadata size",
                 Some('d'),
             )
             .switch(
@@ -62,7 +64,12 @@ impl Command for Ls {
                 "List the specified directory itself instead of its contents",
                 Some('D'),
             )
-            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
+            .switch(
+                "mime-type",
+                "Show mime-type in type column instead of 'file' (based on filenames only; files' \
+                 contents are not examined)",
+                Some('m'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -103,7 +110,8 @@ impl Command for Ls {
                 let mut p = expand_to_real_path(p.item);
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
-                // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
+                // Avoid checking and pushing "*" to the path when directory (do not show
+                // contents) flag is true
                 if !directory && expanded.is_dir() {
                     if permission_denied(&p) {
                         #[cfg(unix)]
@@ -137,7 +145,8 @@ impl Command for Ls {
                 (p, p_tag, absolute_path)
             }
             None => {
-                // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
+                // Avoid pushing "*" to the default path when directory (do not show contents)
+                // flag is true
                 if directory {
                     (PathBuf::from("."), call_span, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
@@ -306,8 +315,8 @@ impl Command for Ls {
                 result: None,
             },
             Example {
-                description:
-                    "List all dirs in your home directory which have not been modified in 7 days",
+                description: "List all dirs in your home directory which have not been modified \
+                              in 7 days",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
@@ -366,8 +375,7 @@ fn path_contains_hidden_folder(path: &Path, folders: &[PathBuf]) -> bool {
 
 #[cfg(unix)]
 use std::os::unix::fs::FileTypeExt;
-use std::path::Path;
-use std::sync::atomic::AtomicBool;
+use std::{path::Path, sync::atomic::AtomicBool};
 
 pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: bool) -> String {
     let ft = md.file_type();
@@ -464,8 +472,9 @@ pub(crate) fn dir_entry_dict(
 
             #[cfg(unix)]
             {
-                use crate::filesystem::util::users;
                 use std::os::unix::fs::MetadataExt;
+
+                use crate::filesystem::util::users;
                 let mode = md.permissions().mode();
                 record.push(
                     "mode",
@@ -580,8 +589,8 @@ pub(crate) fn dir_entry_dict(
     Ok(Value::record(record, span))
 }
 
-// TODO: can we get away from local times in `ls`? internals might be cleaner if we worked in UTC
-// and left the conversion to local time to the display layer
+// TODO: can we get away from local times in `ls`? internals might be cleaner if
+// we worked in UTC and left the conversion to local time to the display layer
 fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
     // Adapted from https://github.com/chronotope/chrono/blob/v0.4.19/src/datetime.rs#L755-L767.
     let (sec, nsec) = match t.duration_since(UNIX_EPOCH) {
@@ -604,7 +613,8 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
     }
 }
 
-// #[cfg(windows)] is just to make Clippy happy, remove if you ever want to use this on other platforms
+// #[cfg(windows)] is just to make Clippy happy, remove if you ever want to use
+// this on other platforms
 #[cfg(windows)]
 fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
     match Utc.timestamp_opt(secs, 0) {
@@ -615,21 +625,22 @@ fn unix_time_to_local_date_time(secs: i64) -> Option<DateTime<Local>> {
 
 #[cfg(windows)]
 mod windows_helper {
+    use std::os::windows::prelude::OsStrExt;
+
+    use windows::Win32::{
+        Foundation::FILETIME,
+        Storage::FileSystem::{
+            FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
+            FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
+        },
+        System::SystemServices::{IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK},
+    };
+
     use super::*;
 
-    use std::os::windows::prelude::OsStrExt;
-    use windows::Win32::Foundation::FILETIME;
-    use windows::Win32::Storage::FileSystem::{
-        FindFirstFileW, FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_READONLY,
-        FILE_ATTRIBUTE_REPARSE_POINT, WIN32_FIND_DATAW,
-    };
-    use windows::Win32::System::SystemServices::{
-        IO_REPARSE_TAG_MOUNT_POINT, IO_REPARSE_TAG_SYMLINK,
-    };
-
-    /// A secondary way to get file info on Windows, for when std::fs::symlink_metadata() fails.
-    /// dir_entry_dict depends on metadata, but that can't be retrieved for some Windows system files:
-    /// https://github.com/rust-lang/rust/issues/96980
+    /// A secondary way to get file info on Windows, for when
+    /// std::fs::symlink_metadata() fails. dir_entry_dict depends on
+    /// metadata, but that can't be retrieved for some Windows system files: https://github.com/rust-lang/rust/issues/96980
     pub fn dir_entry_dict_windows_fallback(
         filename: &Path,
         display_name: &str,
@@ -643,9 +654,10 @@ mod windows_helper {
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
             Err(e) => {
-                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
-                // For now, we just log it and give up on returning metadata columns
-                // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends
+                // with a '.') For now, we just log it and give up on returning
+                // metadata columns TODO: find another way to get this data
+                // (like cmd.exe, pwsh, and MINGW bash can)
                 eprintln!(
                     "Failed to read metadata for '{}'. It may have an illegal filename",
                     filename.to_string_lossy()

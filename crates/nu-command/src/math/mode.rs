@@ -1,11 +1,12 @@
-use crate::math::utils::run_with_function;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use std::{cmp::Ordering, collections::HashMap};
+
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-use std::cmp::Ordering;
-use std::collections::HashMap;
+
+use crate::math::utils::run_with_function;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -121,9 +122,9 @@ pub fn mode(values: &[Value], _span: Span, head: Span) -> Result<Value, ShellErr
     {
         return Err(values);
     }
-    //In e-q, Value doesn't implement Hash or Eq, so we have to get the values inside
-    // But f64 doesn't implement Hash, so we get the binary representation to use as
-    // key in the HashMap
+    // In e-q, Value doesn't implement Hash or Eq, so we have to get the values
+    // inside But f64 doesn't implement Hash, so we get the binary
+    // representation to use as key in the HashMap
     let hashable_values = values
         .iter()
         .map(|val| match val {

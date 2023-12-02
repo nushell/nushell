@@ -1,9 +1,7 @@
-use {
-    nu_ansi_term::{ansi::RESET, Style},
-    reedline::{
-        menu_functions::string_difference, Completer, Editor, Menu, MenuEvent, MenuTextStyle,
-        Painter, Suggestion, UndoBehavior,
-    },
+use nu_ansi_term::{ansi::RESET, Style};
+use reedline::{
+    menu_functions::string_difference, Completer, Editor, Menu, MenuEvent, MenuTextStyle, Painter,
+    Suggestion, UndoBehavior,
 };
 
 /// Default values used as reference for the menu. These values are set during
@@ -35,7 +33,8 @@ impl Default for DefaultMenuDetails {
 }
 
 /// Represents the actual column conditions of the menu. These conditions change
-/// since they need to accommodate possible different line sizes for the column values
+/// since they need to accommodate possible different line sizes for the column
+/// values
 #[derive(Default)]
 struct WorkingDetails {
     /// Number of columns that the menu will have

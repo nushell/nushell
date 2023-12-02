@@ -1,12 +1,13 @@
+use std::collections::HashSet;
+
 use indexmap::IndexMap;
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
-use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Rename;
@@ -191,11 +192,15 @@ fn rename(
                         } else {
                             match &specified_column {
                                 Some(c) => {
-                                    let mut column_to_rename: HashSet<String> = HashSet::from_iter(c.keys().cloned());
+                                    let mut column_to_rename: HashSet<String> =
+                                        HashSet::from_iter(c.keys().cloned());
                                     for val in record.cols.iter_mut() {
                                         if c.contains_key(val) {
                                             column_to_rename.remove(val);
-                                            *val = c.get(val).expect("already check exists").to_owned();
+                                            *val = c
+                                                .get(val)
+                                                .expect("already check exists")
+                                                .to_owned();
                                         }
                                     }
                                     if !column_to_rename.is_empty() {
@@ -204,9 +209,15 @@ fn rename(
                                                 "already checked column to rename still exists",
                                             );
                                         return Value::error(
-                                            ShellError::UnsupportedInput { msg: format!(
-                                                    "The column '{not_exists_column}' does not exist in the input",
-                                                ), input: "value originated from here".into(), msg_span: head_span, input_span: span },
+                                            ShellError::UnsupportedInput {
+                                                msg: format!(
+                                                    "The column '{not_exists_column}' does not \
+                                                     exist in the input",
+                                                ),
+                                                input: "value originated from here".into(),
+                                                msg_span: head_span,
+                                                input_span: span,
+                                            },
                                             span,
                                         );
                                     }
@@ -214,7 +225,8 @@ fn rename(
                                 None => {
                                     for (idx, val) in columns.iter().enumerate() {
                                         if idx >= record.len() {
-                                            // skip extra new columns names if we already reached the final column
+                                            // skip extra new columns names if we already reached
+                                            // the final column
                                             break;
                                         }
                                         record.cols[idx] = val.clone();

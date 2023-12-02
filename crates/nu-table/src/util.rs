@@ -89,8 +89,7 @@ fn colorize_space_one(
     lead: Option<&AnsiColor<'_>>,
     trail: Option<&AnsiColor<'_>>,
 ) -> String {
-    use fancy_regex::Captures;
-    use fancy_regex::Regex;
+    use fancy_regex::{Captures, Regex};
     use once_cell::sync::Lazy;
 
     static RE_LEADING: Lazy<Regex> =

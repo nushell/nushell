@@ -42,7 +42,8 @@ pub struct Call {
     pub arguments: Vec<Argument>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
-    /// this field is used by the parser to pass additional command-specific information
+    /// this field is used by the parser to pass additional command-specific
+    /// information
     pub parser_info: HashMap<String, Expression>,
 }
 
@@ -60,10 +61,11 @@ impl Call {
 
     /// The span encompassing the arguments
     ///
-    /// If there are no arguments the span covers where the first argument would exist
+    /// If there are no arguments the span covers where the first argument would
+    /// exist
     ///
-    /// If there are one or more arguments the span encompasses the start of the first argument to
-    /// end of the last argument
+    /// If there are one or more arguments the span encompasses the start of the
+    /// first argument to end of the last argument
     pub fn arguments_span(&self) -> Span {
         let past = self.head.past();
 

@@ -1,5 +1,3 @@
-use crate::help::highlight_search_string;
-
 use fancy_regex::Regex;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
@@ -11,6 +9,8 @@ use nu_protocol::{
     PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
+
+use crate::help::highlight_search_string;
 
 #[derive(Clone)]
 pub struct Find;
@@ -125,28 +125,24 @@ impl Command for Find {
             Example {
                 description: "Find value in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                            "version" => Value::test_string("0.1.0"),
-                            "name" => Value::test_string("nushell".to_string()),
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "version" => Value::test_string("0.1.0"),
+                        "name" => Value::test_string("nushell".to_string()),
+                })])),
             },
             Example {
                 description: "Find inverted values in records using regex",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record!{
-                                "version" => Value::test_string("0.1.1"),
-                                "name" => Value::test_string("fish".to_string()),
-                        }),
-                        Value::test_record(record! {
-                                "version" => Value::test_string("0.2.0"),
-                                "name" =>Value::test_string("zsh".to_string()),
-                        }),
-                    ],
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                            "version" => Value::test_string("0.1.1"),
+                            "name" => Value::test_string("fish".to_string()),
+                    }),
+                    Value::test_record(record! {
+                            "version" => Value::test_string("0.2.0"),
+                            "name" =>Value::test_string("zsh".to_string()),
+                    }),
+                ])),
             },
             Example {
                 description: "Find value in list using regex",
@@ -177,8 +173,8 @@ impl Command for Find {
             },
             Example {
                 description: "Find and highlight text in specific columns",
-                example:
-                    "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
+                example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe \
+                          --columns [col1]",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
                             "col1" => Value::test_string(
@@ -240,7 +236,8 @@ fn find_with_regex(
         (true, true, false) => "(?im)", // case insensitive and multi-line mode
         (true, false, true) => "(?is)", // case insensitive and allow . to match \n
         (false, true, true) => "(?ms)", // multi-line mode and allow . to match \n
-        (true, true, true) => "(?ims)", // case insensitive, multi-line mode and allow . to match \n
+        (true, true, true) => "(?ims)", /* case insensitive, multi-line mode and allow . to
+                                          * match \n */
     };
 
     let regex = flags.to_string() + regex.as_str();
@@ -296,7 +293,8 @@ fn highlight_terms_in_record_with_search_columns(
 
     // TODO: change API to mutate in place
     let mut record = record.clone();
-    // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted, otherwise Err(val)
+    // iterator of Ok((val_str, term_str)) pairs if the value should be highlighted,
+    // otherwise Err(val)
     for (col, val) in record.iter_mut() {
         if col_select && !search_cols.contains(col) {
             continue;
@@ -345,8 +343,8 @@ fn find_with_rest_and_highlight(
 
     let style_computer = StyleComputer::from_config(&engine_state, stack);
     // Currently, search results all use the same style.
-    // Also note that this sample string is passed into user-written code (the closure that may or may not be
-    // defined for "string").
+    // Also note that this sample string is passed into user-written code (the
+    // closure that may or may not be defined for "string").
     let string_style = style_computer.compute("string", &Value::string("search result", span));
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));

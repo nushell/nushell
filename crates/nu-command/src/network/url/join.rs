@@ -1,6 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
@@ -296,7 +296,8 @@ impl UrlComponents {
         }
     }
 
-    // Check if value is empty. If so, check if that is fine, i.e., not a required input
+    // Check if value is empty. If so, check if that is fine, i.e., not a required
+    // input
     fn check_empty_string_ok(key: &str, s: &str, value_span: Span) -> Result<bool, ShellError> {
         if !s.trim().is_empty() {
             return Ok(true);

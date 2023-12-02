@@ -1,22 +1,19 @@
-use self::completer::*;
-use self::helper::*;
-use self::hooks::*;
-use self::output::*;
-use self::reedline::*;
-use self::table::*;
-
-use crate::{record, ShellError, Span, Value};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-pub use self::completer::CompletionAlgorithm;
-pub use self::helper::extract_value;
-pub use self::hooks::Hooks;
-pub use self::output::ErrorStyle;
-pub use self::reedline::{
-    create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
+use serde::{Deserialize, Serialize};
+
+pub use self::{
+    completer::CompletionAlgorithm,
+    helper::extract_value,
+    hooks::Hooks,
+    output::ErrorStyle,
+    reedline::{
+        create_menus, EditBindings, HistoryFileFormat, NuCursorShape, ParsedKeybinding, ParsedMenu,
+    },
+    table::{FooterMode, TableIndexMode, TableMode, TrimStrategy},
 };
-pub use self::table::{FooterMode, TableIndexMode, TableMode, TrimStrategy};
+use self::{completer::*, helper::*, hooks::*, output::*, reedline::*, table::*};
+use crate::{record, ShellError, Span, Value};
 
 mod completer;
 mod helper;
@@ -148,20 +145,22 @@ impl Value {
         // Clone the passed-in config rather than mutating it.
         let mut config = config.clone();
 
-        // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having some typo
-        // like `"always_trash": tru` in your config.nu's `$env.config` record shouldn't abort all
-        // config parsing there and then. Thus, errors are simply collected one-by-one and wrapped
+        // Vec for storing errors. Current Nushell behaviour (Dec 2022) is that having
+        // some typo like `"always_trash": tru` in your config.nu's
+        // `$env.config` record shouldn't abort all config parsing there and
+        // then. Thus, errors are simply collected one-by-one and wrapped
         // in a GenericError at the end.
         let mut errors = vec![];
 
         // Config record (self) mutation rules:
         // * When parsing a config Record, if a config key error occurs, remove the key.
-        // * When parsing a config Record, if a config value error occurs, replace the value
-        // with a reconstructed Nu value for the current (unaltered) configuration for that setting.
-        // For instance:
-        // `$env.config.ls.use_ls_colors = 2` results in an error, so the current `use_ls_colors`
-        // config setting is converted to a `Value::Boolean` and inserted in the record in place of
-        // the `2`.
+        // * When parsing a config Record, if a config value error occurs, replace the
+        //   value
+        // with a reconstructed Nu value for the current (unaltered) configuration for
+        // that setting. For instance:
+        // `$env.config.ls.use_ls_colors = 2` results in an error, so the current
+        // `use_ls_colors` config setting is converted to a `Value::Boolean` and
+        // inserted in the record in place of the `2`.
 
         if let Value::Record { val, .. } = self {
             val.retain_mut( |key, value| {

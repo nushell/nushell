@@ -1,11 +1,14 @@
-use super::super::values::NuDataFrame;
-use crate::dataframe::values::Column;
-use crate::dataframe::{eager::SQLContext, values::NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
+
+use super::super::values::NuDataFrame;
+use crate::dataframe::{
+    eager::SQLContext,
+    values::{Column, NuLazyFrame},
 };
 
 // attribution:
@@ -22,7 +25,8 @@ impl Command for QueryDf {
     }
 
     fn usage(&self) -> &str {
-        "Query dataframe using SQL. Note: The dataframe is always named 'df' in your query's from clause."
+        "Query dataframe using SQL. Note: The dataframe is always named 'df' in your query's from \
+         clause."
     }
 
     fn signature(&self) -> Signature {
@@ -95,8 +99,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

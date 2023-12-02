@@ -1,4 +1,3 @@
-use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
 use nu_glob::{GlobError, Pattern};
@@ -9,6 +8,8 @@ use nu_protocol::{
     Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
+
+use crate::{DirBuilder, DirInfo, FileInfo};
 
 #[derive(Clone)]
 pub struct Du;

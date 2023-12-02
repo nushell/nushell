@@ -1,7 +1,7 @@
 use nu_engine::column::get_columns;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Type, Value,
 };
@@ -113,7 +113,8 @@ fn getcol(
                 }
                 Value::LazyRecord { val, .. } => {
                     Ok({
-                        // Unfortunate casualty to LazyRecord's column_names not generating 'static strs
+                        // Unfortunate casualty to LazyRecord's column_names not generating 'static
+                        // strs
                         let cols: Vec<_> =
                             val.column_names().iter().map(|s| s.to_string()).collect();
 

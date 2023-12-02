@@ -1,6 +1,7 @@
-use crate::color_config::lookup_ansi_color_style;
 use nu_ansi_term::Style;
 use nu_protocol::Config;
+
+use crate::color_config::lookup_ansi_color_style;
 
 pub fn get_matching_brackets_style(default_style: Style, conf: &Config) -> Style {
     const MATCHING_BRACKETS_CONFIG_KEY: &str = "shape_matching_brackets";

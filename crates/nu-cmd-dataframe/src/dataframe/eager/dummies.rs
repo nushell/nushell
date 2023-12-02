@@ -1,10 +1,11 @@
-use super::super::values::NuDataFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type,
 };
 use polars::{prelude::*, series::Series};
+
+use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct Dummies;
@@ -102,8 +103,7 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

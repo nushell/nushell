@@ -1,16 +1,22 @@
 use base64::{
-    alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
-    engine::GeneralPurpose, Engine,
+    alphabet,
+    engine::{
+        general_purpose::{NO_PAD, PAD},
+        GeneralPurpose,
+    },
+    Engine,
 };
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath};
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::{PipelineData, ShellError, Span, Spanned, Value};
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{EngineState, Stack},
+    PipelineData, ShellError, Span, Spanned, Value,
+};
 
-pub const CHARACTER_SET_DESC: &str = "specify the character rules for encoding the input.\n\
-                    \tValid values are 'standard', 'standard-no-padding', 'url-safe', 'url-safe-no-padding',\
-                    'binhex', 'bcrypt', 'crypt', 'mutf7'";
+pub const CHARACTER_SET_DESC: &str =
+    "specify the character rules for encoding the input.\n\tValid values are 'standard', \
+     'standard-no-padding', 'url-safe', 'url-safe-no-padding','binhex', 'bcrypt', 'crypt', 'mutf7'";
 
 #[derive(Clone)]
 pub struct Base64Config {
@@ -55,7 +61,8 @@ pub fn operate(
         Some(inner_tag) => inner_tag,
         None => Spanned {
             item: "standard".to_string(),
-            span: head, // actually this span is always useless, because default character_set is always valid.
+            span: head, /* actually this span is always useless, because default character_set is
+                         * always valid. */
         },
     };
 
@@ -90,16 +97,21 @@ fn action(
         "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
         "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
         "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
-        not_valid => return Value::error (
-            ShellError::GenericError(
-            "value is not an accepted character set".to_string(),
-            format!(
-                "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
-            ),
-            Some(config_character_set.span),
-            None,
-            Vec::new(),
-        ), config_character_set.span)
+        not_valid => {
+            return Value::error(
+                ShellError::GenericError(
+                    "value is not an accepted character set".to_string(),
+                    format!(
+                        "{not_valid} is not a valid character-set.\nPlease use `help encode \
+                         base64` to see a list of valid character sets."
+                    ),
+                    Some(config_character_set.span),
+                    None,
+                    Vec::new(),
+                ),
+                config_character_set.span,
+            )
+        }
     };
     let value_span = input.span();
     match input {
@@ -145,7 +157,8 @@ fn action(
                 }
 
                 ActionType::Decode => {
-                    // for decode, input val may contains invalid new line character, which is ok to omitted them by default.
+                    // for decode, input val may contains invalid new line character, which is ok to
+                    // omitted them by default.
                     let val = val.clone();
                     let val = val.replace("\r\n", "").replace('\n', "");
 
@@ -199,8 +212,9 @@ fn action(
 
 #[cfg(test)]
 mod tests {
-    use super::{action, ActionType, Arguments, Base64Config};
     use nu_protocol::{Span, Spanned, Value};
+
+    use super::{action, ActionType, Arguments, Base64Config};
 
     #[test]
     fn base64_encode_standard() {

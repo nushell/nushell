@@ -1,7 +1,7 @@
-use crate::tests::{fail_test, run_test, run_test_with_env, TestResult};
 use std::collections::HashMap;
 
 use super::run_test_contains;
+use crate::tests::{fail_test, run_test, run_test_with_env, TestResult};
 
 #[test]
 fn env_shorthand() -> TestResult {

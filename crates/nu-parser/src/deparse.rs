@@ -15,8 +15,9 @@ pub fn escape_quote_string(input: &str) -> String {
 
 // Escape rules:
 // input argument contains ' '(like abc def), we will convert it to `abc def`.
-// input argument contains --version='xx yy', we will convert it to --version=`'xx yy'`
-// input argument contains " or \, we will try to escape input.
+// input argument contains --version='xx yy', we will convert it to
+// --version=`'xx yy'` input argument contains " or \, we will try to escape
+// input.
 pub fn escape_for_script_arg(input: &str) -> String {
     // handle for flag, maybe we need to escape the value.
     if input.starts_with("--") {

@@ -1,7 +1,5 @@
-use crate::completions::{
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
-};
+use std::{str, sync::Arc};
+
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
@@ -10,8 +8,11 @@ use nu_protocol::{
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::str;
-use std::sync::Arc;
+
+use crate::completions::{
+    CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
+};
 
 #[derive(Clone)]
 pub struct NuCompleter {
@@ -160,7 +161,8 @@ impl NuCompleter {
                                 // Create a new span
                                 let new_span = Span::new(flat.0.start, flat.0.end - 1);
 
-                                // Parses the prefix. Completion should look up to the cursor position, not after.
+                                // Parses the prefix. Completion should look up to the cursor
+                                // position, not after.
                                 let mut prefix = working_set.get_span_contents(flat.0).to_vec();
                                 let index = pos - flat.0.start;
                                 prefix.drain(index..);
@@ -211,7 +213,8 @@ impl NuCompleter {
                                     }
                                 }
 
-                                // specially check if it is currently empty - always complete commands
+                                // specially check if it is currently empty - always complete
+                                // commands
                                 if (is_passthrough_command && flat_idx == 1)
                                     || (flat_idx == 0
                                         && working_set.get_span_contents(new_span).is_empty())
@@ -234,7 +237,8 @@ impl NuCompleter {
                                     );
                                 }
 
-                                // Completions that depends on the previous expression (e.g: use, source-env)
+                                // Completions that depends on the previous expression (e.g: use,
+                                // source-env)
                                 if (is_passthrough_command && flat_idx > 1) || flat_idx > 0 {
                                     if let Some(previous_expr) = flattened.get(flat_idx - 1) {
                                         // Read the content for the previous expression

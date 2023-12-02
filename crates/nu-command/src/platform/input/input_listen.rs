@@ -1,17 +1,20 @@
-use crossterm::event::{
-    DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
-    EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+use std::io::stdout;
+
+use crossterm::{
+    event::{
+        DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
+        EnableMouseCapture, KeyCode, KeyEventKind, KeyModifiers, MouseEvent, MouseEventKind,
+    },
+    terminal,
 };
-use crossterm::terminal;
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 use num_traits::AsPrimitive;
-use std::io::stdout;
 
 #[derive(Clone)]
 pub struct InputListen;
@@ -31,12 +34,14 @@ impl Command for InputListen {
             .named(
                 "types",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Listen for event of specified types only (can be one of: focus, key, mouse, paste, resize)",
+                "Listen for event of specified types only (can be one of: focus, key, mouse, \
+                 paste, resize)",
                 Some('t'),
             )
             .switch(
                 "raw",
-                "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags",
+                "Add raw_code field with numeric value of keycode and raw_flags with bit mask \
+                 flags",
                 Some('r'),
             )
             .input_output_types(vec![(
@@ -69,6 +74,7 @@ There are 4 `key_type` variants:
     media - dedicated media keys (play, pause, tracknext ...)
     other - keys not falling under previous categories (up, down, backspace, enter ...)"#
     }
+
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Listen for a keyboard shortcut and find out how nu receives it",
@@ -76,6 +82,7 @@ There are 4 `key_type` variants:
             result: None,
         }]
     }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -196,8 +203,8 @@ impl EventTypeFilter {
     }
 
     /// Enable capturing of all events allowed by this filter.
-    /// Call [`DeferredConsoleRestore::restore`] when done capturing events to restore
-    /// console state
+    /// Call [`DeferredConsoleRestore::restore`] when done capturing events to
+    /// restore console state
     fn enable_events(&self) -> Result<DeferredConsoleRestore, ShellError> {
         if self.listen_mouse {
             crossterm::execute!(stdout(), EnableMouseCapture)?;
@@ -217,13 +224,15 @@ impl EventTypeFilter {
     }
 }
 
-/// Promise to disable all event capturing previously enabled by [`EventTypeFilter::enable_events`]
+/// Promise to disable all event capturing previously enabled by
+/// [`EventTypeFilter::enable_events`]
 struct DeferredConsoleRestore {
     setup_event_types: EventTypeFilter,
 }
 
 impl DeferredConsoleRestore {
-    /// Disable all event capturing flags set up by [`EventTypeFilter::enable_events`]
+    /// Disable all event capturing flags set up by
+    /// [`EventTypeFilter::enable_events`]
     fn restore(self) {
         if self.setup_event_types.listen_mouse {
             let _ = crossterm::execute!(stdout(), DisableMouseCapture);
@@ -310,8 +319,8 @@ fn create_key_event(
         // Ignore release events on windows.
         // Refer to crossterm::event::PushKeyboardEnhancementFlags. According to the doc
         // KeyEventKind and KeyEventState work correctly only on windows and with kitty
-        // keyboard protocol. Because of this `keybindings get` currently ignores anything
-        // but KeyEventKind::Press
+        // keyboard protocol. Because of this `keybindings get` currently ignores
+        // anything but KeyEventKind::Press
         if let KeyEventKind::Release | KeyEventKind::Repeat = kind {
             return None;
         }

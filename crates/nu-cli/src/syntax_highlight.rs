@@ -1,12 +1,15 @@
+use std::sync::Arc;
+
 use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
-use nu_protocol::engine::{EngineState, StateWorkingSet};
-use nu_protocol::{Config, Span};
+use nu_protocol::{
+    ast::{Argument, Block, Expr, Expression, PipelineElement},
+    engine::{EngineState, StateWorkingSet},
+    Config, Span,
+};
 use reedline::{Highlighter, StyledText};
-use std::sync::Arc;
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
@@ -23,8 +26,8 @@ impl Highlighter for NuHighlighter {
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
             let mut shapes = flatten_block(&working_set, &block);
-            // Highlighting externals has a config point because of concerns that using which to resolve
-            // externals may slow down things too much.
+            // Highlighting externals has a config point because of concerns that using
+            // which to resolve externals may slow down things too much.
             if highlight_resolved_externals {
                 for (span, shape) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
@@ -201,7 +204,8 @@ fn find_matching_brackets(
     let global_end_offset = line.len() + global_span_offset;
     let global_bracket_pos =
         if global_cursor_offset == global_end_offset && global_end_offset > global_span_offset {
-            // cursor is at the end of a non-empty string -- find block end at the previous position
+            // cursor is at the end of a non-empty string -- find block end at the previous
+            // position
             if let Some(last_char) = line.chars().last() {
                 global_cursor_offset - get_char_length(last_char)
             } else {

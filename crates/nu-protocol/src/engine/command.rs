@@ -1,8 +1,7 @@
 use std::path::Path;
 
-use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
-
 use super::{EngineState, Stack, StateWorkingSet};
+use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 #[derive(Debug)]
 pub enum CommandType {
@@ -36,7 +35,8 @@ pub trait Command: Send + Sync + CommandClone {
 
     /// Used by the parser to run command at parse time
     ///
-    /// If a command has `is_const()` set to true, it must also implement this method.
+    /// If a command has `is_const()` set to true, it must also implement this
+    /// method.
     #[allow(unused_variables)]
     fn run_const(
         &self,
@@ -91,7 +91,8 @@ pub trait Command: Send + Sync + CommandClone {
         false
     }
 
-    // Is a plugin command (returns plugin's path, type of shell if the declaration is a plugin)
+    // Is a plugin command (returns plugin's path, type of shell if the declaration
+    // is a plugin)
     fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
         None
     }

@@ -1,6 +1,7 @@
-use crate::{color_config::lookup_ansi_color_style, color_record_to_nustyle};
 use nu_ansi_term::{Color, Style};
 use nu_protocol::{Config, Value};
+
+use crate::{color_config::lookup_ansi_color_style, color_record_to_nustyle};
 
 // The default colors for shapes, used when there is no config for them.
 pub fn default_shape_color(shape: String) -> Style {

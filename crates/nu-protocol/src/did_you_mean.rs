@@ -33,18 +33,34 @@ mod tests {
                         None,
                         "Not helpful to suggest an arbitrary choice when none are close",
                     ),
-                    ("ccccccccccccccccccccccc", None, "Not helpful to suggest an arbitrary choice when none are close"),
+                    (
+                        "ccccccccccccccccccccccc",
+                        None,
+                        "Not helpful to suggest an arbitrary choice when none are close",
+                    ),
                 ],
             ),
             (
                 vec!["OS", "PWD", "PWDPWDPWDPWD"],
                 vec![
-                    ("pwd", Some("PWD"), "Exact case insensitive match yields a match"),
-                    ("pwdpwdpwdpwd", Some("PWDPWDPWDPWD"), "Exact case insensitive match yields a match"),
+                    (
+                        "pwd",
+                        Some("PWD"),
+                        "Exact case insensitive match yields a match",
+                    ),
+                    (
+                        "pwdpwdpwdpwd",
+                        Some("PWDPWDPWDPWD"),
+                        "Exact case insensitive match yields a match",
+                    ),
                     ("PWF", Some("PWD"), "One-letter typo yields a match"),
                     ("pwf", None, "Case difference plus typo yields no match"),
-                    ("Xwdpwdpwdpwd", None, "Case difference plus typo yields no match"),
-                ]
+                    (
+                        "Xwdpwdpwdpwd",
+                        None,
+                        "Case difference plus typo yields no match",
+                    ),
+                ],
             ),
             (
                 vec!["foo", "bar", "baz"],
@@ -60,18 +76,35 @@ mod tests {
                     (
                         "zzz",
                         None,
-                        "'baz' does share a character, but rustc rule is edit distance must be <= 1/3 of the length of the user input",
+                        "'baz' does share a character, but rustc rule is edit distance must be <= \
+                         1/3 of the length of the user input",
                     ),
                 ],
             ),
             (
                 vec!["aaaaaa"],
                 vec![
-                    ("XXaaaa", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
-                    ("XXXaaa", None,  "Distance of 3 out of 6 chars: not close enough to meet rustc's rule"),
-                    ("XaaaaX", Some("aaaaaa"), "Distance of 2 out of 6 chars: close enough to meet rustc's rule"),
-                    ("XXaaaaXX", None, "Distance of 4 out of 6 chars: not close enough to meet rustc's rule")
-                ]
+                    (
+                        "XXaaaa",
+                        Some("aaaaaa"),
+                        "Distance of 2 out of 6 chars: close enough to meet rustc's rule",
+                    ),
+                    (
+                        "XXXaaa",
+                        None,
+                        "Distance of 3 out of 6 chars: not close enough to meet rustc's rule",
+                    ),
+                    (
+                        "XaaaaX",
+                        Some("aaaaaa"),
+                        "Distance of 2 out of 6 chars: close enough to meet rustc's rule",
+                    ),
+                    (
+                        "XXaaaaXX",
+                        None,
+                        "Distance of 4 out of 6 chars: not close enough to meet rustc's rule",
+                    ),
+                ],
             ),
         ];
         for (possibilities, cases) in all_cases {

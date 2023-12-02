@@ -1,7 +1,9 @@
+use std::ops::{Index, IndexMut};
+
+use serde::{Deserialize, Serialize};
+
 use super::Pipeline;
 use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
-use serde::{Deserialize, Serialize};
-use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {

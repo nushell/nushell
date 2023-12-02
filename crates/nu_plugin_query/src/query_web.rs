@@ -1,7 +1,8 @@
-use crate::web_tables::WebTable;
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{Record, Span, Value};
 use scraper::{Html, Selector as ScraperSelector};
+
+use crate::web_tables::WebTable;
 
 pub struct Selector {
     pub query: String,
@@ -162,11 +163,13 @@ fn retrieve_table(mut table: WebTable, columns: &Value, span: Span) -> Value {
     }
 
     let mut table_out = Vec::new();
-    // sometimes there are tables where the first column is the headers, kind of like
-    // a table has ben rotated ccw 90 degrees, in these cases all columns will be missing
-    // we keep track of this with this variable so we can deal with it later
+    // sometimes there are tables where the first column is the headers, kind of
+    // like a table has ben rotated ccw 90 degrees, in these cases all columns
+    // will be missing we keep track of this with this variable so we can deal
+    // with it later
     let mut at_least_one_row_filled = false;
-    // if columns are still empty, let's just make a single column table with the data
+    // if columns are still empty, let's just make a single column table with the
+    // data
     if cols.is_empty() {
         at_least_one_row_filled = true;
         let table_with_no_empties: Vec<_> = table.iter().filter(|item| !item.is_empty()).collect();

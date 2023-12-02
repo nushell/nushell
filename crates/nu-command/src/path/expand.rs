@@ -2,10 +2,10 @@ use std::path::Path;
 
 use nu_engine::env::{current_dir_str, current_dir_str_const};
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    ast::Call,
+    engine::{Command, EngineState, Stack, StateWorkingSet},
+    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -159,8 +159,8 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
             Err(_) => Value::error(
                 ShellError::GenericError(
                     "Could not expand path".into(),
-                    "could not be expanded (path might not exist, non-final \
-                            component is not a directory, or other cause)"
+                    "could not be expanded (path might not exist, non-final component is not a \
+                     directory, or other cause)"
                         .into(),
                     Some(span),
                     None,

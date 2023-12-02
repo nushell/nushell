@@ -1,12 +1,15 @@
-use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
+use std::fmt::Display;
+
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 use num_traits::CheckedShr;
-use std::fmt::Display;
+
+use super::{get_input_num_type, get_number_bytes, InputNumType, NumberBytes};
 
 #[derive(Clone)]
 pub struct BitsShr;
@@ -108,12 +111,13 @@ where
         Some(val) => {
             let shift_result = i64::try_from(val);
             match shift_result {
-                Ok(val) => Value::int( val, span ),
+                Ok(val) => Value::int(val, span),
                 Err(_) => Value::error(
                     ShellError::GenericError(
                         "Shift right result beyond the range of 64 bit signed number".to_string(),
                         format!(
-                            "{val} of the specified number of bytes shift right {bits} bits exceed limit"
+                            "{val} of the specified number of bytes shift right {bits} bits \
+                             exceed limit"
                         ),
                         Some(span),
                         None,

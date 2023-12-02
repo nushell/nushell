@@ -224,7 +224,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
             let colon = working_set.get_span_contents(tokens[idx].span);
             idx += 1;
             if idx == tokens.len() || colon != b":" {
-                //FIXME: need better error
+                // FIXME: need better error
                 working_set.error(ParseError::Expected("record", span));
                 return garbage(span);
             }

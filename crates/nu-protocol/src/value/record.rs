@@ -1,8 +1,8 @@
 use std::ops::RangeBounds;
 
-use crate::Value;
-
 use serde::{Deserialize, Serialize};
+
+use crate::Value;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Record {
@@ -132,7 +132,8 @@ impl Record {
         self.retain_mut(|k, v| keep(k, v));
     }
 
-    /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
+    /// Remove elements in-place that do not satisfy `keep` while allowing
+    /// mutation of the value.
     ///
     /// This can for example be used to recursively prune nested records.
     ///
@@ -302,9 +303,8 @@ impl Extend<(String, Value)> for Record {
 pub type IntoIter = std::iter::Zip<std::vec::IntoIter<String>, std::vec::IntoIter<Value>>;
 
 impl IntoIterator for Record {
-    type Item = (String, Value);
-
     type IntoIter = IntoIter;
+    type Item = (String, Value);
 
     fn into_iter(self) -> Self::IntoIter {
         self.cols.into_iter().zip(self.vals)
@@ -314,9 +314,8 @@ impl IntoIterator for Record {
 pub type Iter<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::Iter<'a, Value>>;
 
 impl<'a> IntoIterator for &'a Record {
-    type Item = (&'a String, &'a Value);
-
     type IntoIter = Iter<'a>;
+    type Item = (&'a String, &'a Value);
 
     fn into_iter(self) -> Self::IntoIter {
         self.cols.iter().zip(&self.vals)
@@ -326,9 +325,8 @@ impl<'a> IntoIterator for &'a Record {
 pub type IterMut<'a> = std::iter::Zip<std::slice::Iter<'a, String>, std::slice::IterMut<'a, Value>>;
 
 impl<'a> IntoIterator for &'a mut Record {
-    type Item = (&'a String, &'a mut Value);
-
     type IntoIter = IterMut<'a>;
+    type Item = (&'a String, &'a mut Value);
 
     fn into_iter(self) -> Self::IntoIter {
         self.cols.iter().zip(&mut self.vals)

@@ -1,19 +1,22 @@
 mod declaration;
+use std::{
+    collections::HashMap,
+    env,
+    fmt::Write,
+    io::{BufReader, ErrorKind, Read, Write as WriteTrait},
+    path::Path,
+    process::{Child, ChildStdout, Command as CommandSys, Stdio},
+};
+
 pub use declaration::PluginDeclaration;
 use nu_engine::documentation::get_flags_section;
-use std::collections::HashMap;
-
-use crate::protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse};
-use crate::EncodingType;
-use std::env;
-use std::fmt::Write;
-use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
-use std::path::Path;
-use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
-
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
 
 use super::EvaluatedCall;
+use crate::{
+    protocol::{CallInput, LabeledError, PluginCall, PluginData, PluginResponse},
+    EncodingType,
+};
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
@@ -32,16 +35,16 @@ pub trait PluginEncoder: Clone {
     /// Deserialize a `PluginCall` from the `PluginEncoder`s format
     fn decode_call(&self, reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError>;
 
-    /// Serialize a `PluginResponse` from the plugin in this `PluginEncoder`'s preferred
-    /// format
+    /// Serialize a `PluginResponse` from the plugin in this `PluginEncoder`'s
+    /// preferred format
     fn encode_response(
         &self,
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
-    /// Deserialize a `PluginResponse` from the plugin from this `PluginEncoder`'s
-    /// preferred format
+    /// Deserialize a `PluginResponse` from the plugin from this
+    /// `PluginEncoder`'s preferred format
     fn decode_response(
         &self,
         reader: &mut impl std::io::BufRead,
@@ -98,9 +101,10 @@ pub(crate) fn call_plugin(
 ) -> Result<PluginResponse, ShellError> {
     if let Some(mut stdin_writer) = child.stdin.take() {
         let encoding_clone = encoding.clone();
-        // If the child process fills its stdout buffer, it may end up waiting until the parent
-        // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
-        // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
+        // If the child process fills its stdout buffer, it may end up waiting until the
+        // parent reads the stdout, and not be able to read stdin in the
+        // meantime, causing a deadlock. Writing from another thread ensures
+        // that stdout is being read at the same time, avoiding the problem.
         std::thread::spawn(move || encoding_clone.encode_call(&plugin_call, &mut stdin_writer));
     }
 
@@ -166,9 +170,10 @@ pub fn get_signature(
     // Create message to plugin to indicate that signature is required and
     // send call to plugin asking for signature
     let encoding_clone = encoding.clone();
-    // If the child process fills its stdout buffer, it may end up waiting until the parent
-    // reads the stdout, and not be able to read stdin in the meantime, causing a deadlock.
-    // Writing from another thread ensures that stdout is being read at the same time, avoiding the problem.
+    // If the child process fills its stdout buffer, it may end up waiting until the
+    // parent reads the stdout, and not be able to read stdin in the meantime,
+    // causing a deadlock. Writing from another thread ensures that stdout is
+    // being read at the same time, avoiding the problem.
     std::thread::spawn(move || {
         encoding_clone.encode_call(&PluginCall::Signature, &mut stdin_writer)
     });
@@ -196,8 +201,9 @@ pub fn get_signature(
 
 /// The basic API for a Nushell plugin
 ///
-/// This is the trait that Nushell plugins must implement. The methods defined on
-/// `Plugin` are invoked by [serve_plugin] during plugin registration and execution.
+/// This is the trait that Nushell plugins must implement. The methods defined
+/// on `Plugin` are invoked by [serve_plugin] during plugin registration and
+/// execution.
 ///
 /// # Examples
 /// Basic usage:
@@ -208,8 +214,8 @@ pub fn get_signature(
 ///
 /// impl Plugin for HelloPlugin {
 ///     fn signature(&self) -> Vec<PluginSignature> {
-///         let sig = PluginSignature::build("hello")
-///             .input_output_type(Type::Nothing, Type::String);
+///         let sig =
+///             PluginSignature::build("hello").input_output_type(Type::Nothing, Type::String);
 ///
 ///         vec![sig]
 ///     }
@@ -227,22 +233,24 @@ pub fn get_signature(
 pub trait Plugin {
     /// The signature of the plugin
     ///
-    /// This method returns the [PluginSignature]s that describe the capabilities
-    /// of this plugin. Since a single plugin executable can support multiple invocation
-    /// patterns we return a `Vec` of signatures.
+    /// This method returns the [PluginSignature]s that describe the
+    /// capabilities of this plugin. Since a single plugin executable can
+    /// support multiple invocation patterns we return a `Vec` of
+    /// signatures.
     fn signature(&self) -> Vec<PluginSignature>;
 
     /// Perform the actual behavior of the plugin
     ///
-    /// The behavior of the plugin is defined by the implementation of this method.
-    /// When Nushell invoked the plugin [serve_plugin] will call this method and
-    /// print the serialized returned value or error to stdout, which Nushell will
-    /// interpret.
+    /// The behavior of the plugin is defined by the implementation of this
+    /// method. When Nushell invoked the plugin [serve_plugin] will call
+    /// this method and print the serialized returned value or error to
+    /// stdout, which Nushell will interpret.
     ///
-    /// The `name` is only relevant for plugins that implement multiple commands as the
-    /// invoked command will be passed in via this argument. The `call` contains
-    /// metadata describing how the plugin was invoked and `input` contains the structured
-    /// data passed to the command implemented by this [Plugin].
+    /// The `name` is only relevant for plugins that implement multiple commands
+    /// as the invoked command will be passed in via this argument. The
+    /// `call` contains metadata describing how the plugin was invoked and
+    /// `input` contains the structured data passed to the command
+    /// implemented by this [Plugin].
     fn run(
         &mut self,
         name: &str,
@@ -268,13 +276,14 @@ pub trait Plugin {
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
-///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
+///     serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
 /// }
 /// ```
 ///
-/// The object that is expected to be received by nushell is the `PluginResponse` struct.
-/// The `serve_plugin` function should ensure that it is encoded correctly and sent
-/// to StdOut for nushell to decode and and present its result.
+/// The object that is expected to be received by nushell is the
+/// `PluginResponse` struct. The `serve_plugin` function should ensure that it
+/// is encoded correctly and sent to StdOut for nushell to decode and and
+/// present its result.
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
         print_help(plugin, encoder);

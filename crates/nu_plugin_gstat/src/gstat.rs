@@ -1,9 +1,8 @@
+use std::{fmt::Write, ops::BitAnd, path::PathBuf};
+
 use git2::{Branch, BranchType, DescribeOptions, Repository};
 use nu_plugin::LabeledError;
 use nu_protocol::{record, Span, Spanned, Value};
-use std::fmt::Write;
-use std::ops::BitAnd;
-use std::path::PathBuf;
 
 // git status
 // https://github.com/git/git/blob/9875c515535860450bafd1a177f64f0a478900fa/Documentation/git-status.txt
@@ -59,15 +58,16 @@ impl GStat {
             },
         };
 
-        // If there was no path specified and there is a piped in value, let's use the piped in value
+        // If there was no path specified and there is a piped in value, let's use the
+        // piped in value
         if a_path.item == "." && piped_value.chars().count() > 0 {
             a_path.item = piped_value;
         }
 
         // This path has to exist
-        // TODO: If the path is relative, it will be expanded using `std::env::current_dir` and not
-        // the "PWD" environment variable. We would need a way to read the engine's environment
-        // variables here.
+        // TODO: If the path is relative, it will be expanded using
+        // `std::env::current_dir` and not the "PWD" environment variable. We
+        // would need a way to read the engine's environment variables here.
         if !std::path::Path::new(&a_path.item).exists() {
             return Err(LabeledError {
                 label: "error with path".to_string(),
@@ -316,8 +316,9 @@ impl Stats {
 
     /// Read the branch-name of the repository
     ///
-    /// If in detached head, grab the first few characters of the commit ID if possible, otherwise
-    /// simply provide HEAD as the branch name.  This is to mimic the behaviour of `git status`.
+    /// If in detached head, grab the first few characters of the commit ID if
+    /// possible, otherwise simply provide HEAD as the branch name.  This is
+    /// to mimic the behaviour of `git status`.
     fn read_branch(&mut self, repo: &Repository) {
         self.branch = match repo.head() {
             Ok(head) => {

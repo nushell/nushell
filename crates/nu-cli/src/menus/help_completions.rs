@@ -1,9 +1,9 @@
+use std::{fmt::Write, sync::Arc};
+
 use nu_engine::documentation::get_flags_section;
 use nu_protocol::{engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
-use std::fmt::Write;
-use std::sync::Arc;
 
 pub struct NuHelpCompleter(Arc<EngineState>);
 
@@ -16,7 +16,7 @@ impl NuHelpCompleter {
         let full_commands = self.0.get_signatures_with_examples(false);
         let folded_line = line.to_folded_case();
 
-        //Vec<(Signature, Vec<Example>, bool, bool)> {
+        // Vec<(Signature, Vec<Example>, bool, bool)> {
         let mut commands = full_commands
             .iter()
             .filter(|(sig, _, _, _, _)| {

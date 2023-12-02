@@ -1,16 +1,18 @@
-use crate::grapheme_flags;
-use nu_cmd_base::input_handler::{operate, CmdArgument};
-use nu_cmd_base::util;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::ast::CellPath;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
 use std::cmp::Ordering;
+
+use nu_cmd_base::{
+    input_handler::{operate, CmdArgument},
+    util,
+};
+use nu_engine::CallExt;
+use nu_protocol::{
+    ast::{Call, CellPath},
+    engine::{Command, EngineState, Stack},
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::grapheme_flags;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -45,7 +47,10 @@ impl Command for SubCommand {
         Signature::build("str substring")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -57,7 +62,8 @@ impl Command for SubCommand {
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length \
+                 2+)",
                 Some('b'),
             )
             .required(
@@ -74,7 +80,8 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Get part of a string. Note that the start is included but the end is excluded, and that the first character of a string is index 0."
+        "Get part of a string. Note that the start is included but the end is excluded, and that \
+         the first character of a string is index 0."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -110,8 +117,8 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description:
-                    "Get a substring \"nushell\" from the text \"good nushell\" using a range",
+                description: "Get a substring \"nushell\" from the text \"good nushell\" using a \
+                              range",
                 example: " 'good nushell' | str substring 5..12",
                 result: Some(Value::test_string("nushell")),
             },

@@ -8,10 +8,10 @@ use nu_utils::{get_default_config, get_default_env};
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
-// FIXME: All benchmarks live in this 1 file to speed up build times when benchmarking.
-// When the *_benchmarks functions were in different files, `cargo bench` would build
-// an executable for every single one - incredibly slowly. Would be nice to figure out
-// a way to split things up again.
+// FIXME: All benchmarks live in this 1 file to speed up build times when
+// benchmarking. When the *_benchmarks functions were in different files, `cargo
+// bench` would build an executable for every single one - incredibly slowly.
+// Would be nice to figure out a way to split things up again.
 
 fn parser_benchmarks(c: &mut Criterion) {
     let mut engine_state = load_bench_commands();

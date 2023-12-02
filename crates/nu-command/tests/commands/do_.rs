@@ -66,9 +66,7 @@ fn ignore_error_should_work_for_external_command() {
 #[test]
 #[cfg(not(windows))]
 fn capture_error_with_too_much_stderr_not_hang_nushell() {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::pipeline;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{fs::Stub::FileWithContent, pipeline, playground::Playground};
     Playground::setup("external with many stderr message", |dirs, sandbox| {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
@@ -91,9 +89,7 @@ fn capture_error_with_too_much_stderr_not_hang_nushell() {
 #[test]
 #[cfg(not(windows))]
 fn capture_error_with_too_much_stdout_not_hang_nushell() {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::pipeline;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{fs::Stub::FileWithContent, pipeline, playground::Playground};
     Playground::setup("external with many stdout message", |dirs, sandbox| {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
@@ -116,8 +112,7 @@ fn capture_error_with_too_much_stdout_not_hang_nushell() {
 #[test]
 #[cfg(not(windows))]
 fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{fs::Stub::FileWithContent, playground::Playground};
     Playground::setup(
         "external with many stdout and stderr messages",
         |dirs, sandbox| {

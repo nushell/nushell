@@ -1,11 +1,11 @@
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use std::path::PathBuf;
+
+use nu_engine::{env::current_dir, CallExt};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
-use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Mktemp;
@@ -36,24 +36,45 @@ impl Command for Mktemp {
             .optional(
                 "template",
                 SyntaxShape::String,
-                "Optional pattern from which the name of the file or directory is derived. Must contain at least three 'X's in last component.",
+                "Optional pattern from which the name of the file or directory is derived. Must \
+                 contain at least three 'X's in last component.",
             )
-            .named("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
-            .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
-            .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
-            .switch("directory", "Create a directory instead of a file.", Some('d'))
+            .named(
+                "suffix",
+                SyntaxShape::String,
+                "Append suffix to template; must not contain a slash.",
+                None,
+            )
+            .named(
+                "tmpdir-path",
+                SyntaxShape::Filepath,
+                "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR",
+                Some('p'),
+            )
+            .switch(
+                "tmpdir",
+                "Interpret TEMPLATE relative to the system temporary directory.",
+                Some('t'),
+            )
+            .switch(
+                "directory",
+                "Create a directory instead of a file.",
+                Some('d'),
+            )
             .category(Category::FileSystem)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Make a temporary file with the given suffix in the current working directory.",
+                description: "Make a temporary file with the given suffix in the current working \
+                              directory.",
                 example: "mktemp --suffix .txt",
                 result: Some(Value::test_string("<WORKING_DIR>/tmp.lekjbhelyx.txt")),
             },
             Example {
-                description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory.",
+                description: "Make a temporary file named testfile.XXX with the 'X's as random \
+                              characters in the current working directory.",
                 example: "mktemp testfile.XXX",
                 result: Some(Value::test_string("<WORKING_DIR>/testfile.4kh")),
             },
@@ -63,7 +84,8 @@ impl Command for Mktemp {
                 result: Some(Value::test_string("/tmp/testfile.4kh")),
             },
             Example {
-                description: "Make a temporary directory with randomly generated name in the temporary directory.",
+                description: "Make a temporary directory with randomly generated name in the \
+                              temporary directory.",
                 example: "mktemp -d",
                 result: Some(Value::test_string("/tmp/tmp.NMw9fJr8K0")),
             },

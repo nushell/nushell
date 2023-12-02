@@ -1,12 +1,13 @@
+use std::cmp::Ordering;
+
 use alphanumeric_sort::compare_str;
 use nu_engine::column::nonexistent_column;
 use nu_protocol::{ShellError, Span, Value};
 use nu_utils::IgnoreCaseExt;
-use std::cmp::Ordering;
 
-// This module includes sorting functionality that is useful in sort-by and elsewhere.
-// Eventually it would be nice to find a better home for it; sorting logic is only coupled
-// to commands for historical reasons.
+// This module includes sorting functionality that is useful in sort-by and
+// elsewhere. Eventually it would be nice to find a better home for it; sorting
+// logic is only coupled to commands for historical reasons.
 
 /// Sort a value. This only makes sense for lists and list-like things,
 /// so for everything else we just return the value as-is.
@@ -39,7 +40,8 @@ pub fn sort_value(
 }
 
 /// Sort a value in-place. This is more efficient than sort_value() because it
-/// avoids cloning, but it does not work for CustomValues; they are returned as-is.
+/// avoids cloning, but it does not work for CustomValues; they are returned
+/// as-is.
 pub fn sort_value_in_place(
     val: &mut Value,
     sort_columns: Vec<String>,
@@ -68,7 +70,8 @@ pub fn sort(
     match vec.first() {
         Some(Value::Record { val: record, .. }) => {
             if sort_columns.is_empty() {
-                // This uses the same format as the 'requires a column name' error in split_by.rs
+                // This uses the same format as the 'requires a column name' error in
+                // split_by.rs
                 return Err(ShellError::GenericError(
                     "expected name".into(),
                     "requires a column name to sort table data".into(),
@@ -223,8 +226,9 @@ pub fn compare(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use nu_protocol::{record, Value};
+
+    use super::*;
 
     #[test]
     fn test_sort_value() {

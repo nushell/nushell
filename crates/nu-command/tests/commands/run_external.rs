@@ -1,7 +1,6 @@
 #[cfg(not(windows))]
 use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{nu, pipeline, playground::Playground};
 
 #[test]
 fn better_empty_redirection() {
@@ -311,7 +310,8 @@ fn can_run_batch_files_without_bat_extension() {
 #[cfg(windows)]
 #[test]
 fn quotes_trimmed_when_shelling_out() {
-    // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
+    // regression test for a bug where we weren't trimming quotes around string args
+    // before shelling out to cmd.exe
     let actual = nu!(pipeline(
         r#"
             ^echo "foo"

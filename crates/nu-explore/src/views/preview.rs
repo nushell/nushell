@@ -8,12 +8,11 @@ use nu_protocol::{
 };
 use ratatui::layout::Rect;
 
+use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
 use crate::{
     nu_common::{NuSpan, NuText},
     pager::{report::Report, Frame, Transition, ViewInfo},
 };
-
-use super::{coloredtextw::ColoredTextW, cursor::XYCursor, Layout, View, ViewConfig};
 
 // todo: Add wrap option
 #[derive(Debug)]

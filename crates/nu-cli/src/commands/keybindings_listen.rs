@@ -1,13 +1,15 @@
-use crossterm::execute;
-use crossterm::QueueableCommand;
-use crossterm::{event::Event, event::KeyCode, event::KeyEvent, terminal};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use std::io::{stdout, Write};
+
+use crossterm::{
+    event::{Event, KeyCode, KeyEvent},
+    execute, terminal, QueueableCommand,
+};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
-use std::io::{stdout, Write};
 
 #[derive(Clone)]
 pub struct KeybindingsListen;

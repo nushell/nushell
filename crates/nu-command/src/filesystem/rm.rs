@@ -1,21 +1,21 @@
-use std::collections::HashMap;
-use std::io::Error;
-use std::io::ErrorKind;
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
-use std::path::PathBuf;
-
-use super::util::try_interaction;
+use std::{
+    collections::HashMap,
+    io::{Error, ErrorKind},
+    path::PathBuf,
+};
 
 use nu_cmd_base::arg_glob_leading_dot;
-use nu_engine::env::current_dir;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{env::current_dir, CallExt};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+
+use super::util::try_interaction;
 
 const TRASH_SUPPORTED: bool = cfg!(all(
     feature = "trash-support",
@@ -48,12 +48,14 @@ impl Command for Rm {
             )
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting. not used on android and ios",
+                "move to the platform's trash instead of permanently deleting. not used on \
+                 android and ios",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
+                "delete permanently, ignoring the 'always_trash' config option. always enabled on \
+                 android and ios",
                 Some('p'),
             );
         sig.switch("recursive", "delete subdirectories recursively", Some('r'))
@@ -85,8 +87,8 @@ impl Command for Rm {
 
     fn examples(&self) -> Vec<Example> {
         let mut examples = vec![Example {
-            description:
-                "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+            description: "Delete, or move a file to the trash (based on the 'always_trash' config \
+                          option)",
             example: "rm file.txt",
             result: None,
         }];
@@ -98,8 +100,8 @@ impl Command for Rm {
                     result: None,
                 },
                 Example {
-                    description:
-                        "Delete a file permanently, even if the 'always_trash' config option is true",
+                    description: "Delete a file permanently, even if the 'always_trash' config \
+                                  option is true",
                     example: "rm --permanent file.txt",
                     result: None,
                 },
@@ -174,9 +176,8 @@ fn rm(
     if !TRASH_SUPPORTED {
         if rm_always_trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm`; the current configuration specifies \
-                    `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support`."
+                "Cannot execute `rm`; the current configuration specifies `always_trash = true`, \
+                 but the current nu executable was not built with feature `trash_support`."
                     .into(),
                 "trash required to be true but not supported".into(),
                 Some(span),
@@ -185,9 +186,11 @@ fn rm(
             ));
         } else if trash {
             return Err(ShellError::GenericError(
-                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform"
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled \
+                 or on an unsupported platform"
                     .into(),
-                "this option is only available if nu is built with the `trash-support` feature and the platform supports trash"
+                "this option is only available if nu is built with the `trash-support` feature \
+                 and the platform supports trash"
                     .into(),
                 Some(span),
                 None,

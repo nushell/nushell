@@ -21,11 +21,11 @@ fn handle_dots_push(string: &mut String, count: u8) {
     string.pop(); // remove last '/'
 }
 
-/// Expands any occurrence of more than two dots into a sequence of ../ (or ..\ on windows), e.g.,
-/// "..." into "../..", "...." into "../../../", etc.
+/// Expands any occurrence of more than two dots into a sequence of ../ (or ..\
+/// on windows), e.g., "..." into "../..", "...." into "../../../", etc.
 pub fn expand_ndots(path: impl AsRef<Path>) -> PathBuf {
-    // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking it via string
-    // conversion.
+    // Check if path is valid UTF-8 and if not, return it as it is to avoid breaking
+    // it via string conversion.
     let path_str = match path.as_ref().to_str() {
         Some(s) => s,
         None => return path.as_ref().into(),
@@ -162,8 +162,8 @@ mod tests {
         assert_eq!(PathBuf::from("/foo/bar/baz"), expand_dots(path));
     }
 
-    // track_caller refers, in the panic-message, to the line of the function call and not
-    // inside of the function, which is nice for a test-helper-function
+    // track_caller refers, in the panic-message, to the line of the function call
+    // and not inside of the function, which is nice for a test-helper-function
     #[track_caller]
     fn check_ndots_expansion(expected: &str, s: &str) {
         let expanded = expand_ndots(Path::new(s));

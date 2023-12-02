@@ -1,16 +1,17 @@
-use super::definitions::{
-    db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
-    db_index::DbIndex, db_table::DbTable,
-};
-
-use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
-use rusqlite::{types::ValueRef, Connection, Row};
-use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::Read,
     path::{Path, PathBuf},
     sync::{atomic::AtomicBool, Arc},
+};
+
+use nu_protocol::{CustomValue, PipelineData, Record, ShellError, Span, Spanned, Value};
+use rusqlite::{types::ValueRef, Connection, Row};
+use serde::{Deserialize, Serialize};
+
+use super::definitions::{
+    db_column::DbColumn, db_constraint::DbConstraint, db_foreignkey::DbForeignKey,
+    db_index::DbIndex, db_table::DbTable,
 };
 
 const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
@@ -303,8 +304,14 @@ impl CustomValue for SQLiteDatabase {
     }
 
     fn follow_path_int(&self, _count: usize, span: Span) -> Result<Value, ShellError> {
-        // In theory we could support this, but tables don't have an especially well-defined order
-        Err(ShellError::IncompatiblePathAccess { type_name: "SQLite databases do not support integer-indexed access. Try specifying a table name instead".into(), span })
+        // In theory we could support this, but tables don't have an especially
+        // well-defined order
+        Err(ShellError::IncompatiblePathAccess {
+            type_name: "SQLite databases do not support integer-indexed access. Try specifying a \
+                        table name instead"
+                .into(),
+            span,
+        })
     }
 
     fn follow_path_string(&self, _column_name: String, span: Span) -> Result<Value, ShellError> {
@@ -382,7 +389,8 @@ fn prepared_statement_to_nu_list(
         ))
     })?;
 
-    // we collect all rows before returning them. Not ideal but it's hard/impossible to return a stream from a CustomValue
+    // we collect all rows before returning them. Not ideal but it's hard/impossible
+    // to return a stream from a CustomValue
     let mut row_values = vec![];
 
     for row_result in row_results {

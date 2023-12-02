@@ -15,7 +15,6 @@ mod umkdir;
 mod util;
 mod watch;
 
-pub use self::open::Open;
 pub use cd::Cd;
 pub use cp::Cp;
 pub use glob::Glob;
@@ -30,3 +29,5 @@ pub use touch::Touch;
 pub use ucp::UCp;
 pub use umkdir::UMkdir;
 pub use watch::Watch;
+
+pub use self::open::Open;

@@ -1,4 +1,3 @@
-use crate::dataframe::values::NuExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -6,6 +5,8 @@ use nu_protocol::{
     record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use polars::prelude::col;
+
+use crate::dataframe::values::NuExpression;
 
 #[derive(Clone)]
 pub struct ExprCol;
@@ -61,8 +62,7 @@ impl Command for ExprCol {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
     use crate::dataframe::eager::ToNu;
 
     #[test]

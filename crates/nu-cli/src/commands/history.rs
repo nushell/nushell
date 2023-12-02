@@ -1,6 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData,
     ShellError, Signature, Span, Type, Value,
 };
@@ -46,7 +46,8 @@ impl Command for History {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
+        // todo for sqlite history this command should be an alias to `open
+        // ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag("clear");
             let long = call.has_flag("long");
@@ -68,27 +69,27 @@ impl Command for History {
                 // TODO: FIXME also clear the auxiliary files when using sqlite
                 Ok(PipelineData::empty())
             } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> =
-                    match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => {
-                            SqliteBackedHistory::with_file(history_path, None)
-                                .map(|inner| {
-                                    let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                    boxed
-                                })
-                                .ok()
-                        }
-
-                        HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                            engine_state.config.max_history_size as usize,
-                            history_path,
-                        )
+                let history_reader: Option<Box<dyn ReedlineHistory>> = match engine_state
+                    .config
+                    .history_file_format
+                {
+                    HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path, None)
                         .map(|inner| {
                             let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                             boxed
                         })
                         .ok(),
-                    };
+
+                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+                        engine_state.config.max_history_size as usize,
+                        history_path,
+                    )
+                    .map(|inner| {
+                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                        boxed
+                    })
+                    .ok(),
+                };
 
                 match engine_state.config.history_file_format {
                     HistoryFileFormat::PlainText => Ok(history_reader
@@ -150,8 +151,8 @@ impl Command for History {
 }
 
 fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
-    //1. Format all the values
-    //2. Create a record of either short or long columns and values
+    // 1. Format all the values
+    // 2. Create a record of either short or long columns and values
 
     let item_id_value = Value::int(
         match entry.id {

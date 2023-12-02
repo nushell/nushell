@@ -1,5 +1,4 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn semicolon_allows_lhs_to_complete() {

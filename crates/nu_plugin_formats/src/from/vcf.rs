@@ -1,5 +1,4 @@
-use ical::parser::vcard::component::*;
-use ical::property::Property;
+use ical::{parser::vcard::component::*, property::Property};
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
 use nu_protocol::{record, PluginExample, ShellError, Span, Value};

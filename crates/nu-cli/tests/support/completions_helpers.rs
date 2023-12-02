@@ -15,7 +15,8 @@ fn create_default_context() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
 
-// creates a new engine with the current path into the completions fixtures folder
+// creates a new engine with the current path into the completions fixtures
+// folder
 pub fn new_engine() -> (PathBuf, String, EngineState, Stack) {
     // Target folder inside assets
     let dir = fs::fixtures().join("completions");
@@ -151,9 +152,8 @@ pub fn match_suggestions(expected: Vec<String>, suggestions: Vec<Suggestion>) {
     let suggestions_len = suggestions.len();
     if expected_len != suggestions_len {
         panic!(
-            "\nexpected {expected_len} suggestions but got {suggestions_len}: \n\
-            Suggestions: {suggestions:#?} \n\
-            Expected: {expected:#?}\n"
+            "\nexpected {expected_len} suggestions but got {suggestions_len}: \nSuggestions: \
+             {suggestions:#?} \nExpected: {expected:#?}\n"
         )
     }
     expected.iter().zip(suggestions).for_each(|it| {

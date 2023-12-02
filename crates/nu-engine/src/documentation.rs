@@ -1,11 +1,11 @@
-use nu_protocol::ast::{Argument, Expr, Expression};
+use std::{collections::HashMap, fmt::Write};
+
 use nu_protocol::{
-    ast::Call,
+    ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
 
@@ -69,7 +69,7 @@ fn get_documentation(
     is_parser_keyword: bool,
 ) -> String {
     // Create ansi colors
-    //todo make these configurable -- pull from enginestate.config
+    // todo make these configurable -- pull from enginestate.config
     let help_section_name: String =
         get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
 
@@ -176,7 +176,8 @@ fn get_documentation(
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
+                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} \
+                         (optional)",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -431,12 +432,13 @@ pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
 pub fn get_flags_section<F>(
     engine_state_opt: Option<&EngineState>,
     signature: &Signature,
-    mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
+    mut value_formatter: F, /* format default Value (because some calls cant access config or
+                             * nu-highlight) */
 ) -> String
 where
     F: FnMut(&nu_protocol::Value) -> String,
 {
-    //todo make these configurable -- pull from enginestate.config
+    // todo make these configurable -- pull from enginestate.config
     let help_section_name: String;
     let help_subcolor_one: String;
     let help_subcolor_two: String;
@@ -490,7 +492,8 @@ where
                     )
                 } else {
                     format!(
-                        "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
+                        "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - \
+                         {}{}\n",
                         short,
                         if !flag.long.is_empty() {
                             format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
@@ -504,7 +507,8 @@ where
                 }
             } else if flag.required {
                 format!(
-                    "  {help_subcolor_one}--{}{RESET} (required parameter) <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
+                    "  {help_subcolor_one}--{}{RESET} (required parameter) \
+                     <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
                     flag.long, arg, flag.desc, default_str,
                 )
             } else {

@@ -1,6 +1,5 @@
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
-use nu_protocol::{TableMode, TrimStrategy};
+use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
 
 use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
@@ -136,7 +135,8 @@ fn make_styled_string(
             }
         }
         None => {
-            // Though holes are not the same as null, the closure for "empty" is passed a null anyway.
+            // Though holes are not the same as null, the closure for "empty" is passed a
+            // null anyway.
             (
                 text,
                 TextStyle::with_style(

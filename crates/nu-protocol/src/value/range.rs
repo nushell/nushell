@@ -1,8 +1,9 @@
-use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     sync::{atomic::AtomicBool, Arc},
 };
+
+use serde::{Deserialize, Serialize};
 
 /// A Range is an iterator over integers.
 use crate::{
@@ -27,7 +28,8 @@ impl Range {
         operator: &RangeOperator,
     ) -> Result<Range, ShellError> {
         // Select from & to values if they're not specified
-        // TODO: Replace the placeholder values with proper min/max for range based on data type
+        // TODO: Replace the placeholder values with proper min/max for range based on
+        // data type
         let from = if let Value::Nothing { .. } = from {
             Value::int(0i64, expr_span)
         } else {
@@ -195,6 +197,7 @@ impl RangeIterator {
 
 impl Iterator for RangeIterator {
     type Item = Value;
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.done {
             return None;

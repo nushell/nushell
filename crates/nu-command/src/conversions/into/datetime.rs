@@ -1,6 +1,4 @@
-use crate::{generate_strftime_list, parse_date_from_string};
-use chrono::NaiveTime;
-use chrono::{DateTime, FixedOffset, Local, TimeZone, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveTime, TimeZone, Utc};
 use human_date_parser::{from_human_time, ParseResult};
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
@@ -10,6 +8,8 @@ use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+
+use crate::{generate_strftime_list, parse_date_from_string};
 
 struct Arguments {
     zone_options: Option<Spanned<Zone>>,
@@ -46,6 +46,7 @@ impl Zone {
             Self::Error // Out of range
         }
     }
+
     fn from_string(s: String) -> Self {
         match s.to_ascii_lowercase().as_str() {
             "utc" | "u" => Self::Utc,
@@ -65,44 +66,50 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("into datetime")
-        .input_output_types(vec![
-            (Type::Int, Type::Date),
-            (Type::String, Type::Date),
-            (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Date))),
-            (Type::Table(vec![]), Type::Table(vec![])),
-            (Type::Record(vec![]), Type::Record(vec![])),
-        ])
-        .allow_variants_without_examples(true)
-        .named(
+            .input_output_types(vec![
+                (Type::Int, Type::Date),
+                (Type::String, Type::Date),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::Date)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
+            .named(
                 "timezone",
                 SyntaxShape::String,
-                "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l')",
+                "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or \
+                 'LOCAL' ('l')",
                 Some('z'),
             )
             .named(
                 "offset",
                 SyntaxShape::Int,
-                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', '-4'",
+                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', \
+                 '-4'",
                 Some('o'),
             )
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of INPUT string to parse to datetime. Use --list to see options",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see \
+                 options",
                 Some('f'),
             )
             .switch(
                 "list",
                 "Show all possible variables for use in --format flag",
                 Some('l'),
-                )
+            )
             .switch(
                 "list-human",
                 "Show human-readable datetime parsing examples",
                 Some('n'),
-                )
+            )
             .rest(
-            "rest",
+                "rest",
                 SyntaxShape::CellPath,
                 "for a data structure input, convert data at the given cell paths",
             )
@@ -181,15 +188,15 @@ impl Command for SubCommand {
                 result: example_result_1(1614434140_224600000),
             },
             Example {
-                description:
-                    "Convert non-standard timestamp string to datetime using a custom format",
+                description: "Convert non-standard timestamp string to datetime using a custom \
+                              format",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
-                description:
-                    "Convert nanosecond-precision unix timestamp to a datetime with offset from UTC",
+                description: "Convert nanosecond-precision unix timestamp to a datetime with \
+                              offset from UTC",
                 example: "1614434140123456789 | into datetime --offset -5",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_123456789),
@@ -296,7 +303,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     }
     const HOUR: i32 = 60 * 60;
 
-    // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to an int?)
+    // Check to see if input looks like a Unix timestamp (i.e. can it be parsed to
+    // an int?)
     let timestamp = match input {
         Value::Int { val, .. } => Ok(*val),
         Value::String { val, .. } => val.parse::<i64>(),
@@ -318,7 +326,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     if dateformat.is_none() {
         if let Ok(ts) = timestamp {
             return match timezone {
-                // note all these `.timestamp_nanos()` could overflow if we didn't check range in `<date> | into int`.
+                // note all these `.timestamp_nanos()` could overflow if we didn't check range in
+                // `<date> | into int`.
 
                 // default to UTC
                 None => Value::date(Utc.timestamp_nanos(ts).into(), head),
@@ -376,23 +385,27 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::String { val, .. } => {
             match dateformat {
                 Some(dt) => match DateTime::parse_from_str(val, &dt.0) {
-                    Ok(d) => Value::date ( d, head ),
-                    Err(reason) => {
-                        Value::error (
-                            ShellError::CantConvert { to_type: format!("could not parse as datetime using format '{}'", dt.0), from_type: reason.to_string(), span: head, help: Some("you can use `into datetime` without a format string to enable flexible parsing".to_string()) },
-                            head,
-                        )
-                    }
+                    Ok(d) => Value::date(d, head),
+                    Err(reason) => Value::error(
+                        ShellError::CantConvert {
+                            to_type: format!("could not parse as datetime using format '{}'", dt.0),
+                            from_type: reason.to_string(),
+                            span: head,
+                            help: Some(
+                                "you can use `into datetime` without a format string to enable \
+                                 flexible parsing"
+                                    .to_string(),
+                            ),
+                        },
+                        head,
+                    ),
                 },
 
                 // Tries to automatically parse the date
                 // (i.e. without a format string)
                 // and assumes the system's local timezone if none is specified
                 None => match parse_date_from_string(val, span) {
-                    Ok(date) => Value::date (
-                        date,
-                        span,
-                    ),
+                    Ok(date) => Value::date(date, span),
                     Err(err) => err,
                 },
             }
@@ -451,9 +464,9 @@ fn list_human_readable_examples(span: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use super::{action, DatetimeFormat, SubCommand, Zone};
     use nu_protocol::Type::Error;
+
+    use super::{action, DatetimeFormat, SubCommand, Zone, *};
 
     #[test]
     fn test_examples() {

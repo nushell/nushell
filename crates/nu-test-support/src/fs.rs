@@ -1,7 +1,9 @@
-use std::fmt::Display;
-use std::io::Read;
-use std::ops::Div;
-use std::path::{Path, PathBuf};
+use std::{
+    fmt::Display,
+    io::Read,
+    ops::Div,
+    path::{Path, PathBuf},
+};
 
 pub struct AbsoluteFile {
     inner: PathBuf,

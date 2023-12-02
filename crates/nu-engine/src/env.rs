@@ -1,11 +1,14 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-
-use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
-use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use nu_path::canonicalize_with;
+use nu_protocol::{
+    ast::{Call, Expr},
+    engine::{EngineState, Stack, StateWorkingSet, PWD_ENV},
+    Config, PipelineData, ShellError, Span, Value, VarId,
+};
 
 use crate::eval_block;
 
@@ -23,15 +26,17 @@ enum ConversionResult {
     Ok(Value),
     ConversionError(ShellError), // Failure during the conversion itself
     GeneralError(ShellError),    // Other error not directly connected to running the conversion
-    CellPathError, // Error looking up the ENV_VAR.to_/from_string fields in $env.ENV_CONVERSIONS
+    CellPathError,               /* Error looking up the ENV_VAR.to_/from_string fields in
+                                  * $env.ENV_CONVERSIONS */
 }
 
-/// Translate environment variables from Strings to Values. Requires config to be already set up in
-/// case the user defined custom env conversions in config.nu.
+/// Translate environment variables from Strings to Values. Requires config to
+/// be already set up in case the user defined custom env conversions in
+/// config.nu.
 ///
-/// It returns Option instead of Result since we do want to translate all the values we can and
-/// skip errors. This function is called in the main() so we want to keep running, we cannot just
-/// exit.
+/// It returns Option instead of Result since we do want to translate all the
+/// values we can and skip errors. This function is called in the main() so we
+/// want to keep running, we cannot just exit.
 pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Option<ShellError> {
     let mut error = None;
 
@@ -76,12 +81,22 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
             }
         } else {
             error = error.or_else(|| {
-                Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in permanent state.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
+                Some(ShellError::NushellFailedHelp {
+                    msg: "Last active overlay not found in permanent state.".into(),
+                    help: "This error happened during the conversion of environment variables \
+                           from strings to Nushell values."
+                        .into(),
+                })
             });
         }
     } else {
         error = error.or_else(|| {
-            Some(ShellError::NushellFailedHelp { msg: "Last active overlay not found in stack.".into(), help: "This error happened during the conversion of environment variables from strings to Nushell values.".into() })
+            Some(ShellError::NushellFailedHelp {
+                msg: "Last active overlay not found in stack.".into(),
+                help: "This error happened during the conversion of environment variables from \
+                       strings to Nushell values."
+                    .into(),
+            })
         });
     }
 
@@ -160,18 +175,22 @@ pub fn env_to_strings(
 /// Shorthand for env_to_string() for PWD with custom error
 pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<String, ShellError> {
     if let Some(pwd) = stack.get_env_var(engine_state, PWD_ENV) {
-        // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS on it
+        // TODO: PWD should be string by default, we don't need to run ENV_CONVERSIONS
+        // on it
         match env_to_string(PWD_ENV, &pwd, engine_state, stack) {
             Ok(cwd) => {
                 if Path::new(&cwd).is_absolute() {
                     Ok(cwd)
                 } else {
                     Err(ShellError::GenericError(
-                            "Invalid current directory".to_string(),
-                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()),
-                            None,
-                            Vec::new()
+                        "Invalid current directory".to_string(),
+                        format!(
+                            "The 'PWD' environment variable must be set to an absolute path. \
+                             Found: '{cwd}'"
+                        ),
+                        Some(pwd.span()),
+                        None,
+                        Vec::new(),
                     ))
                 }
             }
@@ -179,11 +198,15 @@ pub fn current_dir_str(engine_state: &EngineState, stack: &Stack) -> Result<Stri
         }
     } else {
         Err(ShellError::GenericError(
-                "Current directory not found".to_string(),
-                "".to_string(),
-                None,
-                Some("The environment variable 'PWD' was not found. It is required to define the current directory.".to_string()),
-                Vec::new(),
+            "Current directory not found".to_string(),
+            "".to_string(),
+            None,
+            Some(
+                "The environment variable 'PWD' was not found. It is required to define the \
+                 current directory."
+                    .to_string(),
+            ),
+            Vec::new(),
         ))
     }
 }
@@ -198,11 +221,14 @@ pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, Sh
                     Ok(val.clone())
                 } else {
                     Err(ShellError::GenericError(
-                            "Invalid current directory".to_string(),
-                            format!("The 'PWD' environment variable must be set to an absolute path. Found: '{val}'"),
-                            Some(span),
-                            None,
-                            Vec::new()
+                        "Invalid current directory".to_string(),
+                        format!(
+                            "The 'PWD' environment variable must be set to an absolute path. \
+                             Found: '{val}'"
+                        ),
+                        Some(span),
+                        None,
+                        Vec::new(),
                     ))
                 }
             }
@@ -219,11 +245,15 @@ pub fn current_dir_str_const(working_set: &StateWorkingSet) -> Result<String, Sh
         }
     } else {
         Err(ShellError::GenericError(
-                "Current directory not found".to_string(),
-                "".to_string(),
-                None,
-                Some("The environment variable 'PWD' was not found. It is required to define the current directory.".to_string()),
-                Vec::new(),
+            "Current directory not found".to_string(),
+            "".to_string(),
+            None,
+            Some(
+                "The environment variable 'PWD' was not found. It is required to define the \
+                 current directory."
+                    .to_string(),
+            ),
+            Vec::new(),
         ))
     }
 }
@@ -287,8 +317,8 @@ pub fn get_dirs_var_from_call(call: &Call) -> Option<VarId> {
 ///   b) current working directory (PWD)
 ///
 /// Then, if the file is not found in the actual cwd, NU_LIB_DIRS is checked.
-/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to the actual cwd
-/// determined in the first step.
+/// If there is a relative path in NU_LIB_DIRS, it is assumed to be relative to
+/// the actual cwd determined in the first step.
 ///
 /// Always returns an absolute path
 pub fn find_in_dirs_env(
@@ -305,11 +335,14 @@ pub fn find_in_dirs_env(
                     cwd
                 } else {
                     return Err(ShellError::GenericError(
-                            "Invalid current directory".to_string(),
-                            format!("The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"),
-                            Some(pwd.span()),
-                            None,
-                            Vec::new()
+                        "Invalid current directory".to_string(),
+                        format!(
+                            "The 'FILE_PWD' environment variable must be set to an absolute path. \
+                             Found: '{cwd}'"
+                        ),
+                        Some(pwd.span()),
+                        None,
+                        Vec::new(),
                     ));
                 }
             }
@@ -350,8 +383,9 @@ pub fn find_in_dirs_env(
 
 /// Get config
 ///
-/// This combines config stored in permanent state and any runtime updates to the environment. This
-/// is the canonical way to fetch config at runtime when you have Stack available.
+/// This combines config stored in permanent state and any runtime updates to
+/// the environment. This is the canonical way to fetch config at runtime when
+/// you have Stack available.
 pub fn get_config(engine_state: &EngineState, stack: &Stack) -> Config {
     if let Some(mut config_record) = stack.get_env_var(engine_state, "config") {
         config_record.into_config(engine_state.get_config()).0

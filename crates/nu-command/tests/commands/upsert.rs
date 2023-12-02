@@ -53,7 +53,8 @@ fn sets_the_column_from_a_subexpression() {
 #[test]
 fn upsert_uses_enumerate_index_inserting() {
     let actual = nu!(
-        "[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
+        "[[a]; [7] [6]] | enumerate | upsert b {|el| $el.index + 1 + $el.item.a } | flatten | to \
+         nuon"
     );
 
     assert_eq!(actual.out, "[[index, a, b]; [0, 7, 8], [1, 6, 8]]");
@@ -61,7 +62,10 @@ fn upsert_uses_enumerate_index_inserting() {
 
 #[test]
 fn upsert_uses_enumerate_index_updating() {
-    let actual = nu!("[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon");
+    let actual = nu!(
+        "[[a]; [7] [6]] | enumerate | upsert a {|el| $el.index + 1 + $el.item.a } | flatten | to \
+         nuon"
+    );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
 }

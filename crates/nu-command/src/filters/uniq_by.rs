@@ -1,11 +1,11 @@
-pub use super::uniq;
-use nu_engine::column::nonexistent_column;
-use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_engine::{column::nonexistent_column, CallExt};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+pub use super::uniq;
 
 #[derive(Clone)]
 pub struct UniqBy;
@@ -116,7 +116,8 @@ fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellEr
         let val_span = v.span();
         if let Value::Record { val: record, .. } = &v {
             if columns.is_empty() {
-                // This uses the same format as the 'requires a column name' error in split_by.rs
+                // This uses the same format as the 'requires a column name' error in
+                // split_by.rs
                 return Err(ShellError::GenericError(
                     "expected name".into(),
                     "requires a column name to filter table data".into(),

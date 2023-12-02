@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
@@ -8,7 +10,6 @@ use nu_protocol::{
 };
 use reedline::Completer;
 use serde_json::{json, Value as JsonValue};
-use std::sync::Arc;
 
 #[derive(Debug)]
 enum Id {
@@ -103,7 +104,8 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
         for (idx, err) in working_set.parse_errors.iter().enumerate() {
             if idx >= max_errors {
-                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors: {max_errors}");
+                // eprintln!("Too many errors, stopping here. idx: {idx} max_errors:
+                // {max_errors}");
                 break;
             }
             let mut span = err.span();

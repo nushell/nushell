@@ -1,7 +1,7 @@
 use nu_engine::{eval_expression, CallExt};
-use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Argument, Block, Call, Expr, Expression},
+    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     Span, SyntaxShape, Type, Value,
 };
@@ -51,8 +51,8 @@ impl Command for Explain {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Explain a command within a closure",
-            example:
-                "explain {|| ls | sort-by name type --ignore-case | get name } | table --expand",
+            example: "explain {|| ls | sort-by name type --ignore-case | get name } | table \
+                      --expand",
             result: None,
         }]
     }
@@ -111,8 +111,8 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
     let span = Span::test_data();
     for arg in &call.arguments {
         match arg {
-            // I think the second argument to Argument::Named is the short name, but I'm not really sure.
-            // Please fix it if it's wrong. :)
+            // I think the second argument to Argument::Named is the short name, but I'm not really
+            // sure. Please fix it if it's wrong. :)
             Argument::Named((name, short, opt_expr)) => {
                 let arg_type = "named";
                 let arg_value_name = name.item.clone();
@@ -251,7 +251,7 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
             Ok(val) => debug_string_without_formatting(&val),
             Err(error) => format!("{error:?}"),
         },
-        //TODO: It would be good to drill in deeper to blocks and closures.
+        // TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
         Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),

@@ -1,10 +1,11 @@
-use super::super::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::super::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct FirstDF;
@@ -119,10 +120,11 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
-    use super::*;
-    use crate::dataframe::lazy::aggregate::LazyAggregate;
-    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
+    use super::{
+        super::super::test_dataframe::{build_test_engine_state, test_dataframe_example},
+        *,
+    };
+    use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
 
     #[test]
     fn test_examples_dataframe() {

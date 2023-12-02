@@ -1,7 +1,7 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
@@ -15,7 +15,8 @@ impl Command for EachWhile {
     }
 
     fn usage(&self) -> &str {
-        "Run a block on each row of the input list until a null is found, then create a new list with the results."
+        "Run a block on each row of the input list until a null is found, then create a new list \
+         with the results."
     }
 
     fn search_terms(&self) -> Vec<&str> {

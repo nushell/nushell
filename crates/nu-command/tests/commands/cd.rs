@@ -1,7 +1,6 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
 use std::path::PathBuf;
+
+use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
 
 #[test]
 fn cd_works_with_in_var() {

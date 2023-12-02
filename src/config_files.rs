@@ -1,15 +1,15 @@
+use std::{fs::File, io::Write, path::Path};
+
 use log::info;
 #[cfg(feature = "plugin")]
 use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
-use nu_protocol::report_error;
-use nu_protocol::{ParseError, PipelineData, Spanned};
+use nu_protocol::{
+    engine::{EngineState, Stack, StateWorkingSet},
+    report_error, ParseError, PipelineData, Spanned,
+};
 use nu_utils::{get_default_config, get_default_env};
-use std::fs::File;
-use std::io::Write;
-use std::path::Path;
 
 pub(crate) const NUSHELL_FOLDER: &str = "nushell";
 const CONFIG_FILE: &str = "config.nu";

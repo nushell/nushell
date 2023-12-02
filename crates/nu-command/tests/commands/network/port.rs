@@ -1,6 +1,6 @@
+use std::{net::TcpListener, sync::mpsc};
+
 use nu_test_support::{nu, pipeline};
-use std::net::TcpListener;
-use std::sync::mpsc;
 
 #[test]
 fn port_with_invalid_range() {

@@ -1,11 +1,12 @@
+use std::collections::BTreeSet;
+
 use nu_engine::CallExt;
-use nu_protocol::ast::{Call, CellPath, PathMember};
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::{Call, CellPath, PathMember},
+    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineIterator, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub struct Select;
@@ -154,11 +155,9 @@ produce a table, a list will produce a list, and a record will produce a record.
             Example {
                 description: "Select a column in a table",
                 example: "[{a: a b: b}] | select a",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "a" => Value::test_string("a")
-                    })],
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_string("a")
+                })])),
             },
             Example {
                 description: "Select a field in a record",
@@ -179,22 +178,27 @@ produce a table, a list will produce a list, and a record will produce a record.
             },
             Example {
                 description: "Select columns by a provided list of columns",
-                example: "let cols = [name type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select $cols",
-                result: None
+                example: "let cols = [name type];[[name type size]; [Cargo.toml toml 1kb] \
+                          [Cargo.lock toml 2kb]] | select $cols",
+                result: None,
             },
             Example {
                 description: "Select columns by a provided list of columns",
                 example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ["name", "type"]"#,
-                result: Some(Value::test_list(
-                    vec![
-                        Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
-                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")})],
-                ))
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")},
+                    ),
+                    Value::test_record(
+                        record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")},
+                    ),
+                ])),
             },
             Example {
                 description: "Select rows by a provided list of rows",
-                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | select $rows",
-                result: None
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock \
+                          toml 2kb] [file.json json 3kb]] | select $rows",
+                result: None,
             },
         ]
     }
@@ -263,7 +267,7 @@ fn select(
                         if !columns.is_empty() {
                             let mut record = Record::new();
                             for path in &columns {
-                                //FIXME: improve implementation to not clone
+                                // FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
                                         record.push(path.to_string().replace('.', "_"), fetcher);
@@ -318,7 +322,7 @@ fn select(
                 if !columns.is_empty() {
                     let mut record = Record::new();
                     for path in &columns {
-                        //FIXME: improve implementation to not clone
+                        // FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
                                 record.push(path.to_string().replace('.', "_"), value);

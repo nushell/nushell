@@ -1,6 +1,8 @@
-use nu_test_support::fs::{file_contents, Stub::FileWithContent};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{
+    fs::{file_contents, Stub::FileWithContent},
+    nu,
+    playground::Playground,
+};
 
 #[cfg(not(windows))]
 #[test]
@@ -130,8 +132,7 @@ fn separate_redirection() {
 
 #[test]
 fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
-    use nu_test_support::pipeline;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{pipeline, playground::Playground};
     Playground::setup("external with many stderr message", |dirs, sandbox| {
         let bytes: usize = 81920;
         let mut large_file_body = String::with_capacity(bytes);
@@ -185,8 +186,10 @@ fn redirection_keep_exit_codes() {
 #[cfg(not(windows))]
 #[test]
 fn redirection_with_pipeline_works() {
-    use nu_test_support::fs::{file_contents, Stub::FileWithContent};
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{
+        fs::{file_contents, Stub::FileWithContent},
+        playground::Playground,
+    };
     Playground::setup(
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
@@ -292,8 +295,7 @@ fn redirection_should_have_a_target() {
 #[test]
 #[cfg(not(windows))]
 fn redirection_with_pipe() {
-    use nu_test_support::fs::Stub::FileWithContent;
-    use nu_test_support::playground::Playground;
+    use nu_test_support::{fs::Stub::FileWithContent, playground::Playground};
     Playground::setup(
         "external with many stdout and stderr messages",
         |dirs, sandbox| {

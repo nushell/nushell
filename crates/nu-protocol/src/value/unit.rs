@@ -1,5 +1,6 @@
-use crate::{ShellError, Span, Value};
 use serde::{Deserialize, Serialize};
+
+use crate::{ShellError, Span, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Unit {

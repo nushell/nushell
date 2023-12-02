@@ -1,18 +1,12 @@
-use serde::Deserialize;
-use serde::Serialize;
-
-use crate::ast::Call;
-use crate::engine::Command;
-use crate::engine::EngineState;
-use crate::engine::Stack;
-use crate::BlockId;
-use crate::PipelineData;
-use crate::ShellError;
-use crate::SyntaxShape;
-use crate::Type;
-use crate::Value;
-use crate::VarId;
 use std::fmt::Write;
+
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    BlockId, PipelineData, ShellError, SyntaxShape, Type, Value, VarId,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Flag {
@@ -416,7 +410,8 @@ impl Signature {
         self
     }
 
-    // Is it allowed for the type signature to feature a variant that has no corresponding example?
+    // Is it allowed for the type signature to feature a variant that has no
+    // corresponding example?
     pub fn allow_variants_without_examples(mut self, allow: bool) -> Signature {
         self.allow_variants_without_examples = allow;
         self
@@ -429,8 +424,8 @@ impl Signature {
 
         // Note: the call signature needs flags first because on the nu commandline,
         // flags will precede the script file name. Flags for internal commands can come
-        // either before or after (or around) positional parameters, so there isn't a strong
-        // preference, so we default to the more constrained example.
+        // either before or after (or around) positional parameters, so there isn't a
+        // strong preference, so we default to the more constrained example.
         if self.named.len() > 1 {
             one_liner.push_str("{flags} ");
         }
@@ -565,9 +560,10 @@ impl Signature {
         self
     }
 
-    /// Create a placeholder implementation of Command as a way to predeclare a definition's
-    /// signature so other definitions can see it. This placeholder is later replaced with the
-    /// full definition in a second pass of the parser.
+    /// Create a placeholder implementation of Command as a way to predeclare a
+    /// definition's signature so other definitions can see it. This
+    /// placeholder is later replaced with the full definition in a second
+    /// pass of the parser.
     pub fn predeclare(self) -> Box<dyn Command> {
         Box::new(Predeclaration { signature: self })
     }

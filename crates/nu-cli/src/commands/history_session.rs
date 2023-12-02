@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
@@ -42,8 +42,8 @@ impl Command for HistorySession {
             },
             // Example {
             //     example: "history session --set (history session)",
-            //     description: "Sets the history session to a different history session (example sets it to the same history session)",
-            //     result: None,
+            //     description: "Sets the history session to a different history session (example
+            // sets it to the same history session)",     result: None,
             // },
         ]
     }
@@ -60,7 +60,8 @@ impl Command for HistorySession {
         //     let set_session_id = set_session.as_i64()?;
         //     #[allow(mutable_transmutes)]
         //     let engine_state =
-        //         unsafe { std::mem::transmute::<&EngineState, &mut EngineState>(engine_state) };
+        //         unsafe { std::mem::transmute::<&EngineState, &mut
+        // EngineState>(engine_state) };
 
         //     update_history_id_in_engine(
         //         engine_state,
@@ -70,8 +71,8 @@ impl Command for HistorySession {
         //     engine_state.history_session_id = set_session_id;
         //     Ok(Value::nothing(call.head).into_pipeline_data())
         // } else {
-        //     Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
-        // }
+        //     Ok(Value::int(engine_state.history_session_id,
+        // call.head).into_pipeline_data()) }
         Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
     }
 }

@@ -1,9 +1,11 @@
-use crate::{Record, ShellError, Span, Value};
 use std::fmt;
 
+use crate::{Record, ShellError, Span, Value};
+
 // Trait definition for a lazy record (where columns are evaluated on-demand)
-// typetag is needed to make this implement Serialize+Deserialize... even though we should never actually serialize a LazyRecord.
-// To serialize a LazyRecord, collect it into a Value::Record with collect() first.
+// typetag is needed to make this implement Serialize+Deserialize... even though
+// we should never actually serialize a LazyRecord. To serialize a LazyRecord,
+// collect it into a Value::Record with collect() first.
 pub trait LazyRecord<'a>: fmt::Debug + Send + Sync {
     // All column names
     fn column_names(&'a self) -> Vec<&'a str>;
@@ -13,7 +15,8 @@ pub trait LazyRecord<'a>: fmt::Debug + Send + Sync {
 
     fn span(&self) -> Span;
 
-    // Convert the lazy record into a regular Value::Record by collecting all its columns
+    // Convert the lazy record into a regular Value::Record by collecting all its
+    // columns
     fn collect(&'a self) -> Result<Value, ShellError> {
         self.column_names()
             .into_iter()

@@ -1,3 +1,4 @@
+use nu_cmd_lang::Let;
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
@@ -5,10 +6,11 @@ use nu_protocol::{
     Example, PipelineData, Span,
 };
 
-use super::eager::ToDataFrame;
-use super::expressions::ExprCol;
-use super::lazy::{LazyCollect, ToLazyFrame};
-use nu_cmd_lang::Let;
+use super::{
+    eager::ToDataFrame,
+    expressions::ExprCol,
+    lazy::{LazyCollect, ToLazyFrame},
+};
 
 pub fn test_dataframe(cmds: Vec<Box<dyn Command + 'static>>) {
     if cmds.is_empty() {

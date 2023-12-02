@@ -1,8 +1,8 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{
+    fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
+    nu, pipeline,
+    playground::Playground,
+};
 
 #[test]
 fn parses_file_with_uppercase_extension() {
@@ -135,8 +135,8 @@ fn parses_csv() {
 // with three tables named `strings`, `ints`, and `floats`.
 //
 // Each table has different columns. `strings` has `x` and `y`, while
-// `ints` has just `z`, and `floats` has only the column `f`. In general, when working
-// with sqlite, one will want to select a single table, e.g.:
+// `ints` has just `z`, and `floats` has only the column `f`. In general, when
+// working with sqlite, one will want to select a single table, e.g.:
 //
 // open sample.db | get ints
 // ╭───┬──────╮

@@ -1,6 +1,7 @@
+use std::io::{Result, Write};
+
 use log::info;
 use lscolors::LsColors;
-use std::io::{Result, Write};
 
 pub fn enable_vt_processing() -> Result<()> {
     #[cfg(windows)]

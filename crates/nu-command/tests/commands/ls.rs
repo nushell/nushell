@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::playground::Playground;
-use nu_test_support::{nu, pipeline};
+use nu_test_support::{fs::Stub::EmptyFile, nu, pipeline, playground::Playground};
 
 #[test]
 fn lists_regular_files() {
@@ -547,15 +545,15 @@ fn lists_with_directory_flag_without_argument() {
     });
 }
 
-/// Rust's fs::metadata function is unable to read info for certain system files on Windows,
-/// like the `C:\Windows\System32\Configuration` folder. https://github.com/rust-lang/rust/issues/96980
+/// Rust's fs::metadata function is unable to read info for certain system files
+/// on Windows, like the `C:\Windows\System32\Configuration` folder. https://github.com/rust-lang/rust/issues/96980
 /// This test confirms that Nu can work around this successfully.
 #[test]
 #[cfg(windows)]
 fn can_list_system_folder() {
-    // the awkward `ls Configuration* | where name == "Configuration"` thing is for speed;
-    // listing the entire System32 folder is slow and `ls Configuration*` alone
-    // might return more than 1 file someday
+    // the awkward `ls Configuration* | where name == "Configuration"` thing is for
+    // speed; listing the entire System32 folder is slow and `ls Configuration*`
+    // alone might return more than 1 file someday
     let file_type = nu!(
         cwd: "C:\\Windows\\System32", pipeline(
         r#"ls Configuration* | where name == "Configuration" | get type.0"#
@@ -604,8 +602,7 @@ fn list_a_directory_not_exists() {
 #[cfg(target_os = "linux")]
 #[test]
 fn list_directory_contains_invalid_utf8() {
-    use std::ffi::OsStr;
-    use std::os::unix::ffi::OsStrExt;
+    use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
     Playground::setup(
         "ls_test_directory_contains_invalid_utf8",

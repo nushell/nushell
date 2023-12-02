@@ -1,7 +1,7 @@
+use std::{fs, path::Path};
+
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
-use std::fs;
-use std::path::Path;
 
 #[cfg(not(target_os = "windows"))]
 fn adjust_canonicalization<P: AsRef<Path>>(p: P) -> String {
@@ -35,7 +35,8 @@ fn test_default_config_path() {
         let _ = std::fs::File::create(&config_path);
     }
 
-    // We use canonicalize here in case the config or env is symlinked since $nu.config-path is returning the canonicalized path in #8653
+    // We use canonicalize here in case the config or env is symlinked since
+    // $nu.config-path is returning the canonicalized path in #8653
     let canon_config_path = adjust_canonicalization(
         std::fs::canonicalize(config_path).expect("canonicalize config-path failed"),
     );

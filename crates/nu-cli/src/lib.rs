@@ -16,7 +16,11 @@ mod validation;
 
 pub use commands::add_cli_context;
 pub use completions::{FileCompletion, NuCompleter};
+#[cfg(feature = "plugin")]
+pub use config_files::add_plugin_file;
 pub use config_files::eval_config_contents;
+#[cfg(feature = "plugin")]
+pub use config_files::read_plugin_file;
 pub use eval_cmds::evaluate_commands;
 pub use eval_file::evaluate_file;
 pub use menus::{DescriptionMenu, NuHelpCompleter};
@@ -28,8 +32,3 @@ pub use repl::evaluate_repl;
 pub use syntax_highlight::NuHighlighter;
 pub use util::{eval_source, gather_parent_env_vars};
 pub use validation::NuValidator;
-
-#[cfg(feature = "plugin")]
-pub use config_files::add_plugin_file;
-#[cfg(feature = "plugin")]
-pub use config_files::read_plugin_file;

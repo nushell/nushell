@@ -1,13 +1,11 @@
-use std::fs::OpenOptions;
-use std::path::Path;
+use std::{fs::OpenOptions, path::Path};
 
 use chrono::{DateTime, Local};
 use filetime::FileTime;
-
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 
@@ -25,7 +23,7 @@ impl Command for Touch {
 
     fn signature(&self) -> Signature {
         Signature::build("touch")
-            .input_output_types(vec![ (Type::Nothing, Type::Nothing) ])
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
                 SyntaxShape::Filepath,
@@ -39,12 +37,14 @@ impl Command for Touch {
             )
             .switch(
                 "modified",
-                "change the modification time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the modification time of the file or directory. If no timestamp, date or \
+                 reference file/directory is given, the current time is used",
                 Some('m'),
             )
             .switch(
                 "access",
-                "change the access time of the file or directory. If no timestamp, date or reference file/directory is given, the current time is used",
+                "change the access time of the file or directory. If no timestamp, date or \
+                 reference file/directory is given, the current time is used",
                 Some('a'),
             )
             .switch(
@@ -105,7 +105,8 @@ impl Command for Touch {
                             .metadata()
                             .expect("should be a valid path") // Should never fail as the path exists
                             .modified()
-                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .expect("should have metadata") // This should always be valid as it is available on all nushell's
+                            // supported platforms (Linux, Windows, MacOS)
                             .into(),
                     );
 
@@ -114,7 +115,8 @@ impl Command for Touch {
                             .metadata()
                             .expect("should be a valid path") // Should never fail as the path exists
                             .accessed()
-                            .expect("should have metadata") // This should always be valid as it is available on all nushell's supported platforms (Linux, Windows, MacOS)
+                            .expect("should have metadata") // This should always be valid as it is available on all nushell's
+                            // supported platforms (Linux, Windows, MacOS)
                             .into(),
                     );
                 }

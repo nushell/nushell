@@ -1,6 +1,18 @@
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{
+        atomic::AtomicBool,
+        mpsc::{self, SyncSender},
+        Arc,
+    },
+    thread,
+};
+
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::CallExt;
+use nu_engine::{env_to_strings, CallExt};
 use nu_protocol::{
     ast::{Call, Expr, Expression},
     did_you_mean,
@@ -12,14 +24,6 @@ use nu_system::ForegroundProcess;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{self, SyncSender};
-use std::sync::Arc;
-use std::thread;
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
@@ -207,20 +211,24 @@ impl ExternalCommand {
         #[cfg(windows)]
         {
             // Running external commands on Windows has 2 points of complication:
-            // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-            // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+            // 1. Some common Windows commands are actually built in to cmd.exe, not
+            //    executables in their own right.
+            // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing
+            //    their extension
 
-            // To support these situations, we have a fallback path that gets run if a command
-            // fails to be run as a normal executable:
+            // To support these situations, we have a fallback path that gets run if a
+            // command fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-            // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
+            // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in
+            //    cmd.exe
             match fg_process.spawn(engine_state.is_interactive) {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
 
                     // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                    // I (Reilly) went through the full list and whittled it down to ones that are
+                    // potentially useful:
                     const CMD_INTERNAL_COMMANDS: [&str; 9] = [
                         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
                     ];
@@ -240,8 +248,9 @@ impl ExternalCommand {
                     } else {
                         #[cfg(feature = "which-support")]
                         {
-                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                            // TODO: clean this up with an if-let chain once those are stable
+                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to
+                            // find it with `which-rs` TODO: clean this
+                            // up with an if-let chain once those are stable
                             if let Ok(path) =
                                 nu_engine::env::path_str(engine_state, stack, self.name.span)
                             {
@@ -257,7 +266,8 @@ impl ExternalCommand {
                                                 .to_string_lossy()
                                                 .eq_ignore_case(command_name)
                                             {
-                                                // which-rs found an executable file with a slightly different name
+                                                // which-rs found an executable file with a slightly
+                                                // different name
                                                 // than the one the user tried. Let's try running it
                                                 let mut new_command = self.clone();
                                                 new_command.name = Spanned {
@@ -332,9 +342,17 @@ impl ExternalCommand {
                                             .find_decl(new_name.as_bytes(), &[])
                                             .is_some()
                                         {
-                                            format!("command '{cmd_name}' was not found but it was imported from module '{module_name}'; try using `{new_name}`")
+                                            format!(
+                                                "command '{cmd_name}' was not found but it was \
+                                                 imported from module '{module_name}'; try using \
+                                                 `{new_name}`"
+                                            )
                                         } else {
-                                            format!("command '{cmd_name}' was not found but it exists in module '{module_name}'; try importing it with `use`")
+                                            format!(
+                                                "command '{cmd_name}' was not found but it exists \
+                                                 in module '{module_name}'; try importing it with \
+                                                 `use`"
+                                            )
                                         }
                                     } else {
                                         // If command and suggestion are the same, display not found
@@ -408,12 +426,14 @@ impl ExternalCommand {
                         thread::Builder::new()
                             .name("external stdin worker".to_string())
                             .spawn(move || {
-                                // Attempt to render the input as a table before piping it to the external.
-                                // This is important for pagers like `less`;
-                                // they need to get Nu data rendered for display to users.
+                                // Attempt to render the input as a table before piping it to the
+                                // external. This is important for
+                                // pagers like `less`; they need to
+                                // get Nu data rendered for display to users.
                                 //
                                 // TODO: should we do something different for list<string> inputs?
-                                // Users often expect those to be piped to *nix tools as raw strings separated by newlines
+                                // Users often expect those to be piped to *nix tools as raw strings
+                                // separated by newlines
                                 let input = crate::Table::run(
                                     &crate::Table,
                                     &engine_state,
@@ -455,77 +475,99 @@ impl ExternalCommand {
                 let stdout = child.as_mut().stdout.take();
                 let stderr = child.as_mut().stderr.take();
 
-                // If this external is not the last expression, then its output is piped to a channel
-                // and we create a ListStream that can be consumed
+                // If this external is not the last expression, then its output is piped to a
+                // channel and we create a ListStream that can be consumed
 
-                // First create a thread to redirect the external's stdout and wait for an exit code.
+                // First create a thread to redirect the external's stdout and wait for an exit
+                // code.
                 thread::Builder::new()
                     .name("stdout redirector + exit code waiter".to_string())
                     .spawn(move || {
                         if redirect_stdout {
-                            let stdout = stdout.ok_or_else(|| {
-                                ShellError::ExternalCommand { label: "Error taking stdout from external".to_string(), help: "Redirects need access to stdout of an external command"
-                                        .to_string(), span }
+                            let stdout = stdout.ok_or_else(|| ShellError::ExternalCommand {
+                                label: "Error taking stdout from external".to_string(),
+                                help: "Redirects need access to stdout of an external command"
+                                    .to_string(),
+                                span,
                             })?;
 
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         } else if redirect_combine {
-                            let stdout = reader.ok_or_else(|| {
-                                ShellError::ExternalCommand { label: "Error taking combined stdout and stderr from external".to_string(), help: "Combined redirects need access to reader pipe of an external command"
-                                        .to_string(), span }
+                            let stdout = reader.ok_or_else(|| ShellError::ExternalCommand {
+                                label: "Error taking combined stdout and stderr from external"
+                                    .to_string(),
+                                help: "Combined redirects need access to reader pipe of an \
+                                       external command"
+                                    .to_string(),
+                                span,
                             })?;
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
-                    match child.as_mut().wait() {
-                        Err(err) => Err(ShellError::ExternalCommand { label: "External command exited with error".into(), help: err.to_string(), span }),
-                        Ok(x) => {
-                            #[cfg(unix)]
-                            {
-                                use nu_ansi_term::{Color, Style};
-                                use std::ffi::CStr;
-                                use std::os::unix::process::ExitStatusExt;
+                        match child.as_mut().wait() {
+                            Err(err) => Err(ShellError::ExternalCommand {
+                                label: "External command exited with error".into(),
+                                help: err.to_string(),
+                                span,
+                            }),
+                            Ok(x) => {
+                                #[cfg(unix)]
+                                {
+                                    use std::{ffi::CStr, os::unix::process::ExitStatusExt};
 
-                                if x.core_dumped() {
-                                    let cause = x.signal().and_then(|sig| unsafe {
-                                        // SAFETY: We should be the first to call `char * strsignal(int sig)`
-                                        let sigstr_ptr = libc::strsignal(sig);
-                                        if sigstr_ptr.is_null() {
-                                            return None;
-                                        }
+                                    use nu_ansi_term::{Color, Style};
 
-                                        // SAFETY: The pointer points to a valid non-null string
-                                        let sigstr = CStr::from_ptr(sigstr_ptr);
-                                        sigstr.to_str().map(String::from).ok()
-                                    });
+                                    if x.core_dumped() {
+                                        let cause = x.signal().and_then(|sig| unsafe {
+                                            // SAFETY: We should be the first to call `char *
+                                            // strsignal(int sig)`
+                                            let sigstr_ptr = libc::strsignal(sig);
+                                            if sigstr_ptr.is_null() {
+                                                return None;
+                                            }
 
-                                    let cause = cause.as_deref().unwrap_or("Something went wrong");
+                                            // SAFETY: The pointer points to a valid non-null string
+                                            let sigstr = CStr::from_ptr(sigstr_ptr);
+                                            sigstr.to_str().map(String::from).ok()
+                                        });
 
-                                    let style = Style::new().bold().on(Color::Red);
-                                    eprintln!(
-                                        "{}",
-                                        style.paint(format!(
-                                            "{cause}: oops, process '{commandname}' core dumped"
-                                        ))
-                                    );
-                                    let _ = exit_code_tx.send(Value::error (
-                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
-                                        head,
-                                    ));
-                                    return Ok(());
+                                        let cause =
+                                            cause.as_deref().unwrap_or("Something went wrong");
+
+                                        let style = Style::new().bold().on(Color::Red);
+                                        eprintln!(
+                                            "{}",
+                                            style.paint(format!(
+                                                "{cause}: oops, process '{commandname}' core \
+                                                 dumped"
+                                            ))
+                                        );
+                                        let _ = exit_code_tx.send(Value::error(
+                                            ShellError::ExternalCommand {
+                                                label: "core dumped".to_string(),
+                                                help: format!(
+                                                    "{cause}: child process '{commandname}' core \
+                                                     dumped"
+                                                ),
+                                                span: head,
+                                            },
+                                            head,
+                                        ));
+                                        return Ok(());
+                                    }
                                 }
+                                if let Some(code) = x.code() {
+                                    let _ = exit_code_tx.send(Value::int(code as i64, head));
+                                } else if x.success() {
+                                    let _ = exit_code_tx.send(Value::int(0, head));
+                                } else {
+                                    let _ = exit_code_tx.send(Value::int(-1, head));
+                                }
+                                Ok(())
                             }
-                            if let Some(code) = x.code() {
-                                let _ = exit_code_tx.send(Value::int(code as i64, head));
-                            } else if x.success() {
-                                let _ = exit_code_tx.send(Value::int(0, head));
-                            } else {
-                                let _ = exit_code_tx.send(Value::int(-1, head));
-                            }
-                            Ok(())
                         }
-                    }
-                }).expect("Failed to create thread");
+                    })
+                    .expect("Failed to create thread");
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
@@ -605,10 +647,14 @@ impl ExternalCommand {
                 "Current directory not found".to_string(),
                 "did not find PWD environment variable".to_string(),
                 Some(span),
-                Some(concat!(
-                    "The environment variable 'PWD' was not found. ",
-                    "It is required to define the current directory when running an external command."
-                ).to_string()),
+                Some(
+                    concat!(
+                        "The environment variable 'PWD' was not found. ",
+                        "It is required to define the current directory when running an external \
+                         command."
+                    )
+                    .to_string(),
+                ),
                 Vec::new(),
             ));
         };
@@ -646,7 +692,7 @@ impl ExternalCommand {
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
         // in all the other cases shell out
         if cfg!(windows) {
-            //TODO. This should be modifiable from the config file.
+            // TODO. This should be modifiable from the config file.
             // We could give the option to call from powershell
             // for minimal builds cwd is unused
             if self.name.item.ends_with(".cmd") || self.name.item.ends_with(".bat") {
@@ -681,7 +727,8 @@ impl ExternalCommand {
 
         // Disable AutoRun
         // TODO: There should be a config option to enable/disable this
-        // Alternatively (even better) a config option to specify all the arguments to pass to cmd
+        // Alternatively (even better) a config option to specify all the arguments to
+        // pass to cmd
         process.arg("/D");
 
         process.arg("/c");
@@ -708,8 +755,9 @@ fn trim_expand_and_apply_arg(
     cwd: &str,
 ) {
     // if arg is quoted, like "aa", 'aa', `aa`, or:
-    // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
-    // `as_a_whole` will be true, so nu won't remove the inner quotes.
+    // if arg is a variable or String interpolation, like: $variable_name,
+    // $"($variable_name)" `as_a_whole` will be true, so nu won't remove the
+    // inner quotes.
     let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
@@ -732,8 +780,8 @@ fn trim_expand_and_apply_arg(
         if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, arg.span, None) {
             let matches: Vec<_> = matches.collect();
 
-            // FIXME: do we want to special-case this further? We might accidentally expand when they don't
-            // intend to
+            // FIXME: do we want to special-case this further? We might accidentally expand
+            // when they don't intend to
             if matches.is_empty() {
                 process.arg(&arg.item);
             }
@@ -794,7 +842,8 @@ fn trim_enclosing_quotes(input: &str) -> (String, bool, bool) {
     match (chars.next(), chars.next_back()) {
         (Some('"'), Some('"')) => (chars.collect(), false, true),
         (Some('\''), Some('\'')) => (chars.collect(), false, true),
-        // We treat back-quoted strings as bare words, so there's no need to keep them as raw strings
+        // We treat back-quoted strings as bare words, so there's no need to keep them as raw
+        // strings
         (Some('`'), Some('`')) => (chars.collect(), true, false),
         _ => (input.to_string(), true, false),
     }
@@ -815,8 +864,8 @@ fn remove_quotes(input: String) -> String {
 
 // read message from given `reader`, and send out through `sender`.
 //
-// `ctrlc` is used to control the process, if ctrl-c is pressed, the read and redirect
-// process will be breaked.
+// `ctrlc` is used to control the process, if ctrl-c is pressed, the read and
+// redirect process will be breaked.
 fn read_and_redirect_message<R>(
     reader: R,
     sender: SyncSender<Vec<u8>>,

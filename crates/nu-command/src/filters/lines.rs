@@ -1,6 +1,6 @@
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
     Signature, Span, Type, Value,
 };
@@ -27,6 +27,7 @@ impl Command for Lines {
             .switch("skip-empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -226,7 +227,8 @@ impl Iterator for RawStreamLinesAdapter {
                                     // save completed lines
                                     self.queue.append(&mut lines);
                                 }
-                                // Propagate errors by explicitly matching them before the final case.
+                                // Propagate errors by explicitly matching them before the final
+                                // case.
                                 Value::Error { error, .. } => return Some(Err(*error)),
                                 other => {
                                     return Some(Err(ShellError::OnlySupportsThisInputType {

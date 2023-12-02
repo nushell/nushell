@@ -1,11 +1,12 @@
-use super::super::values::NuLazyFrame;
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::super::values::NuLazyFrame;
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct LazySortBy;
@@ -67,8 +68,8 @@ impl Command for LazySortBy {
             },
             Example {
                 description: "Sort column using two columns",
-                example:
-                    "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr into-df | dfr sort-by [a b] -r [false true]",
+                example: "[[a b]; [6 2] [1 1] [1 4] [2 4]] | dfr into-df | dfr sort-by [a b] -r \
+                          [false true]",
                 result: Some(
                     NuDataFrame::try_from_columns(vec![
                         Column::new(
@@ -148,8 +149,7 @@ impl Command for LazySortBy {
 
 #[cfg(test)]
 mod test {
-    use super::super::super::test_dataframe::test_dataframe;
-    use super::*;
+    use super::{super::super::test_dataframe::test_dataframe, *};
 
     #[test]
     fn test_examples() {

@@ -1,19 +1,18 @@
-use super::super::values::{NuDataFrame, NuLazyFrame};
+use std::{fs::File, io::BufReader, path::PathBuf};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
-
-use std::{fs::File, io::BufReader, path::PathBuf};
-
 use polars::prelude::{
     CsvEncoding, CsvReader, IpcReader, JsonFormat, JsonReader, LazyCsvReader, LazyFileListReader,
     LazyFrame, ParallelStrategy, ParquetReader, ScanArgsIpc, ScanArgsParquet, SerReader,
 };
-
 use polars_io::avro::AvroReader;
+
+use super::super::values::{NuDataFrame, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct OpenDataFrame;
@@ -38,7 +37,8 @@ impl Command for OpenDataFrame {
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
+                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file \
+                 extension",
                 Some('t'),
             )
             .named(
