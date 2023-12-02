@@ -30,7 +30,10 @@ fn port_with_already_usage() {
         handler.join().unwrap();
 
         // check for error kind str.
-        if actual.err.contains("AddrInUse") {
+        if actual
+            .err
+            .contains("Every port has been tried, but no valid one was found")
+        {
             return;
         }
     }
