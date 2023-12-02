@@ -99,7 +99,7 @@ pub fn evaluate_file(
         Value::string(file_path.to_string_lossy(), Span::unknown()),
     );
     stack.add_env_var(
-        "ORIGINAL_CMDLINE".to_string(),
+        "PROCESS_PATH".to_string(),
         Value::string(path, Span::unknown()),
     );
 
