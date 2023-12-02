@@ -278,13 +278,13 @@ pub trait Eval {
                 Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
             }
             Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
-            Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
-            Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
-            Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
-            Expr::Signature(_) => Ok(Value::nothing(expr.span)),
-            Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
-            Expr::Operator(_) => Ok(Value::nothing(expr.span)),
-            Expr::Garbage => Ok(Value::nothing(expr.span)),
+            Expr::MatchBlock(_) // match blocks are handled by `match`
+            | Expr::VarDecl(_)
+            | Expr::ImportPattern(_)
+            | Expr::Signature(_)
+            | Expr::Spread(_)
+            | Expr::Operator(_)
+            | Expr::Garbage => Self::unreachable(expr),
         }
     }
 
@@ -373,4 +373,7 @@ pub trait Eval {
         pattern: String,
         span: Span,
     ) -> Result<Value, ShellError>;
+
+    /// For expressions that should never actually be evaluated
+    fn unreachable(expr: &Expression) -> Result<Value, ShellError>;
 }

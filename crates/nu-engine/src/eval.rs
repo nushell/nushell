@@ -1163,4 +1163,8 @@ impl Eval for EvalRuntime {
 
         Ok(Value::string(path.to_string_lossy(), span))
     }
+
+    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
+        Ok(Value::nothing(expr.span))
+    }
 }

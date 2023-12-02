@@ -391,4 +391,8 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant(span))
     }
+
+    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(expr.span))
+    }
 }
