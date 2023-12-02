@@ -98,6 +98,10 @@ pub fn evaluate_file(
         "CURRENT_FILE".to_string(),
         Value::string(file_path.to_string_lossy(), Span::unknown()),
     );
+    stack.add_env_var(
+        "PROCESS_PATH".to_string(),
+        Value::string(path, Span::unknown()),
+    );
 
     let source_filename = file_path
         .file_name()
