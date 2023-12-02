@@ -5,8 +5,9 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use reedline::HistorySessionId;
 
-// use crate::repl::{update_history_id_in_engine, HistorySessionIdPublic};
+use crate::repl::update_history_id;
 
 #[derive(Clone)]
 pub struct HistorySession;
@@ -22,10 +23,9 @@ impl Command for HistorySession {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history session")
-            // .named("set", SyntaxShape::Int, "Set the session_id to", Some('s'))
+            .named("set", SyntaxShape::Int, "Set the session_id to", Some('s'))
             .category(Category::Misc)
-            // .input_output_types(vec![(Type::Nothing, Type::Int), (Type::Int, Type::Nothing)])
-            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .input_output_types(vec![(Type::Nothing, Type::Int), (Type::Int, Type::Nothing)])
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -40,39 +40,38 @@ impl Command for HistorySession {
                 description: "Gets the last 5 history entries of the current session",
                 result: None,
             },
-            // Example {
-            //     example: "history session --set (history session)",
-            //     description: "Sets the history session to a different history session (example
-            // sets it to the same history session)",     result: None,
-            // },
+            Example {
+                example: "history session --set (history session)",
+                description: "Sets the history session to a different history session (example
+            sets it to the same history session)",
+                result: None,
+            },
         ]
     }
 
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // let set_session: Option<Value> = call.get_flag(engine_state, stack, "set")?;
-        // if let Some(set_session) = set_session {
-        //     let set_session_id = set_session.as_i64()?;
-        //     #[allow(mutable_transmutes)]
-        //     let engine_state =
-        //         unsafe { std::mem::transmute::<&EngineState, &mut
-        // EngineState>(engine_state) };
+        let set_session: Option<Value> = call.get_flag(engine_state, stack, "set")?;
+        if let Some(set_session) = set_session {
+            let set_session_id = set_session.as_i64()?;
+            #[allow(mutable_transmutes)]
+            let engine_state =
+                unsafe { std::mem::transmute::<&EngineState, &mut EngineState>(engine_state) };
 
-        //     update_history_id_in_engine(
-        //         engine_state,
-        //         todo!("Get line_editor here"),
-        //         Some(HistorySessionIdPublic(set_session_id).into()),
-        //     );
-        //     engine_state.history_session_id = set_session_id;
-        //     Ok(Value::nothing(call.head).into_pipeline_data())
-        // } else {
-        //     Ok(Value::int(engine_state.history_session_id,
-        // call.head).into_pipeline_data()) }
-        Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
+            update_history_id(
+                engine_state,
+                todo!("Get line_editor here"),
+                Some(HistorySessionId(set_session_id)),
+            );
+            engine_state.history_session_id = set_session_id;
+            Ok(Value::nothing(call.head).into_pipeline_data())
+        } else {
+            Ok(Value::int(engine_state.history_session_id, call.head).into_pipeline_data())
+        }
     }
 }
