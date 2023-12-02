@@ -29,10 +29,6 @@ pub trait Eval {
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(cell_path) => {
-                // TODO: Both eval.rs and eval_const.rs seem to do the same thing, but
-                // eval_const converts it to a generic error
-                // (there's a todo saying to do better error conversion)
-                // For now, perhaps they could both have the same implementation
                 let value = Self::eval(state, mut_state, &cell_path.head)?;
 
                 value.follow_cell_path(&cell_path.tail, false)
@@ -138,11 +134,6 @@ pub trait Eval {
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
             Expr::ValueWithUnit(e, unit) => {
-                // The two implementations seem to differ only in the error they give
-                // when expr doesn't evaluate to an Int
-                // eval.rs gives a CantConvert error, while eval_const says NotAConstant
-                // CantConvert seems more appropriate for eval_const too, since the issue isn't that it's not
-                // a constant, it's that it isn't an Int
                 match Self::eval(state, mut_state, e)? {
                     Value::Int { val, .. } => unit.item.to_value(val, unit.span),
                     x => Err(ShellError::CantConvert {
