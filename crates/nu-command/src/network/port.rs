@@ -88,7 +88,7 @@ fn get_free_port(
 
         // try given port one by one.
         match (start_port..=end_port)
-            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port as u16)))
+            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port as u16)))
             .find_map(|addr| TcpListener::bind(addr).ok())
         {
             Some(listener) => listener,
