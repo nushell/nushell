@@ -259,18 +259,11 @@ pub fn eval_constant_with_input(
 }
 
 /// Evaluate a constant value at parse time
-///
-/// Based off eval_expression() in the engine
 pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    match &expr.expr {
-        Expr::GlobPattern(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::Overlay(_) => Err(ShellError::NotAConstant(expr.span)),
-        Expr::MatchPattern(_) => Err(ShellError::NotAConstant(expr.span)),
-        _ => <EvalConst as Eval>::eval(working_set, &mut (), expr),
-    }
+    <EvalConst as Eval>::eval(working_set, &mut (), expr)
 }
 
 struct EvalConst;
@@ -326,10 +319,10 @@ impl Eval for EvalConst {
         _: &Expression,
         _: &[Expression],
         _: bool,
+        span: Span,
     ) -> Result<Value, ShellError> {
-        // Currently, it gives a generic not_a_constant error,
-        // but it may be more helpful to give not_a_const_command
-        todo!()
+        // TODO: It may be more helpful to give not_a_const_command error
+        Err(ShellError::NotAConstant(span))
     }
 
     fn eval_subexpression(
@@ -381,6 +374,19 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         _: &[Expression],
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(span))
+    }
+
+    fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant(span))
+    }
+
+    fn eval_glob_pattern(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: String,
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant(span))

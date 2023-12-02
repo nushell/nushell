@@ -254,22 +254,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    match &expr.expr {
-        Expr::Overlay(_) => {
-            let name =
-                String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
-
-            Ok(Value::string(name, expr.span))
-        }
-        Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
-        Expr::GlobPattern(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(s, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), expr.span))
-        }
-        _ => <EvalRuntime as Eval>::eval(engine_state, stack, expr),
-    }
+    <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -985,6 +970,7 @@ impl Eval for EvalRuntime {
         head: &Expression,
         args: &[Expression],
         is_subexpression: bool,
+        _: Span,
     ) -> Result<Value, ShellError> {
         let span = head.span;
         // FIXME: protect this collect with ctrl-c
@@ -1158,5 +1144,23 @@ impl Eval for EvalRuntime {
             .into_pipeline_data(None)
             .collect_string("", config)
             .map(|x| Value::string(x, span))
+    }
+
+    fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+        let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
+
+        Ok(Value::string(name, span))
+    }
+
+    fn eval_glob_pattern(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        pattern: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let cwd = current_dir_str(engine_state, stack)?;
+        let path = expand_path_with(pattern, cwd);
+
+        Ok(Value::string(path.to_string_lossy(), span))
     }
 }

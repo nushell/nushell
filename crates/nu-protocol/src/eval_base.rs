@@ -7,9 +7,14 @@ use crate::{
 };
 use std::collections::HashMap;
 
+/// To share implementations for regular eval and const eval
 pub trait Eval {
+    /// State that doesn't need to be mutated.
+    /// EngineState for regular eval and StateWorkingSet for const eval
     type State<'a>: Copy;
 
+    /// State that needs to be mutated.
+    /// This is the stack for regular eval, and unused by const eval
     type MutState;
 
     fn eval(
@@ -140,7 +145,7 @@ pub trait Eval {
             },
             Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
             Expr::ExternalCall(head, args, is_subexpression) => {
-                Self::eval_external_call(state, mut_state, head, args, *is_subexpression)
+                Self::eval_external_call(state, mut_state, head, args, *is_subexpression, expr.span)
             }
             Expr::Subexpression(block_id) => {
                 Self::eval_subexpression(state, mut_state, *block_id, expr.span)
@@ -268,12 +273,14 @@ pub trait Eval {
             Expr::StringInterpolation(exprs) => {
                 Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
             }
-            Expr::Overlay(_) => todo!(),
-            Expr::GlobPattern(_) => todo!(),
+            Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
+            Expr::GlobPattern(pattern) => {
+                Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
+            }
+            Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
+            Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
             Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
             Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
-            Expr::MatchPattern(_) => todo!(),
-            Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
             Expr::Signature(_) => Ok(Value::nothing(expr.span)),
             Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
             Expr::Operator(_) => Ok(Value::nothing(expr.span)),
@@ -315,6 +322,7 @@ pub trait Eval {
         head: &Expression,
         args: &[Expression],
         is_subexpression: bool,
+        span: Span,
     ) -> Result<Value, ShellError>;
 
     fn eval_subexpression(
@@ -354,6 +362,15 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         exprs: &[Expression],
+        span: Span,
+    ) -> Result<Value, ShellError>;
+
+    fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
+
+    fn eval_glob_pattern(
+        state: Self::State<'_>,
+        mut_state: &mut Self::MutState,
+        pattern: String,
         span: Span,
     ) -> Result<Value, ShellError>;
 }
