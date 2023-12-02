@@ -1159,8 +1159,4 @@ impl Eval for EvalRuntime {
             .collect_string("", config)
             .map(|x| Value::string(x, span))
     }
-
-    fn value_as_string(value: Value, _: Span) -> Result<String, ShellError> {
-        value.as_string()
-    }
 }

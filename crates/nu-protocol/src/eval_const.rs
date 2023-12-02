@@ -273,14 +273,6 @@ pub fn eval_constant(
     }
 }
 
-/// Get the value as a string
-pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
-    match value {
-        Value::String { val, .. } => Ok(val),
-        _ => Err(ShellError::NotAConstant(span)),
-    }
-}
-
 struct EvalConst;
 
 impl Eval for EvalConst {
@@ -392,9 +384,5 @@ impl Eval for EvalConst {
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant(span))
-    }
-
-    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
-        value_as_string(value, span)
     }
 }

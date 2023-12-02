@@ -54,10 +54,7 @@ pub trait Eval {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
-                            let col_name = Self::value_as_string(
-                                Self::eval(state, mut_state, col)?,
-                                expr.span,
-                            )?;
+                            let col_name = Self::eval(state, mut_state, col)?.as_string()?;
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -100,8 +97,7 @@ pub trait Eval {
             Expr::Table(headers, vals) => {
                 let mut output_headers = vec![];
                 for expr in headers {
-                    let header =
-                        Self::value_as_string(Self::eval(state, mut_state, expr)?, expr.span)?;
+                    let header = Self::eval(state, mut_state, expr)?.as_string()?;
                     if let Some(idx) = output_headers
                         .iter()
                         .position(|existing| existing == &header)
@@ -133,17 +129,15 @@ pub trait Eval {
             Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(e, unit) => {
-                match Self::eval(state, mut_state, e)? {
-                    Value::Int { val, .. } => unit.item.to_value(val, unit.span),
-                    x => Err(ShellError::CantConvert {
-                        to_type: "unit value".into(),
-                        from_type: x.get_type().to_string(),
-                        span: e.span,
-                        help: None,
-                    }),
-                }
-            }
+            Expr::ValueWithUnit(e, unit) => match Self::eval(state, mut_state, e)? {
+                Value::Int { val, .. } => unit.item.to_value(val, unit.span),
+                x => Err(ShellError::CantConvert {
+                    to_type: "unit value".into(),
+                    from_type: x.get_type().to_string(),
+                    span: e.span,
+                    help: None,
+                }),
+            },
             Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
             Expr::ExternalCall(head, args, is_subexpression) => {
                 Self::eval_external_call(state, mut_state, head, args, *is_subexpression)
@@ -362,6 +356,4 @@ pub trait Eval {
         exprs: &[Expression],
         span: Span,
     ) -> Result<Value, ShellError>;
-
-    fn value_as_string(value: Value, span: Span) -> Result<String, ShellError>;
 }
