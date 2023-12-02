@@ -87,15 +87,17 @@ fn get_free_port(
         }
 
         // try given port one by one.
-        let addrs: Vec<SocketAddr> = (start_port..=end_port)
-            .map(|current| {
-                SocketAddr::V4(SocketAddrV4::new(
-                    Ipv4Addr::new(127, 0, 0, 1),
-                    current as u16,
-                ))
-            })
-            .collect();
-        TcpListener::bind(addrs.as_slice())?
+        match (start_port..=end_port)
+            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), port as u16)))
+            .find_map(|addr| TcpListener::bind(addr).ok())
+        {
+            Some(listener) => listener,
+            None => {
+                return Err(ShellError::IOError {
+                    msg: "Every port has been tried, but no valid one was found".to_string(),
+                })
+            }
+        }
     };
 
     let free_port = listener.local_addr()?.port();
