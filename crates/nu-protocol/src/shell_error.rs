@@ -1011,7 +1011,11 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8_custom))]
-    NonUtf8Custom(String, #[label = "{0}"] Span),
+    NonUtf8Custom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A custom value could not be converted to a Dataframe.
     ///
