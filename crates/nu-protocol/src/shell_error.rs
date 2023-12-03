@@ -1037,7 +1037,12 @@ pub enum ShellError {
     /// Refer to the specific error message for details and convert values as needed.
     #[error("Unsupported config value")]
     #[diagnostic(code(nu::shell::unsupported_config_value))]
-    UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
+    UnsupportedConfigValue {
+        expected: String,
+        value: String,
+        #[label("expected {expected}, got {value}")]
+        span: Span,
+    },
 
     /// An expected configuration value is not present.
     ///
