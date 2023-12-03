@@ -912,7 +912,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the access time")]
     #[diagnostic(code(nu::shell::change_access_time_not_possible))]
-    ChangeAccessTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeAccessTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the modification time ("mtime") of this file is not possible.
     ///
