@@ -983,9 +983,14 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// The error message will suggest a possible match for what you meant.
-    #[error("{0}")]
+    #[error("{msg}")]
     #[diagnostic(code(nu::shell::did_you_mean_custom))]
-    DidYouMeanCustom(String, String, #[label("did you mean '{1}'?")] Span),
+    DidYouMeanCustom {
+        msg: String,
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///
