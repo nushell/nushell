@@ -999,7 +999,10 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8))]
-    NonUtf8(#[label = "non-UTF8 string"] Span),
+    NonUtf8 {
+        #[label("non-UTF8 string")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///

@@ -523,7 +523,7 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
         ValueRef::Text(buf) => {
             let s = match std::str::from_utf8(buf) {
                 Ok(v) => v,
-                Err(_) => return Value::error(ShellError::NonUtf8(span), span),
+                Err(_) => return Value::error(ShellError::NonUtf8 { span }, span),
             };
             Value::string(s.to_string(), span)
         }
