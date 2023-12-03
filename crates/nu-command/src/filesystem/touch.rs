@@ -151,12 +151,13 @@ impl Command for Touch {
                     &item,
                     FileTime::from_system_time(date.expect("should be a valid date").into()),
                 ) {
-                    return Err(ShellError::ChangeModifiedTimeNotPossible(
-                        format!("Failed to change the modified time: {err}"),
-                        call.positional_nth(index)
+                    return Err(ShellError::ChangeModifiedTimeNotPossible {
+                        msg: format!("Failed to change the modified time: {err}"),
+                        span: call
+                            .positional_nth(index)
                             .expect("already checked positional")
                             .span,
-                    ));
+                    });
                 };
             }
 

@@ -925,7 +925,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the modified time")]
     #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
-    ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeModifiedTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Unable to remove this item.
     ///
