@@ -47,3 +47,10 @@ fn port_from_system_given() {
     // check that we can get an integer port from system.
     assert!(actual.out.parse::<u16>().unwrap() > 0)
 }
+
+#[test]
+fn port_out_of_range() {
+    let actual = nu!("port 65536 99999");
+
+    assert!(actual.err.contains("can't convert usize to u16"));
+}

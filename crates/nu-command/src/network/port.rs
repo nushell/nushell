@@ -79,9 +79,33 @@ fn get_free_port(
             None => (1024, None),
         };
 
+        let start_port = match u16::try_from(start_port) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ShellError::CantConvert {
+                    to_type: "u16".into(),
+                    from_type: "usize".into(),
+                    span: start_span.unwrap_or(call.head),
+                    help: Some(format!("{e} (min: {}, max: {})", u16::MIN, u16::MAX)),
+                });
+            }
+        };
+
         let (end_port, end_span) = match end_port {
             Some(p) => (p.item, Some(p.span)),
             None => (65535, None),
+        };
+
+        let end_port = match u16::try_from(end_port) {
+            Ok(p) => p,
+            Err(e) => {
+                return Err(ShellError::CantConvert {
+                    to_type: "u16".into(),
+                    from_type: "usize".into(),
+                    span: end_span.unwrap_or(call.head),
+                    help: Some(format!("{e} (min: {}, max: {})", u16::MIN, u16::MAX)),
+                });
+            }
         };
 
         let range_span = match (start_span, end_span) {
@@ -102,7 +126,7 @@ fn get_free_port(
 
         // try given port one by one.
         match (start_port..=end_port)
-            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port as u16)))
+            .map(|port| SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)))
             .find_map(|addr| TcpListener::bind(addr).ok())
         {
             Some(listener) => listener,
