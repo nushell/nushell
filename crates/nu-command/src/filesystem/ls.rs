@@ -746,14 +746,14 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => Err(ShellError::ReadingFile(
-                    format!(
+                Err(e) => Err(ShellError::ReadingFile {
+                    msg: format!(
                         "Could not read metadata for '{}':\n  '{}'",
                         filename.to_string_lossy(),
                         e
                     ),
                     span,
-                )),
+                }),
             }
         }
     }

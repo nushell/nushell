@@ -959,7 +959,11 @@ pub enum ShellError {
     /// The error will show the result from a file operation
     #[error("Error trying to read file")]
     #[diagnostic(code(nu::shell::error_reading_file))]
-    ReadingFile(String, #[label("{0}")] Span),
+    ReadingFile {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
