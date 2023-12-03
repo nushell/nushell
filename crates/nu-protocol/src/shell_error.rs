@@ -1024,7 +1024,11 @@ pub enum ShellError {
     /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
     #[error("Casting error")]
     #[diagnostic(code(nu::shell::downcast_not_possible))]
-    DowncastNotPossible(String, #[label("{0}")] Span),
+    DowncastNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// The value given for this configuration is not supported.
     ///
