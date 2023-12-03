@@ -78,7 +78,7 @@ impl From<ShellError> for LabeledError {
                 msg: format!("can't convert from {input} to {expected}"),
                 span: Some(span),
             },
-            ShellError::DidYouMean(suggestion, span) => LabeledError {
+            ShellError::DidYouMean { suggestion, span } => LabeledError {
                 label: "Name not found".into(),
                 msg: format!("did you mean '{suggestion}'?"),
                 span: Some(span),

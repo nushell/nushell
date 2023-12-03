@@ -972,7 +972,11 @@ pub enum ShellError {
     /// The error message will suggest a possible match for what you meant.
     #[error("Name not found")]
     #[diagnostic(code(nu::shell::name_not_found))]
-    DidYouMean(String, #[label("did you mean '{0}'?")] Span),
+    DidYouMean {
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
