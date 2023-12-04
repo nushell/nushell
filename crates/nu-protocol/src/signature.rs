@@ -469,7 +469,8 @@ impl Signature {
         let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
+                "There may be duplicate short flags for '-{}'",
+                c
             );
             c
         });
@@ -478,7 +479,8 @@ impl Signature {
             let name: String = name.into();
             debug_assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags, such as --help"
+                "There may be duplicate name flags for '--{}'",
+                name
             );
             name
         };
