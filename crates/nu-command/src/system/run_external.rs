@@ -715,8 +715,8 @@ fn trim_expand_and_apply_arg(
         keep_raw = true;
     }
     let mut arg = Spanned {
-        item: if keep_raw {
-            trimmed_args
+        item: if *arg_keep_raw {
+            arg.item.clone()
         } else {
             remove_quotes(trimmed_args)
         },

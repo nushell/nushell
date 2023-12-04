@@ -197,28 +197,7 @@ fn eval_external(
     call.add_positional(head.clone());
 
     for arg in args {
-        let arg = if matches!(arg.expr, Expr::FullCellPath(_))
-            || matches!(arg.expr, Expr::StringInterpolation(_))
-        {
-            let output_expression = eval_expression(engine_state, stack, arg)?;
-            if let Value::String {
-                val,
-                internal_span: _,
-            } = output_expression
-            {
-                Expression {
-                    expr: Expr::String(format!("\"{}\"", val)),
-                    span: arg.span,
-                    ty: Type::String,
-                    custom_completion: arg.custom_completion,
-                }
-            } else {
-                arg.clone()
-            }
-        } else {
-            arg.clone()
-        };
-        call.add_positional(arg)
+        call.add_positional(arg.clone())
     }
 
     match redirect_target {
