@@ -129,5 +129,8 @@ pub fn extract_value<'record>(
 ) -> Result<&'record Value, ShellError> {
     record
         .get(name)
-        .ok_or_else(|| ShellError::MissingConfigValue(name.to_string(), span))
+        .ok_or_else(|| ShellError::MissingConfigValue {
+            missing_value: name.to_string(),
+            span,
+        })
 }

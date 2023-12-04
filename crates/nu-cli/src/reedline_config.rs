@@ -719,7 +719,10 @@ impl<'config> EventType<'config> {
             .map(Self::Send)
             .or_else(|_| extract_value("edit", record, span).map(Self::Edit))
             .or_else(|_| extract_value("until", record, span).map(Self::Until))
-            .map_err(|_| ShellError::MissingConfigValue("send, edit or until".to_string(), span))
+            .map_err(|_| ShellError::MissingConfigValue {
+                missing_value: "send, edit or until".to_string(),
+                span,
+            })
     }
 }
 
@@ -971,7 +974,10 @@ fn extract_char(value: &Value, config: &Config) -> Result<char, ShellError> {
         .into_string("", config)
         .chars()
         .next()
-        .ok_or_else(|| ShellError::MissingConfigValue("char to insert".to_string(), span))
+        .ok_or_else(|| ShellError::MissingConfigValue {
+            missing_value: "char to insert".to_string(),
+            span,
+        })
 }
 
 #[cfg(test)]
@@ -1101,6 +1107,6 @@ mod test {
 
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
-        assert!(matches!(b, Err(ShellError::MissingConfigValue(_, _))));
+        assert!(matches!(b, Err(ShellError::MissingConfigValue { .. })));
     }
 }

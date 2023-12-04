@@ -1051,7 +1051,11 @@ pub enum ShellError {
     /// Refer to the specific error message and add the configuration value to your config file as needed.
     #[error("Missing config value")]
     #[diagnostic(code(nu::shell::missing_config_value))]
-    MissingConfigValue(String, #[label = "missing {0}"] Span),
+    MissingConfigValue {
+        missing_value: String,
+        #[label("missing {missing_value}")]
+        span: Span,
+    },
 
     /// Negative value passed when positive one is required.
     ///
