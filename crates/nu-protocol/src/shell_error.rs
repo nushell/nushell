@@ -912,7 +912,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the access time")]
     #[diagnostic(code(nu::shell::change_access_time_not_possible))]
-    ChangeAccessTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeAccessTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Changing the modification time ("mtime") of this file is not possible.
     ///
@@ -921,7 +925,11 @@ pub enum ShellError {
     /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the modified time")]
     #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
-    ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
+    ChangeModifiedTimeNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Unable to remove this item.
     ///
@@ -930,7 +938,11 @@ pub enum ShellError {
     /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
-    RemoveNotPossible(String, #[label("{0}")] Span),
+    RemoveNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     // These three are unused. Remove?
     #[error("No file to be removed")]
@@ -947,7 +959,11 @@ pub enum ShellError {
     /// The error will show the result from a file operation
     #[error("Error trying to read file")]
     #[diagnostic(code(nu::shell::error_reading_file))]
-    ReadingFile(String, #[label("{0}")] Span),
+    ReadingFile {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
@@ -956,16 +972,25 @@ pub enum ShellError {
     /// The error message will suggest a possible match for what you meant.
     #[error("Name not found")]
     #[diagnostic(code(nu::shell::name_not_found))]
-    DidYouMean(String, #[label("did you mean '{0}'?")] Span),
+    DidYouMean {
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// A name was not found. Did you mean a different name?
     ///
     /// ## Resolution
     ///
     /// The error message will suggest a possible match for what you meant.
-    #[error("{0}")]
+    #[error("{msg}")]
     #[diagnostic(code(nu::shell::did_you_mean_custom))]
-    DidYouMeanCustom(String, String, #[label("did you mean '{1}'?")] Span),
+    DidYouMeanCustom {
+        msg: String,
+        suggestion: String,
+        #[label("did you mean '{suggestion}'?")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///
@@ -974,7 +999,10 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8))]
-    NonUtf8(#[label = "non-UTF8 string"] Span),
+    NonUtf8 {
+        #[label("non-UTF8 string")]
+        span: Span,
+    },
 
     /// The given input must be valid UTF-8 for further processing.
     ///
@@ -983,7 +1011,11 @@ pub enum ShellError {
     /// Check your input's encoding. Are there any funny characters/bytes?
     #[error("Non-UTF8 string")]
     #[diagnostic(code(nu::parser::non_utf8_custom))]
-    NonUtf8Custom(String, #[label = "{0}"] Span),
+    NonUtf8Custom {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// A custom value could not be converted to a Dataframe.
     ///
@@ -992,7 +1024,11 @@ pub enum ShellError {
     /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
     #[error("Casting error")]
     #[diagnostic(code(nu::shell::downcast_not_possible))]
-    DowncastNotPossible(String, #[label("{0}")] Span),
+    DowncastNotPossible {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// The value given for this configuration is not supported.
     ///
@@ -1001,7 +1037,12 @@ pub enum ShellError {
     /// Refer to the specific error message for details and convert values as needed.
     #[error("Unsupported config value")]
     #[diagnostic(code(nu::shell::unsupported_config_value))]
-    UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
+    UnsupportedConfigValue {
+        expected: String,
+        value: String,
+        #[label("expected {expected}, got {value}")]
+        span: Span,
+    },
 
     /// An expected configuration value is not present.
     ///
@@ -1010,7 +1051,11 @@ pub enum ShellError {
     /// Refer to the specific error message and add the configuration value to your config file as needed.
     #[error("Missing config value")]
     #[diagnostic(code(nu::shell::missing_config_value))]
-    MissingConfigValue(String, #[label = "missing {0}"] Span),
+    MissingConfigValue {
+        missing_value: String,
+        #[label("missing {missing_value}")]
+        span: Span,
+    },
 
     /// Negative value passed when positive one is required.
     ///
@@ -1019,7 +1064,10 @@ pub enum ShellError {
     /// Guard against negative values or check your inputs.
     #[error("Negative value passed when positive one is required")]
     #[diagnostic(code(nu::shell::needs_positive_value))]
-    NeedsPositiveValue(#[label = "use a positive value"] Span),
+    NeedsPositiveValue {
+        #[label("use a positive value")]
+        span: Span,
+    },
 
     /// This is a generic error type used for different situations.
     #[error("{0}")]

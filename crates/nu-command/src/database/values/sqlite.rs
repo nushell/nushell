@@ -42,17 +42,25 @@ impl SQLiteDatabase {
         span: Span,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> Result<Self, ShellError> {
-        let mut file =
-            File::open(path).map_err(|e| ShellError::ReadingFile(e.to_string(), span))?;
+        let mut file = File::open(path).map_err(|e| ShellError::ReadingFile {
+            msg: e.to_string(),
+            span,
+        })?;
 
         let mut buf: [u8; 16] = [0; 16];
         file.read_exact(&mut buf)
-            .map_err(|e| ShellError::ReadingFile(e.to_string(), span))
+            .map_err(|e| ShellError::ReadingFile {
+                msg: e.to_string(),
+                span,
+            })
             .and_then(|_| {
                 if buf == SQLITE_MAGIC_BYTES {
                     Ok(SQLiteDatabase::new(path, ctrlc))
                 } else {
-                    Err(ShellError::ReadingFile("Not a SQLite file".into(), span))
+                    Err(ShellError::ReadingFile {
+                        msg: "Not a SQLite file".into(),
+                        span,
+                    })
                 }
             })
     }
@@ -515,7 +523,7 @@ pub fn convert_sqlite_value_to_nu_value(value: ValueRef, span: Span) -> Value {
         ValueRef::Text(buf) => {
             let s = match std::str::from_utf8(buf) {
                 Ok(v) => v,
-                Err(_) => return Value::error(ShellError::NonUtf8(span), span),
+                Err(_) => return Value::error(ShellError::NonUtf8 { span }, span),
             };
             Value::string(s.to_string(), span)
         }

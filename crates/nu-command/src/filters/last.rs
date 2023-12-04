@@ -77,7 +77,7 @@ impl Command for Last {
         // It has the same issue.
         let return_single_element = rows.is_none();
         let rows_desired: usize = match rows {
-            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),
+            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
             Some(x) => x as usize,
             None => 1,
         };

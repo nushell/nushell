@@ -393,7 +393,7 @@ fn rm(
 
                     if let Err(e) = result {
                         let msg = format!("Could not delete {:}: {e:}", f.to_string_lossy());
-                        Value::error(ShellError::RemoveNotPossible(msg, span), span)
+                        Value::error(ShellError::RemoveNotPossible { msg, span }, span)
                     } else if verbose {
                         let msg = if interactive && !confirmed {
                             "not deleted"

@@ -302,16 +302,16 @@ impl UrlComponents {
             return Ok(true);
         }
         match key {
-            "host" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                "empty string".into(),
-                value_span,
-            )),
-            "scheme" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                "empty string".into(),
-                value_span,
-            )),
+            "host" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
+            "scheme" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
             _ => Ok(false),
         }
     }

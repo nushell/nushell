@@ -24,10 +24,10 @@ impl NuDataFrame {
         match right {
             Value::CustomValue { val: rhs, .. } => {
                 let rhs = rhs.as_any().downcast_ref::<NuDataFrame>().ok_or_else(|| {
-                    ShellError::DowncastNotPossible(
-                        "Unable to create dataframe".to_string(),
-                        rhs_span,
-                    )
+                    ShellError::DowncastNotPossible {
+                        msg: "Unable to create dataframe".to_string(),
+                        span: rhs_span,
+                    }
                 })?;
 
                 match (self.is_series(), rhs.is_series()) {

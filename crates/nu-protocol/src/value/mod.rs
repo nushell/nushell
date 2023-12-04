@@ -1009,7 +1009,10 @@ impl Value {
                             } else if let Some(suggestion) =
                                 did_you_mean(val.columns(), column_name)
                             {
-                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
@@ -1032,7 +1035,10 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
@@ -1064,10 +1070,10 @@ impl Value {
                                             } else if let Some(suggestion) =
                                                 did_you_mean(val.columns(), column_name)
                                             {
-                                                Err(ShellError::DidYouMean(
+                                                Err(ShellError::DidYouMean {
                                                     suggestion,
-                                                    *origin_span,
-                                                ))
+                                                    span: *origin_span,
+                                                })
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
