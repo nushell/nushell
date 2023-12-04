@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
+use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -78,6 +79,16 @@ impl Stack {
             if var_id == *id {
                 return Ok(val.clone());
             }
+        }
+
+        if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
+            return Err(ShellError::GenericError(
+                "Built-in variables `$env` and `$nu` have no metadata".into(),
+                "no metadata available".into(),
+                Some(span),
+                None,
+                Vec::new(),
+            ));
         }
 
         Err(ShellError::VariableNotFoundAtRuntime { span })
