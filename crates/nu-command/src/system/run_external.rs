@@ -710,12 +710,16 @@ fn trim_expand_and_apply_arg(
     // if arg is quoted, like "aa", 'aa', `aa`, or:
     // if arg is a variable or String interpolation, like: $variable_name, $"($variable_name)"
     // `as_a_whole` will be true, so nu won't remove the inner quotes.
-    let (trimmed_args, run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
+    let (trimmed_args, mut run_glob_expansion, mut keep_raw) = trim_enclosing_quotes(&arg.item);
     if *arg_keep_raw {
         keep_raw = true;
     }
+    if run_glob_expansion {
+        run_glob_expansion = arg.item.contains('*');
+    }
+
     let mut arg = Spanned {
-        item: if *arg_keep_raw {
+        item: if *arg_keep_raw && !run_glob_expansion {
             arg.item.clone()
         } else {
             remove_quotes(trimmed_args)
@@ -728,7 +732,7 @@ fn trim_expand_and_apply_arg(
             .to_string();
     }
     let cwd = PathBuf::from(cwd);
-    if arg.item.contains('*') && run_glob_expansion {
+    if run_glob_expansion {
         if let Ok((prefix, matches)) = nu_engine::glob_from(&arg, &cwd, arg.span, None) {
             let matches: Vec<_> = matches.collect();
 
