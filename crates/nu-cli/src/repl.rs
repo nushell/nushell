@@ -740,24 +740,6 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
     );
 }
 
-pub(crate) fn update_history_id(
-    engine_state: &mut EngineState,
-    line_editor: &mut Reedline,
-    history_session: Option<HistorySessionId>,
-) {
-    let session_id = history_session.map(i64::from).unwrap_or(0);
-    engine_state.history_session_id = session_id;
-
-    line_editor
-        .update_history_session(history_session)
-        .expect("Ok as result");
-
-    engine_state.add_env_var(
-        "NU_SESSION_ID".to_string(),
-        Value::int(session_id, Span::unknown()),
-    );
-}
-
 fn update_line_editor_history(
     engine_state: &mut EngineState,
     history_path: &Path,
