@@ -1,12 +1,9 @@
 use std::path::PathBuf;
 
+use crate::ast::{CellPath, MatchPattern, PathMember};
+use crate::engine::{Block, Closure};
+use crate::{Range, Record, ShellError, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
-
-use crate::{
-    ast::{CellPath, MatchPattern, PathMember},
-    engine::{Block, Closure},
-    Range, Record, ShellError, Spanned, Value,
-};
 
 pub trait FromValue: Sized {
     fn from_value(v: Value) -> Result<Self, ShellError>;

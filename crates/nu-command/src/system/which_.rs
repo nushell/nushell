@@ -1,13 +1,16 @@
-use std::{ffi::OsStr, path::Path};
-
 use log::trace;
-use nu_engine::{env, CallExt};
+use nu_engine::env;
+use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
-    Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
+
+use std::ffi::OsStr;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Which;
@@ -174,10 +177,10 @@ fn which_single(
         (false, application.item.clone())
     };
 
-    // If prog_name is an external command, don't search for nu-specific programs
-    // If all is false, we can save some time by only searching for the first
-    // matching program
-    // This match handles all different cases
+    //If prog_name is an external command, don't search for nu-specific programs
+    //If all is false, we can save some time by only searching for the first matching
+    //program
+    //This match handles all different cases
     match (all, external) {
         (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
         (true, false) => {

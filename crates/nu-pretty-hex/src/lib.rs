@@ -2,9 +2,9 @@
 
 //! A Rust library providing pretty hex dump.
 //!
-//! A `simple_hex()` way renders one-line hex dump, and a `pretty_hex()` way
-//! renders columned multi-line hex dump with addressing and ASCII
-//! representation. A `config_hex()` way renders hex dump in specified format.
+//! A `simple_hex()` way renders one-line hex dump, and a `pretty_hex()` way renders
+//! columned multi-line hex dump with addressing and ASCII representation.
+//! A `config_hex()` way renders hex dump in specified format.
 //!
 //! ## Example of `simple_hex()`
 //! ```
@@ -42,12 +42,7 @@
 //! ```
 //! use nu_pretty_hex::*;
 //!
-//! let cfg = HexConfig {
-//!     title: false,
-//!     width: 8,
-//!     group: 0,
-//!     ..HexConfig::default()
-//! };
+//! let cfg = HexConfig {title: false, width: 8, group: 0, ..HexConfig::default() };
 //!
 //! let v = &include_bytes!("../tests/data");
 //! # #[cfg(feature = "alloc")]

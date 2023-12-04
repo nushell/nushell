@@ -1,10 +1,9 @@
+use super::hex::{operate, ActionType};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use super::hex::{operate, ActionType};
 
 #[derive(Clone)]
 pub struct DecodeHex;
@@ -44,7 +43,7 @@ impl Command for DecodeHex {
                 description: "Hex decode a value and output as binary",
                 example: "'0102030A0a0B' | decode hex",
                 result: Some(Value::binary(
-                    [0x01, 0x02, 0x03, 0x0a, 0x0a, 0x0b],
+                    [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
                     Span::test_data(),
                 )),
             },
@@ -52,7 +51,7 @@ impl Command for DecodeHex {
                 description: "Whitespaces are allowed to be between hex digits",
                 example: "'01 02  03 0A 0a 0B' | decode hex",
                 result: Some(Value::binary(
-                    [0x01, 0x02, 0x03, 0x0a, 0x0a, 0x0b],
+                    [0x01, 0x02, 0x03, 0x0A, 0x0A, 0x0B],
                     Span::test_data(),
                 )),
             },

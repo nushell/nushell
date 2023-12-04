@@ -1,7 +1,6 @@
+use crate::completions::{CompletionOptions, SortBy};
 use nu_protocol::{engine::StateWorkingSet, levenshtein_distance, Span};
 use reedline::Suggestion;
-
-use crate::completions::{CompletionOptions, SortBy};
 
 // Completer trait represents the three stages of the completion
 // fetch, filter and sort

@@ -23,7 +23,7 @@ pub enum Expr {
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
-    BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), // lhs, op, rhs
+    BinaryOp(Box<Expression>, Box<Expression>, Box<Expression>), //lhs, op, rhs
     Subexpression(BlockId),
     Block(BlockId),
     Closure(BlockId),

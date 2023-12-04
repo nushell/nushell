@@ -1,20 +1,22 @@
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-use std::{io::BufReader, path::Path};
-
 use nu_engine::{current_dir, eval_block, CallExt};
-#[cfg(feature = "sqlite")]
-use nu_protocol::IntoPipelineData;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    util::BufferedReader,
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
     Signature, Spanned, SyntaxShape, Type, Value,
 };
+use std::io::BufReader;
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
+
+#[cfg(feature = "sqlite")]
+use nu_protocol::IntoPipelineData;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Open;
@@ -29,8 +31,7 @@ impl Command for Open {
     }
 
     fn extra_usage(&self) -> &str {
-        "Support to automatically parse files with an extension `.xyz` can be provided by a `from \
-         xyz` command in scope."
+        "Support to automatically parse files with an extension `.xyz` can be provided by a `from xyz` command in scope."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -91,7 +92,7 @@ impl Command for Open {
         let mut output = vec![];
 
         for path in path_params.into_iter() {
-            // FIXME: `open` should not have to do this
+            //FIXME: `open` should not have to do this
             let path = {
                 Spanned {
                     item: nu_utils::strip_ansi_string_unlikely(path.item),
@@ -100,8 +101,7 @@ impl Command for Open {
             };
 
             let arg_span = path.span;
-            // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x,
-            // '\x09'..='\x0d'));
+            // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
@@ -200,23 +200,14 @@ impl Command for Open {
                                 decl.run(engine_state, stack, &Call::new(call_span), file_contents)
                             };
                             output.push(command_output.map_err(|inner| {
-                                ShellError::GenericError(
-                                    format!("Error while parsing as {ext}"),
-                                    format!(
-                                        "Could not parse '{}' with `from {}`",
-                                        path.display(),
-                                        ext
-                                    ),
-                                    Some(arg_span),
-                                    Some(format!(
-                                        "Check out `help from {}` or `help from` for more options \
-                                         or open raw data with `open --raw '{}'`",
-                                        ext,
-                                        path.display()
-                                    )),
-                                    vec![inner],
-                                )
-                            })?);
+                                    ShellError::GenericError(
+                                        format!("Error while parsing as {ext}"),
+                                        format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        Some(arg_span),
+                                        Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        vec![inner],
+                                    )
+                                })?);
                         }
                         None => output.push(file_contents),
                     }
@@ -236,8 +227,7 @@ impl Command for Open {
     fn examples(&self) -> Vec<nu_protocol::Example> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension or SQLite \
-                              database header)",
+                description: "Open a file, with structure (based on file extension or SQLite database header)",
                 example: "open myfile.json",
                 result: None,
             },
@@ -257,8 +247,7 @@ impl Command for Open {
                 result: None,
             },
             Example {
-                description: "Create a custom `from` parser to open newline-delimited JSON files \
-                              with `open`",
+                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
                 result: None,
             },

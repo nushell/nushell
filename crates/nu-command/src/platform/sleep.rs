@@ -1,14 +1,13 @@
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
+};
 use std::{
     thread,
     time::{Duration, Instant},
-};
-
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
 };
 
 const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
@@ -99,9 +98,8 @@ mod tests {
 
     #[test]
     fn examples_work_as_expected() {
-        use std::time::Instant;
-
         use crate::test_examples;
+        use std::time::Instant;
 
         let start = Instant::now();
         test_examples(Sleep {});

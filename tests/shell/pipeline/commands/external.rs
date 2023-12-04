@@ -143,13 +143,9 @@ fn command_substitution_wont_output_extra_newline() {
 }
 
 mod it_evaluation {
-    use nu_test_support::{
-        fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed},
-        pipeline,
-        playground::Playground,
-    };
-
     use super::nu;
+    use nu_test_support::fs::Stub::{EmptyFile, FileWithContent, FileWithContentToBeTrimmed};
+    use nu_test_support::{pipeline, playground::Playground};
 
     #[test]
     fn takes_rows_of_nu_value_strings() {
@@ -231,9 +227,8 @@ mod it_evaluation {
 }
 
 mod stdin_evaluation {
-    use nu_test_support::pipeline;
-
     use super::nu;
+    use nu_test_support::pipeline;
 
     #[test]
     fn does_not_panic_with_no_newline_in_stream() {
@@ -264,9 +259,9 @@ mod stdin_evaluation {
 }
 
 mod external_words {
-    use nu_test_support::{fs::Stub::FileWithContent, pipeline, playground::Playground};
-
     use super::nu;
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::{pipeline, playground::Playground};
     #[test]
     fn relaxed_external_words() {
         let actual = nu!("
@@ -276,7 +271,7 @@ mod external_words {
         assert_eq!(actual.out, "joturner@foo.bar.baz");
     }
 
-    // FIXME: jt: limitation in testing - can't use single ticks currently
+    //FIXME: jt: limitation in testing - can't use single ticks currently
     #[ignore]
     #[test]
     fn no_escaping_for_single_quoted_strings() {
@@ -290,7 +285,7 @@ mod external_words {
     #[rstest::rstest]
     #[case("sample.toml", r#""sample.toml""#)]
     #[case("a sample file.toml", r#""a sample file.toml""#)]
-    // FIXME: jt: we don't currently support single ticks in tests
+    //FIXME: jt: we don't currently support single ticks in tests
     //#[case("quote'mark.toml", r#""quote'mark.toml""#)]
     #[cfg_attr(
         not(target_os = "windows"),
@@ -424,9 +419,9 @@ mod tilde_expansion {
 }
 
 mod external_command_arguments {
-    use nu_test_support::{fs::Stub::EmptyFile, pipeline, playground::Playground};
-
     use super::nu;
+    use nu_test_support::fs::Stub::EmptyFile;
+    use nu_test_support::{pipeline, playground::Playground};
     #[test]
     fn expands_table_of_primitives_to_positional_arguments() {
         Playground::setup(

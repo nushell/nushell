@@ -6,20 +6,17 @@ use nu_protocol::{
 };
 use serde::{Deserialize, Serialize};
 
-/// A representation of the plugin's invocation command including command line
-/// args
+/// A representation of the plugin's invocation command including command line args
 ///
-/// The `EvaluatedCall` contains information about the way a
-/// [Plugin](crate::Plugin) was invoked representing the [`Span`] corresponding
-/// to the invocation as well as the arguments it was invoked with. It is one of
-/// three items passed to [`run`](crate::Plugin::run()) along with `name` which
-/// command that was invoked and a [`Value`] that represents the input.
+/// The `EvaluatedCall` contains information about the way a [Plugin](crate::Plugin) was invoked
+/// representing the [`Span`] corresponding to the invocation as well as the arguments
+/// it was invoked with. It is one of three items passed to [`run`](crate::Plugin::run()) along with
+/// `name` which command that was invoked and a [`Value`] that represents the input.
 ///
 /// The evaluated call is used with the Plugins because the plugin doesn't have
-/// access to the Stack and the EngineState the way a built in command might.
-/// For that reason, before encoding the message to the plugin all the arguments
-/// to the original call (which are expressions) are evaluated and passed to
-/// Values
+/// access to the Stack and the EngineState the way a built in command might. For that
+/// reason, before encoding the message to the plugin all the arguments to the original
+/// call (which are expressions) are evaluated and passed to Values
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EvaluatedCall {
     /// Span of the command invocation
@@ -60,8 +57,8 @@ impl EvaluatedCall {
 
     /// Indicates whether named parameter is present in the arguments
     ///
-    /// Typically this method would be used on a flag parameter, a named
-    /// parameter that does not take a value.
+    /// Typically this method would be used on a flag parameter, a named parameter
+    /// that does not take a value.
     ///
     /// # Examples
     /// Invoked as `my_command --foo`:
@@ -156,8 +153,7 @@ impl EvaluatedCall {
         None
     }
 
-    /// Returns the [`Value`] of a given (zero indexed) positional argument, if
-    /// present
+    /// Returns the [`Value`] of a given (zero indexed) positional argument, if present
     ///
     /// Examples:
     /// Invoked as `my_command a b c`:
@@ -280,8 +276,7 @@ impl EvaluatedCall {
             .collect()
     }
 
-    /// Retrieve the value of an optional positional argument interpreted as
-    /// type `T`
+    /// Retrieve the value of an optional positional argument interpreted as type `T`
     ///
     /// Returns the value of a (zero indexed) positional argument of type `T`.
     /// Alternatively returns [`None`] if the positional argument does not exist
@@ -297,8 +292,8 @@ impl EvaluatedCall {
     /// Retrieve the value of a mandatory positional argument as type `T`
     ///
     /// Expect a positional argument of type `T` and return its value or, if the
-    /// argument does not exist or is of the wrong type, return an error that
-    /// can be passed back to the shell.
+    /// argument does not exist or is of the wrong type, return an error that can
+    /// be passed back to the shell.
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
             FromValue::from_value(value)
@@ -315,9 +310,8 @@ impl EvaluatedCall {
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::{Span, Spanned, Value};
-
     use super::*;
+    use nu_protocol::{Span, Spanned, Value};
 
     #[test]
     fn call_to_value() {

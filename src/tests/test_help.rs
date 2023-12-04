@@ -1,6 +1,5 @@
-use rstest::rstest;
-
 use crate::tests::{run_test, TestResult};
+use rstest::rstest;
 
 #[rstest]
 // avoid feeding strings containing parens to regex.  Does not end well.

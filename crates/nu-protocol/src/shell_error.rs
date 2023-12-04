@@ -4,10 +4,9 @@ use thiserror::Error;
 
 use crate::{ast::Operator, engine::StateWorkingSet, format_error, ParseError, Span, Value};
 
-/// The fundamental error type for the evaluation engine. These cases represent
-/// different kinds of errors the evaluator might face, along with helpful spans
-/// to label. An error renderer will take this error value and pass it into an
-/// error viewer to display to the user.
+/// The fundamental error type for the evaluation engine. These cases represent different kinds of errors
+/// the evaluator might face, along with helpful spans to label. An error renderer will take this error value
+/// and pass it into an error viewer to display to the user.
 #[derive(Debug, Clone, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ShellError {
     /// An operator received two arguments of incompatible types.
@@ -43,9 +42,8 @@ pub enum ShellError {
         help: String,
     },
 
-    /// The pipelined input into a command was not of the expected type. For
-    /// example, it might expect a string input, but received a table
-    /// instead.
+    /// The pipelined input into a command was not of the expected type. For example, it might
+    /// expect a string input, but received a table instead.
     ///
     /// ## Resolution
     ///
@@ -61,12 +59,10 @@ pub enum ShellError {
     },
 
     // TODO: properly unify
-    /// The pipelined input into a command was not of the expected type. For
-    /// example, it might expect a string input, but received a table
-    /// instead.
+    /// The pipelined input into a command was not of the expected type. For example, it might
+    /// expect a string input, but received a table instead.
     ///
-    /// (duplicate of [`ShellError::PipelineMismatch`] that reports the observed
-    /// type)
+    /// (duplicate of [`ShellError::PipelineMismatch`] that reports the observed type)
     ///
     /// ## Resolution
     ///
@@ -99,8 +95,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Convert the argument type before passing it in, or change the command to
-    /// accept the type.
+    /// Convert the argument type before passing it in, or change the command to accept the type.
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::shell::type_mismatch))]
     TypeMismatch {
@@ -128,9 +123,8 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Not all values, for example custom values, can be used with all
-    /// operators. Either implement support for the operator on this type,
-    /// or convert the type to a supported one.
+    /// Not all values, for example custom values, can be used with all operators. Either
+    /// implement support for the operator on this type, or convert the type to a supported one.
     #[error("Unsupported operator: {operator}.")]
     #[diagnostic(code(nu::shell::unsupported_operator))]
     UnsupportedOperator {
@@ -189,8 +183,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Two parameters conflict with each other or are otherwise mutually
-    /// exclusive.
+    /// Two parameters conflict with each other or are otherwise mutually exclusive.
     ///
     /// ## Resolution
     ///
@@ -207,13 +200,11 @@ pub enum ShellError {
         right_span: Span,
     },
 
-    /// There's some issue with number or matching of delimiters in an
-    /// expression.
+    /// There's some issue with number or matching of delimiters in an expression.
     ///
     /// ## Resolution
     ///
-    /// Check your syntax for mismatched braces, RegExp syntax errors, etc,
-    /// based on the specific error message.
+    /// Check your syntax for mismatched braces, RegExp syntax errors, etc, based on the specific error message.
     #[error("Delimiter error")]
     #[diagnostic(code(nu::shell::delimiter_error))]
     DelimiterError {
@@ -223,13 +214,12 @@ pub enum ShellError {
     },
 
     /// An operation received parameters with some sort of incompatibility
-    /// (for example, different number of rows in a table, incompatible column
-    /// names, etc).
+    /// (for example, different number of rows in a table, incompatible column names, etc).
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message for details on what's incompatible
-    /// and then fix your inputs to make sure they match that way.
+    /// Refer to the specific error message for details on what's incompatible and then fix your
+    /// inputs to make sure they match that way.
     #[error("Incompatible parameters.")]
     #[diagnostic(code(nu::shell::incompatible_parameters))]
     IncompatibleParametersSingle {
@@ -242,8 +232,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Make sure there's an appropriate `run-external` declaration for this
-    /// external command.
+    /// Make sure there's an appropriate `run-external` declaration for this external command.
     #[error("Running external commands not supported")]
     #[diagnostic(code(nu::shell::external_commands))]
     ExternalNotSupported {
@@ -252,8 +241,7 @@ pub enum ShellError {
     },
 
     // TODO: consider moving to a more generic error variant for invalid values
-    /// The given probability input is invalid. The probability must be between
-    /// 0 and 1.
+    /// The given probability input is invalid. The probability must be between 0 and 1.
     ///
     /// ## Resolution
     ///
@@ -269,8 +257,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check to make sure both values are compatible, and that the values are
-    /// enumerable in Nushell.
+    /// Check to make sure both values are compatible, and that the values are enumerable in Nushell.
     #[error("Invalid range {left_flank}..{right_flank}")]
     #[diagnostic(code(nu::shell::invalid_range))]
     InvalidRange {
@@ -280,8 +267,7 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Catastrophic nushell failure. This reflects a completely unexpected or
-    /// unrecoverable error.
+    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
@@ -292,12 +278,10 @@ pub enum ShellError {
         help(
         "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
     ))]
-    // Only use this one if Nushell completely falls over and hits a state that isn't possible or
-    // isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailed { msg: String },
 
-    /// Catastrophic nushell failure. This reflects a completely unexpected or
-    /// unrecoverable error.
+    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
@@ -308,8 +292,7 @@ pub enum ShellError {
         help(
         "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
     ))]
-    // Only use this one if Nushell completely falls over and hits a state that isn't possible or
-    // isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedSpanned {
         msg: String,
         label: String,
@@ -317,16 +300,14 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// Catastrophic nushell failure. This reflects a completely unexpected or
-    /// unrecoverable error.
+    /// Catastrophic nushell failure. This reflects a completely unexpected or unrecoverable error.
     ///
     /// ## Resolution
     ///
     /// It is very likely that this is a bug. Please file an issue at <https://github.com/nushell/nushell/issues> with relevant information.
     #[error("Nushell failed: {msg}.")]
     #[diagnostic(code(nu::shell::nushell_failed_help))]
-    // Only use this one if Nushell completely falls over and hits a state that isn't possible or
-    // isn't recoverable
+    // Only use this one if Nushell completely falls over and hits a state that isn't possible or isn't recoverable
     NushellFailedHelp {
         msg: String,
         #[help]
@@ -337,8 +318,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the variable name. Did you typo it? Did you forget to declare it?
-    /// Is the casing right?
+    /// Check the variable name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Variable not found")]
     #[diagnostic(code(nu::shell::variable_not_found))]
     VariableNotFoundAtRuntime {
@@ -350,8 +330,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the environment variable name. Did you typo it? Did you forget to
-    /// declare it? Is the casing right?
+    /// Check the environment variable name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Environment variable '{envvar_name}' not found")]
     #[diagnostic(code(nu::shell::env_variable_not_found))]
     EnvVarNotFoundAtRuntime {
@@ -364,8 +343,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the module name. Did you typo it? Did you forget to declare it? Is
-    /// the casing right?
+    /// Check the module name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Module '{mod_name}' not found")]
     #[diagnostic(code(nu::shell::module_not_found))]
     ModuleNotFoundAtRuntime {
@@ -378,8 +356,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the overlay name. Did you typo it? Did you forget to declare it?
-    /// Is the casing right?
+    /// Check the overlay name. Did you typo it? Did you forget to declare it? Is the casing right?
     #[error("Overlay '{overlay_name}' not found")]
     #[diagnostic(code(nu::shell::overlay_not_found))]
     OverlayNotFoundAtRuntime {
@@ -388,14 +365,11 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The given item was not found. This is a fairly generic error that
-    /// depends on context.
+    /// The given item was not found. This is a fairly generic error that depends on context.
     ///
     /// ## Resolution
     ///
-    /// This error is triggered in various places, and simply signals that
-    /// "something" was not found. Refer to the specific error message for
-    /// further details.
+    /// This error is triggered in various places, and simply signals that "something" was not found. Refer to the specific error message for further details.
     #[error("Not found.")]
     #[diagnostic(code(nu::parser::not_found))]
     NotFound {
@@ -407,8 +381,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Not all values can be coerced this way. Check the supported type(s) and
-    /// try again.
+    /// Not all values can be coerced this way. Check the supported type(s) and try again.
     #[error("Can't convert to {to_type}.")]
     #[diagnostic(code(nu::shell::cant_convert))]
     CantConvert {
@@ -436,8 +409,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Not all types can be converted to environment variable values, which
-    /// must be strings. Check the input type and try again.
+    /// Not all types can be converted to environment variable values, which must be strings. Check the input type and try again.
     #[error("'{envvar_name}' is not representable as a string.")]
     #[diagnostic(
             code(nu::shell::env_var_not_a_string),
@@ -456,8 +428,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This environment variable is set automatically by Nushell and cannot not
-    /// be set manually.
+    /// This environment variable is set automatically by Nushell and cannot not be set manually.
     #[error("{envvar_name} cannot be set manually.")]
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
@@ -475,8 +446,8 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Setting the entire environment is not allowed. Change environment
-    /// variables individually instead.
+    /// Setting the entire environment is not allowed. Change environment variables individually
+    /// instead.
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::shell::cannot_replace_env),
@@ -491,8 +462,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Add a guard of some sort to check whether a denominator input to this
-    /// division is zero, and branch off if that's the case.
+    /// Add a guard of some sort to check whether a denominator input to this division is zero, and branch off if that's the case.
     #[error("Division by zero.")]
     #[diagnostic(code(nu::shell::division_by_zero))]
     DivisionByZero {
@@ -502,13 +472,11 @@ pub enum ShellError {
 
     /// An error happened while tryin to create a range.
     ///
-    /// This can happen in various unexpected situations, for example if the
-    /// range would loop forever (as would be the case with a 0-increment).
+    /// This can happen in various unexpected situations, for example if the range would loop forever (as would be the case with a 0-increment).
     ///
     /// ## Resolution
     ///
-    /// Check your range values to make sure they're countable and would not
-    /// loop forever.
+    /// Check your range values to make sure they're countable and would not loop forever.
     #[error("Can't convert range to countable values")]
     #[diagnostic(code(nu::shell::range_to_countable))]
     CannotCreateRange {
@@ -555,8 +523,7 @@ pub enum ShellError {
     },
 
     // TODO: check to be taken over by `AccessBeyondEnd`
-    /// You attempted to access an index beyond the available length of a
-    /// stream.
+    /// You attempted to access an index beyond the available length of a stream.
     ///
     /// ## Resolution
     ///
@@ -585,8 +552,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the spelling of your column name. Did you forget to rename a
-    /// column somewhere?
+    /// Check the spelling of your column name. Did you forget to rename a column somewhere?
     #[error("Cannot find column")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
@@ -597,8 +563,7 @@ pub enum ShellError {
         src_span: Span,
     },
 
-    /// Attempted to insert a column into a table, but a column with that name
-    /// already exists.
+    /// Attempted to insert a column into a table, but a column with that name already exists.
     ///
     /// ## Resolution
     ///
@@ -645,8 +610,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This error is fairly generic. Refer to the specific error message for
-    /// further details.
+    /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("External command failed")]
     #[diagnostic(code(nu::shell::external_command), help("{help}"))]
     ExternalCommand {
@@ -660,8 +624,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This error is fairly generic. Refer to the specific error message for
-    /// further details.
+    /// This error is fairly generic. Refer to the specific error message for further details.
     #[error("Unsupported input")]
     #[diagnostic(code(nu::shell::unsupported_input))]
     UnsupportedInput {
@@ -723,9 +686,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the spelling for the requested command and try again. Are you sure
-    /// it's defined and your configurations are loading correctly? Can you
-    /// execute it?
+    /// Check the spelling for the requested command and try again. Are you sure it's defined and your configurations are loading correctly? Can you execute it?
     #[error("Command not found")]
     #[diagnostic(code(nu::shell::command_not_found))]
     CommandNotFound {
@@ -737,8 +698,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// The alias does not exist in the current scope. It might exist in another
-    /// scope or overlay or be hidden.
+    /// The alias does not exist in the current scope. It might exist in another scope or overlay or be hidden.
     #[error("Alias not found")]
     #[diagnostic(code(nu::shell::alias_not_found))]
     AliasNotFound {
@@ -750,8 +710,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Does the file in the error message exist? Is it readable and accessible?
-    /// Is the casing right?
+    /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
     FileNotFound {
@@ -763,8 +722,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Does the file in the error message exist? Is it readable and accessible?
-    /// Is the casing right?
+    /// Does the file in the error message exist? Is it readable and accessible? Is the casing right?
     #[error("File not found")]
     #[diagnostic(code(nu::shell::file_not_found))]
     FileNotFoundCustom {
@@ -777,8 +735,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a fairly generic error. Refer to the specific error message for
-    /// further details.
+    /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Plugin failed to load: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_load))]
     PluginFailedToLoad { msg: String },
@@ -796,8 +753,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is either an issue with the inputs to a plugin (bad JSON?) or a bug
-    /// in the plugin itself. Fix or report as appropriate.
+    /// This is either an issue with the inputs to a plugin (bad JSON?) or a bug in the plugin itself. Fix or report as appropriate.
     #[error("Plugin failed to decode: {msg}")]
     #[diagnostic(code(nu::shell::plugin_failed_to_decode))]
     PluginFailedToDecode { msg: String },
@@ -806,8 +762,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a generic error. Refer to the specific error message for further
-    /// details.
+    /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O interrupted")]
     #[diagnostic(code(nu::shell::io_interrupted))]
     IOInterrupted(String, #[label("{0}")] Span),
@@ -816,8 +771,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a generic error. Refer to the specific error message for further
-    /// details.
+    /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error), help("{0}"))]
     IOError(String),
@@ -826,8 +780,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a generic error. Refer to the specific error message for further
-    /// details.
+    /// This is a generic error. Refer to the specific error message for further details.
     #[error("I/O error")]
     #[diagnostic(code(nu::shell::io_error))]
     IOErrorSpanned(String, #[label("{0}")] Span),
@@ -836,8 +789,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a generic error. Refer to the specific error message for further
-    /// details.
+    /// This is a generic error. Refer to the specific error message for further details.
     #[error("Permission Denied")]
     #[diagnostic(code(nu::shell::permission_denied))]
     PermissionDeniedError(String, #[label("{0}")] Span),
@@ -846,8 +798,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a generic error. Refer to the specific error message for further
-    /// details.
+    /// This is a generic error. Refer to the specific error message for further details.
     #[error("Out of memory")]
     #[diagnostic(code(nu::shell::out_of_memory))]
     OutOfMemoryError(String, #[label("{0}")] Span),
@@ -856,8 +807,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Make sure the path is a directory. It currently exists, but is of some
-    /// other type, like a file.
+    /// Make sure the path is a directory. It currently exists, but is of some other type, like a file.
     #[error("Cannot change to directory")]
     #[diagnostic(code(nu::shell::cannot_cd_to_directory))]
     NotADirectory(#[label("is not a directory")] Span),
@@ -866,8 +816,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Make sure the directory in the error message actually exists before
-    /// trying again.
+    /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found), help("{1} does not exist"))]
     DirectoryNotFound(#[label("directory not found")] Span, String),
@@ -876,15 +825,14 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Make sure the directory in the error message actually exists before
-    /// trying again.
+    /// Make sure the directory in the error message actually exists before trying again.
     #[error("Directory not found")]
     #[diagnostic(code(nu::shell::directory_not_found_custom))]
     DirectoryNotFoundCustom(String, #[label("{0}")] Span),
 
-    /// The requested move operation cannot be completed. This is typically
-    /// because both paths exist, but are of different types. For example,
-    /// you might be trying to overwrite an existing file with a directory.
+    /// The requested move operation cannot be completed. This is typically because both paths exist,
+    /// but are of different types. For example, you might be trying to overwrite an existing file with
+    /// a directory.
     ///
     /// ## Resolution
     ///
@@ -900,9 +848,9 @@ pub enum ShellError {
         destination_span: Span,
     },
 
-    /// The requested move operation cannot be completed. This is typically
-    /// because both paths exist, but are of different types. For example,
-    /// you might be trying to overwrite an existing file with a directory.
+    /// The requested move operation cannot be completed. This is typically because both paths exist,
+    /// but are of different types. For example, you might be trying to overwrite an existing file with
+    /// a directory.
     ///
     /// ## Resolution
     ///
@@ -916,8 +864,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This is a fairly generic error. Refer to the specific error message for
-    /// further details.
+    /// This is a fairly generic error. Refer to the specific error message for further details.
     #[error("Create not possible")]
     #[diagnostic(code(nu::shell::create_not_possible))]
     CreateNotPossible(String, #[label("{0}")] Span),
@@ -926,8 +873,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This can be for various reasons, such as your platform or permission
-    /// flags. Refer to the specific error message for more details.
+    /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the access time")]
     #[diagnostic(code(nu::shell::change_access_time_not_possible))]
     ChangeAccessTimeNotPossible(String, #[label("{0}")] Span),
@@ -936,8 +882,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// This can be for various reasons, such as your platform or permission
-    /// flags. Refer to the specific error message for more details.
+    /// This can be for various reasons, such as your platform or permission flags. Refer to the specific error message for more details.
     #[error("Not possible to change the modified time")]
     #[diagnostic(code(nu::shell::change_modified_time_not_possible))]
     ChangeModifiedTimeNotPossible(String, #[label("{0}")] Span),
@@ -946,8 +891,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Removal can fail for a number of reasons, such as permissions problems.
-    /// Refer to the specific error message for more details.
+    /// Removal can fail for a number of reasons, such as permissions problems. Refer to the specific error message for more details.
     #[error("Remove not possible")]
     #[diagnostic(code(nu::shell::remove_not_possible))]
     RemoveNotPossible(String, #[label("{0}")] Span),
@@ -1009,8 +953,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Make sure conversion to a Dataframe is possible for this value or
-    /// convert it to a type that does, first.
+    /// Make sure conversion to a Dataframe is possible for this value or convert it to a type that does, first.
     #[error("Casting error")]
     #[diagnostic(code(nu::shell::downcast_not_possible))]
     DowncastNotPossible(String, #[label("{0}")] Span),
@@ -1019,8 +962,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message for details and convert values as
-    /// needed.
+    /// Refer to the specific error message for details and convert values as needed.
     #[error("Unsupported config value")]
     #[diagnostic(code(nu::shell::unsupported_config_value))]
     UnsupportedConfigValue(String, String, #[label = "expected {0}, got {1}"] Span),
@@ -1029,8 +971,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Refer to the specific error message and add the configuration value to
-    /// your config file as needed.
+    /// Refer to the specific error message and add the configuration value to your config file as needed.
     #[error("Missing config value")]
     #[diagnostic(code(nu::shell::missing_config_value))]
     MissingConfigValue(String, #[label = "missing {0}"] Span),
@@ -1064,8 +1005,7 @@ pub enum ShellError {
     ///
     /// ## Resolution
     ///
-    /// Check the help for the new suggested command and update your script
-    /// accordingly.
+    /// Check the help for the new suggested command and update your script accordingly.
     #[error("Removed command: {0}")]
     #[diagnostic(code(nu::shell::removed_command))]
     RemovedCommand(
@@ -1152,8 +1092,8 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// An attempt to run a command marked for constant evaluation lacking the
-    /// const. eval. implementation.
+    /// An attempt to run a command marked for constant evaluation lacking the const. eval.
+    /// implementation.
     ///
     /// This is an internal Nushell error, please file an issue.
     #[error("Missing const eval implementation")]
@@ -1173,15 +1113,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     ///
     /// ## Resolution
     ///
-    /// Only a subset of expressions are allowed to be assigned as a constant
-    /// during parsing.
+    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
     #[error("Not a constant.")]
     #[diagnostic(
         code(nu::shell::not_a_constant),
-        help(
-            "Only a subset of expressions are allowed constants during parsing. Try using the \
-             'const' command or typing the value literally."
-        )
+        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
     )]
     NotAConstant(#[label = "Value is not a parse-time constant"] Span),
 
@@ -1189,15 +1125,12 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
     ///
     /// ## Resolution
     ///
-    /// Only a subset of builtin commands, and custom commands built only from
-    /// those commands, can run at parse time.
+    /// Only a subset of builtin commands, and custom commands built only from those commands, can
+    /// run at parse time.
     #[error("Not a const command.")]
     #[diagnostic(
         code(nu::shell::not_a_const_command),
-        help(
-            "Only a subset of builtin commands, and custom commands built only from those \
-             commands, can run at parse time."
-        )
+        help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
     )]
     NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
 
@@ -1235,22 +1168,18 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::error_expanding_glob),
         help("Correct glob pattern or file access issue")
     )]
-    // todo: add error detail
+    //todo: add error detail
     ErrorExpandingGlob(String, #[label = "{0}"] Span),
 
     /// Tried spreading a non-list inside a list.
     ///
     /// ## Resolution
     ///
-    /// Only lists can be spread inside lists. Try converting the value to a
-    /// list before spreading.
+    /// Only lists can be spread inside lists. Try converting the value to a list before spreading.
     #[error("Not a list")]
     #[diagnostic(
         code(nu::shell::cannot_spread),
-        help(
-            "Only lists can be spread inside lists. Try converting the value to a list before \
-             spreading"
-        )
+        help("Only lists can be spread inside lists. Try converting the value to a list before spreading")
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]

@@ -6,12 +6,13 @@ use nu_protocol::{
 };
 use ratatui::layout::Rect;
 
-use super::{HelpExample, HelpManual, ViewCommand};
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
     pager::Frame,
     views::{Layout, Orientation, Preview, RecordView, View, ViewConfig},
 };
+
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct NuCmd {
@@ -19,13 +20,13 @@ pub struct NuCmd {
 }
 
 impl NuCmd {
-    pub const NAME: &'static str = "nu";
-
     pub fn new() -> Self {
         Self {
             command: String::new(),
         }
     }
+
+    pub const NAME: &'static str = "nu";
 }
 
 impl ViewCommand for NuCmd {
@@ -54,8 +55,8 @@ impl ViewCommand for NuCmd {
 
         Some(HelpManual {
             name: "nu",
-            description: "Run a Nushell command. The data currently being explored is piped into \
-                          it.",
+            description:
+                "Run a Nushell command. The data currently being explored is piped into it.",
             examples,
             arguments: vec![],
             input: vec![],

@@ -1,3 +1,4 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,8 +6,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{Expr, JoinType};
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct LazyJoin;
@@ -204,8 +203,7 @@ impl Command for LazyJoin {
             });
         }
 
-        // Checking that both list of expressions are made out of col expressions or
-        // strings
+        // Checking that both list of expressions are made out of col expressions or strings
         for (index, list) in &[(1usize, &left_on), (2, &left_on)] {
             if list.iter().any(|expr| !matches!(expr, Expr::Column(..))) {
                 let value: Value = call.req(engine_state, stack, *index)?;
@@ -242,7 +240,8 @@ impl Command for LazyJoin {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

@@ -211,15 +211,13 @@ macro_rules! nu_with_plugins {
 
 }
 
+use crate::{Outcome, NATIVE_PATH_ENV_VAR};
+use std::fmt::Write;
 use std::{
-    fmt::Write,
     path::Path,
     process::{Command, Stdio},
 };
-
 use tempfile::tempdir;
-
-use crate::{Outcome, NATIVE_PATH_ENV_VAR};
 
 #[derive(Default)]
 pub struct NuOpts {

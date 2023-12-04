@@ -1,9 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{
-    engine::{EngineState, DEFAULT_OVERLAY_NAME},
-    ShellError, Span, Value, VarId,
-};
+use crate::engine::EngineState;
+use crate::engine::DEFAULT_OVERLAY_NAME;
+use crate::{ShellError, Span, Value, VarId};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -12,32 +11,26 @@ pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 ///
 /// A note on implementation:
 ///
-/// We previously set up the stack in a traditional way, where stack frames had
-/// parents which would represent other frames that you might return to when
-/// exiting a function.
+/// We previously set up the stack in a traditional way, where stack frames had parents which would
+/// represent other frames that you might return to when exiting a function.
 ///
-/// While experimenting with blocks, we found that we needed to have closure
-/// captures of variables seen outside of the blocks, so that they blocks could
-/// be run in a way that was both thread-safe and followed the restrictions for
-/// closures applied to iterators. The end result left us with closure-captured
-/// single stack frames that blocks could see.
+/// While experimenting with blocks, we found that we needed to have closure captures of variables
+/// seen outside of the blocks, so that they blocks could be run in a way that was both thread-safe
+/// and followed the restrictions for closures applied to iterators. The end result left us with
+/// closure-captured single stack frames that blocks could see.
 ///
-/// Blocks make up the only scope and stack definition abstraction in Nushell.
-/// As a result, we were creating closure captures at any point we wanted to
-/// have a Block value we could safely evaluate in any context. This meant that
-/// the parents were going largely unused, with captured variables taking their
-/// place. The end result is this, where we no longer have separate frames, but
-/// instead use the Stack as a way of representing the local and
-/// closure-captured state.
+/// Blocks make up the only scope and stack definition abstraction in Nushell. As a result, we were
+/// creating closure captures at any point we wanted to have a Block value we could safely evaluate
+/// in any context. This meant that the parents were going largely unused, with captured variables
+/// taking their place. The end result is this, where we no longer have separate frames, but instead
+/// use the Stack as a way of representing the local and closure-captured state.
 #[derive(Debug, Clone)]
 pub struct Stack {
     /// Variables
     pub vars: Vec<(VarId, Value)>,
-    /// Environment variables arranged as a stack to be able to recover values
-    /// from parent scopes
+    /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<EnvVars>,
-    /// Tells which environment variables from engine state are hidden, per
-    /// overlay.
+    /// Tells which environment variables from engine state are hidden, per overlay.
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
@@ -91,7 +84,7 @@ impl Stack {
     }
 
     pub fn add_var(&mut self, var_id: VarId, value: Value) {
-        // self.vars.insert(var_id, value);
+        //self.vars.insert(var_id, value);
         for (id, val) in &mut self.vars {
             if *id == var_id {
                 *val = value;
@@ -166,8 +159,7 @@ impl Stack {
 
         for capture in captures {
             // Note: this assumes we have calculated captures correctly and that commands
-            // that take in a var decl will manually set this into scope when running the
-            // blocks
+            // that take in a var decl will manually set this into scope when running the blocks
             if let Ok(value) = self.get_var(*capture, fake_span) {
                 vars.push((*capture, value));
             } else if let Some(const_val) = &engine_state.get_var(*capture).const_val {

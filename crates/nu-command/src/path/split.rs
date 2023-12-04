@@ -1,9 +1,9 @@
 use std::path::{Component, Path};
 
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 
 use super::PathSubcommandArguments;

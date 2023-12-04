@@ -1,10 +1,8 @@
 use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{EngineState, Stack},
-    PipelineData, ShellError, Span, Value,
-};
+use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Span, Value};
 
 enum HexDecodingError {
     InvalidLength(usize),
@@ -110,53 +108,40 @@ fn action(
         Value::Binary { val, .. } => match hex_config.action_type {
             ActionType::Encode => Value::string(hex_encode(val.as_ref()), command_span),
             ActionType::Decode => Value::error(
-                ShellError::UnsupportedInput {
-                    msg: "Binary data can only be encoded".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: command_span,
-                    input_span: input.span(),
-                },
+                ShellError::UnsupportedInput { msg: "Binary data can only be encoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
                 command_span,
             ),
         },
-        Value::String { val, .. } => match hex_config.action_type {
-            ActionType::Encode => Value::error(
-                ShellError::UnsupportedInput {
-                    msg: "String value can only be decoded".to_string(),
-                    input: "value originates from here".into(),
-                    msg_span: command_span,
-                    input_span: input.span(),
-                },
-                command_span,
-            ),
+        Value::String { val, .. } => {
+            match hex_config.action_type {
+                ActionType::Encode => Value::error(
+                    ShellError::UnsupportedInput { msg: "String value can only be decoded".to_string(), input: "value originates from here".into(), msg_span: command_span, input_span: input.span() },
+                    command_span,
+                ),
 
-            ActionType::Decode => match hex_decode(val.as_ref()) {
-                Ok(decoded_value) => Value::binary(decoded_value, command_span),
-                Err(HexDecodingError::InvalidLength(len)) => Value::error(
-                    ShellError::GenericError(
-                        "value could not be hex decoded".to_string(),
-                        format!("invalid hex input length: {len}. The length should be even"),
-                        Some(command_span),
-                        None,
-                        Vec::new(),
-                    ),
-                    command_span,
-                ),
-                Err(HexDecodingError::InvalidDigit(index, digit)) => Value::error(
-                    ShellError::GenericError(
-                        "value could not be hex decoded".to_string(),
-                        format!(
-                            "invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f \
-                             are allowed in hex encoding"
+                ActionType::Decode => match hex_decode(val.as_ref()) {
+                    Ok(decoded_value) => Value::binary(decoded_value, command_span),
+                    Err(HexDecodingError::InvalidLength(len)) => Value::error(ShellError::GenericError(
+                            "value could not be hex decoded".to_string(),
+                            format!("invalid hex input length: {len}. The length should be even"),
+                            Some(command_span),
+                            None,
+                            Vec::new(),
                         ),
-                        Some(command_span),
-                        None,
-                        Vec::new(),
+                        command_span,
                     ),
-                    command_span,
-                ),
-            },
-        },
+                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::error(ShellError::GenericError(
+                            "value could not be hex decoded".to_string(),
+                            format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
+                            Some(command_span),
+                            None,
+                            Vec::new(),
+                        ),
+                        command_span,
+                    ),
+                },
+            }
+        }
         other => Value::error(
             ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
@@ -169,9 +154,8 @@ fn action(
 
 #[cfg(test)]
 mod tests {
-    use nu_protocol::{Span, Value};
-
     use super::{action, ActionType, Arguments, HexConfig};
+    use nu_protocol::{Span, Value};
 
     #[test]
     fn hex_encode() {

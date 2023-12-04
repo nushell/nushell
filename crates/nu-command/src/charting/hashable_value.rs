@@ -1,21 +1,18 @@
-use std::hash::{Hash, Hasher};
-
 use chrono::{DateTime, FixedOffset};
 use nu_protocol::{ShellError, Span, Value};
+use std::hash::{Hash, Hasher};
 
 /// A subset of [Value](crate::Value), which is hashable.
-/// And it means that we can put the value into something like
-/// [HashMap](std::collections::HashMap) or [HashSet](std::collections::HashSet)
+/// And it means that we can put the value into something like [HashMap](std::collections::HashMap) or [HashSet](std::collections::HashSet)
 /// for further usage like value statistics.
 ///
-/// For now the main way to crate a [HashableValue] is using
-/// [from_value](HashableValue::from_value)
+/// For now the main way to crate a [HashableValue] is using [from_value](HashableValue::from_value)
 ///
-/// Please note that although each variant contains `span` field, but during
-/// hashing, this field will not be concerned. Which means that the following
-/// will be true: ```text
-/// assert_eq!(HashableValue::Bool {val: true, span: Span{start: 0, end: 1}},
-/// HashableValue::Bool {val: true, span: Span{start: 90, end: 1000}}) ```
+/// Please note that although each variant contains `span` field, but during hashing, this field will not be concerned.
+/// Which means that the following will be true:
+/// ```text
+/// assert_eq!(HashableValue::Bool {val: true, span: Span{start: 0, end: 1}}, HashableValue::Bool {val: true, span: Span{start: 90, end: 1000}})
+/// ```
 #[derive(Eq, Debug, Ord, PartialOrd)]
 pub enum HashableValue {
     Bool {
@@ -27,8 +24,7 @@ pub enum HashableValue {
         span: Span,
     },
     Float {
-        val: [u8; 8], /* because f64 is not hashable, we save it as [u8;8] array to make it
-                       * hashable. */
+        val: [u8; 8], // because f64 is not hashable, we save it as [u8;8] array to make it hashable.
         span: Span,
     },
     Filesize {
@@ -65,11 +61,9 @@ impl Default for HashableValue {
 impl HashableValue {
     /// Try to convert from `value` to self
     ///
-    /// A `span` is required because when there is an error in value, it may not
-    /// contain `span` field.
+    /// A `span` is required because when there is an error in value, it may not contain `span` field.
     ///
-    /// If the given value is not hashable(mainly because of it is structured
-    /// data), an error will returned.
+    /// If the given value is not hashable(mainly because of it is structured data), an error will returned.
     pub fn from_value(value: Value, span: Span) -> Result<Self, ShellError> {
         let val_span = value.span();
         match value {
@@ -183,14 +177,12 @@ impl PartialEq for HashableValue {
 
 #[cfg(test)]
 mod test {
-    use std::collections::HashSet;
-
+    use super::*;
     use nu_protocol::{
         ast::{CellPath, PathMember},
         engine::Closure,
     };
-
-    use super::*;
+    use std::collections::HashSet;
 
     #[test]
     fn from_value() {

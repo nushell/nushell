@@ -1,15 +1,12 @@
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
-use dialoguer::Input;
 use nu_engine::env::current_dir_str;
 use nu_path::canonicalize_with;
-use nu_protocol::{
-    engine::{EngineState, Stack},
-    ShellError,
-};
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::ShellError;
+
+use dialoguer::Input;
+use std::error::Error;
 
 #[derive(Default)]
 pub struct FileStructure {
@@ -136,9 +133,8 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     }
 }
 
-/// Return `Some(true)` if the last change time of the `src` old than the `dst`,
-/// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't
-/// exist.
+/// Return `Some(true)` if the last change time of the `src` old than the `dst`,  
+/// otherwisie return `Some(false)`. Return `None` if the `src` or `dst` doesn't exist.
 pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
     if !dst.exists() || !src.exists() {
         return None;
@@ -169,10 +165,9 @@ pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
 
 #[cfg(unix)]
 pub mod users {
-    use std::ffi::CString;
-
     use libc::{c_int, gid_t, uid_t};
     use nix::unistd::{Gid, Group, Uid, User};
+    use std::ffi::CString;
 
     pub fn get_user_by_uid(uid: uid_t) -> Option<User> {
         User::from_uid(Uid::from_raw(uid)).ok().flatten()
@@ -231,9 +226,8 @@ pub mod users {
         //
         // `name` is valid CStr to be `const char*` for `user`
         // every valid value will be accepted for `group`
-        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max
-        // length/capacity (as we initialize with 0) Following reads from
-        // `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
+        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
+        // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
         #[cfg(target_os = "macos")]
         let res =
             unsafe { libc::getgrouplist(name.as_ptr(), gid as i32, buff.as_mut_ptr(), &mut count) };

@@ -1,15 +1,13 @@
-use std::path::Path;
-
+use crate::database::values::sqlite::open_sqlite_db;
 use itertools::Itertools;
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-
-use crate::database::values::sqlite::open_sqlite_db;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct IntoSqliteDb;
@@ -57,33 +55,26 @@ impl Command for IntoSqliteDb {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Convert ls entries into a SQLite database with 'main' as the table \
-                              name",
-                example: "ls | into sqlite my_ls.db",
-                result: None,
-            },
-            Example {
-                description: "Convert ls entries into a SQLite database with 'my_table' as the \
-                              table name",
-                example: "ls | into sqlite my_ls.db -t my_table",
-                result: None,
-            },
-            Example {
-                description: "Convert table literal into a SQLite database with 'main' as the \
-                              table name",
-                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite \
-                          filename.db",
-                result: None,
-            },
-            Example {
-                description: "Convert a variety of values in table literal form into a SQLite \
-                              database",
-                example: "[one 2 5.2 six true 100mib 25sec] | into sqlite variety.db",
-                result: None,
-            },
-        ]
+        vec![Example {
+            description: "Convert ls entries into a SQLite database with 'main' as the table name",
+            example: "ls | into sqlite my_ls.db",
+            result: None,
+        },
+        Example {
+            description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
+            example: "ls | into sqlite my_ls.db -t my_table",
+            result: None,
+        },
+        Example {
+            description: "Convert table literal into a SQLite database with 'main' as the table name",
+            example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
+            result: None,
+        },
+        Example {
+            description: "Convert a variety of values in table literal form into a SQLite database",
+            example: "[one 2 5.2 six true 100mib 25sec] | into sqlite variety.db",
+            result: None,
+        }]
     }
 }
 
@@ -231,8 +222,7 @@ fn action(
     }
 }
 
-// This is taken from to text local_into_string but tweaks it a bit so that
-// certain formatting does not happen
+// This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
 fn nu_value_to_string(value: Value, separator: &str) -> String {
     match value {
         Value::Bool { val, .. } => val.to_string(),
@@ -278,14 +268,12 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
     }
 }
 
-// Each value stored in an SQLite database (or manipulated by the database
-// engine) has one of the following storage classes: NULL. The value is a NULL
-// value. INTEGER. The value is a signed integer, stored in 0, 1, 2, 3, 4, 6, or
-// 8 bytes depending on the magnitude of the value. REAL. The value is a
-// floating point value, stored as an 8-byte IEEE floating point number.
-// TEXT. The value is a text string, stored using the database encoding (UTF-8,
-// UTF-16BE or UTF-16LE). BLOB. The value is a blob of data, stored exactly as
-// it was input.
+// Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
+// NULL. The value is a NULL value.
+// INTEGER. The value is a signed integer, stored in 0, 1, 2, 3, 4, 6, or 8 bytes depending on the magnitude of the value.
+// REAL. The value is a floating point value, stored as an 8-byte IEEE floating point number.
+// TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
+// BLOB. The value is a blob of data, stored exactly as it was input.
 fn nu_type_to_sqlite_type(nu_type: Type) -> &'static str {
     match nu_type {
         Type::Int => "INTEGER",

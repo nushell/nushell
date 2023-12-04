@@ -5,11 +5,12 @@ mod status_bar;
 
 use std::{
     cmp::min,
-    collections::HashMap,
     io::{self, Result, Stdout},
     result,
     sync::atomic::Ordering,
 };
+
+use std::collections::HashMap;
 
 use crossterm::{
     event::{KeyCode, KeyEvent, KeyModifiers},
@@ -19,7 +20,6 @@ use crossterm::{
         LeaveAlternateScreen,
     },
 };
-use events::UIEvents;
 use lscolors::LsColors;
 use nu_color_config::{lookup_ansi_color_style, StyleComputer};
 use nu_protocol::{
@@ -28,18 +28,22 @@ use nu_protocol::{
 };
 use ratatui::{backend::CrosstermBackend, layout::Rect, widgets::Block};
 
-use self::{
-    command_bar::CommandBar,
-    report::{Report, Severity},
-    status_bar::StatusBar,
-};
-use super::views::{Layout, View};
 use crate::{
     nu_common::{CtrlC, NuColor, NuConfig, NuSpan, NuStyle},
     registry::{Command, CommandRegistry},
     util::map_into_value,
     views::{util::nu_style_to_tui, ViewConfig},
 };
+
+use self::{
+    command_bar::CommandBar,
+    report::{Report, Severity},
+    status_bar::StatusBar,
+};
+
+use super::views::{Layout, View};
+
+use events::UIEvents;
 
 pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<Stdout>>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
@@ -719,8 +723,7 @@ fn handle_events<V: View>(
     // for example when someone scrolls via a mouse either UP or DOWN.
     // This MIGHT cause freezes as we have a 400 delay for a next command read.
     //
-    // To eliminate that we are trying to read all possible commands which we should
-    // act upon.
+    // To eliminate that we are trying to read all possible commands which we should act upon.
 
     while let Ok(Some(key)) = events.try_next() {
         let result = handle_event(

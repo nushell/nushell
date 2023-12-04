@@ -47,10 +47,10 @@ fn multiple_reports_for_alias_def_custom() {
     assert!(length >= 2);
 }
 
-// `get_aliases_with_name` and `get_custom_commands_with_name` don't return the
-// correct count of values
-// I suspect this is due to the ScopeFrame getting discarded at '}' and the
-// command is then executed in the parent scope
+// `get_aliases_with_name` and `get_custom_commands_with_name` don't return the correct count of
+// values
+// I suspect this is due to the ScopeFrame getting discarded at '}' and the command is then
+// executed in the parent scope
 // See: parse_definition, line 2187 for reference.
 #[ignore]
 #[test]

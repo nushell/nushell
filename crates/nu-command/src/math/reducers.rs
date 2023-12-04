@@ -1,6 +1,5 @@
-use std::cmp::Ordering;
-
 use nu_protocol::{ShellError, Span, Value};
+use std::cmp::Ordering;
 
 pub enum Reduce {
     Summation,

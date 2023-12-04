@@ -1,11 +1,11 @@
+use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
+
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
-
-use super::delimited::{from_delimited_data, trim_from_str, DelimitedReaderConfig};
 
 #[derive(Clone)]
 pub struct FromTsv;
@@ -75,10 +75,12 @@ impl Command for FromTsv {
             Example {
                 description: "Convert tab-separated data to a table",
                 example: "\"ColA\tColB\n1\t2\" | from tsv",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" =>  Value::test_int(1),
-                    "ColB" =>  Value::test_int(2),
-                })])),
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" =>  Value::test_int(1),
+                        "ColB" =>  Value::test_int(2),
+                    })],
+                ))
             },
             Example {
                 description: "Create a tsv file with header columns and open it",
@@ -91,20 +93,17 @@ impl Command for FromTsv {
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all \
-                              unnecessary whitespaces",
+                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim all"#,
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all \
-                              unnecessary whitespaces in the header names",
+                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the header names",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim headers"#,
                 result: None,
             },
             Example {
-                description: "Create a tsv file without header columns and open it, removing all \
-                              unnecessary whitespaces in the field values",
+                description: "Create a tsv file without header columns and open it, removing all unnecessary whitespaces in the field values",
                 example: r#"$'a1(char tab)b1(char tab)c1(char nl)a2(char tab)b2(char tab)c2' | save tsv-data | open tsv-data | from tsv --trim fields"#,
                 result: None,
             },

@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
@@ -95,8 +95,8 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"C:\Users\viking\..\folder")),
             },
             Example {
-                description: "Use absolute paths, e.g. '/' will bring you to the top level \
-                              directory",
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
                 example: r"'C:\Users\viking' | path join / folder",
                 result: Some(Value::test_string(r"C:/folder")),
             },
@@ -140,8 +140,8 @@ the output of 'path parse' and 'path split' subcommands."#
                 result: Some(Value::test_string(r"/home/viking/../folder")),
             },
             Example {
-                description: "Use absolute paths, e.g. '/' will bring you to the top level \
-                              directory",
+                description:
+                    "Use absolute paths, e.g. '/' will bring you to the top level directory",
                 example: r"'/home/viking' | path join / folder",
                 result: Some(Value::test_string(r"/folder")),
             },
@@ -248,15 +248,9 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
     for key in record.columns() {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
-            return Err(ShellError::UnsupportedInput {
-                msg: format!(
-                    "Column '{key}' is not valid for a structured path. Allowed columns on this \
-                     platform are: {allowed_cols}"
-                ),
-                input: "value originates from here".into(),
-                msg_span: head,
-                input_span: span,
-            });
+            return Err(ShellError::UnsupportedInput { msg: format!(
+                    "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
+                ), input: "value originates from here".into(), msg_span: head, input_span: span });
         }
     }
 

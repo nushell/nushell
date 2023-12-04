@@ -1,13 +1,12 @@
 use std::path::Path;
 
-use nu_test_support::{
-    fs::{
-        file_contents, files_exist_at, AbsoluteFile,
-        Stub::{EmptyFile, FileWithContent, FileWithPermission},
-    },
-    nu,
-    playground::Playground,
+use nu_test_support::fs::file_contents;
+use nu_test_support::fs::{
+    files_exist_at, AbsoluteFile,
+    Stub::{EmptyFile, FileWithContent, FileWithPermission},
 };
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 fn get_file_hash<T: std::fmt::Display>(file: T) -> String {
     nu!("open -r {} | to text | hash md5", file).out
@@ -422,8 +421,7 @@ fn copy_dir_contains_symlink_ignored_impl(progress: bool) {
             progress_flag
         );
 
-        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't
-        // exists inside `tmp_dir_2`.
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` don't exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");
@@ -454,8 +452,7 @@ fn copy_dir_contains_symlink_impl(progress: bool) {
             progress_flag
         );
 
-        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists
-        // inside `tmp_dir_2`.
+        // check hello_there exists inside `tmp_dir_2`, and `dangle_symlink` also exists inside `tmp_dir_2`.
         let expected = sandbox.cwd().join("tmp_dir_2");
         assert!(files_exist_at(vec!["hello_there"], expected.clone()));
         let path = expected.join("dangle_symlink");

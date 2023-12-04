@@ -5,8 +5,9 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use super::super::values::{Column, NuDataFrame};
 use crate::dataframe::values::utils::convert_columns_string;
+
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct GetDF;
@@ -83,7 +84,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

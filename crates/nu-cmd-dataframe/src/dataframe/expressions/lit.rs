@@ -1,11 +1,10 @@
+use crate::dataframe::values::NuExpression;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
-
-use crate::dataframe::values::NuExpression;
 
 #[derive(Clone)]
 pub struct ExprLit;
@@ -64,7 +63,8 @@ impl Command for ExprLit {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
     use crate::dataframe::eager::ToNu;
 
     #[test]

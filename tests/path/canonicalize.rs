@@ -1,8 +1,9 @@
-use std::path::Path;
-
 use nu_path::canonicalize_with;
-use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
+use std::path::Path;
 
 #[test]
 fn canonicalize_path() {

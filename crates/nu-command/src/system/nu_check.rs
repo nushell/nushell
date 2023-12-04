@@ -1,10 +1,9 @@
 use nu_engine::{find_in_dirs_env, get_dirs_var_from_call, CallExt};
 use nu_parser::{parse, parse_module_block, unescape_unquote_string};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -17,21 +16,14 @@ impl Command for NuCheck {
 
     fn signature(&self) -> Signature {
         Signature::build("nu-check")
-            .input_output_types(vec![
-                (Type::String, Type::Bool),
-                (Type::ListStream, Type::Bool),
-                (Type::List(Box::new(Type::Any)), Type::Bool),
-            ])
+            .input_output_types(vec![(Type::String, Type::Bool),
+            (Type::ListStream, Type::Bool),
+            (Type::List(Box::new(Type::Any)), Type::Bool)])
             // type is string to avoid automatically canonicalizing the path
             .optional("path", SyntaxShape::String, "File path to parse")
             .switch("as-module", "Parse content as module", Some('m'))
             .switch("debug", "Show error messages", Some('d'))
-            .switch(
-                "all",
-                "Parse content as script first, returns result if success, otherwise, try with \
-                 module",
-                Some('a'),
-            )
+            .switch("all", "Parse content as script first, returns result if success, otherwise, try with module", Some('a'))
             .category(Category::Strings)
     }
 
@@ -63,13 +55,9 @@ impl Command for NuCheck {
         if is_all && is_module {
             return Err(ShellError::GenericError(
                 "Detected command flags conflict".to_string(),
-                "You cannot have both `--all` and `--as-module` on the same command line, please \
-                 refer to `nu-check --help` for more details"
-                    .to_string(),
+                "You cannot have both `--all` and `--as-module` on the same command line, please refer to `nu-check --help` for more details".to_string(),
                 Some(call.head),
-                None,
-                vec![],
-            ));
+                None, vec![]));
         }
 
         let span = input.span().unwrap_or(call.head);
@@ -118,8 +106,7 @@ impl Command for NuCheck {
             }
             _ => {
                 if let Some(path_str) = path {
-                    // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process
-                    // as source-env)
+                    // look up the path as relative to FILE_PWD or inside NU_LIB_DIRS (same process as source-env)
                     let path = match find_in_dirs_env(
                         &path_str.item,
                         engine_state,
@@ -221,8 +208,7 @@ impl Command for NuCheck {
                 result: None,
             },
             Example {
-                description: "Heuristically parse which begins with script first, if it sees a \
-                              failure, try module afterwards",
+                description: "Heuristically parse which begins with script first, if it sees a failure, try module afterwards",
                 example: "nu-check -a script.nu",
                 result: None,
             },
@@ -350,11 +336,7 @@ fn parse_module(
                 "Failed to parse content".to_string(),
                 msg,
                 Some(span),
-                Some(
-                    "If the content is intended to be a script, please try to remove \
-                     `--as-module` flag "
-                        .to_string(),
-                ),
+                Some("If the content is intended to be a script, please try to remove `--as-module` flag ".to_string()),
                 Vec::new(),
             ))
         } else {
@@ -387,11 +369,7 @@ fn parse_script(
                 "Failed to parse content".to_string(),
                 msg,
                 Some(span),
-                Some(
-                    "If the content is intended to be a module, please consider flag of \
-                     `--as-module` "
-                        .to_string(),
-                ),
+                Some("If the content is intended to be a module, please consider flag of `--as-module` ".to_string()),
                 Vec::new(),
             ))
         } else {

@@ -1,36 +1,30 @@
-use core::panic;
-use std::{
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-};
-
 use super::{
     usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
     PWD_ENV,
 };
+use crate::ast::Block;
 use crate::{
-    ast::Block, BlockId, Category, Config, DeclId, FileId, Module, ModuleId, ParseError, Span,
-    Type, Value, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
 };
+use crate::{Category, ParseError, Value};
+use core::panic;
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
-/// A temporary extension to the global state. This handles bridging between the
-/// global state and the additional declarations and scope changes that are not
-/// yet part of the global scope.
+/// A temporary extension to the global state. This handles bridging between the global state and the
+/// additional declarations and scope changes that are not yet part of the global scope.
 ///
-/// This working set is created by the parser as a way of handling declarations
-/// and scope changes that may later be merged or dropped (and not merged)
-/// depending on the needs of the code calling the parser.
+/// This working set is created by the parser as a way of handling declarations and scope changes that
+/// may later be merged or dropped (and not merged) depending on the needs of the code calling the parser.
 pub struct StateWorkingSet<'a> {
     pub permanent_state: &'a EngineState,
     pub delta: StateDelta,
     pub external_commands: Vec<Vec<u8>>,
     /// Current working directory relative to the file being parsed right now
     pub currently_parsed_cwd: Option<PathBuf>,
-    /// All previously parsed module files. Used to protect against circular
-    /// imports.
+    /// All previously parsed module files. Used to protect against circular imports.
     pub parsed_module_files: Vec<PathBuf>,
-    /// Whether or not predeclarations are searched when looking up a command
-    /// (used with aliases)
+    /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
 }
@@ -123,8 +117,7 @@ impl<'a> StateWorkingSet<'a> {
 
         for (name, module_id) in modules {
             overlay_frame.insert_module(name, module_id);
-            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add
-            // hiding modules
+            // overlay_frame.visibility.use_module_id(&module_id);  // TODO: Add hiding modules
         }
     }
 
@@ -202,8 +195,8 @@ impl<'a> StateWorkingSet<'a> {
             }
         }
 
-        // We cannot mutate the permanent state => store the information in the current
-        // overlay frame for scope in self.permanent_state.scope.iter().rev() {
+        // We cannot mutate the permanent state => store the information in the current overlay frame
+        // for scope in self.permanent_state.scope.iter().rev() {
         for overlay_frame in self
             .permanent_state
             .active_overlays(&removed_overlays)
@@ -592,9 +585,8 @@ impl<'a> StateWorkingSet<'a> {
 
     /// Returns a reference to the config stored at permanent state
     ///
-    /// At runtime, you most likely want to call nu_engine::env::get_config
-    /// because this method does not capture environment updates during
-    /// runtime.
+    /// At runtime, you most likely want to call nu_engine::env::get_config because this method
+    /// does not capture environment updates during runtime.
     pub fn get_config(&self) -> &Config {
         &self.permanent_state.config
     }

@@ -1,3 +1,4 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,8 +6,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{lit, DataType};
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct ExprIsIn;
@@ -99,11 +98,11 @@ impl Command for ExprIsIn {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
-    use crate::dataframe::{
-        eager::WithColumn,
-        expressions::{alias::ExprAlias, col::ExprCol},
-    };
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+    use crate::dataframe::eager::WithColumn;
+    use crate::dataframe::expressions::alias::ExprAlias;
+    use crate::dataframe::expressions::col::ExprCol;
 
     #[test]
     fn test_examples() {

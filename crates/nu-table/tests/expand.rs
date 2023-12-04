@@ -1,6 +1,7 @@
 mod common;
 
 use common::{create_row, create_table};
+
 use nu_table::{NuTableConfig, TableTheme as theme};
 
 #[test]

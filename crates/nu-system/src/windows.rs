@@ -1,61 +1,52 @@
 // Attribution: a lot of this came from procs https://github.com/dalance/procs
 // and sysinfo https://github.com/GuillaumeGomez/sysinfo
 
-use std::{
-    cell::RefCell,
-    collections::HashMap,
-    ffi::OsString,
-    mem::{size_of, zeroed, MaybeUninit},
-    os::windows::ffi::OsStringExt,
-    path::PathBuf,
-    ptr,
-    ptr::null_mut,
-    thread,
-    time::{Duration, Instant},
-};
-
-use chrono::{offset::TimeZone, Local, NaiveDate};
+use chrono::offset::TimeZone;
+use chrono::{Local, NaiveDate};
 use libc::c_void;
-use ntapi::{
-    ntpebteb::PEB,
-    ntpsapi::{
-        NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
-        ProcessWow64Information, PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
-    },
-    ntrtl::{RtlGetVersion, PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS},
-    ntwow64::{PEB32, PRTL_USER_PROCESS_PARAMETERS32, RTL_USER_PROCESS_PARAMETERS32},
+use ntapi::ntpebteb::PEB;
+use ntapi::ntpsapi::{
+    NtQueryInformationProcess, ProcessBasicInformation, ProcessCommandLineInformation,
+    ProcessWow64Information, PROCESSINFOCLASS, PROCESS_BASIC_INFORMATION,
 };
+use ntapi::ntrtl::{RtlGetVersion, PRTL_USER_PROCESS_PARAMETERS, RTL_USER_PROCESS_PARAMETERS};
+use ntapi::ntwow64::{PEB32, PRTL_USER_PROCESS_PARAMETERS32, RTL_USER_PROCESS_PARAMETERS32};
 use once_cell::sync::Lazy;
-use winapi::{
-    shared::{
-        basetsd::SIZE_T,
-        minwindef::{DWORD, FALSE, FILETIME, LPVOID, MAX_PATH, TRUE, ULONG},
-        ntdef::{NT_SUCCESS, UNICODE_STRING},
-        ntstatus::{STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH},
-    },
-    um::{
-        handleapi::CloseHandle,
-        memoryapi::{ReadProcessMemory, VirtualQueryEx},
-        processthreadsapi::{
-            GetCurrentProcess, GetPriorityClass, GetProcessTimes, OpenProcess, OpenProcessToken,
-        },
-        psapi::{
-            GetModuleBaseNameW, GetProcessMemoryInfo, K32EnumProcesses, PROCESS_MEMORY_COUNTERS,
-            PROCESS_MEMORY_COUNTERS_EX,
-        },
-        securitybaseapi::{AdjustTokenPrivileges, GetTokenInformation},
-        tlhelp32::{
-            CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32,
-            TH32CS_SNAPPROCESS,
-        },
-        winbase::{GetProcessIoCounters, LookupAccountSidW, LookupPrivilegeValueW},
-        winnt::{
-            TokenGroups, TokenUser, HANDLE, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
-            PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PSID, RTL_OSVERSIONINFOEXW, SE_DEBUG_NAME,
-            SE_PRIVILEGE_ENABLED, SID, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS, TOKEN_PRIVILEGES,
-            TOKEN_QUERY, TOKEN_USER,
-        },
-    },
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::ffi::OsString;
+use std::mem::{size_of, zeroed, MaybeUninit};
+use std::os::windows::ffi::OsStringExt;
+use std::path::PathBuf;
+use std::ptr;
+use std::ptr::null_mut;
+use std::thread;
+use std::time::{Duration, Instant};
+use winapi::shared::basetsd::SIZE_T;
+use winapi::shared::minwindef::{DWORD, FALSE, FILETIME, LPVOID, MAX_PATH, TRUE, ULONG};
+use winapi::shared::ntdef::{NT_SUCCESS, UNICODE_STRING};
+use winapi::shared::ntstatus::{
+    STATUS_BUFFER_OVERFLOW, STATUS_BUFFER_TOO_SMALL, STATUS_INFO_LENGTH_MISMATCH,
+};
+use winapi::um::handleapi::CloseHandle;
+use winapi::um::memoryapi::{ReadProcessMemory, VirtualQueryEx};
+use winapi::um::processthreadsapi::{
+    GetCurrentProcess, GetPriorityClass, GetProcessTimes, OpenProcess, OpenProcessToken,
+};
+use winapi::um::psapi::{
+    GetModuleBaseNameW, GetProcessMemoryInfo, K32EnumProcesses, PROCESS_MEMORY_COUNTERS,
+    PROCESS_MEMORY_COUNTERS_EX,
+};
+use winapi::um::securitybaseapi::{AdjustTokenPrivileges, GetTokenInformation};
+use winapi::um::tlhelp32::{
+    CreateToolhelp32Snapshot, Process32First, Process32Next, PROCESSENTRY32, TH32CS_SNAPPROCESS,
+};
+use winapi::um::winbase::{GetProcessIoCounters, LookupAccountSidW, LookupPrivilegeValueW};
+use winapi::um::winnt::{
+    TokenGroups, TokenUser, HANDLE, IO_COUNTERS, MEMORY_BASIC_INFORMATION,
+    PROCESS_QUERY_INFORMATION, PROCESS_VM_READ, PSID, RTL_OSVERSIONINFOEXW, SE_DEBUG_NAME,
+    SE_PRIVILEGE_ENABLED, SID, TOKEN_ADJUST_PRIVILEGES, TOKEN_GROUPS, TOKEN_PRIVILEGES,
+    TOKEN_QUERY, TOKEN_USER,
 };
 
 pub struct ProcessInfo {
@@ -144,8 +135,8 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             let io = get_io(handle);
 
             let start_time = if let Some((start, _, _, _)) = times {
-                // 11_644_473_600 is the number of seconds between the Windows epoch
-                // (1601-01-01) and the Linux epoch (1970-01-01).
+                // 11_644_473_600 is the number of seconds between the Windows epoch (1601-01-01) and
+                // the Linux epoch (1970-01-01).
                 let time = chrono::Duration::seconds(start as i64 / 10_000_000);
                 let base =
                     NaiveDate::from_ymd_opt(1601, 1, 1).and_then(|nd| nd.and_hms_opt(0, 0, 0));
@@ -461,13 +452,11 @@ macro_rules! impl_RtlUserProcessParameters {
                 let size = self.CommandLine.Length;
                 unsafe { get_process_data(handle, ptr as _, size as _) }
             }
-
             fn get_cwd(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
                 let ptr = self.CurrentDirectory.DosPath.Buffer;
                 let size = self.CurrentDirectory.DosPath.Length;
                 unsafe { get_process_data(handle, ptr as _, size as _) }
             }
-
             fn get_environ(&self, handle: HANDLE) -> Result<Vec<u16>, &'static str> {
                 let ptr = self.Environment;
                 unsafe {

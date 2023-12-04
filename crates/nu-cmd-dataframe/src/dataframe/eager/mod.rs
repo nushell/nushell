@@ -30,6 +30,9 @@ mod to_nu;
 mod to_parquet;
 mod with_column;
 
+use nu_protocol::engine::StateWorkingSet;
+
+pub use self::open::OpenDataFrame;
 pub use append::AppendDF;
 pub use columns::ColumnsDF;
 pub use drop::DropDF;
@@ -43,7 +46,6 @@ pub use get::GetDF;
 pub use last::LastDF;
 pub use list::ListDF;
 pub use melt::MeltDF;
-use nu_protocol::engine::StateWorkingSet;
 pub use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use sample::SampleDF;
@@ -61,8 +63,6 @@ pub use to_json_lines::ToJsonLines;
 pub use to_nu::ToNu;
 pub use to_parquet::ToParquet;
 pub use with_column::WithColumn;
-
-pub use self::open::OpenDataFrame;
 
 pub fn add_eager_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {

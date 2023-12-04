@@ -1,4 +1,6 @@
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, nu, pipeline, playground::Playground};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn wrap_rows_into_a_row() {

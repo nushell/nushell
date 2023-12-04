@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::ast::{Call, CellPath, PathMember};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
@@ -57,19 +57,19 @@ impl Command for Upsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Update a record's value",
-                example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
-                result: Some(Value::test_record(record! {
-                    "name" => Value::test_string("Nushell"),
-                    "stars" => Value::test_int(5),
-                })),
-            },
-            Example {
-                description: "Update each row of a table",
-                example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
-                result: Some(Value::test_list(vec![
+        vec![Example {
+            description: "Update a record's value",
+            example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
+            result: Some(Value::test_record(record! {
+                "name" => Value::test_string("Nushell"),
+                "stars" => Value::test_int(5),
+            })),
+        },
+        Example {
+            description: "Update each row of a table",
+            example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
+            result: Some(Value::test_list(
+                vec![
                     Value::test_record(record! {
                         "name" => Value::test_string("Nushell"),
                         "lang" => Value::test_string("Rust"),
@@ -78,46 +78,46 @@ impl Command for Upsert {
                         "name" => Value::test_string("Reedline"),
                         "lang" => Value::test_string("Rust"),
                     }),
-                ])),
-            },
-            Example {
-                description: "Insert a new entry into a single record",
-                example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
-                result: Some(Value::test_record(record! {
-                    "name" =>     Value::test_string("nu"),
-                    "stars" =>    Value::test_int(5),
-                    "language" => Value::test_string("Rust"),
-                })),
-            },
-            Example {
-                description: "Use in closure form for more involved updating logic",
-                example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| \
-                          ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+                ],
+            )),
+        },
+        Example {
+            description: "Insert a new entry into a single record",
+            example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
+            result: Some(Value::test_record(record! {
+                "name" =>     Value::test_string("nu"),
+                "stars" =>    Value::test_int(5),
+                "language" => Value::test_string("Rust"),
+            })),
+        }, Example {
+            description: "Use in closure form for more involved updating logic",
+            example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
+            result: Some(Value::test_list(
+                vec![Value::test_record(record! {
                     "count" => Value::test_int(5),
                     "fruit" => Value::test_string("apple"),
-                })])),
-            },
-            Example {
-                description: "Upsert an int into a list, updating an existing value based on the \
-                              index",
-                example: "[1 2 3] | upsert 0 2",
-                result: Some(Value::test_list(vec![
-                    Value::test_int(2),
-                    Value::test_int(2),
-                    Value::test_int(3),
-                ])),
-            },
-            Example {
-                description: "Upsert an int into a list, inserting a new value based on the index",
-                example: "[1 2 3] | upsert 3 4",
-                result: Some(Value::test_list(vec![
+                })],
+            )),
+        },
+        Example {
+            description: "Upsert an int into a list, updating an existing value based on the index",
+            example: "[1 2 3] | upsert 0 2",
+            result: Some(Value::test_list(
+                vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
+            )),
+        },
+        Example {
+            description: "Upsert an int into a list, inserting a new value based on the index",
+            example: "[1 2 3] | upsert 3 4",
+            result: Some(Value::test_list(
+                vec![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
                     Value::test_int(4),
-                ])),
-            },
+                ],
+            )),
+        },
         ]
     }
 }
@@ -139,8 +139,7 @@ fn upsert(
     let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
-    // Replace is a block, so set it up and run it instead of using it as the
-    // replacement
+    // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
         let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();

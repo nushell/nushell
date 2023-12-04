@@ -1,11 +1,11 @@
+use super::super::super::values::{Column, NuDataFrame};
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{DatetimeMethods, IntoSeries};
-
-use super::super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct GetOrdinal;
@@ -83,10 +83,9 @@ fn command(
 
 #[cfg(explore_refactor_IntoDatetime)]
 mod test {
-    use super::{
-        super::super::super::{super::IntoDatetime, test_dataframe::test_dataframe},
-        *,
-    };
+    use super::super::super::super::super::IntoDatetime;
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

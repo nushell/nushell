@@ -1,6 +1,5 @@
-use std::collections::HashMap;
-
 use crate::{DeclId, ModuleId, OverlayId, VarId};
+use std::collections::HashMap;
 
 pub static DEFAULT_OVERLAY_NAME: &str = "zero";
 
@@ -48,14 +47,13 @@ impl Visibility {
 pub struct ScopeFrame {
     /// List of both active and inactive overlays in this ScopeFrame.
     ///
-    /// The order does not have any meaning. Indexed locally (within this
-    /// ScopeFrame) by OverlayIds in active_overlays.
+    /// The order does not have any meaning. Indexed locally (within this ScopeFrame) by
+    /// OverlayIds in active_overlays.
     pub overlays: Vec<(Vec<u8>, OverlayFrame)>,
 
     /// List of currently active overlays.
     ///
-    /// Order is significant: The last item points at the last activated
-    /// overlay.
+    /// Order is significant: The last item points at the last activated overlay.
     pub active_overlays: Vec<OverlayId>,
 
     /// Removed overlays from previous scope frames / permanent state

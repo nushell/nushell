@@ -1,7 +1,6 @@
+use super::generic_digest::{GenericDigest, HashDigest};
 use ::sha2::Sha256;
 use nu_protocol::{Example, Span, Value};
-
-use super::generic_digest::{GenericDigest, HashDigest};
 
 pub type HashSha256 = GenericDigest<Sha256>;
 
@@ -71,7 +70,7 @@ mod tests {
 
     #[test]
     fn hash_bytes() {
-        let binary = Value::binary(vec![0xc0, 0xff, 0xee], Span::test_data());
+        let binary = Value::binary(vec![0xC0, 0xFF, 0xEE], Span::test_data());
         let expected = Value::string(
             "c47a10dc272b1221f0380a2ae0f7d7fa830b3e378f2f5309bbf13f61ad211913".to_owned(),
             Span::test_data(),

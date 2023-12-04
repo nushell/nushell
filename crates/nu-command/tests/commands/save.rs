@@ -1,10 +1,7 @@
+use nu_test_support::fs::{file_contents, Stub};
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use std::io::Write;
-
-use nu_test_support::{
-    fs::{file_contents, Stub},
-    nu,
-    playground::Playground,
-};
 
 #[test]
 fn writes_out_csv() {

@@ -1,3 +1,5 @@
+use super::super::values::{Column, NuDataFrame};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -6,8 +8,6 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{DataType, IntoSeries};
-
-use super::super::values::{Column, NuDataFrame};
 
 enum CumType {
     Min,
@@ -133,7 +133,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

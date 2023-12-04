@@ -132,9 +132,8 @@ fn action(input: &Value, _args: &CellPathOnlyArgs, head: Span) -> Value {
 
 #[cfg(test)]
 mod tests {
-    use nu_protocol::Type::Error;
-
     use super::*;
+    use nu_protocol::Type::Error;
 
     #[test]
     fn test_examples() {

@@ -1,12 +1,12 @@
-use std::path::Path;
-
 use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env, CallExt};
 use nu_parser::trim_quotes_str;
+use nu_protocol::ast::{Call, Expr};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::{Call, Expr},
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct OverlayUse;

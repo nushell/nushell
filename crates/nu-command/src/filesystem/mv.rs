@@ -1,15 +1,15 @@
 use std::path::{Path, PathBuf};
 
+use super::util::try_interaction;
 use nu_cmd_base::arg_glob;
-use nu_engine::{env::current_dir, CallExt};
+use nu_engine::env::current_dir;
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
-
-use super::util::try_interaction;
 
 #[derive(Clone)]
 pub struct Mv;
@@ -47,11 +47,9 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
-            .switch(
-                "update",
-                "move only when the SOURCE file is newer than the destination file(with -f) or \
-                 when the destination file is missing",
-                Some('u'),
+            .switch("update", 
+                "move only when the SOURCE file is newer than the destination file(with -f) or when the destination file is missing",
+                Some('u')
             )
             // TODO: add back in additional features
             .category(Category::FileSystem)
@@ -91,12 +89,11 @@ impl Command for Mv {
         //
         // First, the destination exists.
         //  - If a directory, move everything into that directory, otherwise
-        //  - if only a single source, and --force (or -f) is provided overwrite the
-        //    file,
+        //  - if only a single source, and --force (or -f) is provided overwrite the file,
         //  - otherwise error.
         //
-        // Second, the destination doesn't exist, so we can only rename a single source.
-        // Otherwise it's an error.
+        // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
+        // it's an error.
 
         if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
             return Err(ShellError::GenericError(
@@ -126,8 +123,8 @@ impl Command for Mv {
             ));
         }
 
-        // This is the case where you move a directory A to the interior of directory B,
-        // but directory B already has a non-empty directory named A.
+        // This is the case where you move a directory A to the interior of directory B, but directory B
+        // already has a non-empty directory named A.
         if source.is_dir() && destination.is_dir() {
             if let Some(name) = source.file_name() {
                 let dst = destination.join(name);
@@ -269,9 +266,8 @@ fn move_file(
         ));
     }
 
-    // This can happen when changing case on a case-insensitive filesystem (ex:
-    // changing foo to Foo on Windows) When it does, we want to do a plain
-    // rename instead of moving `from` into `to`
+    // This can happen when changing case on a case-insensitive filesystem (ex: changing foo to Foo on Windows)
+    // When it does, we want to do a plain rename instead of moving `from` into `to`
     let from_to_are_same_file = same_file::is_same_file(&from, &to).unwrap_or(false);
 
     let mut to = to;
@@ -318,9 +314,8 @@ fn move_file(
 }
 
 fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> {
-    // We first try a rename, which is a quick operation. If that doesn't work,
-    // we'll try a copy and remove the old file/folder. This is necessary if
-    // we're moving across filesystems or devices.
+    // We first try a rename, which is a quick operation. If that doesn't work, we'll try a copy
+    // and remove the old file/folder. This is necessary if we're moving across filesystems or devices.
     std::fs::rename(from, to).or_else(|_| {
         match if from.is_file() {
             let mut options = fs_extra::file::CopyOptions::new();

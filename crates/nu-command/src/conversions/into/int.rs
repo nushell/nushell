@@ -289,11 +289,9 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                         .with_ymd_and_hms(2262, 4, 11, 23, 47, 16)
                         .unwrap()
             {
-                Value::error(
+                Value::error (
                     ShellError::IncorrectValue {
-                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to \
-                              2262-04-11T23:47:16"
-                            .to_string(),
+                        msg: "DateTime out of range for timestamp: 1677-09-21T00:12:43Z to 2262-04-11T23:47:16".to_string(),
                         val_span,
                         call_span: span,
                     },
@@ -468,10 +466,11 @@ fn int_from_string(a_string: &str, span: Span) -> Result<i64, ShellError> {
 #[cfg(test)]
 mod test {
     use chrono::{DateTime, FixedOffset};
-    use nu_protocol::Type::Error;
     use rstest::rstest;
 
-    use super::{Value, *};
+    use super::Value;
+    use super::*;
+    use nu_protocol::Type::Error;
 
     #[test]
     fn test_examples() {
@@ -562,8 +561,7 @@ mod test {
             },
             Span::test_data(),
         );
-        // ignore fractional seconds -- I don't want to hard code test values that might
-        // vary due to leap nanoseconds.
+        // ignore fractional seconds -- I don't want to hard code test values that might vary due to leap nanoseconds.
         let exp_truncated = (int_expected / 1_000_000_000) * 1_000_000_000;
         assert_eq!(actual, Value::test_int(exp_truncated));
     }

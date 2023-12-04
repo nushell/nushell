@@ -1,6 +1,5 @@
-use serde::{Deserialize, Serialize};
-
 use crate::{Config, Record, ShellError, Span, Value};
+use serde::{Deserialize, Serialize};
 /// Definition of a parsed hook from the config object
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hooks {
@@ -48,12 +47,11 @@ pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "command_not_found" => hooks.command_not_found = Some(val.clone()),
                     x => {
                         return Err(ShellError::UnsupportedConfigValue(
-                            "'pre_prompt', 'pre_execution', 'env_change', 'display_output', \
-                             'command_not_found'"
-                                .to_string(),
-                            x.to_string(),
-                            span,
-                        ));
+                        "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
+                            .to_string(),
+                        x.to_string(),
+                        span,
+                    ));
                     }
                 }
             }

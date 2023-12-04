@@ -1,12 +1,9 @@
-use std::{
-    ffi::{OsStr, OsString},
-    fmt,
-    path::Path,
-    process::{Command, ExitStatus},
-};
-
 use super::EnvironmentVariable;
 use crate::fs::{binaries as test_bins_path, executable_path};
+use std::ffi::{OsStr, OsString};
+use std::fmt;
+use std::path::Path;
+use std::process::{Command, ExitStatus};
 
 pub trait Executable {
     fn execute(&mut self) -> NuResult;

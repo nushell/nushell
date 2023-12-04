@@ -1,22 +1,24 @@
-use std::{
-    fs::read_link,
-    io::{BufReader, BufWriter, ErrorKind, Read, Write},
-    path::PathBuf,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::fs::read_link;
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 
 use nu_cmd_base::arg_glob;
-use nu_engine::{env::current_dir, CallExt};
+use nu_engine::env::current_dir;
+use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
 
 use super::util::try_interaction;
-use crate::{filesystem::util::FileStructure, progress_bar};
+
+use crate::filesystem::util::FileStructure;
+use crate::progress_bar;
 
 #[derive(Clone)]
 pub struct Cp;
@@ -49,11 +51,9 @@ impl Command for Cp {
                 "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
             )
-            .switch(
-                "update",
-                "copy only when the SOURCE file is newer than the destination file or when the \
-                 destination file is missing",
-                Some('u'),
+            .switch("update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
             )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
@@ -194,8 +194,7 @@ impl Command for Cp {
                             }
                         } else if progress {
                             // use std::io::copy to get the progress
-                            // slower then std::fs::copy but useful if user needs to see the
-                            // progress
+                            // slower then std::fs::copy but useful if user needs to see the progress
                             copy_file_with_progressbar(src, dst, span, &ctrlc)
                         } else {
                             // use std::fs::copy
@@ -386,11 +385,10 @@ fn interactive_copy(
     }
 }
 
-// This uses `std::fs::copy` to copy a file. There is another function called
-// `copy_file_with_progressbar` which uses `read` and `write` instead. This is
-// to get the progress of the copy. Try to keep the logic in this function in
-// sync with `copy_file_with_progressbar` FIXME: `std::fs::copy` can't be
-// interrupted. Consider using something else
+// This uses `std::fs::copy` to copy a file. There is another function called `copy_file_with_progressbar`
+// which uses `read` and `write` instead. This is to get the progress of the copy. Try to keep the logic in
+// this function in sync with `copy_file_with_progressbar`
+// FIXME: `std::fs::copy` can't be interrupted. Consider using something else
 fn copy_file(
     src: PathBuf,
     dst: PathBuf,
@@ -406,10 +404,9 @@ fn copy_file(
     }
 }
 
-// This uses `read` and `write` to copy a file. There is another function called
-// `copy_file` which uses `std::fs::copy` instead which is faster but does not
-// provide progress updates for the copy. try to keep the logic in this function
-// in sync with `copy_file`
+// This uses `read` and `write` to copy a file. There is another function called `copy_file`
+// which uses `std::fs::copy` instead which is faster but does not provide progress updates for the copy. try to keep the
+// logic in this function in sync with `copy_file`
 fn copy_file_with_progressbar(
     src: PathBuf,
     dst: PathBuf,
@@ -454,8 +451,7 @@ fn copy_file_with_progressbar(
                 match buf_writer.write(&buffer[..bytes_read]) {
                     // dst file written successfully
                     Ok(bytes_written) => {
-                        // Update the total amount of bytes that has been saved and then print the
-                        // progress bar
+                        // Update the total amount of bytes that has been saved and then print the progress bar
                         bytes_processed += bytes_written as u64;
                         bar.update_bar(bytes_processed);
 

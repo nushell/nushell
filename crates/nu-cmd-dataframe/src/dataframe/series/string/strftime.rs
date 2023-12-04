@@ -1,3 +1,5 @@
+use super::super::super::values::{Column, NuDataFrame};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,8 +7,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::IntoSeries;
-
-use super::super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct StrFTime;
@@ -101,10 +101,9 @@ fn command(
 
 #[cfg(explore_refactor_IntoDatetime)]
 mod test {
-    use super::{
-        super::super::super::{super::IntoDatetime, test_dataframe::test_dataframe},
-        *,
-    };
+    use super::super::super::super::super::IntoDatetime;
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::*;
     #[test]
     fn test_examples() {
         test_dataframe(vec![Box::new(StrFTime {}), Box::new(IntoDatetime {})])

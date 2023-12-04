@@ -1,10 +1,7 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
-
 use crate::math::utils::run_with_function;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;

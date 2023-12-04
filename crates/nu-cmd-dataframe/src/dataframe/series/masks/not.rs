@@ -1,5 +1,4 @@
-use std::ops::Not;
-
+use super::super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -7,7 +6,7 @@ use nu_protocol::{
 };
 use polars::prelude::IntoSeries;
 
-use super::super::super::values::{Column, NuDataFrame};
+use std::ops::Not;
 
 #[derive(Clone)]
 pub struct NotSeries;
@@ -87,7 +86,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

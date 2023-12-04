@@ -42,8 +42,7 @@ fn signature_name_matches_command_name() {
 
         if cmd_name != sig_name {
             failures.push(format!(
-                "{cmd_name} ({category:?}): Signature name \"{sig_name}\" is not equal to the \
-                 command name \"{cmd_name}\""
+                "{cmd_name} ({category:?}): Signature name \"{sig_name}\" is not equal to the command name \"{cmd_name}\""
             ));
         }
     }
@@ -100,10 +99,7 @@ fn no_search_term_duplicates() {
 
         for search_term in search_terms {
             if cmd_name.contains(search_term) {
-                failures.push(format!(
-                    "{cmd_name} ({category:?}): Search term \"{search_term}\" is substring of \
-                     command name \"{cmd_name}\""
-                ));
+                failures.push(format!("{cmd_name} ({category:?}): Search term \"{search_term}\" is substring of command name \"{cmd_name}\""));
             }
         }
     }

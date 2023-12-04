@@ -1,17 +1,14 @@
-use std::fmt::Display;
-
-use serde::{Deserialize, Serialize};
-
 use crate::{DeclId, Type};
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// The syntactic shapes that describe how a sequence should be parsed.
 ///
-/// This extends beyond [`Type`] which describes how [`Value`](crate::Value)s
-/// are represented. `SyntaxShape`s can describe the parsing rules for arguments
-/// to a command. e.g. [`SyntaxShape::GlobPattern`]/[`SyntaxShape::Filepath`]
-/// serve the completer, but don't have an associated [`Value`](crate::Value)
-/// There are additional `SyntaxShape`s that only make sense in particular
-/// expressions or keywords
+/// This extends beyond [`Type`] which describes how [`Value`](crate::Value)s are represented.
+/// `SyntaxShape`s can describe the parsing rules for arguments to a command.
+/// e.g. [`SyntaxShape::GlobPattern`]/[`SyntaxShape::Filepath`] serve the completer,
+/// but don't have an associated [`Value`](crate::Value)
+/// There are additional `SyntaxShape`s that only make sense in particular expressions or keywords
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SyntaxShape {
     /// Any syntactic form is allowed
@@ -106,9 +103,8 @@ pub enum SyntaxShape {
     /// A record value, eg `{x: 1, y: 2}`
     Record(Vec<(String, SyntaxShape)>),
 
-    /// A math expression which expands shorthand forms on the lefthand side, eg
-    /// `foo > 1` The shorthand allows us to more easily reach columns
-    /// inside of the row being passed in
+    /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
+    /// The shorthand allows us to more easily reach columns inside of the row being passed in
     RowCondition,
 
     /// A signature for a definition, `[x:int, --foo]`
@@ -127,8 +123,8 @@ pub enum SyntaxShape {
 impl SyntaxShape {
     /// If possible provide the associated concrete [`Type`]
     ///
-    /// Note: Some [`SyntaxShape`]s don't have a corresponding
-    /// [`Value`](crate::Value) Here we currently return [`Type::Any`]
+    /// Note: Some [`SyntaxShape`]s don't have a corresponding [`Value`](crate::Value)
+    /// Here we currently return [`Type::Any`]
     ///
     /// ```rust
     /// use nu_protocol::{SyntaxShape, Type};

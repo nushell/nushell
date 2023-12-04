@@ -3,11 +3,10 @@ use std::{
     str::{from_utf8, Utf8Error},
 };
 
+use crate::{did_you_mean, Span, Type};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-
-use crate::{did_you_mean, Span, Type};
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
@@ -156,8 +155,7 @@ pub enum ParseError {
     #[diagnostic(
         code(nu::parser::unexpected_keyword),
         help(
-            "Assigning '{1}' to '{2}' does not produce a value to be piped. If the pipeline \
-             result is meant to be assigned to '{2}', use '{0} {2} = ({1} | ...)'."
+            "Assigning '{1}' to '{2}' does not produce a value to be piped. If the pipeline result is meant to be assigned to '{2}', use '{0} {2} = ({1} | ...)'."
         )
     )]
     AssignInPipeline(String, String, String, #[label("'{0}' in pipeline")] Span),
@@ -207,21 +205,14 @@ pub enum ParseError {
     #[error("Module not found.")]
     #[diagnostic(
         code(nu::parser::module_not_found),
-        help(
-            "module files and their paths must be available before your script is run as parsing \
-             occurs before anything is evaluated"
-        )
+        help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
         code(nu::parser::module_missing_mod_nu_file),
-        help(
-            "Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell \
-             module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use \
-             .nu files in the directory as modules individually."
-        )
+        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
     )]
     ModuleMissingModNuFile(
         String,
@@ -235,10 +226,7 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help(
-            "Module {1} can't export {0} named the same as the module. Either change the module \
-             name, or export `{2}` {0}."
-        )
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
     )]
     NamedAsModule(
         String,
@@ -260,10 +248,7 @@ pub enum ParseError {
     #[error("Invalid module file name")]
     #[diagnostic(
         code(nu::parser::invalid_module_file_name),
-        help(
-            "File {0} resolves to module name {1} which is the same as the parent module. Either \
-             rename the file or, save it as 'mod.nu' to define the parent module."
-        )
+        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
     )]
     InvalidModuleFileName(
         String,
@@ -274,10 +259,7 @@ pub enum ParseError {
     #[error("Can't export alias defined as 'main'.")]
     #[diagnostic(
         code(nu::parser::export_main_alias_not_allowed),
-        help(
-            "Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to \
-             a custom command."
-        )
+        help("Exporting aliases as 'main' is not allowed. Either rename the alias or convert it to a custom command.")
     )]
     ExportMainAliasNotAllowed(#[label = "can't export from module"] Span),
 
@@ -288,10 +270,7 @@ pub enum ParseError {
     #[error("Overlay prefix mismatch.")]
     #[diagnostic(
         code(nu::parser::overlay_prefix_mismatch),
-        help(
-            "Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix \
-             flag."
-        )
+        help("Overlay {0} already exists {1} a prefix. To add it again, do it {1} the --prefix flag.")
     )]
     OverlayPrefixMismatch(
         String,
@@ -302,10 +281,7 @@ pub enum ParseError {
     #[error("Module or overlay not found.")]
     #[diagnostic(
         code(nu::parser::module_or_overlay_not_found),
-        help(
-            "Requires either an existing overlay, a module, or an import pattern defining a \
-             module."
-        )
+        help("Requires either an existing overlay, a module, or an import pattern defining a module.")
     )]
     ModuleOrOverlayNotFound(#[label = "not a module or an overlay"] Span),
 
@@ -387,7 +363,7 @@ pub enum ParseError {
 
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
-    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), /* expected, found, span, help */
+    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]

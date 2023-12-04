@@ -7,9 +7,8 @@ mod parse;
 mod split;
 mod type_;
 
-use std::path::MAIN_SEPARATOR;
-
 use nu_test_support::nu;
+use std::path::MAIN_SEPARATOR;
 
 /// Helper function that joins string literals with '/' or '\', based on host OS
 fn join_path_sep(pieces: &[&str]) -> String {

@@ -570,8 +570,7 @@ impl LanguageServer {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::Receiver;
-
+    use super::*;
     use assert_json_diff::assert_json_eq;
     use lsp_types::{
         notification::{
@@ -583,8 +582,7 @@ mod tests {
         TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, Url,
     };
     use nu_test_support::fs::{fixtures, root};
-
-    use super::*;
+    use std::sync::mpsc::Receiver;
 
     pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;

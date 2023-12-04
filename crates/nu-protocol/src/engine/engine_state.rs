@@ -1,25 +1,22 @@
-use std::{
-    borrow::Borrow,
-    collections::HashMap,
-    num::NonZeroUsize,
-    path::{Path, PathBuf},
-    sync::{
-        atomic::{AtomicBool, AtomicU32},
-        Arc, Mutex,
-    },
-};
-
 use fancy_regex::Regex;
 use lru::LruCache;
 
-use super::{
-    usage::{build_usage, Usage},
-    Command, EnvVars, OverlayFrame, ScopeFrame, Stack, StateDelta, Visibility,
-    DEFAULT_OVERLAY_NAME,
-};
+use super::{usage::build_usage, usage::Usage, StateDelta};
+use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use crate::ast::Block;
 use crate::{
-    ast::Block, BlockId, Category, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId,
-    ShellError, Signature, Span, Type, Value, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
+    Span, Type, VarId, Variable, VirtualPathId,
+};
+use crate::{Category, Value};
+use std::borrow::Borrow;
+use std::collections::HashMap;
+use std::num::NonZeroUsize;
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::{
+    atomic::{AtomicBool, AtomicU32},
+    Arc, Mutex,
 };
 
 pub static PWD_ENV: &str = "PWD";
@@ -36,58 +33,48 @@ pub struct ReplState {
     pub cursor_pos: usize,
 }
 
-/// The core global engine state. This includes all global definitions as well
-/// as any global state that will persist for the whole session.
+/// The core global engine state. This includes all global definitions as well as any global state that
+/// will persist for the whole session.
 ///
-/// Declarations, variables, blocks, and other forms of data are held in the
-/// global state and referenced elsewhere using their IDs. These IDs are simply
-/// their index into the global state. This allows us to more easily handle
-/// creating blocks, binding variables and callsites, and more, because each of
-/// these will refer to the corresponding IDs rather than their definitions
-/// directly. At runtime, this means less copying and smaller structures.
+/// Declarations, variables, blocks, and other forms of data are held in the global state and referenced
+/// elsewhere using their IDs. These IDs are simply their index into the global state. This allows us to
+/// more easily handle creating blocks, binding variables and callsites, and more, because each of these
+/// will refer to the corresponding IDs rather than their definitions directly. At runtime, this means
+/// less copying and smaller structures.
 ///
-/// Note that the runtime stack is not part of this global state. Runtime stacks
-/// are handled differently, but they also rely on using IDs rather than full
-/// definitions.
+/// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
+/// but they also rely on using IDs rather than full definitions.
 ///
 /// A note on implementation:
 ///
-/// Much of the global definitions are built on the Bodil's 'im' crate. This
-/// gives us a way of working with lists of definitions in a way that is very
-/// cheap to access, while also allowing us to update them at key points in time
-/// (often, the transition between parsing and evaluation).
+/// Much of the global definitions are built on the Bodil's 'im' crate. This gives us a way of working with
+/// lists of definitions in a way that is very cheap to access, while also allowing us to update them at
+/// key points in time (often, the transition between parsing and evaluation).
 ///
-/// Over the last two years we tried a few different approaches to global state
-/// like this. I'll list them here for posterity, so we can more easily know how
-/// we got here:
+/// Over the last two years we tried a few different approaches to global state like this. I'll list them
+/// here for posterity, so we can more easily know how we got here:
 ///
-/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with
-///   external processes, we
-/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn
-/// a thread to handle both. These threads would need access to the global
-/// state, as they'll need to process data as it streams out of the data
-/// pipeline. Because Rc isn't thread-safe, this breaks.
+/// * `Rc` - Rc is cheap, but not thread-safe. The moment we wanted to work with external processes, we
+/// needed a way send to stdin/stdout. In Rust, the current practice is to spawn a thread to handle both.
+/// These threads would need access to the global state, as they'll need to process data as it streams out
+/// of the data pipeline. Because Rc isn't thread-safe, this breaks.
 ///
-/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in
-///   combination with a Mutex or
-/// RwLock, but you can use Arc by itself. We did this a few places in the
-/// original Nushell. This *can* work but because of Arc's nature of not
-/// allowing mutation if there's a second copy of the Arc around, this
+/// * `Arc` - Arc is the thread-safe version of the above. Often Arc is used in combination with a Mutex or
+/// RwLock, but you can use Arc by itself. We did this a few places in the original Nushell. This *can* work
+/// but because of Arc's nature of not allowing mutation if there's a second copy of the Arc around, this
 /// ultimately becomes limiting.
 ///
-/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers.
-///   Unfortunately, this would
-/// have meant we would incur a lock penalty every time we needed to access any
-/// declaration or block. As we would be reading far more often than writing, it
-/// made sense to explore solutions that favor large amounts of reads.
+/// * `Arc` + `Mutex/RwLock` - the standard practice for thread-safe containers. Unfortunately, this would
+/// have meant we would incur a lock penalty every time we needed to access any declaration or block. As we
+/// would be reading far more often than writing, it made sense to explore solutions that favor large amounts
+/// of reads.
 ///
-/// * `im` - the `im` crate was ultimately chosen because it has some very nice
-///   properties: it gives the
-/// ability to cheaply clone these structures, which is nice as EngineState may
-/// need to be cloned a fair bit to follow ownership rules for closures and
-/// iterators. It also is cheap to access. Favoring reads here fits more closely
-/// to what we need with Nushell. And, of course, it's still thread-safe, so we
-/// get the same benefits as above.
+/// * `im` - the `im` crate was ultimately chosen because it has some very nice properties: it gives the
+/// ability to cheaply clone these structures, which is nice as EngineState may need to be cloned a fair bit
+/// to follow ownership rules for closures and iterators. It also is cheap to access. Favoring reads here fits
+/// more closely to what we need with Nushell. And, of course, it's still thread-safe, so we get the same
+/// benefits as above.
+///
 #[derive(Clone)]
 pub struct EngineState {
     files: Vec<(String, usize, usize)>,
@@ -120,15 +107,13 @@ pub struct EngineState {
     startup_time: i64,
 }
 
-// The max number of compiled regexes to keep around in a LRU cache, arbitrarily
-// chosen
+// The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
 const REGEX_CACHE_SIZE: usize = 100; // must be nonzero, otherwise will panic
 
 pub const NU_VARIABLE_ID: usize = 0;
 pub const IN_VARIABLE_ID: usize = 1;
 pub const ENV_VARIABLE_ID: usize = 2;
-// NOTE: If you add more to this list, make sure to update the > checks based on
-// the last in the list
+// NOTE: If you add more to this list, make sure to update the > checks based on the last in the list
 
 impl EngineState {
     pub fn new() -> Self {
@@ -181,18 +166,15 @@ impl EngineState {
         }
     }
 
-    /// Merges a `StateDelta` onto the current state. These deltas come from a
-    /// system, like the parser, that creates a new set of definitions and
-    /// visible symbols in the current scope. We make this transactional
-    /// as there are times when we want to run the parser and immediately throw
-    /// away the results (namely: syntax highlighting and completions).
+    /// Merges a `StateDelta` onto the current state. These deltas come from a system, like the parser, that
+    /// creates a new set of definitions and visible symbols in the current scope. We make this transactional
+    /// as there are times when we want to run the parser and immediately throw away the results (namely:
+    /// syntax highlighting and completions).
     ///
-    /// When we want to preserve what the parser has created, we can take its
-    /// output (the `StateDelta`) and use this function to merge it into the
-    /// global state.
+    /// When we want to preserve what the parser has created, we can take its output (the `StateDelta`) and
+    /// use this function to merge it into the global state.
     pub fn merge_delta(&mut self, mut delta: StateDelta) -> Result<(), ShellError> {
-        // Take the mutable reference and extend the permanent state from the working
-        // set
+        // Take the mutable reference and extend the permanent state from the working set
         self.files.extend(delta.files);
         self.file_contents.extend(delta.file_contents);
         self.virtual_paths.extend(delta.virtual_paths);
@@ -279,8 +261,7 @@ impl EngineState {
                     for (k, v) in env.drain() {
                         if k == "config" {
                             // Don't insert the record as the "config" env var as-is.
-                            // Instead, mutate a clone of it with into_config(), and put THAT in
-                            // env_vars.
+                            // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
                             let (config, error) = new_record.into_config(&self.config);
                             self.config = config;
@@ -529,10 +510,9 @@ impl EngineState {
                                 })
                                 .unwrap_or_default();
 
-                            // Each signature is stored in the plugin file with the shell and
-                            // signature This information will be used
-                            // when loading the plugin information when
-                            // nushell starts
+                            // Each signature is stored in the plugin file with the shell and signature
+                            // This information will be used when loading the plugin
+                            // information when nushell starts
                             format!("register {file_name} {shell_str} {signature}\n\n")
                         })
                         .map_err(|err| ShellError::PluginFailedToLoad {
@@ -659,8 +639,7 @@ impl EngineState {
         let mut plugin_decls: Vec<(&str, &Box<dyn Command>)> =
             unique_plugin_decls.into_iter().collect();
 
-        // Sort the plugins by name so we don't end up with a random plugin file each
-        // time
+        // Sort the plugins by name so we don't end up with a random plugin file each time
         plugin_decls.sort_by(|a, b| a.0.cmp(b.0));
         plugin_decls.into_iter().map(|(_, decl)| decl)
     }
@@ -948,10 +927,10 @@ impl Default for EngineState {
 
 #[cfg(test)]
 mod engine_state_tests {
+    use crate::engine::StateWorkingSet;
     use std::str::{from_utf8, Utf8Error};
 
     use super::*;
-    use crate::engine::StateWorkingSet;
 
     #[test]
     fn add_file_gives_id() {

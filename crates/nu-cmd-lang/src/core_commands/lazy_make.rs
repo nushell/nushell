@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
@@ -22,15 +22,14 @@ impl Command for LazyMake {
             .required_named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Closure that gets called when the LazyRecord needs to list the available column \
-                 names",
-                Some('c'),
+                "Closure that gets called when the LazyRecord needs to list the available column names",
+                Some('c')
             )
             .required_named(
                 "get-value",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::String])),
                 "Closure to call when a value needs to be produced on demand",
-                Some('g'),
+                Some('g')
             )
             .category(Category::Core)
     }
@@ -40,10 +39,8 @@ impl Command for LazyMake {
     }
 
     fn extra_usage(&self) -> &str {
-        "Lazy records are special records that only evaluate their values once the property is \
-         requested.
-        For example, when printing a lazy record, all of its fields will be collected. But when \
-         accessing
+        "Lazy records are special records that only evaluate their values once the property is requested.
+        For example, when printing a lazy record, all of its fields will be collected. But when accessing
         a specific property, only it will be evaluated.
 
         Note that this is unrelated to the lazyframes feature bundled with dataframes."

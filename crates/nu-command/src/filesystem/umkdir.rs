@@ -1,9 +1,9 @@
-use nu_engine::{env::current_dir, CallExt};
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
-};
+use nu_engine::env::current_dir;
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+
 use uu_mkdir::mkdir;
 
 #[derive(Clone)]
@@ -20,8 +20,7 @@ impl Command for UMkdir {
     }
 
     fn usage(&self) -> &str {
-        "Create directories, with intermediary directories if required using uutils/coreutils \
-         mkdir."
+        "Create directories, with intermediary directories if required using uutils/coreutils mkdir."
     }
 
     fn search_terms(&self) -> Vec<&str> {

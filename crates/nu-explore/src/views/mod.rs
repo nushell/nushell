@@ -7,23 +7,25 @@ mod record;
 pub mod util;
 
 use crossterm::event::KeyEvent;
-pub use information::InformationView;
-pub use interactive::InteractiveView;
 use lscolors::LsColors;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-pub use preview::Preview;
 use ratatui::layout::Rect;
-pub use record::{Orientation, RecordView};
+
+use crate::{nu_common::NuConfig, pager::ConfigMap};
 
 use super::{
     nu_common::NuText,
     pager::{Frame, Transition, ViewInfo},
 };
-use crate::{nu_common::NuConfig, pager::ConfigMap};
+
+pub use information::InformationView;
+pub use interactive::InteractiveView;
+pub use preview::Preview;
+pub use record::{Orientation, RecordView};
 
 #[derive(Debug, Default)]
 pub struct Layout {

@@ -5,8 +5,9 @@ use nu_protocol::{
     record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use super::super::values::NuDataFrame;
 use crate::dataframe::values::NuExpression;
+
+use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct ToNu;
@@ -127,10 +128,9 @@ fn expression_command(call: &Call, input: Value) -> Result<PipelineData, ShellEr
 
 #[cfg(test)]
 mod test {
-    use super::{
-        super::super::{expressions::ExprCol, test_dataframe::test_dataframe},
-        *,
-    };
+    use super::super::super::expressions::ExprCol;
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples_dataframe_input() {

@@ -1,11 +1,11 @@
+use super::super::super::values::{Column, NuDataFrame};
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
 use polars::prelude::{IntoSeries, Utf8NameSpaceImpl};
-
-use super::super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct ToUpperCase;
@@ -90,7 +90,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

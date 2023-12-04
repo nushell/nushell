@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-
 use nu_ansi_term::*;
 use nu_engine::CallExt;
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -538,8 +537,7 @@ impl Command for AnsiCommand {
 
     fn extra_usage(&self) -> &str {
         "An introduction to what ANSI escape sequences are can be found in the
-\u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI \
-         escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
+\u{1b}]8;;https://en.wikipedia.org/wiki/ANSI_escape_code\u{1b}\\ANSI escape code\u{1b}]8;;\u{1b}\\ Wikipedia page.
 
 Escape sequences usual values:
 ╭────┬────────────┬────────┬────────┬─────────╮
@@ -720,8 +718,8 @@ Operating system commands:
         let output = if escape && param_is_valid_string {
             format!("\x1b[{code_string}")
         } else if osc && param_is_valid_string {
-            // Operating system command aka osc  ESC ] <- note the right brace, not left
-            // brace for osc OCS's need to end with either:
+            // Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
+            // OCS's need to end with either:
             // bel '\x07' char
             // string terminator aka st '\\' char
             format!("\x1b]{code_string}")
@@ -775,10 +773,7 @@ Operating system commands:
                     "attr" => nu_style.attr = Some(v.as_string()?),
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
-                            msg: format!(
-                                "unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], \
-                                 found '{k}'"
-                            ),
+                            msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
                             span: code.span(),
                         })
                     }
@@ -786,8 +781,7 @@ Operating system commands:
             }
             // Now create a nu_ansi_term::Style from the NuStyle
             let style = nu_color_config::parse_nustyle(nu_style);
-            // Return the prefix string. The prefix is the Ansi String. The suffix would be
-            // 0m, reset/stop coloring.
+            // Return the prefix string. The prefix is the Ansi String. The suffix would be 0m, reset/stop coloring.
             style.prefix().to_string()
         };
 

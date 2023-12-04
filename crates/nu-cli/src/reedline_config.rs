@@ -1,5 +1,5 @@
-use std::sync::Arc;
-
+use super::DescriptionMenu;
+use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
@@ -14,9 +14,7 @@ use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
     ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
 };
-
-use super::DescriptionMenu;
-use crate::{menus::NuMenuCompleter, NuHelpCompleter};
+use std::sync::Arc;
 
 const DEFAULT_COMPLETION_MENU: &str = r#"
 {

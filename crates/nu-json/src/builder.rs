@@ -31,8 +31,8 @@ impl ArrayBuilder {
         self
     }
 
-    /// Creates and passes an `ArrayBuilder` into a closure, then inserts the
-    /// resulting array into this array.
+    /// Creates and passes an `ArrayBuilder` into a closure, then inserts the resulting array into
+    /// this array.
     pub fn push_array<F>(mut self, f: F) -> ArrayBuilder
     where
         F: FnOnce(ArrayBuilder) -> ArrayBuilder,
@@ -42,8 +42,8 @@ impl ArrayBuilder {
         self
     }
 
-    /// Creates and passes an `ArrayBuilder` into a closure, then inserts the
-    /// resulting object into this array.
+    /// Creates and passes an `ArrayBuilder` into a closure, then inserts the resulting object into
+    /// this array.
     pub fn push_object<F>(mut self, f: F) -> ArrayBuilder
     where
         F: FnOnce(ObjectBuilder) -> ObjectBuilder,
@@ -89,8 +89,8 @@ impl ObjectBuilder {
         self
     }
 
-    /// Creates and passes an `ObjectBuilder` into a closure, then inserts the
-    /// resulting array into this object.
+    /// Creates and passes an `ObjectBuilder` into a closure, then inserts the resulting array into
+    /// this object.
     pub fn insert_array<S, F>(mut self, key: S, f: F) -> ObjectBuilder
     where
         S: Into<String>,
@@ -101,8 +101,8 @@ impl ObjectBuilder {
         self
     }
 
-    /// Creates and passes an `ObjectBuilder` into a closure, then inserts the
-    /// resulting object into this object.
+    /// Creates and passes an `ObjectBuilder` into a closure, then inserts the resulting object into
+    /// this object.
     pub fn insert_object<S, F>(mut self, key: S, f: F) -> ObjectBuilder
     where
         S: Into<String>,

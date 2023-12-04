@@ -1,6 +1,5 @@
-use std::collections::HashSet;
-
 use nu_protocol::Value;
+use std::collections::HashSet;
 
 pub fn get_columns(input: &[Value]) -> Vec<String> {
     let mut columns = vec![];

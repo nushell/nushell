@@ -87,22 +87,27 @@ impl Command for BytesReplace {
             Example {
                 description: "Find and replace contents",
                 example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
-                result: Some(Value::test_binary(vec![0xff, 0xff, 0xaa, 0xff])),
+                result: Some(Value::test_binary (
+                    vec![0xFF, 0xFF, 0xAA, 0xFF],
+                )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary",
                 example: "0x[10 AA 10 BB 10] | bytes replace --all 0x[10] 0x[A0]",
-                result: Some(Value::test_binary(vec![0xa0, 0xaa, 0xa0, 0xbb, 0xa0])),
+                result: Some(Value::test_binary (
+                    vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0],
+                )),
             },
             Example {
                 description: "Find and replace all occurrences of find binary in table",
-                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes \
-                          replace --all 0x[11] 0x[13] ColA ColC",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_binary(vec![0x13, 0x12, 0x13]),
-                    "ColB" => Value::test_binary(vec![0x14, 0x15, 0x16]),
-                    "ColC" => Value::test_binary(vec![0x17, 0x18, 0x19]),
-                })])),
+                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace --all 0x[11] 0x[13] ColA ColC",
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" => Value::test_binary(vec![0x13, 0x12, 0x13]),
+                        "ColB" => Value::test_binary(vec![0x14, 0x15, 0x16]),
+                        "ColC" => Value::test_binary(vec![0x17, 0x18, 0x19]),
+                    })],
+                )),
             },
         ]
     }

@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
+use crate::{PluginExample, Signature};
+use serde::Deserialize;
+use serde::Serialize;
 
-use crate::{
-    engine::Command, BlockId, Category, Flag, PluginExample, PositionalArg, Signature, SyntaxShape,
-    Type,
-};
+use crate::engine::Command;
+use crate::{BlockId, Category, Flag, PositionalArg, SyntaxShape, Type};
 
 /// A simple wrapper for Signature that includes examples.
 #[derive(Clone, Serialize, Deserialize)]
@@ -155,8 +155,7 @@ impl PluginSignature {
         self
     }
 
-    // Is it allowed for the type signature to feature a variant that has no
-    // corresponding example?
+    // Is it allowed for the type signature to feature a variant that has no corresponding example?
     pub fn allow_variants_without_examples(mut self, allow: bool) -> PluginSignature {
         self.sig = self.sig.allow_variants_without_examples(allow);
         self
@@ -204,10 +203,9 @@ impl PluginSignature {
         self
     }
 
-    /// Create a placeholder implementation of Command as a way to predeclare a
-    /// definition's signature so other definitions can see it. This
-    /// placeholder is later replaced with the full definition in a second
-    /// pass of the parser.
+    /// Create a placeholder implementation of Command as a way to predeclare a definition's
+    /// signature so other definitions can see it. This placeholder is later replaced with the
+    /// full definition in a second pass of the parser.
     pub fn predeclare(self) -> Box<dyn Command> {
         self.sig.predeclare()
     }

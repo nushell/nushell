@@ -5,8 +5,9 @@ use nu_protocol::{
     Value,
 };
 
-use super::{HelpManual, SimpleCommand};
 use crate::pager::{Pager, Transition};
+
+use super::{HelpManual, SimpleCommand};
 
 #[derive(Default, Clone)]
 pub struct QuitCmd;

@@ -1,9 +1,9 @@
-use indexmap::IndexMap;
-
 use crate::{
     ast::ImportPatternMember, engine::StateWorkingSet, BlockId, DeclId, ModuleId, ParseError, Span,
     Value, VarId,
 };
+
+use indexmap::IndexMap;
 
 pub struct ResolvedImportPattern {
     pub decls: Vec<(Vec<u8>, DeclId)>,
@@ -95,8 +95,7 @@ impl Module {
         working_set: &StateWorkingSet,
         self_id: ModuleId,
         members: &[ImportPatternMember],
-        name_override: Option<&[u8]>, /* name under the module was stored (doesn't have to be
-                                       * the same as self.name) */
+        name_override: Option<&[u8]>, // name under the module was stored (doesn't have to be the same as self.name)
         backup_span: Span,
     ) -> (ResolvedImportPattern, Vec<ParseError>) {
         let final_name = name_override.unwrap_or(&self.name).to_vec();

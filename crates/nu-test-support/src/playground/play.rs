@@ -1,13 +1,10 @@
-use std::{
-    path::{Path, PathBuf},
-    str,
-};
-
-use nu_glob::glob;
-use tempfile::{tempdir, TempDir};
-
 use super::Director;
-use crate::{fs, fs::Stub};
+use crate::fs;
+use crate::fs::Stub;
+use nu_glob::glob;
+use std::path::{Path, PathBuf};
+use std::str;
+use tempfile::{tempdir, TempDir};
 
 #[derive(Default, Clone, Debug)]
 pub struct EnvironmentVariable {

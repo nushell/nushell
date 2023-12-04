@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use alphanumeric_sort::compare_str;
 use nu_protocol::{
     ast::Call,
@@ -8,6 +6,7 @@ use nu_protocol::{
     Record, ShellError, Signature, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
+use std::cmp::Ordering;
 
 #[derive(Clone)]
 pub struct Sort;
@@ -19,14 +18,11 @@ impl Command for Sort {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Record(vec![]), Type::Record(vec![])),
-            ])
-            .switch("reverse", "Sort in reverse order", Some('r'))
+        .input_output_types(vec![(
+            Type::List(Box::new(Type::Any)),
+            Type::List(Box::new(Type::Any)),
+        ), (Type::Record(vec![]), Type::Record(vec![])),])
+    .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
                 "Sort string-based data case-insensitively",
@@ -34,8 +30,7 @@ impl Command for Sort {
             )
             .switch(
                 "values",
-                "If input is a single record, sort the record by values; ignored if input is not \
-                 a single record",
+                "If input is a single record, sort the record by values; ignored if input is not a single record",
                 Some('v'),
             )
             .switch(

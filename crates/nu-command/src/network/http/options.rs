@@ -1,15 +1,16 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
-use super::client::RequestFlags;
 use crate::network::http::client::{
     http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
     request_handle_response, request_set_timeout, send_request,
 };
+
+use super::client::RequestFlags;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -147,9 +148,8 @@ fn run_get(
     helper(engine_state, stack, call, args)
 }
 
-// Helper function that actually goes to retrieve the resource from the url
-// given The Option<String> return a possible file extension which can be used
-// in AutoConvert commands
+// Helper function that actually goes to retrieve the resource from the url given
+// The Option<String> return a possible file extension which can be used in AutoConvert commands
 fn helper(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -170,8 +170,8 @@ fn helper(
     let response = send_request(request.clone(), None, None, ctrl_c);
 
     // http options' response always showed in header, so we set full to true.
-    // And `raw` is useless too because options method doesn't return body, here we
-    // set to true too.
+    // And `raw` is useless too because options method doesn't return body, here we set to true
+    // too.
     let request_flags = RequestFlags {
         raw: true,
         full: true,

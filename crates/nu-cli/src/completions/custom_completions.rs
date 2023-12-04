@@ -1,5 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
-
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
@@ -8,9 +7,10 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 use reedline::Suggestion;
+use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::completer::map_value_completions;
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,

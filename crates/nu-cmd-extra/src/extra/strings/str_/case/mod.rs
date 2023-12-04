@@ -8,18 +8,18 @@ mod title_case;
 
 pub use camel_case::SubCommand as StrCamelCase;
 pub use kebab_case::SubCommand as StrKebabCase;
-use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{EngineState, Stack},
-    PipelineData, ShellError, Span, Value,
-};
 pub use pascal_case::SubCommand as StrPascalCase;
 pub use screaming_snake_case::SubCommand as StrScreamingSnakeCase;
 pub use snake_case::SubCommand as StrSnakeCase;
 pub use str_::Str;
 pub use title_case::SubCommand as StrTitleCase;
+
+use nu_engine::CallExt;
+
+use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
+use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::{PipelineData, ShellError, Span, Value};
 
 struct Arguments<F: Fn(&str) -> String + Send + Sync + 'static> {
     case_operation: &'static F,

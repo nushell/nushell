@@ -1,7 +1,8 @@
 use core::slice;
 
 use indexmap::map::IndexMap;
-use nu_protocol::{ast::Call, IntoPipelineData, PipelineData, ShellError, Span, Value};
+use nu_protocol::ast::Call;
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -22,8 +23,8 @@ fn helper_for_tables(
     name: Span,
     mf: impl Fn(&[Value], Span, Span) -> Result<Value, ShellError>,
 ) -> Result<Value, ShellError> {
-    // If we are not dealing with Primitives, then perhaps we are dealing with a
-    // table Create a key for each column name
+    // If we are not dealing with Primitives, then perhaps we are dealing with a table
+    // Create a key for each column name
     let mut column_values = IndexMap::new();
     for val in values {
         match val {
@@ -37,7 +38,7 @@ fn helper_for_tables(
             }
             Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
-                // Turns out we are not dealing with a table
+                //Turns out we are not dealing with a table
                 return mf(values, val.span(), name);
             }
         }

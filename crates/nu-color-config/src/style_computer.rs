@@ -1,20 +1,18 @@
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Formatter, Result},
-};
-
+use crate::text_style::Alignment;
+use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
 use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
+use std::collections::HashMap;
 
-use crate::{color_record_to_nustyle, lookup_ansi_color_style, text_style::Alignment, TextStyle};
+use std::fmt::{Debug, Formatter, Result};
 
-// ComputableStyle represents the valid user style types: a single color value,
-// or a closure which takes an input value and produces a color value. The
-// latter represents a value which is computed at use-time.
+// ComputableStyle represents the valid user style types: a single color value, or a closure which
+// takes an input value and produces a color value. The latter represents a value which
+// is computed at use-time.
 #[derive(Debug, Clone)]
 pub enum ComputableStyle {
     Static(Style),
@@ -23,6 +21,7 @@ pub enum ComputableStyle {
 
 // An alias for the mapping used internally by StyleComputer.
 pub type StyleMapping = HashMap<String, ComputableStyle>;
+//
 // A StyleComputer is an all-in-one way to compute styles. A nu command can
 // simply create it with from_config(), and then use it with compute().
 // It stores the engine state and stack needed to run closures that
@@ -35,8 +34,8 @@ pub struct StyleComputer<'a> {
 }
 
 impl<'a> StyleComputer<'a> {
-    // This is NOT meant to be used in most cases - please use from_config()
-    // instead. This only exists for testing purposes.
+    // This is NOT meant to be used in most cases - please use from_config() instead.
+    // This only exists for testing purposes.
     pub fn new(
         engine_state: &'a EngineState,
         stack: &'a Stack,
@@ -48,7 +47,6 @@ impl<'a> StyleComputer<'a> {
             map,
         }
     }
-
     // The main method. Takes a string name which maps to a color_config style name,
     // and a Nu value to pipe into any closures that may have been defined there.
     pub fn compute(&self, style_name: &str, value: &Value) -> Style {
@@ -83,17 +81,15 @@ impl<'a> StyleComputer<'a> {
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);
-                                // These should be the same color data forms supported by
-                                // color_config.
+                                // These should be the same color data forms supported by color_config.
                                 match value {
                                     Value::Record { .. } => color_record_to_nustyle(&value),
                                     Value::String { val, .. } => lookup_ansi_color_style(&val),
                                     _ => Style::default(),
                                 }
                             }
-                            // This is basically a copy of nu_cli::report_error(), but that isn't
-                            // usable due to dependencies. While crudely
-                            // spitting out a bunch of errors like this is not ideal,
+                            // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                            // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
                             // currently hook closure errors behave roughly the same.
                             Err(e) => {
                                 eprintln!(
@@ -107,8 +103,8 @@ impl<'a> StyleComputer<'a> {
                     _ => Style::default(),
                 }
             }
-            // There should be no other kinds of values (due to create_map() in config.rs filtering
-            // them out) so this is just a fallback.
+            // There should be no other kinds of values (due to create_map() in config.rs filtering them out)
+            // so this is just a fallback.
             _ => Style::default(),
         }
     }
@@ -237,8 +233,8 @@ fn test_computable_style_static() {
     );
 }
 
-// Because each closure currently runs in a separate environment, checks that
-// the closures have run must use the filesystem.
+// Because each closure currently runs in a separate environment, checks that the closures have run
+// must use the filesystem.
 #[test]
 fn test_computable_style_closure_basic() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};

@@ -1,6 +1,8 @@
-use std::path::PathBuf;
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
-use nu_test_support::{fs::Stub::EmptyFile, nu, pipeline, playground::Playground};
+use std::path::PathBuf;
 
 #[test]
 fn expands_path_with_dot() {

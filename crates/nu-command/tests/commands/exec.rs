@@ -1,4 +1,5 @@
-use nu_test_support::{nu, pipeline, playground::Playground};
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn basic_exec() {

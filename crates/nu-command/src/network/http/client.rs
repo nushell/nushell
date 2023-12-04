@@ -1,30 +1,23 @@
-use std::{
-    collections::HashMap,
-    io::BufReader,
-    path::PathBuf,
-    str::FromStr,
-    sync::{
-        atomic::AtomicBool,
-        mpsc::{self, RecvTimeoutError},
-        Arc,
-    },
-    time::Duration,
-};
-
-use base64::{
-    alphabet,
-    engine::{general_purpose::PAD, GeneralPurpose},
-    Engine,
-};
+use crate::formats::value_to_json_value;
+use base64::engine::general_purpose::PAD;
+use base64::engine::GeneralPurpose;
+use base64::{alphabet, Engine};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{EngineState, Stack},
     record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
 };
 use ureq::{Error, ErrorKind, Request, Response};
-use url::Url;
 
-use crate::formats::value_to_json_value;
+use std::collections::HashMap;
+use std::io::BufReader;
+use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::atomic::AtomicBool;
+use std::sync::mpsc::{self, RecvTimeoutError};
+use std::sync::Arc;
+use std::time::Duration;
+use url::Url;
 
 #[derive(PartialEq, Eq)]
 pub enum BodyType {
@@ -33,8 +26,8 @@ pub enum BodyType {
     Unknown,
 }
 
-// Only panics if the user agent is invalid but we define it statically so
-// either it always or never fails
+// Only panics if the user agent is invalid but we define it statically so either
+// it always or never fails
 pub fn http_client(
     allow_insecure: bool,
     engine_state: &EngineState,
@@ -246,9 +239,8 @@ pub fn send_request(
     }
 }
 
-// Helper method used to make blocking HTTP request calls cancellable with
-// ctrl+c ureq functions can block for a long time (default 30s?) while
-// attempting to make an HTTP connection
+// Helper method used to make blocking HTTP request calls cancellable with ctrl+c
+// ureq functions can block for a long time (default 30s?) while attempting to make an HTTP connection
 fn send_cancellable_request(
     request_url: &str,
     request_fn: Box<dyn FnOnce() -> Result<Response, Error> + Sync + Send>,
@@ -261,16 +253,14 @@ fn send_cancellable_request(
         .name("HTTP requester".to_string())
         .spawn(move || {
             let ret = request_fn();
-            let _ = tx.send(ret); // may fail if the user has cancelled the
-                                  // operation
+            let _ = tx.send(ret); // may fail if the user has cancelled the operation
         })
         .expect("Failed to create thread");
 
     // ...and poll the channel for responses
     loop {
         if nu_utils::ctrl_c::was_pressed(&ctrl_c) {
-            // Return early and give up on the background thread. The connection will either
-            // time out or be disconnected
+            // Return early and give up on the background thread. The connection will either time out or be disconnected
             return Err(ShellErrorOrRequestError::ShellError(
                 ShellError::InterruptedByUser { span: None },
             ));
@@ -373,47 +363,26 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure {
-            msg: format!("Resource moved permanently (301): {requested_url:?}"),
-            span,
-        },
-        Error::Status(400, _) => ShellError::NetworkFailure {
-            msg: format!("Bad request (400) to {requested_url:?}"),
-            span,
-        },
-        Error::Status(403, _) => ShellError::NetworkFailure {
-            msg: format!("Access forbidden (403) to {requested_url:?}"),
-            span,
-        },
-        Error::Status(404, _) => ShellError::NetworkFailure {
-            msg: format!("Requested file not found (404): {requested_url:?}"),
-            span,
-        },
-        Error::Status(408, _) => ShellError::NetworkFailure {
-            msg: format!("Request timeout (408): {requested_url:?}"),
-            span,
-        },
-        Error::Status(_, _) => ShellError::NetworkFailure {
-            msg: format!(
+        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
+        Error::Status(400, _) => {
+            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
+        }
+        Error::Status(403, _) => {
+            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
+        }
+        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
+        Error::Status(408, _) => {
+            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
+        }
+        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ),
-            span,
-        },
+            ), span },
 
         Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure {
-                msg: format!(
-                    "Cannot make request to {requested_url}, there was an error establishing a \
-                     connection.",
-                ),
-                span,
-            },
-            t => ShellError::NetworkFailure {
-                msg: t.to_string(),
-                span,
-            },
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+            t => ShellError::NetworkFailure { msg: t.to_string(), span },
         },
     }
 }
@@ -639,8 +608,7 @@ fn headers_to_nu(headers: &Headers, span: Span) -> Result<PipelineData, ShellErr
         });
         if !is_duplicate {
             // A single header can hold multiple values
-            // This interface is why we needed to check if we've already parsed this header
-            // name.
+            // This interface is why we needed to check if we've already parsed this header name.
             for str_value in values {
                 let record = record! {
                     "name" => Value::string(name, span),

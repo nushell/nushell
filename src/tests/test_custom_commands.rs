@@ -1,7 +1,6 @@
+use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 use nu_test_support::nu;
 use pretty_assertions::assert_eq;
-
-use crate::tests::{fail_test, run_test, run_test_contains, TestResult};
 
 #[test]
 fn no_scope_leak1() -> TestResult {
@@ -173,8 +172,7 @@ fn help_present_in_def() -> TestResult {
 #[test]
 fn help_not_present_in_extern() -> TestResult {
     run_test(
-        "module test {export extern \"git fetch\" []}; use test `git fetch`; help git fetch | \
-         ansi strip",
+        "module test {export extern \"git fetch\" []}; use test `git fetch`; help git fetch | ansi strip",
         "Usage:\n  > git fetch",
     )
 }
@@ -190,9 +188,9 @@ fn override_table_eval_file() {
     assert_eq!(actual.out, "hi");
 }
 
-// This test is disabled on Windows because they cause a stack overflow in CI
-// (but not locally!). For reasons we don't understand, the Windows CI runners
-// are prone to stack overflow. TODO: investigate so we can enable on Windows
+// This test is disabled on Windows because they cause a stack overflow in CI (but not locally!).
+// For reasons we don't understand, the Windows CI runners are prone to stack overflow.
+// TODO: investigate so we can enable on Windows
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() {

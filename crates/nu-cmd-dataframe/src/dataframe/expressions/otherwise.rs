@@ -1,11 +1,10 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 
 #[derive(Clone)]
 pub struct ExprOtherwise;
@@ -39,8 +38,8 @@ impl Command for ExprOtherwise {
             },
             Example {
                 description: "Create a when conditions",
-                example: "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6 | dfr \
-                          otherwise 0",
+                example:
+                    "dfr when ((dfr col a) > 2) 4 | dfr when ((dfr col a) < 0) 6 | dfr otherwise 0",
                 result: None,
             },
             Example {
@@ -108,11 +107,12 @@ impl Command for ExprOtherwise {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
-    use crate::dataframe::{
-        eager::{ToNu, WithColumn},
-        expressions::{when::ExprWhen, ExprAlias, ExprCol},
-    };
+    use super::super::super::test_dataframe::test_dataframe;
+    use crate::dataframe::eager::{ToNu, WithColumn};
+    use crate::dataframe::expressions::when::ExprWhen;
+    use crate::dataframe::expressions::{ExprAlias, ExprCol};
+
+    use super::*;
 
     #[test]
     fn test_examples() {

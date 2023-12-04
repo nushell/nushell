@@ -61,8 +61,7 @@ impl Command for ToText {
             })
         } else {
             // FIXME: don't collect! stream the output wherever possible!
-            // Even if the data is collected when it arrives at `to text`, we should be able
-            // to stream it out
+            // Even if the data is collected when it arrives at `to text`, we should be able to stream it out
             let collected_input = local_into_string(input.into_value(span), line_ending, config);
 
             Ok(Value::string(collected_input, span).into_pipeline_data())

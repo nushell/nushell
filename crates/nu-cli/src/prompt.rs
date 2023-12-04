@@ -1,10 +1,11 @@
-use std::borrow::Cow;
-
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
-use reedline::{
-    DefaultPrompt, Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus,
-    PromptViMode,
+use reedline::DefaultPrompt;
+use {
+    reedline::{
+        Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
+    },
+    std::borrow::Cow,
 };
 
 /// Nushell prompt definition

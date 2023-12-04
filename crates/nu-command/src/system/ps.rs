@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 #[cfg(windows)]
 use itertools::Itertools;
 #[cfg(all(
@@ -24,6 +22,8 @@ use nu_protocol::{
     not(target_os = "ios")
 ))]
 use procfs::WithCurrentSystemInfo;
+
+use std::time::Duration;
 
 #[derive(Clone)]
 pub struct Ps;
@@ -153,7 +153,7 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
             }
             #[cfg(windows)]
             {
-                // TODO: There's still more information we can cram in there if we want to
+                //TODO: There's still more information we can cram in there if we want to
                 // see the ProcessInfo struct for more information
                 record.push(
                     "start_time",

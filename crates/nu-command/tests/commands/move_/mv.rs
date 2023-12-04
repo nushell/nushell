@@ -1,11 +1,6 @@
-use nu_test_support::{
-    fs::{
-        files_exist_at,
-        Stub::{EmptyFile, FileWithContent},
-    },
-    nu,
-    playground::Playground,
-};
+use nu_test_support::fs::{files_exist_at, Stub::EmptyFile, Stub::FileWithContent};
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn moves_a_file() {
@@ -414,8 +409,8 @@ fn mv_directory_with_same_name() {
 
 #[test]
 // Test that changing the case of a file/directory name works;
-// this is an important edge case on Windows (and any other case-insensitive
-// file systems). We were bitten badly by this once: https://github.com/nushell/nushell/issues/6583
+// this is an important edge case on Windows (and any other case-insensitive file systems).
+// We were bitten badly by this once: https://github.com/nushell/nushell/issues/6583
 fn mv_change_case_of_directory() {
     Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
         sandbox
@@ -430,9 +425,8 @@ fn mv_change_case_of_directory() {
             format!("mv {original_dir} {new_dir}")
         );
 
-        // Doing this instead of `Path::exists()` because we need to check file
-        // existence in a case-sensitive way. `Path::exists()` is understandably
-        // case-insensitive on NTFS
+        // Doing this instead of `Path::exists()` because we need to check file existence in
+        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
         let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
@@ -460,9 +454,8 @@ fn mv_change_case_of_file() {
             format!("mv {original_file_name} -f {new_file_name}")
         );
 
-        // Doing this instead of `Path::exists()` because we need to check file
-        // existence in a case-sensitive way. `Path::exists()` is understandably
-        // case-insensitive on NTFS
+        // Doing this instead of `Path::exists()` because we need to check file existence in
+        // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
         let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())

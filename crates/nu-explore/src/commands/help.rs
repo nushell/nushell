@@ -1,7 +1,5 @@
-use std::{
-    collections::HashMap,
-    io::{self, Result},
-};
+use std::collections::HashMap;
+use std::io::{self, Result};
 
 use crossterm::event::KeyEvent;
 use nu_protocol::{
@@ -10,12 +8,13 @@ use nu_protocol::{
 };
 use ratatui::layout::Rect;
 
-use super::{HelpExample, HelpManual, ViewCommand};
 use crate::{
     nu_common::{collect_input, NuSpan},
     pager::{Frame, Transition, ViewInfo},
     views::{Layout, Preview, RecordView, View, ViewConfig},
 };
+
+use super::{HelpExample, HelpManual, ViewCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct HelpCmd {
@@ -25,6 +24,8 @@ pub struct HelpCmd {
 }
 
 impl HelpCmd {
+    pub const NAME: &'static str = "help";
+
     const HELP_MESSAGE: &'static str = r#"                        Explore - main help file
 
               Move around:  Use the cursor keys.
@@ -46,7 +47,6 @@ To go to the next hit use "<n>" key.
 
 You also can do a reverse search by using "?" instead of "/".
 "#;
-    pub const NAME: &'static str = "help";
 
     pub fn new(commands: Vec<HelpManual>, aliases: &[(&str, &str)]) -> Self {
         let aliases = collect_aliases(aliases);

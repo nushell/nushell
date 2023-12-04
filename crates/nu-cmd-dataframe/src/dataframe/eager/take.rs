@@ -6,8 +6,9 @@ use nu_protocol::{
 };
 use polars::prelude::DataType;
 
-use super::super::values::NuDataFrame;
 use crate::dataframe::values::Column;
+
+use super::super::values::NuDataFrame;
 
 #[derive(Clone)]
 pub struct TakeDF;
@@ -144,7 +145,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

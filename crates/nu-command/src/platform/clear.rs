@@ -1,10 +1,9 @@
-use std::process::Command as CommandSys;
-
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
+use std::process::Command as CommandSys;
 
 #[derive(Clone)]
 pub struct Clear;

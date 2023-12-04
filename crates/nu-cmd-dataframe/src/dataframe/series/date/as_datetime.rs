@@ -1,3 +1,5 @@
+use super::super::super::values::{Column, NuDataFrame};
+
 use chrono::DateTime;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -6,8 +8,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{IntoSeries, TimeUnit, Utf8Methods};
-
-use super::super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct AsDateTime;
@@ -39,12 +39,7 @@ impl Command for AsDateTime {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("format", SyntaxShape::String, "formatting date time string")
-            .switch(
-                "not-exact",
-                "the format string may be contained in the date (e.g. foo-2021-01-01-bar could \
-                 match 2021-01-01)",
-                Some('n'),
-            )
+            .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
             .input_output_type(
                 Type::Custom("dataframe".into()),
                 Type::Custom("dataframe".into()),
@@ -185,7 +180,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

@@ -37,9 +37,7 @@ pub(crate) fn parse_date_from_string(
 ///
 /// # Arguments
 /// * `head` - use the call's head
-/// * `show_parse_only_formats` - whether parse-only format specifiers (that
-///   can't be outputted) should be shown. Should only be used for `into
-///   datetime`, not `format date`
+/// * `show_parse_only_formats` - whether parse-only format specifiers (that can't be outputted) should be shown. Should only be used for `into datetime`, not `format date`
 pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) -> Value {
     let now = Local::now();
 
@@ -107,8 +105,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%W",
-            description: "Same as %U, but week 1 starts with the first Monday in that year \
-                          instead.",
+            description:
+                "Same as %U, but week 1 starts with the first Monday in that year instead.",
         },
         FormatSpecification {
             spec: "%G",
@@ -224,8 +222,8 @@ pub(crate) fn generate_strftime_list(head: Span, show_parse_only_formats: bool) 
         },
         FormatSpecification {
             spec: "%Z",
-            description: "Local time zone name. Skips all non-whitespace characters during \
-                          parsing.",
+            description:
+                "Local time zone name. Skips all non-whitespace characters during parsing.",
         },
         FormatSpecification {
             spec: "%z",

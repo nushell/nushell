@@ -102,9 +102,8 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
     let v = value.as_record();
     if let Ok(record) = v {
         for (k, v) in record {
-            // Because config already type-checked the color_config records, this doesn't
-            // bother giving errors if there are unrecognised keys or bad
-            // values.
+            // Because config already type-checked the color_config records, this doesn't bother giving errors
+            // if there are unrecognised keys or bad values.
             if let Ok(v) = v.as_string() {
                 match k.as_str() {
                     "fg" => fg = Some(v),

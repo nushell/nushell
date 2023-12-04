@@ -1,8 +1,8 @@
 use itertools::Itertools;
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
     Type, Value,
 };
@@ -76,8 +76,7 @@ fn tutor(
 
     let search: Option<String> = call.opt(engine_state, stack, 0).unwrap_or(None);
     let find: Option<String> = call.get_flag(engine_state, stack, "find")?;
-    let notes = "You can learn about a topic using `tutor` followed by the name of the \
-                 topic.\nFor example: `tutor table` to open the table topic.\n\n";
+    let notes = "You can learn about a topic using `tutor` followed by the name of the topic.\nFor example: `tutor table` to open the table topic.\n\n";
 
     let search_space = [
         (vec!["begin"], begin_tutor()),
@@ -413,7 +412,7 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
         if code_mode {
             code_mode = false;
 
-            // TODO: support no-color mode
+            //TODO: support no-color mode
             if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
                 let decl = engine_state.get_decl(highlighter);
 

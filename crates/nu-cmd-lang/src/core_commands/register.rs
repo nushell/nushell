@@ -1,8 +1,6 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
 #[derive(Clone)]
 pub struct Register;
@@ -65,8 +63,7 @@ impl Command for Register {
                 result: None,
             },
             Example {
-                description: "Register `nu_plugin_query` plugin from `nu -c` (writes/updates \
-                              $nu.plugin-path)",
+                description: "Register `nu_plugin_query` plugin from `nu -c` (writes/updates $nu.plugin-path)",
                 example: r#"let plugin = ((which nu).path.0 | path dirname | path join 'nu_plugin_query'); nu -c $'register ($plugin); version'"#,
                 result: None,
             },

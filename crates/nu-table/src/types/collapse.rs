@@ -1,9 +1,12 @@
 use nu_color_config::StyleComputer;
 use nu_protocol::{Config, Record, TableMode, Value};
 
+use crate::UnstructuredTable;
+
+use crate::common::nu_value_to_string_clean;
 use crate::{
-    common::{get_index_style, load_theme, nu_value_to_string_clean},
-    StringResult, TableOpts, UnstructuredTable,
+    common::{get_index_style, load_theme},
+    StringResult, TableOpts,
 };
 
 pub struct CollapsedTable;

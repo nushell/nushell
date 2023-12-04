@@ -1,9 +1,8 @@
-use nu_protocol::ShellError;
-
 use crate::{
     plugin::PluginEncoder,
     protocol::{PluginCall, PluginResponse},
 };
+use nu_protocol::ShellError;
 
 pub mod json;
 pub mod msgpack;

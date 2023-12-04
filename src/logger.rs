@@ -1,11 +1,11 @@
-use std::{fs::File, path::Path, str::FromStr};
-
 use log::{Level, LevelFilter, SetLoggerError};
 use nu_protocol::ShellError;
 use simplelog::{
     format_description, Color, ColorChoice, Config, ConfigBuilder, LevelPadding, TermLogger,
     TerminalMode, WriteLogger,
 };
+
+use std::{fs::File, path::Path, str::FromStr};
 
 pub enum LogTarget {
     Stdout,

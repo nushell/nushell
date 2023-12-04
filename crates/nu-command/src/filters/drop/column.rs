@@ -1,12 +1,12 @@
-use std::collections::HashSet;
-
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
+
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct DropColumn;
@@ -31,8 +31,7 @@ impl Command for DropColumn {
     }
 
     fn usage(&self) -> &str {
-        "Remove N columns at the right-hand end of the input table. To remove columns by name, use \
-         `reject`."
+        "Remove N columns at the right-hand end of the input table. To remove columns by name, use `reject`."
     }
 
     fn search_terms(&self) -> Vec<&str> {

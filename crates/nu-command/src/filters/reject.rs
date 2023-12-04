@@ -1,12 +1,12 @@
-use std::{cmp::Reverse, collections::HashSet};
-
 use nu_engine::CallExt;
+use nu_protocol::ast::{Call, CellPath, PathMember};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
+use std::cmp::Reverse;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Reject;
@@ -153,17 +153,21 @@ impl Command for Reject {
             Example {
                 description: "Reject a column in a table",
                 example: "[[a, b]; [1, 2]] | reject a",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "b" => Value::test_int(2),
-                })])),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "b" => Value::test_int(2),
+                    })],
+                )),
             },
             Example {
                 description: "Reject a row in a table",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" =>  Value::test_int(1),
-                    "b" =>  Value::test_int(2),
-                })])),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" =>  Value::test_int(1),
+                        "b" =>  Value::test_int(2),
+                    })],
+                )),
             },
             Example {
                 description: "Reject the specified field in a record",
@@ -183,23 +187,22 @@ impl Command for Reject {
             },
             Example {
                 description: "Reject columns by a provided list of columns",
-                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] \
-                          [Cargo.lock toml 2kb]] | reject $cols",
-                result: None,
+                example: "let cols = [size type];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject $cols",
+                result: None
             },
             Example {
                 description: "Reject columns by a list of columns directly",
                 example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ["size", "type"]"#,
-                result: Some(Value::test_list(vec![
-                    Value::test_record(record! {"name" =>  Value::test_string("Cargo.toml")}),
-                    Value::test_record(record! {"name" => Value::test_string("Cargo.lock")}),
-                ])),
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" =>  Value::test_string("Cargo.toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock")})],
+                )),
             },
             Example {
                 description: "Reject rows by a provided list of rows",
-                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock \
-                          toml 2kb] [file.json json 3kb]] | reject $rows",
-                result: None,
+                example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject $rows",
+                result: None
             },
         ]
     }

@@ -42,7 +42,8 @@
 //! instead of printing them.
 //!
 //! ```rust,no_run
-//! use nu_glob::{glob_with, MatchOptions};
+//! use nu_glob::glob_with;
+//! use nu_glob::MatchOptions;
 //!
 //! let options = MatchOptions {
 //!     case_sensitive: false,
@@ -71,17 +72,18 @@ extern crate doc_comment;
 #[cfg(test)]
 doctest!("../README.md");
 
-use std::{
-    cmp,
-    error::Error,
-    fmt, fs, io,
-    path::{self, Component, Path, PathBuf},
-    str::FromStr,
-};
+use std::cmp;
+use std::error::Error;
+use std::fmt;
+use std::fs;
+use std::io;
+use std::path::{self, Component, Path, PathBuf};
+use std::str::FromStr;
 
 use CharSpecifier::{CharRange, SingleChar};
 use MatchResult::{EntirePatternDoesntMatch, Match, SubPatternDoesntMatch};
-use PatternToken::{AnyChar, AnyExcept, AnyRecursiveSequence, AnySequence, AnyWithin, Char};
+use PatternToken::AnyExcept;
+use PatternToken::{AnyChar, AnyRecursiveSequence, AnySequence, AnyWithin, Char};
 
 /// An iterator that yields `Path`s from the filesystem that match a particular
 /// pattern.
@@ -121,8 +123,8 @@ impl Paths {
 /// This may return an error if the pattern is invalid.
 ///
 /// This method uses the default match options and is equivalent to calling
-/// `glob_with(pattern, MatchOptions::default())`. Use `glob_with` directly if
-/// you want to use non-default match options.
+/// `glob_with(pattern, MatchOptions::default())`. Use `glob_with` directly if you
+/// want to use non-default match options.
 ///
 /// When iterating, each result is a `GlobResult` which expresses the
 /// possibility that there was an `IoError` when attempting to read the contents
@@ -163,14 +165,10 @@ impl Paths {
 /// `filter_map`:
 ///
 /// ```rust
+/// use nu_glob::glob;
 /// use std::result::Result;
 ///
-/// use nu_glob::glob;
-///
-/// for path in glob("/media/pictures/*.jpg")
-///     .unwrap()
-///     .filter_map(Result::ok)
-/// {
+/// for path in glob("/media/pictures/*.jpg").unwrap().filter_map(Result::ok) {
 ///     println!("{}", path.display());
 /// }
 /// ```
@@ -197,8 +195,7 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
     fn check_windows_verbatim(p: &Path) -> bool {
         match p.components().next() {
             Some(Component::Prefix(ref p)) => {
-                // Allow VerbatimDisk paths. std canonicalize() generates them, and they work
-                // fine
+                // Allow VerbatimDisk paths. std canonicalize() generates them, and they work fine
                 p.kind().is_verbatim() && !matches!(p.kind(), std::path::Prefix::VerbatimDisk(_))
             }
             _ => false,
@@ -290,12 +287,12 @@ pub fn glob_with(pattern: &str, options: MatchOptions) -> Result<Paths, PatternE
 }
 
 /// Return an iterator that produces all the `Path`s that match the given
-/// pattern relative to a specified parent directory and using specified match
-/// options. Paths may be absolute or relative to the current working directory.
+/// pattern relative to a specified parent directory and using specified match options.
+/// Paths may be absolute or relative to the current working directory.
 ///
-/// This is provided primarily for testability, so multithreaded test runners
-/// can test pattern matches in different test directories at the same time
-/// without having to append the parent to the pattern under test.
+/// This is provided primarily for testability, so multithreaded test runners can
+/// test pattern matches in different test directories at the same time without
+/// having to append the parent to the pattern under test.
 
 pub fn glob_with_parent(
     pattern: &str,
@@ -604,7 +601,8 @@ enum MatchResult {
 }
 
 const ERROR_WILDCARDS: &str = "wildcards are either regular `*` or recursive `**`";
-const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path component";
+const ERROR_RECURSIVE_WILDCARDS: &str = "recursive wildcards must form a single path \
+                                         component";
 const ERROR_INVALID_RANGE: &str = "invalid range pattern";
 
 impl Pattern {
@@ -764,8 +762,7 @@ impl Pattern {
     }
 
     /// Return if the given `Path`, when converted to a `str`, matches this
-    /// `Pattern` using the default match options (i.e.
-    /// `MatchOptions::default()`).
+    /// `Pattern` using the default match options (i.e. `MatchOptions::default()`).
     pub fn matches_path(&self, path: &Path) -> bool {
         // FIXME (#9639): This needs to handle non-utf8 paths
         path.to_str().map_or(false, |s| self.matches(s))
@@ -1041,8 +1038,7 @@ fn in_char_specifiers(specifiers: &[CharSpecifier], c: char, options: MatchOptio
     false
 }
 
-/// A helper function to determine if two chars are (possibly
-/// case-insensitively) equal.
+/// A helper function to determine if two chars are (possibly case-insensitively) equal.
 fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
     if cfg!(windows) && path::is_separator(a) && path::is_separator(b) {
         true
@@ -1054,8 +1050,7 @@ fn chars_eq(a: char, b: char, case_sensitive: bool) -> bool {
     }
 }
 
-/// Configuration options to modify the behaviour of
-/// `Pattern::matches_with(..)`.
+/// Configuration options to modify the behaviour of `Pattern::matches_with(..)`.
 #[allow(missing_copy_implementations)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct MatchOptions {
@@ -1077,13 +1072,12 @@ pub struct MatchOptions {
     /// desirable to skip them when listing files.
     pub require_literal_leading_dot: bool,
 
-    /// if given pattern contains `**`, this flag check if `**` matches hidden
-    /// directory. For example: if true, `**` will match `.abcdef/ghi`.
+    /// if given pattern contains `**`, this flag check if `**` matches hidden directory.
+    /// For example: if true, `**` will match `.abcdef/ghi`.
     pub recursive_match_hidden_dir: bool,
 }
 
-// Overwrite default behavior, because we want to make
-// `recursive_match_hidden_dir` to true.
+// Overwrite default behavior, because we want to make `recursive_match_hidden_dir` to true.
 impl Default for MatchOptions {
     fn default() -> Self {
         Self {
@@ -1097,9 +1091,8 @@ impl Default for MatchOptions {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
     use super::{glob, MatchOptions, Pattern};
+    use std::path::Path;
 
     #[test]
     fn test_pattern_from_str() {
@@ -1176,7 +1169,8 @@ mod test {
 
         #[cfg(windows)]
         fn win() {
-            use std::{env::current_dir, path::Component};
+            use std::env::current_dir;
+            use std::path::Component;
 
             // check windows absolute paths with host/device components
             let root_with_device = current_dir()

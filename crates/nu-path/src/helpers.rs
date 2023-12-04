@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 #[cfg(windows)]
 use omnipath::WinPathExt;
+use std::path::PathBuf;
 
 pub fn home_dir() -> Option<PathBuf> {
     dirs_next::home_dir()

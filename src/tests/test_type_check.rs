@@ -109,9 +109,8 @@ fn record_subtyping_allows_record_after_general_command() -> TestResult {
 #[test]
 fn record_subtyping_allows_general_inner() -> TestResult {
     run_test(
-        "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, \
-         bar: int> { merge $other }",
-        "",
+        "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
+       "",
     )
 }
 

@@ -41,8 +41,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace \
-                 with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .category(Category::Strings)
     }
@@ -73,31 +72,30 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "get the edit distance between two strings",
-                example: "'nushell' | str distance 'nutshell'",
-                result: Some(Value::test_int(1)),
-            },
-            Example {
-                description: "Compute edit distance between strings in table and another string, \
-                              using cell paths",
-                example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" => Value::test_int(1),
-                    "b" => Value::test_int(4),
-                })])),
-            },
-            Example {
-                description: "Compute edit distance between strings in record and another string, \
-                              using cell paths",
-                example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
-                result: Some(Value::test_record(record! {
-                    "a" => Value::test_int(1),
-                    "b" => Value::test_int(4),
-                })),
-            },
-        ]
+        vec![Example {
+            description: "get the edit distance between two strings",
+            example: "'nushell' | str distance 'nutshell'",
+            result: Some(Value::test_int(1)),
+        },
+        Example {
+            description: "Compute edit distance between strings in table and another string, using cell paths",
+            example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
+            result: Some(Value::test_list (
+                vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(4),
+                    })])),
+        },
+        Example {
+            description: "Compute edit distance between strings in record and another string, using cell paths",
+            example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
+            result: Some(
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(4),
+                    })),
+        }]
     }
 }
 

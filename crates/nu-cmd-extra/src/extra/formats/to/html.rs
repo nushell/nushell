@@ -1,17 +1,18 @@
-use std::{collections::HashMap, error::Error, fmt::Write};
-
 use fancy_regex::Regex;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::Write;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HtmlThemes {
@@ -168,8 +169,7 @@ fn get_theme_from_asset_file(
 ) -> Result<HashMap<&'static str, String>, ShellError> {
     let theme_name = match theme {
         Some(s) => &s.item,
-        None => "default", /* There is no theme named "default" so this will be
-                            * HtmlTheme::default(), which is "nu_default". */
+        None => "default", // There is no theme named "default" so this will be HtmlTheme::default(), which is "nu_default".
     };
 
     // 228 themes come from
@@ -254,8 +254,7 @@ fn to_html(
     let mut output_string = String::new();
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::with_capacity(17);
 
-    // Being essentially a 'help' option, this can afford to be relatively
-    // unoptimised
+    // Being essentially a 'help' option, this can afford to be relatively unoptimised
     if list {
         // If asset doesn't work, make sure to return the default theme
         let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
@@ -685,7 +684,7 @@ fn run_regexes(hash: &HashMap<u32, (&'static str, String)>, contents: &str) -> S
     let hash_count: u32 = hash.len() as u32;
     for n in 0..hash_count {
         let value = hash.get(&n).expect("error getting hash at index");
-        // println!("{},{}", value.0, value.1);
+        //println!("{},{}", value.0, value.1);
         let re = Regex::new(value.0).expect("problem with color regex");
         let after = re.replace_all(&working_string, &value.1[..]).to_string();
         working_string = after.clone();

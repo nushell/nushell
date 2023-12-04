@@ -1,10 +1,10 @@
-use std::path::PathBuf;
-
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::RangeInclusion,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Range, ShellError, Span, Value,
+    Range, ShellError, Span, Value,
 };
+use std::path::PathBuf;
 
 pub fn get_init_cwd() -> PathBuf {
     std::env::current_dir().unwrap_or_else(|_| {

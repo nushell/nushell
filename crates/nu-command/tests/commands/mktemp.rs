@@ -1,6 +1,6 @@
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use std::path::PathBuf;
-
-use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn creates_temp_file() {

@@ -1,12 +1,11 @@
-use std::process::{Command as CommandSys, Stdio};
-
 use nu_engine::CallExt;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{ast::Call, span};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    span, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
+    Signature, Spanned, SyntaxShape, Type, Value,
 };
+use std::process::{Command as CommandSys, Stdio};
 
 #[derive(Clone)]
 pub struct Kill;

@@ -1,10 +1,10 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
+
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct LazyExplode;
@@ -42,59 +42,53 @@ impl Command for LazyExplode {
         vec![
             Example {
                 description: "Explode the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
-                          Football]]] | dfr into-df | dfr explode hobbies | dfr collect",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr explode hobbies | dfr collect",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "id".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(2),
-                            ],
-                        ),
-                        Column::new(
-                            "name".to_string(),
-                            vec![
-                                Value::test_string("Mercy"),
-                                Value::test_string("Mercy"),
-                                Value::test_string("Bob"),
-                                Value::test_string("Bob"),
-                            ],
-                        ),
-                        Column::new(
-                            "hobbies".to_string(),
-                            vec![
-                                Value::test_string("Cycling"),
-                                Value::test_string("Knitting"),
-                                Value::test_string("Skiing"),
-                                Value::test_string("Football"),
-                            ],
-                        ),
-                    ])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Select a column and explode the values",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
-                          Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr explode)",
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "hobbies".to_string(),
+                   NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "id".to_string(), 
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(2),
+                        ]),
+                    Column::new(
+                        "name".to_string(), 
+                        vec![
+                            Value::test_string("Mercy"),
+                            Value::test_string("Mercy"),
+                            Value::test_string("Bob"),
+                            Value::test_string("Bob"),
+                        ]),
+                    Column::new(
+                        "hobbies".to_string(), 
                         vec![
                             Value::test_string("Cycling"),
                             Value::test_string("Knitting"),
                             Value::test_string("Skiing"),
                             Value::test_string("Football"),
-                        ],
-                    )])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
+                        ]),
+                   ]).expect("simple df for test should not fail")
+                   .into_value(Span::test_data()),
+                    )
+            },
+            Example {
+                description: "Select a column and explode the values",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr explode)",
+                result: Some(
+                   NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "hobbies".to_string(), 
+                        vec![
+                            Value::test_string("Cycling"),
+                            Value::test_string("Knitting"),
+                            Value::test_string("Skiing"),
+                            Value::test_string("Football"),
+                        ]),
+                   ]).expect("simple df for test should not fail")
+                   .into_value(Span::test_data()),
+                    ),
             },
         ]
     }
@@ -140,11 +134,10 @@ pub(crate) fn explode(call: &Call, input: PipelineData) -> Result<PipelineData, 
 
 #[cfg(test)]
 mod test {
-    use super::{
-        super::super::test_dataframe::{build_test_engine_state, test_dataframe_example},
-        *,
-    };
-    use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+    use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
+    use super::*;
+    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
     #[test]
     fn test_examples_dataframe() {

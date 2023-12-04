@@ -1,13 +1,10 @@
-use std::io::{self, BufRead, Read, Write};
-
 use nu_cmd_base::hook::{eval_env_change_hook, eval_hook};
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
-    CliError, PipelineData, Value,
-};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::{CliError, PipelineData, Value};
 use nu_std::load_standard_library;
+use std::io::{self, BufRead, Read, Write};
 
 /// Echo's value of env keys from args
 /// Example: nu --testbin env_echo FOO BAR
@@ -41,8 +38,7 @@ pub fn cococo() {
     }
 }
 
-/// Cross platform cat (open a file, print the contents) using read_to_string
-/// and println!()
+/// Cross platform cat (open a file, print the contents) using read_to_string and println!()
 pub fn meow() {
     let args: Vec<String> = args();
 
@@ -52,8 +48,7 @@ pub fn meow() {
     }
 }
 
-/// Cross platform cat (open a file, print the contents) using read() and
-/// write_all() / binary
+/// Cross platform cat (open a file, print the contents) using read() and write_all() / binary
 pub fn meowb() {
     let args: Vec<String> = args();
 
@@ -184,8 +179,7 @@ fn outcome_ok(msg: String) -> ! {
     std::process::exit(0);
 }
 
-/// Generate a minimal engine state with just `nu-cmd-lang`, `nu-command`, and
-/// `nu-cli` commands.
+/// Generate a minimal engine state with just `nu-cmd-lang`, `nu-command`, and `nu-cli` commands.
 fn get_engine_state() -> EngineState {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
@@ -193,7 +187,7 @@ fn get_engine_state() -> EngineState {
 }
 
 pub fn nu_repl() {
-    // cwd: &str, source_lines: &[&str]) {
+    //cwd: &str, source_lines: &[&str]) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     let source_lines = args();
 
@@ -210,8 +204,8 @@ pub fn nu_repl() {
         let cwd = nu_engine::env::current_dir(&engine_state, &stack)
             .unwrap_or_else(|err| outcome_err(&engine_state, &err));
 
-        // Before doing anything, merge the environment from the previous REPL iteration
-        // into the permanent state.
+        // Before doing anything, merge the environment from the previous REPL iteration into the
+        // permanent state.
         if let Err(err) = engine_state.merge_env(&mut stack, &cwd) {
             outcome_err(&engine_state, &err);
         }

@@ -1,12 +1,11 @@
-use std::cmp::Ordering;
-
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, Range, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
+use std::cmp::Ordering;
 
 #[derive(Clone)]
 pub struct SubCommand;

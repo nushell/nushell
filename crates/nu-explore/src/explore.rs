@@ -1,5 +1,8 @@
-use std::collections::HashMap;
-
+use crate::{
+    run_pager,
+    util::{create_lscolors, create_map, map_into_value},
+    PagerConfig, StyleConfig,
+};
 use nu_ansi_term::{Color, Style};
 use nu_color_config::{get_color_map, StyleComputer};
 use nu_engine::CallExt;
@@ -8,12 +11,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use crate::{
-    run_pager,
-    util::{create_lscolors, create_map, map_into_value},
-    PagerConfig, StyleConfig,
-};
+use std::collections::HashMap;
 
 /// A `less` like program to render a [Value] as a table.
 #[derive(Clone)]
@@ -119,8 +117,8 @@ impl Command for Explore {
                 result: None,
             },
             Example {
-                description: "Explore a JSON file, then save the last visited sub-structure to a \
-                              file",
+                description:
+                    "Explore a JSON file, then save the last visited sub-structure to a file",
                 example: r#"open file.json | explore --peek | to json | save part.json"#,
                 result: None,
             },

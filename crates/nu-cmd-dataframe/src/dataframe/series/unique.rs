@@ -1,3 +1,7 @@
+use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
+
+use super::super::values::{Column, NuDataFrame};
+
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,9 +9,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::{IntoSeries, UniqueKeepStrategy};
-
-use super::super::values::{Column, NuDataFrame};
-use crate::dataframe::{utils::extract_strings, values::NuLazyFrame};
 
 #[derive(Clone)]
 pub struct Unique;
@@ -142,7 +143,8 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

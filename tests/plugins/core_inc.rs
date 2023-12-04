@@ -1,4 +1,6 @@
-use nu_test_support::{fs::Stub::FileWithContent, nu_with_plugins, playground::Playground};
+use nu_test_support::fs::Stub::FileWithContent;
+use nu_test_support::nu_with_plugins;
+use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
 
 #[test]

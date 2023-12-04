@@ -3,18 +3,18 @@ use std::path::PathBuf;
 use nu_protocol::{CustomValue, ShellError, Value};
 use serde::Serialize;
 
-use super::{PluginCall, PluginData, PluginResponse};
 use crate::plugin::{call_plugin, create_command, get_plugin_encoding};
+
+use super::{PluginCall, PluginData, PluginResponse};
 
 /// An opaque container for a custom value that is handled fully by a plugin
 ///
-/// This is constructed by the main nushell engine when it receives
-/// [`PluginResponse::PluginData`] it stores that data as well as metadata
-/// related to the plugin to be able to call the plugin later.
-/// Since the data in it is opaque to the engine, there are only two final
-/// destinations for it: either it will be sent back to the plugin that
-/// generated it across a pipeline, or it will be sent to the plugin with a
-/// request to collapse it into a base value
+/// This is constructed by the main nushell engine when it receives [`PluginResponse::PluginData`]
+/// it stores that data as well as metadata related to the plugin to be able to call the plugin
+/// later.
+/// Since the data in it is opaque to the engine, there are only two final destinations for it:
+/// either it will be sent back to the plugin that generated it across a pipeline, or it will be
+/// sent to the plugin with a request to collapse it into a base value
 #[derive(Clone, Debug, Serialize)]
 pub struct PluginCustomValue {
     /// The name of the custom value as defined by the plugin
@@ -109,8 +109,7 @@ impl CustomValue for PluginCustomValue {
             Err(err) => Err(err),
         };
 
-        // We need to call .wait() on the child, or we'll risk summoning the zombie
-        // horde
+        // We need to call .wait() on the child, or we'll risk summoning the zombie horde
         let _ = child.wait();
 
         value

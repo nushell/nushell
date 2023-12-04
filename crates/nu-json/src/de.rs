@@ -2,14 +2,16 @@
 //!
 //! This module provides for Hjson deserialization with the type `Deserializer`.
 
-use std::{char, io, marker::PhantomData, str};
+use std::char;
+use std::io;
+use std::marker::PhantomData;
+use std::str;
 
 use serde::de;
 
-use super::{
-    error::{Error, ErrorCode, Result},
-    util::{Number, ParseNumber, StringReader},
-};
+use super::error::{Error, ErrorCode, Result};
+use super::util::StringReader;
+use super::util::{Number, ParseNumber};
 
 enum State {
     Normal,
@@ -55,10 +57,9 @@ where
         res
     }
 
-    /// The `Deserializer::end` method should be called after a value has been
-    /// fully deserialized. This allows the `Deserializer` to validate that
-    /// the input stream is at the end or that it only has trailing
-    /// whitespace.
+    /// The `Deserializer::end` method should be called after a value has been fully deserialized.
+    /// This allows the `Deserializer` to validate that the input stream is at the end or that it
+    /// only has trailing whitespace.
     #[inline]
     pub fn end(&mut self) -> Result<()> {
         self.rdr.parse_whitespace()?;
@@ -109,11 +110,7 @@ where
                     space = Some(self.str_buf.len());
                 }
             } else if self.is_punctuator_char(ch) {
-                return Err(self.rdr.error(ErrorCode::Custom(
-                    "Found a punctuator where a key name was expected (check your syntax or use \
-                     quotes if the key name includes {}[],: or whitespace)"
-                        .to_string(),
-                )));
+                return Err(self.rdr.error(ErrorCode::Custom("Found a punctuator where a key name was expected (check your syntax or use quotes if the key name includes {}[],: or whitespace)".to_string())));
             } else {
                 self.str_buf.push(ch);
             }
@@ -143,13 +140,15 @@ where
         }
 
         match self.rdr.peek_or_null()? {
-            // b'-' => {
-            // self.rdr.eat_char();
-            // self.parse_integer(false, visitor)
-            // }
-            // b'0' ... b'9' => {
-            // self.parse_integer(true, visitor)
-            // }
+            /*
+            b'-' => {
+                self.rdr.eat_char();
+                self.parse_integer(false, visitor)
+            }
+            b'0' ... b'9' => {
+                self.parse_integer(true, visitor)
+            }
+            */
             b'"' => {
                 self.rdr.eat_char();
                 self.parse_string()?;
@@ -386,8 +385,7 @@ where
                         self.str_buf.pop();
                     }
                     let res = str::from_utf8(&self.str_buf).expect("Internal error: json parsing");
-                    // todo if (self.str_buf.slice(-1) === '\n') self.str_buf=self.str_buf.slice(0,
-                    // -1); // remove last EOL
+                    //todo if (self.str_buf.slice(-1) === '\n') self.str_buf=self.str_buf.slice(0, -1); // remove last EOL
                     return visitor.visit_str(res);
                 } else {
                     continue;
@@ -442,7 +440,7 @@ where
                         b't' => self.str_buf.push(b'\t'),
                         b'u' => {
                             let c = match self.decode_hex_escape()? {
-                                0xdc00..=0xdfff => {
+                                0xDC00..=0xDFFF => {
                                     return Err(self
                                         .rdr
                                         .error(ErrorCode::LoneLeadingSurrogateInHexEscape));
@@ -450,7 +448,7 @@ where
 
                                 // Non-BMP characters are encoded as a sequence of
                                 // two hex escapes, representing UTF-16 surrogates.
-                                n1 @ 0xd800..=0xdbff => {
+                                n1 @ 0xD800..=0xDBFF => {
                                     match (self.rdr.next_char()?, self.rdr.next_char()?) {
                                         (Some(b'\\'), Some(b'u')) => (),
                                         _ => {
@@ -462,13 +460,13 @@ where
 
                                     let n2 = self.decode_hex_escape()?;
 
-                                    if !(0xdc00..=0xdfff).contains(&n2) {
+                                    if !(0xDC00..=0xDFFF).contains(&n2) {
                                         return Err(self
                                             .rdr
                                             .error(ErrorCode::LoneLeadingSurrogateInHexEscape));
                                     }
 
-                                    let n = (((n1 - 0xd800) as u32) << 10 | (n2 - 0xdc00) as u32)
+                                    let n = (((n1 - 0xD800) as u32) << 10 | (n2 - 0xDC00) as u32)
                                         + 0x1_0000;
 
                                     match char::from_u32(n) {
@@ -522,12 +520,6 @@ where
 {
     type Error = Error;
 
-    serde::forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
-        bytes byte_buf unit unit_struct seq tuple map
-        tuple_struct struct enum identifier ignored_any
-    }
-
     #[inline]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
@@ -563,6 +555,12 @@ where
         V: de::Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
+        bytes byte_buf unit unit_struct seq tuple map
+        tuple_struct struct enum identifier ignored_any
     }
 }
 
@@ -797,15 +795,16 @@ where
             de::Deserialize::deserialize(&mut de2).and_then(|x| de2.end().map(|()| x))
         })
 
-    // without legacy support:
+    /* without legacy support:
     // deserialize and make sure the whole stream has been consumed
-    // let mut de = Deserializer::new(bytes.iter().map(|b| *b));
-    // let value = match de::Deserialize::deserialize(&mut de)
-    // .and_then(|x| { try!(de.end()); Ok(x) })
-    // {
-    // Ok(v) => Ok(v),
-    // Err(e) => Err(e),
-    // };
+    let mut de = Deserializer::new(bytes.iter().map(|b| *b));
+    let value = match de::Deserialize::deserialize(&mut de)
+        .and_then(|x| { try!(de.end()); Ok(x) })
+    {
+        Ok(v) => Ok(v),
+        Err(e) => Err(e),
+    };
+    */
 }
 
 /// Decodes a Hjson value from a `std::io::Read`.

@@ -1,9 +1,10 @@
 use std::collections::VecDeque;
 
-use nu_engine::{env::current_dir, CallExt};
+use nu_engine::env::current_dir;
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
     SyntaxShape, Type, Value,
 };

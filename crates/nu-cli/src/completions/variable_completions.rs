@@ -1,19 +1,19 @@
-use std::{str, sync::Arc};
-
+use crate::completions::{Completer, CompletionOptions};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
 };
+
 use reedline::Suggestion;
+use std::str;
+use std::sync::Arc;
 
 use super::MatchAlgorithm;
-use crate::completions::{Completer, CompletionOptions};
 
 #[derive(Clone)]
 pub struct VariableCompletion {
-    engine_state: Arc<EngineState>, /* TODO: Is engine state necessary? It's already a part of
-                                     * working set in fetch() */
+    engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
     stack: Stack,
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
 }
@@ -65,8 +65,7 @@ impl Completer for VariableCompletion {
                     let target_var_str =
                         str::from_utf8(&target_var).unwrap_or_default().to_string();
 
-                    // Everything after the target var is the nested level
-                    // ($env.<target-var>.<nested_levels>...)
+                    // Everything after the target var is the nested level ($env.<target-var>.<nested_levels>...)
                     let nested_levels: Vec<Vec<u8>> =
                         self.var_context.1.clone().into_iter().skip(1).collect();
 
@@ -173,8 +172,8 @@ impl Completer for VariableCompletion {
             }
         }
 
-        // TODO: The following can be refactored (see find_commands_by_predicate() used
-        // in command_completions).
+        // TODO: The following can be refactored (see find_commands_by_predicate() used in
+        // command_completions).
         let mut removed_overlays = vec![];
         // Working set scope vars
         for scope_frame in working_set.delta.scope.iter().rev() {

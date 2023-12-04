@@ -1,12 +1,12 @@
-use std::time::{Duration, UNIX_EPOCH};
-
-use chrono::{prelude::DateTime, Local};
+use chrono::prelude::DateTime;
+use chrono::Local;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
     Signature, Span, Type, Value,
 };
+use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
     ComponentExt, CpuExt, CpuRefreshKind, DiskExt, NetworkExt, System, SystemExt, UserExt,
 };
@@ -152,17 +152,15 @@ pub fn cpu(span: Span) -> Value {
     let mut sys = System::new();
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
     // We must refresh the CPU twice a while apart to get valid usage data.
-    // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed
-    // that that gives poor results (error of ~5%). Decided to wait 2x that
-    // long, somewhat arbitrarily
+    // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed that
+    // that gives poor results (error of ~5%). Decided to wait 2x that long, somewhat arbitrarily
     std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL * 2);
     sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
     let mut output = vec![];
     for cpu in sys.cpus() {
-        // sysinfo CPU usage numbers are not very precise unless you wait a long time
-        // between refreshes. Round to 1DP (chosen somewhat arbitrarily) so
-        // people aren't misled by high-precision floats.
+        // sysinfo CPU usage numbers are not very precise unless you wait a long time between refreshes.
+        // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
         let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
 
         let load_avg = sys.load_average();

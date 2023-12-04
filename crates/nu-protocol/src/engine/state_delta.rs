@@ -1,9 +1,10 @@
 use super::{usage::Usage, Command, EngineState, OverlayFrame, ScopeFrame, VirtualPath};
-use crate::{ast::Block, Module, Variable};
+use crate::ast::Block;
+use crate::{Module, Variable};
 
-/// A delta (or change set) between the current global state and a possible
-/// future global state. Deltas can be applied to the global state to update it
-/// to contain both previous state and the state held within the delta.
+/// A delta (or change set) between the current global state and a possible future global state. Deltas
+/// can be applied to the global state to update it to contain both previous state and the state held
+/// within the delta.
 pub struct StateDelta {
     pub(super) files: Vec<(String, usize, usize)>,
     pub(crate) file_contents: Vec<(Vec<u8>, usize, usize)>,

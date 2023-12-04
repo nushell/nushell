@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
@@ -15,10 +15,10 @@ impl Command for Encode {
     }
 
     fn usage(&self) -> &str {
-        // Note: "Encode a UTF-8 string into other forms" is semantically incorrect
-        // because Nushell strings, as abstract values, have no user-facing
-        // encoding. (Remember that "encoding" exclusively means "how the
-        // characters are observably represented by bytes").
+        // Note: "Encode a UTF-8 string into other forms" is semantically incorrect because
+        // Nushell strings, as abstract values, have no user-facing encoding.
+        // (Remember that "encoding" exclusively means "how the characters are
+        // observably represented by bytes").
         "Encode a string into bytes."
     }
 
@@ -32,8 +32,7 @@ impl Command for Encode {
             .required("encoding", SyntaxShape::String, "the text encoding to use")
             .switch(
                 "ignore-errors",
-                "when a character isn't in the given encoding, replace with a HTML entity (like \
-                 `&#127880;`)",
+                "when a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`)",
                 Some('i'),
             )
             .category(Category::Strings)

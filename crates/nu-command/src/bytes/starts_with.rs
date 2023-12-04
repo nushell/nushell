@@ -1,11 +1,11 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::IntoPipelineData;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     pattern: Vec<u8>,
@@ -39,8 +39,7 @@ impl Command for BytesStartsWith {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, check if bytes at the given cell paths start with \
-                 the pattern",
+                "for a data structure input, check if bytes at the given cell paths start with the pattern",
             )
             .category(Category::Bytes)
     }

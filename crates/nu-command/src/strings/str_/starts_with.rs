@@ -1,11 +1,11 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::Spanned;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
@@ -33,10 +33,7 @@ impl Command for SubCommand {
         Signature::build("str starts-with")
             .input_output_types(vec![
                 (Type::String, Type::Bool),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::Bool)),
-                ),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -45,8 +42,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace \
-                 with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .category(Category::Strings)

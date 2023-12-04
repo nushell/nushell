@@ -1,13 +1,12 @@
-use std::path::Path;
-
 #[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+use std::path::Path;
 
 // For checking whether we have permission to cd to a directory
 #[cfg(unix)]
@@ -130,8 +129,8 @@ impl Command for Cd {
         }
 
         match have_permission(&path) {
-            // FIXME: this only changes the current scope, but instead this environment variable
-            // should probably be a block that loads the information from the state in the overlay
+            //FIXME: this only changes the current scope, but instead this environment variable
+            //should probably be a block that loads the information from the state in the overlay
             PermissionResult::PermissionOk => {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
@@ -220,8 +219,7 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
                         PermissionResult::PermissionOk
                     } else {
                         PermissionResult::PermissionDenied(
-                            "You are neither the owner, in the group, nor the super user and do \
-                             not have permission",
+                            "You are neither the owner, in the group, nor the super user and do not have permission",
                         )
                     }
                 }

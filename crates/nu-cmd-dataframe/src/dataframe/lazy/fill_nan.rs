@@ -1,11 +1,10 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct LazyFillNA;
@@ -133,7 +132,8 @@ impl Command for LazyFillNA {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

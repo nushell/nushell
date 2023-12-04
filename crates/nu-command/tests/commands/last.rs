@@ -1,4 +1,6 @@
-use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn gets_the_last_row() {
@@ -31,8 +33,7 @@ fn gets_last_row_when_no_amount_given() {
     Playground::setup("last_test_2", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        // FIXME: We should probably change last to return a one row table instead of a
-        // record here
+        // FIXME: We should probably change last to return a one row table instead of a record here
         let actual = nu!(cwd: dirs.test(), "ls | last | values | length");
 
         assert_eq!(actual.out, "4");

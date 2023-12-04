@@ -1,9 +1,7 @@
-use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
-
+use crate::completions::{matches, CompletionOptions};
 use nu_path::home_dir;
 use nu_protocol::{engine::StateWorkingSet, Span};
-
-use crate::completions::{matches, CompletionOptions};
+use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 fn complete_rec(
     partial: &[String],

@@ -1,16 +1,14 @@
-use std::path::{Path, PathBuf};
-
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Example, PipelineData, PluginSignature, ShellError, Signature, Value,
-};
+use crate::EvaluatedCall;
 
 use super::{call_plugin, create_command, get_plugin_encoding};
-use crate::{
-    protocol::{CallInfo, CallInput, PluginCall, PluginCustomValue, PluginData, PluginResponse},
-    EvaluatedCall,
+use crate::protocol::{
+    CallInfo, CallInput, PluginCall, PluginCustomValue, PluginData, PluginResponse,
 };
+use std::path::{Path, PathBuf};
+
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{ast::Call, PluginSignature, Signature};
+use nu_protocol::{Example, PipelineData, ShellError, Value};
 
 #[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
@@ -83,8 +81,7 @@ impl Command for PluginDeclaration {
         let source_file = Path::new(&self.filename);
         let mut plugin_cmd = create_command(source_file, self.shell.as_deref());
         // We need the current environment variables for `python` based plugins
-        // Or we'll likely have a problem when a plugin is implemented in a virtual
-        // Python environment.
+        // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
         plugin_cmd.envs(current_envs);
 
@@ -185,8 +182,7 @@ impl Command for PluginDeclaration {
             Err(err) => Err(err),
         };
 
-        // We need to call .wait() on the child, or we'll risk summoning the zombie
-        // horde
+        // We need to call .wait() on the child, or we'll risk summoning the zombie horde
         let _ = child.wait();
 
         pipeline_data

@@ -1,6 +1,5 @@
-use nu_protocol::{CustomValue, ShellError, Span, Value};
-
 use super::NuWhen;
+use nu_protocol::{CustomValue, ShellError, Span, Value};
 
 // CustomValue implementation for NuDataFrame
 impl CustomValue for NuWhen {

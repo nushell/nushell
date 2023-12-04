@@ -6,20 +6,23 @@ mod pager;
 mod registry;
 mod views;
 
+pub use default_context::add_explore_context;
+pub use explore::Explore;
+
 use std::io;
 
 use commands::{ExpandCmd, HelpCmd, HelpManual, NuCmd, QuitCmd, TableCmd, TryCmd};
-pub use default_context::add_explore_context;
-pub use explore::Explore;
 use nu_common::{collect_pipeline, has_simple_value, CtrlC};
 use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use pager::{Page, Pager, PagerConfig, StyleConfig};
+use pager::{Page, Pager};
 use registry::{Command, CommandRegistry};
 use terminal_size::{Height, Width};
 use views::{InformationView, Orientation, Preview, RecordView};
+
+use pager::{PagerConfig, StyleConfig};
 
 mod util {
     pub use super::nu_common::{create_lscolors, create_map, map_into_value};

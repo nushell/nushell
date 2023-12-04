@@ -7,12 +7,11 @@ mod record;
 mod stream;
 mod unit;
 
-use std::{
-    borrow::Cow,
-    cmp::Ordering,
-    fmt::{Debug, Display, Formatter, Result as FmtResult, Write},
-    path::PathBuf,
-};
+use crate::ast::{Bits, Boolean, CellPath, Comparison, MatchPattern, PathMember};
+use crate::ast::{Math, Operator};
+use crate::engine::{Closure, EngineState};
+use crate::ShellError;
+use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
 
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -21,20 +20,21 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::{get_system_locale, locale::get_system_locale_string, IgnoreCaseExt};
+use nu_utils::locale::get_system_locale_string;
+use nu_utils::{get_system_locale, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
+use std::fmt::Write;
+use std::{
+    borrow::Cow,
+    fmt::{Display, Formatter, Result as FmtResult},
+    path::PathBuf,
+    {cmp::Ordering, fmt::Debug},
+};
 pub use stream::*;
 pub use unit::*;
-
-use crate::{
-    ast::{Bits, Boolean, CellPath, Comparison, MatchPattern, Math, Operator, PathMember},
-    did_you_mean,
-    engine::{Closure, EngineState},
-    BlockId, Config, ShellError, Span, Spanned, Type,
-};
 
 /// Core structured values that pass through the pipeline in Nushell.
 // NOTE: Please do not reorder these enum cases without thinking through the
@@ -894,8 +894,7 @@ impl Value {
         }
     }
 
-    /// Follow a given cell path into the value: for example accessing select
-    /// elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path(
         self,
         cell_path: &[PathMember],
@@ -974,9 +973,7 @@ impl Value {
                         // so only use this message for them.
                         Value::Record { .. } => {
                             return Err(ShellError::TypeMismatch {
-                                err_message: "Can't access record values with a row index. Try \
-                                              specifying a column name instead"
-                                    .into(),
+                                err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
                             });
                         }
@@ -998,8 +995,7 @@ impl Value {
 
                     match current {
                         Value::Record { val, .. } => {
-                            // Make reverse iterate to avoid duplicate column leads to first value,
-                            // actually last value is expected.
+                            // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
                                 if insensitive {
                                     x.0.eq_ignore_case(column_name)
@@ -1007,8 +1003,7 @@ impl Value {
                                     x.0 == column_name
                                 }
                             }) {
-                                current = found.1.clone(); // TODO: avoid clone
-                                                           // here
+                                current = found.1.clone(); // TODO: avoid clone here
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) =
@@ -1112,10 +1107,8 @@ impl Value {
                 }
             }
         }
-        // If a single Value::Error was produced by the above (which won't happen if
-        // nullify_errors is true), unwrap it now. Note that Value::Errors
-        // inside Lists remain as they are, so that the rest of the list can still
-        // potentially be used.
+        // If a single Value::Error was produced by the above (which won't happen if nullify_errors is true), unwrap it now.
+        // Note that Value::Errors inside Lists remain as they are, so that the rest of the list can still potentially be used.
         if let Value::Error { error, .. } = current {
             Err(*error)
         } else {
@@ -1123,8 +1116,7 @@ impl Value {
         }
     }
 
-    /// Follow a given cell path into the value: for example accessing select
-    /// elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn upsert_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -1243,8 +1235,7 @@ impl Value {
         Ok(())
     }
 
-    /// Follow a given cell path into the value: for example accessing select
-    /// elements in a stream or list
+    /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn update_cell_path<'a>(
         &mut self,
         cell_path: &[PathMember],
@@ -1831,110 +1822,110 @@ impl Value {
         }
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
         Value::bool(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_int(val: i64) -> Value {
         Value::int(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_float(val: f64) -> Value {
         Value::float(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_filesize(val: i64) -> Value {
         Value::filesize(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_duration(val: i64) -> Value {
         Value::duration(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_date(val: DateTime<FixedOffset>) -> Value {
         Value::date(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_range(val: Range) -> Value {
         Value::range(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_string(val: impl Into<String>) -> Value {
         Value::string(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_record(val: Record) -> Value {
         Value::record(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_list(vals: Vec<Value>) -> Value {
         Value::list(vals, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_block(val: BlockId) -> Value {
         Value::block(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_closure(val: Closure) -> Value {
         Value::closure(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_nothing() -> Value {
         Value::nothing(Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_binary(val: impl Into<Vec<u8>>) -> Value {
         Value::binary(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_cell_path(val: CellPath) -> Value {
         Value::cell_path(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_custom_value(val: Box<dyn CustomValue>) -> Value {
         Value::custom_value(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
         Value::lazy_record(val, Span::test_data())
     }
 
-    /// Note: Only use this for test data, *not* live data, as it will point
-    /// into unknown source when used in errors.
+    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
+    /// when used in errors.
     pub fn test_match_pattern(val: MatchPattern) -> Value {
         Value::match_pattern(val, Span::test_data())
     }
@@ -1950,9 +1941,8 @@ impl Default for Value {
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Compare two floating point numbers. The decision interval for equality is
-        // dynamically scaled as the value being compared increases in
-        // magnitude.
+        // Compare two floating point numbers. The decision interval for equality is dynamically
+        // scaled as the value being compared increases in magnitude.
         fn compare_floats(val: f64, other: f64) -> Option<Ordering> {
             let prec = f64::EPSILON.max(val.abs() * f64::EPSILON);
 
@@ -2365,14 +2355,7 @@ impl Value {
                 if let Some(val) = lhs.checked_add(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "add operation overflowed".into(),
-                        span,
-                        help: "Consider using floating point values for increased range by \
-                               promoting operand with 'into float'. Note: float has reduced \
-                               precision!"
-                            .into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "add operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2478,14 +2461,7 @@ impl Value {
                 if let Some(val) = lhs.checked_sub(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
-                        span,
-                        help: "Consider using floating point values for increased range by \
-                               promoting operand with 'into float'. Note: float has reduced \
-                               precision!"
-                            .into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "subtraction operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -2563,14 +2539,7 @@ impl Value {
                 if let Some(val) = lhs.checked_mul(*rhs) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "multiply operation overflowed".into(),
-                        span,
-                        help: "Consider using floating point values for increased range by \
-                               promoting operand with 'into float'. Note: float has reduced \
-                               precision!"
-                            .into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "multiply operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3483,14 +3452,7 @@ impl Value {
                 if let Some(val) = lhs.checked_pow(*rhs as u32) {
                     Ok(Value::int(val, span))
                 } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "pow operation overflowed".into(),
-                        span,
-                        help: "Consider using floating point values for increased range by \
-                               promoting operand with 'into float'. Note: float has reduced \
-                               precision!"
-                            .into(),
-                    })
+                    Err(ShellError::OperatorOverflow { msg: "pow operation overflowed".into(), span, help: "Consider using floating point values for increased range by promoting operand with 'into float'. Note: float has reduced precision!".into() })
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
@@ -3592,9 +3554,8 @@ pub fn format_duration(duration: i64) -> String {
 pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
     // Attribution: most of this is taken from chrono-humanize-rs. Thanks!
     // https://gitlab.com/imp/chrono-humanize-rs/-/blob/master/src/humantime.rs
-    // Current duration doesn't know a date it's based on, weeks is the max time
-    // unit it can normalize into. Don't guess or estimate how many years or
-    // months it might contain.
+    // Current duration doesn't know a date it's based on, weeks is the max time unit it can normalize into.
+    // Don't guess or estimate how many years or months it might contain.
 
     let (sign, duration) = if duration >= 0 {
         (1, duration)
@@ -3639,8 +3600,7 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
         normalize_split(seconds, remainder)
     }
 
-    /// Split this a duration into number of whole milliseconds and the
-    /// remainder
+    /// Split this a duration into number of whole milliseconds and the remainder
     fn split_milliseconds(duration: Duration) -> (Option<i64>, Duration) {
         let millis = duration.num_milliseconds();
         let remainder = duration - Duration::milliseconds(millis);
@@ -3719,8 +3679,8 @@ pub fn format_duration_as_timeperiod(duration: i64) -> (i32, Vec<TimePeriod>) {
 }
 
 pub fn format_filesize_from_conf(num_bytes: i64, config: &Config) -> String {
-    // We need to take into account config.filesize_metric so, if someone asks for
-    // KB and filesize_metric is false, return KiB
+    // We need to take into account config.filesize_metric so, if someone asks for KB
+    // and filesize_metric is false, return KiB
     format_filesize(
         num_bytes,
         config.filesize_format.as_str(),
@@ -3737,8 +3697,8 @@ pub fn format_filesize(
 ) -> String {
     // Allow the user to specify how they want their numbers formatted
 
-    // When format_value is "auto" or an invalid value, the returned ByteUnit
-    // doesn't matter and is always B.
+    // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
+    // and is always B.
     let filesize_format_var = get_filesize_format(format_value, filesize_metric);
 
     let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
@@ -3859,8 +3819,9 @@ mod tests {
     }
 
     mod get_type {
-        use super::*;
         use crate::Type;
+
+        use super::*;
 
         #[test]
         fn test_list() {

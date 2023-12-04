@@ -11,15 +11,12 @@ use std::{
 /// ## Spawn behavior
 /// ### Unix
 ///
-/// The spawned child process will get its own process group id, and it's going
-/// to foreground (by making stdin belong's to child's process group).
+/// The spawned child process will get its own process group id, and it's going to foreground (by making stdin belong's to child's process group).
 ///
-/// On drop, the calling process's group will become the foreground process
-/// group once again.
+/// On drop, the calling process's group will become the foreground process group once again.
 ///
 /// ### Windows
-/// It does nothing special on windows system, `spawn` is the same as
-/// [std::process::Command::spawn](std::process::Command::spawn)
+/// It does nothing special on windows system, `spawn` is the same as [std::process::Command::spawn](std::process::Command::spawn)
 pub struct ForegroundProcess {
     inner: Command,
     pipeline_state: Arc<(AtomicU32, AtomicU32)>,
@@ -86,15 +83,12 @@ impl Drop for ForegroundChild {
 // It's a simpler version of fish shell's external process handling.
 #[cfg(unix)]
 mod fg_process_setup {
-    use std::{
-        io::IsTerminal,
-        os::unix::prelude::{CommandExt, RawFd},
-    };
-
     use nix::{
         sys::signal,
         unistd::{self, Pid},
     };
+    use std::io::IsTerminal;
+    use std::os::unix::prelude::{CommandExt, RawFd};
 
     // TODO: when raising MSRV past 1.63.0, switch to OwnedFd
     struct TtyHandle(RawFd);
@@ -132,16 +126,14 @@ mod fg_process_setup {
 
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
-                // This has to be done *both* in the parent and here in the child due to race
-                // conditions.
+                // This has to be done *both* in the parent and here in the child due to race conditions.
                 if interactive {
                     set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
                 }
 
                 // Now let the child process have all the signals by resetting with SIG_SETMASK.
                 let mut sigset = signal::SigSet::empty();
-                sigset.add(signal::Signal::SIGTSTP); // for now not really all: we don't support background jobs, so keep this one
-                                                     // blocked
+                sigset.add(signal::Signal::SIGTSTP); // for now not really all: we don't support background jobs, so keep this one blocked
                 signal::sigprocmask(signal::SigmaskHow::SIG_SETMASK, Some(&sigset), None)
                     .expect("signal mask");
 
@@ -165,9 +157,8 @@ mod fg_process_setup {
         }
     }
 
-    // existing_pgrp is 0 when we don't have an existing foreground process in the
-    // pipeline. Conveniently, 0 means "current pid" to setpgid. But not to
-    // tcsetpgrp.
+    // existing_pgrp is 0 when we don't have an existing foreground process in the pipeline.
+    // Conveniently, 0 means "current pid" to setpgid. But not to tcsetpgrp.
     fn set_foreground_pid(pid: Pid, existing_pgrp: u32, tty: RawFd) {
         let _ = unistd::setpgid(pid, Pid::from_raw(existing_pgrp as i32));
         let _ = unistd::tcsetpgrp(

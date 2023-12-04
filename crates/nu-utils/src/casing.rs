@@ -1,5 +1,4 @@
 use std::cmp::Ordering;
-
 use unicase::UniCase;
 
 pub trait IgnoreCaseExt {

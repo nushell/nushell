@@ -1,18 +1,15 @@
-use std::{
-    env::temp_dir,
-    io::{self, IsTerminal, Write},
-    path::Path,
-    sync::atomic::Ordering,
-    time::Instant,
+use crate::{
+    completions::NuCompleter,
+    prompt_update,
+    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
+    util::eval_source,
+    NuHighlighter, NuValidator, NushellPrompt,
 };
-
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
-use nu_cmd_base::{
-    hook::eval_hook,
-    util::{get_editor, get_guaranteed_cwd},
-};
+use nu_cmd_base::util::get_guaranteed_cwd;
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
 use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
@@ -28,24 +25,23 @@ use reedline::{
     CursorConfig, CwdAwareHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId,
     Reedline, SqliteBackedHistory, Vi,
 };
-use sysinfo::SystemExt;
-
-use crate::{
-    completions::NuCompleter,
-    prompt_update,
-    reedline_config::{add_menus, create_keybindings, KeybindingsMode},
-    util::eval_source,
-    NuHighlighter, NuValidator, NushellPrompt,
+use std::{
+    env::temp_dir,
+    io::{self, IsTerminal, Write},
+    path::Path,
+    sync::atomic::Ordering,
+    time::Instant,
 };
+use sysinfo::SystemExt;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
-// These first two have been moved to prompt_update to get as close as possible
-// to the prompt. const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+// These first two have been moved to prompt_update to get as close as possible to the prompt.
+// const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
 // const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
-// This one is in get_command_finished_marker() now so we can capture the exit
-// codes properly. const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
+// This one is in get_command_finished_marker() now so we can capture the exit codes properly.
+// const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
@@ -66,8 +62,7 @@ pub fn evaluate_repl(
     if !std::io::stdin().is_terminal() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid \
-             terminal or provide arguments to invoke a script!",
+            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
         ))
         .into_diagnostic();
     }
@@ -103,8 +98,7 @@ pub fn evaluate_repl(
     let mut line_editor = Reedline::create();
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
-    // Now that reedline is created, get the history session id and store it in
-    // engine_state
+    // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);
     perf(
         "setup reedline",
@@ -170,8 +164,7 @@ pub fn evaluate_repl(
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
 
-    // Regenerate the $nu constant to contain the startup time and any other
-    // potential updates
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
     let nu_const = create_nu_constant(engine_state, Span::unknown())?;
     engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
@@ -196,8 +189,8 @@ pub fn evaluate_repl(
         let cwd = get_guaranteed_cwd(engine_state, stack);
 
         start_time = std::time::Instant::now();
-        // Before doing anything, merge the environment from the previous REPL iteration
-        // into the permanent state.
+        // Before doing anything, merge the environment from the previous REPL iteration into the
+        // permanent state.
         if let Err(err) = engine_state.merge_env(stack, cwd) {
             report_error_new(engine_state, &err);
         }
@@ -211,7 +204,7 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        // Reset the ctrl-c handler
+        //Reset the ctrl-c handler
         if let Some(ctrlc) = &mut engine_state.ctrlc {
             ctrlc.store(false, Ordering::SeqCst);
         }
@@ -467,12 +460,11 @@ pub fn evaluate_repl(
                             c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
                             c
                         })
-                        .into_diagnostic()?; // todo: don't stop repl if error
-                                             // here?
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
-                // Right before we start running the code the user gave us, fire the
-                // `pre_execution` hook
+                // Right before we start running the code the user gave us, fire the `pre_execution`
+                // hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     // Set the REPL buffer to the current command for the "pre_execution" hook
                     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
@@ -528,9 +520,8 @@ pub fn evaluate_repl(
 
                     stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
-                    // FIXME: this only changes the current scope, but instead this environment
-                    // variable should probably be a block that loads the
-                    // information from the state in the overlay
+                    //FIXME: this only changes the current scope, but instead this environment variable
+                    //should probably be a block that loads the information from the state in the overlay
                     stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
                     let cwd = Value::string(cwd, span);
 
@@ -614,8 +605,7 @@ pub fn evaluate_repl(
                                 .and_then(|e| e.as_i64().ok());
                             c
                         })
-                        .into_diagnostic()?; // todo: don't stop repl if error
-                                             // here?
+                        .into_diagnostic()?; // todo: don't stop repl if error here?
                 }
 
                 if shell_integration {
@@ -632,8 +622,7 @@ pub fn evaluate_repl(
                             // This is helpful for ctrl+g to change directories in the terminal.
                             run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path))?;
                         } else {
-                            // Otherwise, communicate the path as OSC 7 (often used for spawning new
-                            // tabs in the same dir)
+                            // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
                             run_ansi_sequence(&format!(
                                 "\x1b]7;file://{}{}{}\x1b\\",
                                 percent_encoding::utf8_percent_encode(
@@ -693,11 +682,10 @@ pub fn evaluate_repl(
                 let message = err.to_string();
                 if !message.contains("duration") {
                     eprintln!("Error: {err:?}");
-                    // TODO: Identify possible error cases where a hard failure
-                    // is preferable Ignoring and reporting
-                    // could hide bigger problems e.g. https://github.com/nushell/nushell/issues/6452
-                    // Alternatively only allow that expected failures let the
-                    // REPL loop
+                    // TODO: Identify possible error cases where a hard failure is preferable
+                    // Ignoring and reporting could hide bigger problems
+                    // e.g. https://github.com/nushell/nushell/issues/6452
+                    // Alternatively only allow that expected failures let the REPL loop
                 }
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
@@ -818,8 +806,7 @@ static DRIVE_PATH_REGEX: once_cell::sync::Lazy<fancy_regex::Regex> =
         fancy_regex::Regex::new(r"^[a-zA-Z]:[/\\]?").expect("Internal error: regex creation")
     });
 
-// A best-effort "does this string look kinda like a path?" function to
-// determine whether to auto-cd
+// A best-effort "does this string look kinda like a path?" function to determine whether to auto-cd
 fn looks_like_path(orig: &str) -> bool {
     #[cfg(windows)]
     {

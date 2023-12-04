@@ -1,8 +1,6 @@
-use nu_test_support::{
-    fs::Stub::{EmptyFile, FileWithContentToBeTrimmed},
-    nu, pipeline,
-    playground::Playground,
-};
+use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {

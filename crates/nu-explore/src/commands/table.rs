@@ -6,13 +6,14 @@ use nu_protocol::{
     Value,
 };
 
-use super::{
-    default_color_list, default_int_list, ConfigOption, HelpExample, HelpManual, Shortcode,
-    ViewCommand,
-};
 use crate::{
     nu_common::collect_input,
     views::{Orientation, RecordView},
+};
+
+use super::{
+    default_color_list, default_int_list, ConfigOption, HelpExample, HelpManual, Shortcode,
+    ViewCommand,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -36,11 +37,11 @@ struct TableSettings {
 }
 
 impl TableCmd {
-    pub const NAME: &'static str = "table";
-
     pub fn new() -> Self {
         Self::default()
     }
+
+    pub const NAME: &'static str = "table";
 }
 
 impl ViewCommand for TableCmd {

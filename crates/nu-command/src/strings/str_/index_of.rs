@@ -1,7 +1,6 @@
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use crate::grapheme_flags;
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -10,8 +9,6 @@ use nu_protocol::{
     Type, Value,
 };
 use unicode_segmentation::UnicodeSegmentation;
-
-use crate::grapheme_flags;
 
 struct Arguments {
     end: bool,
@@ -42,19 +39,12 @@ impl Command for SubCommand {
         Signature::build("str index-of")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::Int)),
-                ),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required(
-                "string",
-                SyntaxShape::String,
-                "the string to find in the input",
-            )
+            .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",
@@ -68,8 +58,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, search strings at the given cell paths, and replace \
-                 with result",
+                "For a data structure input, search strings at the given cell paths, and replace with result",
             )
             .named(
                 "range",
@@ -189,9 +178,8 @@ fn action(
                 Value::int(
                     if *graphemes {
                         // Having found the substring's byte index, convert to grapheme index.
-                        // grapheme_indices iterates graphemes alongside their UTF-8 byte indices,
-                        // so .enumerate() is used to get the grapheme index
-                        // alongside it.
+                        // grapheme_indices iterates graphemes alongside their UTF-8 byte indices, so .enumerate()
+                        // is used to get the grapheme index alongside it.
                         s.grapheme_indices(true)
                             .enumerate()
                             .find(|e| e.1 .0 >= result)
@@ -223,7 +211,8 @@ fn action(
 mod tests {
     use nu_protocol::ast::RangeInclusion;
 
-    use super::{action, Arguments, SubCommand, *};
+    use super::*;
+    use super::{action, Arguments, SubCommand};
 
     #[test]
     fn test_examples() {

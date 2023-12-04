@@ -1,7 +1,7 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
@@ -122,8 +122,8 @@ impl Command for Items {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            example: "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' \
-                      }",
+            example:
+                "{ new: york, san: francisco } | items {|key, value| echo $'($key) ($value)' }",
             description: "Iterate over each key-value pair of a record",
             result: Some(Value::list(
                 vec![

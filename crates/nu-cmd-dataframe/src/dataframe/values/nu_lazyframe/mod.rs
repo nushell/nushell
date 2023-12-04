@@ -1,12 +1,10 @@
 mod custom_value;
 
+use super::{NuDataFrame, NuExpression};
 use core::fmt;
-
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-use super::{NuDataFrame, NuExpression};
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of

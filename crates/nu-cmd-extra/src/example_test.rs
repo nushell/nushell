@@ -9,17 +9,17 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
 
-    use std::collections::HashSet;
-
     use nu_cmd_lang::example_support::{
         check_all_signature_input_output_types_entries_have_examples,
         check_example_evaluates_to_expected_output,
         check_example_input_and_output_types_match_command_signature,
     };
+
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
         Type,
     };
+    use std::collections::HashSet;
 
     pub fn test_examples(cmd: impl Command + 'static) {
         let examples = cmd.examples();

@@ -1,13 +1,12 @@
+use crate::grapheme_flags;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack, StateWorkingSet},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use unicode_segmentation::UnicodeSegmentation;
-
-use crate::grapheme_flags;
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -32,10 +31,7 @@ impl Command for SubCommand {
         Signature::build("str length")
             .input_output_types(vec![
                 (Type::String, Type::Int),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::Int)),
-                ),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
@@ -53,8 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, replace strings at the given cell paths with their \
-                 length",
+                "For a data structure input, replace strings at the given cell paths with their length",
             )
             .category(Category::Strings)
     }

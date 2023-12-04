@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
 use nu_glob::GlobResult;
@@ -8,6 +6,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
@@ -49,9 +48,8 @@ impl Command for UCp {
             .switch("interactive", "ask before overwriting files", Some('i'))
             .switch(
                 "update",
-                "copy only when the SOURCE file is newer than the destination file or when the \
-                 destination file is missing",
-                Some('u'),
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
@@ -203,8 +201,8 @@ impl Command for UCp {
             sources.append(&mut app_vals);
         }
 
-        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env
-        // which is not supported in Nushell
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
         for src in sources.iter_mut() {
             if !src.is_absolute() {
                 *src = nu_path::expand_path_with(&src, &cwd);

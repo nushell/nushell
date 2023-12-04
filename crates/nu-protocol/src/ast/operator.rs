@@ -1,9 +1,9 @@
-use std::fmt::Display;
+use crate::{ShellError, Span};
 
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 use super::{Expr, Expression};
-use crate::{ShellError, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Comparison {

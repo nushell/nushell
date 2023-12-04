@@ -1,13 +1,11 @@
-use nu_cmd_base::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    record, Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -116,8 +114,8 @@ impl Command for BytesAt {
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
-                description: "Or the characters from the beginning until ending index inside a \
-                              table",
+                description:
+                    "Or the characters from the beginning until ending index inside a table",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),

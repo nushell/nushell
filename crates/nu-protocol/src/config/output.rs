@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
-use serde::{Deserialize, Serialize};
-
 use super::helper::ReconstructVal;
 use crate::{Config, Record, Span, Value};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, Clone, Debug, Copy)]
 pub enum ErrorStyle {

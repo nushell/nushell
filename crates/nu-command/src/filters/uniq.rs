@@ -1,15 +1,14 @@
-use std::collections::{hash_map::IntoIter, HashMap};
-
+use crate::formats::value_to_string;
 use itertools::Itertools;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
     Signature, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
-
-use crate::formats::value_to_string;
+use std::collections::hash_map::IntoIter;
+use std::collections::HashMap;
 
 #[derive(Clone)]
 pub struct Uniq;
@@ -88,8 +87,7 @@ impl Command for Uniq {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Return the distinct values of a list/table (remove duplicates so \
-                              that each value occurs once only)",
+                description: "Return the distinct values of a list/table (remove duplicates so that each value occurs once only)",
                 example: "[2 3 3 4] | uniq",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3), Value::test_int(4)],
@@ -99,35 +97,41 @@ impl Command for Uniq {
             Example {
                 description: "Return the input values that occur more than once",
                 example: "[1 2 2] | uniq -d",
-                result: Some(Value::list(vec![Value::test_int(2)], Span::test_data())),
+                result: Some(Value::list(
+                    vec![Value::test_int(2)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Return the input values that occur once only",
                 example: "[1 2 2] | uniq --unique",
-                result: Some(Value::list(vec![Value::test_int(1)], Span::test_data())),
+                result: Some(Value::list(
+                    vec![Value::test_int(1)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Ignore differences in case when comparing input values",
                 example: "['hello' 'goodbye' 'Hello'] | uniq --ignore-case",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("hello"),
-                    Value::test_string("goodbye"),
-                ])),
+                result: Some(Value::test_list(
+                    vec![Value::test_string("hello"), Value::test_string("goodbye")],
+                )),
             },
             Example {
-                description: "Return a table containing the distinct input values together with \
-                              their counts",
+                description: "Return a table containing the distinct input values together with their counts",
                 example: "[1 2 2] | uniq --count",
-                result: Some(Value::test_list(vec![
-                    Value::test_record(record! {
-                        "value" => Value::test_int(1),
-                        "count" => Value::test_int(1),
-                    }),
-                    Value::test_record(record! {
-                        "value" => Value::test_int(2),
-                        "count" => Value::test_int(2),
-                    }),
-                ])),
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {
+                            "value" => Value::test_int(1),
+                            "count" => Value::test_int(1),
+                        }),
+                        Value::test_record(record! {
+                            "value" => Value::test_int(2),
+                            "count" => Value::test_int(2),
+                        }),
+                    ],
+                )),
             },
         ]
     }
@@ -160,7 +164,6 @@ impl ValueCounter {
     fn new(val: Value, flag_ignore_case: bool, index: usize) -> Self {
         Self::new_vals_to_compare(val.clone(), flag_ignore_case, val, index)
     }
-
     pub fn new_vals_to_compare(
         val: Value,
         flag_ignore_case: bool,
@@ -223,7 +226,7 @@ fn sort_attributes(val: Value) -> Value {
 }
 
 fn generate_key(item: &ValueCounter) -> Result<String, ShellError> {
-    let value = sort_attributes(item.val_to_compare.clone()); // otherwise, keys could be different for Records
+    let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
     value_to_string(&value, Span::unknown(), 0, None)
 }
 

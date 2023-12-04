@@ -1,16 +1,18 @@
-use log::{info, trace};
+use crate::util::eval_source;
+use log::info;
+use log::trace;
 use miette::{IntoDiagnostic, Result};
-use nu_engine::{convert_env_values, current_dir, eval_block};
+use nu_engine::eval_block;
+use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
-    report_error, Config, PipelineData, ShellError, Span, Value,
+    Config, PipelineData, ShellError, Span, Value,
 };
 use nu_utils::stdout_write_all_and_flush;
-
-use crate::util::eval_source;
 
 /// Main function used when a file path is found as argument for nu
 pub fn evaluate_file(

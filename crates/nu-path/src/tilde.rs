@@ -1,7 +1,6 @@
-use std::path::{Path, PathBuf};
-
 #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 use pwd::Passwd;
+use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "macos")]
 const FALLBACK_USER_HOME_BASE_DIR: &str = "/Users";
@@ -151,9 +150,8 @@ pub fn expand_tilde(path: impl AsRef<Path>) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::path::MAIN_SEPARATOR;
-
     use super::*;
+    use std::path::MAIN_SEPARATOR;
 
     fn check_expanded(s: &str) {
         let home = Path::new("/home");

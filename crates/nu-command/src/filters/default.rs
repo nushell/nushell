@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
@@ -17,8 +17,7 @@ impl Command for Default {
     fn signature(&self) -> Signature {
         Signature::build("default")
             // TODO: Give more specific type signature?
-            // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses
-            // cell paths)
+            // TODO: Declare usage of cell paths in signature? (It seems to behave as if it uses cell paths)
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required(
                 "default value",
@@ -51,8 +50,8 @@ impl Command for Default {
                 result: None,
             },
             Example {
-                description: "Get the env value of `MY_ENV` with a default value 'abc' if not \
-                              present",
+                description:
+                    "Get the env value of `MY_ENV` with a default value 'abc' if not present",
                 example: "$env | get --ignore-errors MY_ENV | default 'abc'",
                 result: None, // Some(Value::test_string("abc")),
             },

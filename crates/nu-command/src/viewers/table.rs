@@ -2,29 +2,28 @@
 //        overall reduce the redundant calls to StyleComputer etc.
 //        the goal is to configure it once...
 
-use std::{
-    io::IsTerminal,
-    path::PathBuf,
-    str::FromStr,
-    sync::{atomic::AtomicBool, Arc},
-    time::Instant,
-};
-
 use lscolors::{LsColors, Style};
-use nu_color_config::{color_from_hex, StyleComputer, TextStyle};
+use nu_color_config::color_from_hex;
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_engine::{env::get_config, env_to_string, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    record, Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
-    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, TableMode, Type,
-    Value,
+    Category, Config, DataSource, Example, IntoPipelineData, ListStream, PipelineData,
+    PipelineMetadata, RawStream, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_protocol::{record, TableMode};
+use nu_table::common::create_nu_table_config;
 use nu_table::{
-    common::create_nu_table_config, CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell,
-    StringResult, TableOpts, TableOutput,
+    CollapsedTable, ExpandedTable, JustTable, NuTable, NuTableCell, StringResult, TableOpts,
+    TableOutput,
 };
 use nu_utils::get_ls_colors;
+use std::io::IsTerminal;
+use std::str::FromStr;
+use std::sync::Arc;
+use std::time::Instant;
+use std::{path::PathBuf, sync::atomic::AtomicBool};
 use terminal_size::{Height, Width};
 use url::Url;
 
@@ -43,8 +42,7 @@ fn get_width_param(width_param: Option<i64>) -> usize {
 #[derive(Clone)]
 pub struct Table;
 
-// NOTE: this is not a real implementation :D. It's just a simple one to test
-// with until we port the real one.
+//NOTE: this is not a real implementation :D. It's just a simple one to test with until we port the real one.
 impl Command for Table {
     fn name(&self) -> &str {
         "table"
@@ -55,8 +53,7 @@ impl Command for Table {
     }
 
     fn extra_usage(&self) -> &str {
-        "If the table contains a column called 'index', this column is used as the table index \
-         instead of the usual continuous index."
+        "If the table contains a column called 'index', this column is used as the table index instead of the usual continuous index."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -105,15 +102,13 @@ impl Command for Table {
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently \
-                 doesn't support width control",
+                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing \
-                 amount provided on top and bottom",
+                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
@@ -128,8 +123,7 @@ impl Command for Table {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let list_themes: bool = call.has_flag("list");
-        // if list argument is present we just need to return a list of supported table
-        // themes
+        // if list argument is present we just need to return a list of supported table themes
         if list_themes {
             let val = Value::list(supported_table_modes(), Span::test_data());
             return Ok(val.into_pipeline_data());
@@ -207,8 +201,8 @@ impl Command for Table {
                 result: None,
             },
             Example {
-                description: "Set the starting number of the #/index column to 100 for a single \
-                              run",
+                description:
+                    "Set the starting number of the #/index column to 100 for a single run",
                 example: r#"[[a b]; [1 2] [2 [4 4]]] | table -i 100"#,
                 result: None,
             },
@@ -396,8 +390,7 @@ fn handle_table_command(
                 trim_end_newline: false,
             })
         }
-        // None of these two receive a StyleComputer because handle_row_stream() can produce it by
-        // itself using engine_state and stack.
+        // None of these two receive a StyleComputer because handle_row_stream() can produce it by itself using engine_state and stack.
         PipelineData::Value(Value::List { vals, .. }, metadata) => {
             let ctrlc = input.engine_state.ctrlc.clone();
             let stream = ListStream::from_stream(vals.into_iter(), ctrlc);
@@ -457,8 +450,7 @@ fn handle_record(
     if let Some(limit) = cfg.abbreviation {
         let prev_len = record.len();
         if record.len() > limit * 2 + 1 {
-            // TODO: see if the following table builders would be happy with a simple
-            // iterator
+            // TODO: see if the following table builders would be happy with a simple iterator
             let mut record_iter = record.into_iter();
             record = Record::with_capacity(limit * 2 + 1);
             record.extend(record_iter.by_ref().take(limit));
@@ -808,8 +800,7 @@ impl Iterator for PagingTableCreator {
             batch.push(item);
             idx += 1;
 
-            // If we've been buffering over a second, go ahead and send out what we have so
-            // far
+            // If we've been buffering over a second, go ahead and send out what we have so far
             if (Instant::now() - start_time).as_secs() >= 1 {
                 reached_end = false;
                 break;
@@ -830,8 +821,8 @@ impl Iterator for PagingTableCreator {
         self.reached_end = self.reached_end || reached_end;
 
         if batch.is_empty() {
-            // If this iterator has not displayed a single entry and reached its end (no
-            // more elements or interrupted by ctrl+c) display as "empty list"
+            // If this iterator has not displayed a single entry and reached its end (no more elements
+            // or interrupted by ctrl+c) display as "empty list"
             return if self.elements_displayed == 0 && self.reached_end {
                 // Increase elements_displayed by one so on next iteration next branch of this
                 // if else triggers and terminates stream
@@ -849,8 +840,7 @@ impl Iterator for PagingTableCreator {
         }
 
         if let Some(limit) = self.cfg.abbreviation {
-            // todo: could be optimized cause we already consumed the list there's no point
-            // in goint back to pagination;
+            // todo: could be optimized cause we already consumed the list there's no point in goint back to pagination;
 
             if batch.len() > limit * 2 + 1 {
                 batch = abbreviate_list(
@@ -867,8 +857,7 @@ impl Iterator for PagingTableCreator {
                         .all(|value| matches!(value, Value::Record { .. }));
 
                 if limit > 0 && is_record_list {
-                    // in case it's a record list we set a default text to each column instead of a
-                    // single value.
+                    // in case it's a record list we set a default text to each column instead of a single value.
 
                     let dummy: Record = batch[0]
                         .as_record()
@@ -949,8 +938,7 @@ enum TableView {
 
 #[allow(clippy::manual_filter)]
 fn maybe_strip_color(output: String, config: &Config) -> String {
-    // the terminal is for when people do ls from vim, there should be no coloring
-    // there
+    // the terminal is for when people do ls from vim, there should be no coloring there
     if !config.use_ansi_coloring || !std::io::stdout().is_terminal() {
         // Draw the table without ansi colors
         nu_utils::strip_ansi_string_likely(output)

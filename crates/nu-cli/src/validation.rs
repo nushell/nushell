@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use nu_parser::parse;
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
     ParseError,
 };
 use reedline::{ValidationResult, Validator};
+use std::sync::Arc;
 
 pub struct NuValidator {
     pub engine_state: Arc<EngineState>,

@@ -1,10 +1,9 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 use percent_encoding::percent_decode_str;
 
 #[derive(Clone)]
@@ -64,8 +63,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Decode multiple urls with escape characters in list",
-                example: "['https://example.com/foo%20bar' 'https://example.com/a%3Eb' \
-                          '%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034'] | url decode",
+                example: "['https://example.com/foo%20bar' 'https://example.com/a%3Eb' '%E4%B8%AD%E6%96%87%E5%AD%97/eng/12%2034'] | url decode",
                 result: Some(Value::list(
                     vec![
                         Value::test_string("https://example.com/foo bar"),

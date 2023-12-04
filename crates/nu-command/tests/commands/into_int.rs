@@ -1,6 +1,7 @@
 use chrono::{DateTime, FixedOffset, NaiveDate, TimeZone};
-use nu_test_support::nu;
 use rstest::rstest;
+
+use nu_test_support::nu;
 
 #[test]
 fn into_int_filesize() {

@@ -1,11 +1,11 @@
+use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::StateWorkingSet,
     Span,
 };
-use reedline::Suggestion;
 
-use crate::completions::{Completer, CompletionOptions};
+use reedline::Suggestion;
 
 #[derive(Clone)]
 pub struct FlagCompletion {

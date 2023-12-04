@@ -1,6 +1,6 @@
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
@@ -21,22 +21,9 @@ impl Command for Def {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("def_name", SyntaxShape::String, "command name")
             .required("params", SyntaxShape::Signature, "parameters")
-            .required(
-                "block",
-                SyntaxShape::Closure(None),
-                "body of the definition",
-            )
-            .switch(
-                "env",
-                "keep the environment defined inside the command",
-                None,
-            )
-            .switch(
-                "wrapped",
-                "treat unknown flags and arguments as strings (requires ...rest-like parameter in \
-                 signature)",
-                None,
-            )
+            .required("block", SyntaxShape::Closure(None), "body of the definition")
+            .switch("env", "keep the environment defined inside the command", None)
+            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .category(Category::Core)
     }
 

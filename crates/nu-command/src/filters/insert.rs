@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::ast::{Call, CellPath, PathMember};
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    ast::{Call, CellPath, PathMember},
-    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
@@ -57,31 +57,31 @@ impl Command for Insert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![
-            Example {
-                description: "Insert a new entry into a single record",
-                example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-                result: Some(Value::test_record(record! {
-                    "name" =>  Value::test_string("nu"),
-                    "stars" => Value::test_int(5),
-                    "alias" => Value::test_string("Nushell"),
-                })),
-            },
-            Example {
-                description: "Insert a new column into a table, populating all rows",
-                example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
+        vec![Example {
+            description: "Insert a new entry into a single record",
+            example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+            result: Some(Value::test_record(record! {
+                "name" =>  Value::test_string("nu"),
+                "stars" => Value::test_int(5),
+                "alias" => Value::test_string("Nushell"),
+            })),
+        },
+        Example {
+            description: "Insert a new column into a table, populating all rows",
+            example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
+            result: Some(Value::test_list (
+                vec![Value::test_record(record! {
                     "project" => Value::test_string("Nushell"),
                     "lang" =>    Value::test_string("Rust"),
                     "type" =>    Value::test_string("shell"),
-                })])),
-            },
-            Example {
-                description: "Insert a column with values equal to their row index, plus the \
-                              value of 'foo' in each row",
-                example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + \
-                          $e.index } | flatten",
-                result: Some(Value::test_list(vec![
+                })],
+            )),
+        },
+        Example {
+            description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
+            example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
+            result: Some(Value::test_list (
+                vec![
                     Value::test_record(record! {
                         "index" => Value::test_int(0),
                         "foo" =>   Value::test_int(7),
@@ -97,9 +97,9 @@ impl Command for Insert {
                         "foo" =>   Value::test_int(9),
                         "bar" =>   Value::test_int(11),
                     }),
-                ])),
-            },
-        ]
+                ],
+            )),
+        }]
     }
 }
 
@@ -120,8 +120,7 @@ fn insert(
     let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
-    // Replace is a block, so set it up and run it instead of using it as the
-    // replacement
+    // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
         let capture_block = Closure::from_value(replacement)?;
         let block = engine_state.get_block(capture_block.block_id).clone();

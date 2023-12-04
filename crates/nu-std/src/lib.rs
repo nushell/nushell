@@ -2,10 +2,8 @@ use std::path::PathBuf;
 
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
-use nu_protocol::{
-    engine::{Stack, StateWorkingSet, VirtualPath},
-    report_error, PipelineData,
-};
+use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
+use nu_protocol::{report_error, PipelineData};
 
 // Virtual std directory unlikely to appear in user's file system
 const NU_STDLIB_VIRTUAL_DIR: &str = "NU_STDLIB_VIRTUAL_DIR";
@@ -14,8 +12,8 @@ pub fn load_standard_library(
     engine_state: &mut nu_protocol::engine::EngineState,
 ) -> Result<(), miette::ErrReport> {
     let (block, delta) = {
-        // Using full virtual path to avoid potential conflicts with user having 'std'
-        // directory in their working directory.
+        // Using full virtual path to avoid potential conflicts with user having 'std' directory
+        // in their working directory.
         let std_dir = PathBuf::from(NU_STDLIB_VIRTUAL_DIR).join("std");
 
         let mut std_files = vec![

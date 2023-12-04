@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::{Call, CellPath};
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
@@ -96,7 +96,6 @@ If multiple cell paths are given, this will produce a list of values."#
         }
         .map(|x| x.set_metadata(metadata))
     }
-
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
@@ -118,8 +117,8 @@ If multiple cell paths are given, this will produce a list of values."#
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description: "Extract the name of the 3rd record in a list (same as `ls | \
-                              $in.name`)",
+                description:
+                    "Extract the name of the 3rd record in a list (same as `ls | $in.name`)",
                 example: "ls | get name.2",
                 result: None,
             },

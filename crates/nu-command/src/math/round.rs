@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
@@ -98,8 +98,7 @@ impl Command for SubCommand {
 }
 
 fn operate(value: Value, head: Span, precision: Option<i64>) -> Value {
-    // We treat int values as float values in order to avoid code repetition in the
-    // match closure
+    // We treat int values as float values in order to avoid code repetition in the match closure
     let span = value.span();
     let value = if let Value::Int { val, .. } = value {
         Value::float(val as f64, span)

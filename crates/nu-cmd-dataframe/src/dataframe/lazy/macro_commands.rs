@@ -1,13 +1,12 @@
+/// Definition of multiple lazyframe commands using a macro rule
+/// All of these commands have an identical body and only require
+/// to have a change in the name, description and function
+use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-
-/// Definition of multiple lazyframe commands using a macro rule
-/// All of these commands have an identical body and only require
-/// to have a change in the name, description and function
-use crate::dataframe::values::{Column, NuDataFrame, NuLazyFrame};
 
 macro_rules! lazy_command {
     ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident, $test: ident) => {
@@ -52,7 +51,8 @@ macro_rules! lazy_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{super::super::test_dataframe::test_dataframe, *};
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
 
             #[test]
             fn test_examples() {
@@ -103,7 +103,8 @@ macro_rules! lazy_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{super::super::test_dataframe::test_dataframe, *};
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
 
             #[test]
             fn test_examples() {

@@ -1,11 +1,10 @@
+use super::inspect_table;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 use terminal_size::{terminal_size, Height, Width};
-
-use super::inspect_table;
 
 #[derive(Clone)]
 pub struct Inspect;
@@ -53,9 +52,8 @@ impl Command for Inspect {
 
         let table = inspect_table::build_table(input_val, description, cols.0 as usize);
 
-        // Note that this is printed to stderr. The reason for this is so it doesn't
-        // disrupt the regular nushell tabular output. If we printed to stdout,
-        // nushell would get confused with two outputs.
+        // Note that this is printed to stderr. The reason for this is so it doesn't disrupt the regular nushell
+        // tabular output. If we printed to stdout, nushell would get confused with two outputs.
         eprintln!("{table}\n");
 
         Ok(original_input.into_pipeline_data_with_metadata(input_metadata))

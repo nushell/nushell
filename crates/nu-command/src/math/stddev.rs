@@ -1,11 +1,8 @@
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
-};
-
 use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -70,8 +67,7 @@ impl Command for SubCommand {
 
 pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
     move |values: &[Value], span: Span, head: Span| {
-        // variance() produces its own usable error, so we can use `?` to propagated the
-        // error.
+        // variance() produces its own usable error, so we can use `?` to propagated the error.
         let variance = variance(sample)(values, span, head)?;
         let val_span = variance.span();
         match variance {

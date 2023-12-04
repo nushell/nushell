@@ -223,32 +223,28 @@ fn reg_value_to_nu_string(
     let value = String::from_reg_value(&reg_value)
         .expect("registry value type should be REG_SZ or REG_EXPAND_SZ");
 
-    // REG_EXPAND_SZ contains unexpanded references to environment variables, for
-    // example, %PATH%. winreg not expanding these is arguably correct, as it's
-    // just wrapping raw registry access. These placeholder-having strings work
-    // in *some* Windows contexts, but Rust's fs/path APIs don't handle them, so
-    // they won't work in Nu unless we expand them here. Eagerly expanding the
-    // strings here seems to be the least bad option. This is what PowerShell does,
-    // for example, although reg.exe does not. We could do the substitution with
-    // our env, but the officially correct way to expand these strings is to
-    // call Win32's ExpandEnvironmentStrings function. ref: <https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-value-types>
+    // REG_EXPAND_SZ contains unexpanded references to environment variables, for example, %PATH%.
+    // winreg not expanding these is arguably correct, as it's just wrapping raw registry access.
+    // These placeholder-having strings work in *some* Windows contexts, but Rust's fs/path APIs
+    // don't handle them, so they won't work in Nu unless we expand them here. Eagerly expanding the
+    // strings here seems to be the least bad option. This is what PowerShell does, for example,
+    // although reg.exe does not. We could do the substitution with our env, but the officially
+    // correct way to expand these strings is to call Win32's ExpandEnvironmentStrings function.
+    // ref: <https://learn.microsoft.com/en-us/windows/win32/sysinfo/registry-value-types>
 
-    // We can skip the dance if the string doesn't actually have any unexpanded
-    // placeholders.
+    // We can skip the dance if the string doesn't actually have any unexpanded placeholders.
     if skip_expand || reg_value.vtype != REG_EXPAND_SZ || !value.contains('%') {
         return Value::string(value, call_span);
     }
 
-    // The encoding dance is unfortunate since we read "Windows Unicode" from the
-    // registry, but it's the most resilient option and avoids making
-    // potentially wrong alignment assumptions.
+    // The encoding dance is unfortunate since we read "Windows Unicode" from the registry, but
+    // it's the most resilient option and avoids making potentially wrong alignment assumptions.
     let value_utf16 = value.encode_utf16().chain([0]).collect::<Vec<u16>>();
 
-    // Like most Win32 string functions, the return value is the number of TCHAR
-    // written, or the required buffer size (in TCHAR) if the buffer is too
-    // small, or 0 for error. Since we already checked for the case where no
-    // expansion is done, we can start with an empty output buffer, since we
-    // expect to require at least one resize loop anyway.
+    // Like most Win32 string functions, the return value is the number of TCHAR written,
+    // or the required buffer size (in TCHAR) if the buffer is too small, or 0 for error.
+    // Since we already checked for the case where no expansion is done, we can start with
+    // an empty output buffer, since we expect to require at least one resize loop anyway.
     let mut out_buffer = vec![];
     loop {
         match unsafe {
@@ -262,8 +258,7 @@ fn reg_value_to_nu_string(
                 return Value::string(value, call_span);
             }
             size if size as usize <= out_buffer.len() => {
-                // The buffer was large enough, so we're done. Remember to remove the trailing
-                // nul!
+                // The buffer was large enough, so we're done. Remember to remove the trailing nul!
                 let out_value_utf16 = &out_buffer[..size as usize - 1];
                 let out_value = String::from_utf16_lossy(out_value_utf16);
                 return Value::string(out_value, call_span);

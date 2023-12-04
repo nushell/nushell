@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    thread::{self, JoinHandle},
-};
-
+use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -13,8 +9,8 @@ use nu_protocol::{
     DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
     ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
 };
-
-use crate::{current_dir_str, get_full_help};
+use std::collections::HashMap;
+use std::thread::{self, JoinHandle};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -331,8 +327,7 @@ pub fn eval_expression(
         Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
         Expr::Operator(_) => Ok(Value::nothing(expr.span)),
         Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
-        Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by
-        // `match`
+        Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
         Expr::UnaryNot(expr) => {
             let lhs = eval_expression(engine_state, stack, expr)?;
             match lhs {
@@ -476,10 +471,8 @@ pub fn eval_expression(
                                                 });
                                             }
 
-                                            // The special $env treatment: for something like
-                                            // $env.config.history.max_size = 2000,
-                                            // get $env.config (or whichever one it is) AFTER the
-                                            // above mutation, and set it
+                                            // The special $env treatment: for something like $env.config.history.max_size = 2000,
+                                            // get $env.config (or whichever one it is) AFTER the above mutation, and set it
                                             // as the "config" environment variable.
                                             let vardata = lhs.follow_cell_path(
                                                 &[cell_path.tail[0].clone()],
@@ -653,13 +646,12 @@ pub fn eval_expression(
     }
 }
 
-/// Checks the expression to see if it's a internal or external call. If so,
-/// passes the input into the call and gets out the result
+/// Checks the expression to see if it's a internal or external call. If so, passes the input
+/// into the call and gets out the result
 /// Otherwise, invokes the expression
 ///
-/// It returns PipelineData with a boolean flag, indicating if the external
-/// failed to run. The boolean flag **may only be true** for external calls, for
-/// internal calls, it always to be false.
+/// It returns PipelineData with a boolean flag, indicating if the external failed to run.
+/// The boolean flag **may only be true** for external calls, for internal calls, it always to be false.
 pub fn eval_expression_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -805,10 +797,8 @@ fn eval_element_with_input(
                         match out_stream {
                             None => {
                                 eval_call(engine_state, stack, &save_call, input).map(|_| {
-                                    // save is internal command, normally it exists with
-                                    // non-ExternalStream
-                                    // but here in redirection context, we make it returns
-                                    // ExternalStream
+                                    // save is internal command, normally it exists with non-ExternalStream
+                                    // but here in redirection context, we make it returns ExternalStream
                                     // So nu handles exit_code correctly
                                     (
                                         PipelineData::ExternalStream {
@@ -929,8 +919,7 @@ fn eval_element_with_input(
                     )?
                 }
                 _ => {
-                    // we need to redirect output, so the result can be saved and pass to `save`
-                    // command.
+                    // we need to redirect output, so the result can be saved and pass to `save` command.
                     eval_element_with_input(
                         engine_state,
                         stack,
@@ -1005,8 +994,7 @@ pub fn eval_block(
     mut redirect_stdout: bool,
     mut redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
-    // if Block contains recursion, make sure we don't recurse too deeply (to avoid
-    // stack overflow)
+    // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
     if let Some(recursive) = block.recursive {
         // picked 50 arbitrarily, should work on all architectures
         const RECURSION_LIMIT: u64 = 50;
@@ -1069,8 +1057,7 @@ pub fn eval_block(
                 }
             }
 
-            // if eval internal command failed, it can just make early return with
-            // `Err(ShellError)`.
+            // if eval internal command failed, it can just make early return with `Err(ShellError)`.
             let eval_result = eval_element_with_input(
                 engine_state,
                 stack,
@@ -1108,8 +1095,8 @@ pub fn eval_block(
         }
 
         // `eval_element_with_input` may creates some threads
-        // to write stderr message to a file, here we need to wait and make sure that
-        // it's finished.
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
         for h in stderr_writer_jobs {
             let _ = h.join();
         }
@@ -1162,8 +1149,8 @@ pub fn eval_subexpression(
             .0
         }
         // `eval_element_with_input` may creates some threads
-        // to write stderr message to a file, here we need to wait and make sure that
-        // it's finished.
+        // to write stderr message to a file, here we need to wait and make sure that it's
+        // finished.
         for h in stderr_writer_jobs {
             let _ = h.join();
         }

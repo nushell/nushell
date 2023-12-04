@@ -12,15 +12,16 @@ use ratatui::{
     widgets::{BorderType, Borders, Paragraph},
 };
 
-use super::{
-    record::{RecordView, TableTheme},
-    util::{lookup_tui_color, nu_style_to_tui},
-    Layout, Orientation, View, ViewConfig,
-};
 use crate::{
     nu_common::{collect_pipeline, run_command_with_value},
     pager::{report::Report, Frame, Transition, ViewInfo},
     util::create_map,
+};
+
+use super::{
+    record::{RecordView, TableTheme},
+    util::{lookup_tui_color, nu_style_to_tui},
+    Layout, Orientation, View, ViewConfig,
 };
 
 pub struct InteractiveView<'a> {

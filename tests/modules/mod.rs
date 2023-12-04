@@ -1,6 +1,6 @@
-use nu_test_support::{
-    fs::Stub::FileWithContentToBeTrimmed, nu, nu_repl_code, playground::Playground,
-};
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::playground::Playground;
+use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
 #[test]

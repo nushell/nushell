@@ -1,5 +1,4 @@
-use std::{collections::HashSet, iter::FromIterator};
-
+use crate::parse_date_from_string;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -9,8 +8,7 @@ use nu_protocol::{
 };
 use once_cell::sync::Lazy;
 use regex::{Regex, RegexBuilder};
-
-use crate::parse_date_from_string;
+use std::{collections::HashSet, iter::FromIterator};
 
 #[derive(Clone)]
 pub struct IntoValue;
@@ -135,8 +133,7 @@ impl Iterator for UpdateCellIterator {
 }
 
 // This function will check each cell to see if it matches a regular expression
-// for a particular datatype. If it does, it will convert the cell to that
-// datatype.
+// for a particular datatype. If it does, it will convert the cell to that datatype.
 fn process_cell(val: Value, span: Span) -> Result<Value, ShellError> {
     // step 1: convert value to string
     let val_str = val.as_string().unwrap_or_default();
@@ -290,7 +287,7 @@ const DATETIME_YMD_PATTERN: &str = r#"(?x)
         "#;
 static DATETIME_YMD_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(DATETIME_YMD_PATTERN).expect("datetime_ymd_pattern should be valid"));
-// 2023-03-24 16:44:17.865147299 -05:00
+//2023-03-24 16:44:17.865147299 -05:00
 const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ^
         ['"]?                  # optional quotes

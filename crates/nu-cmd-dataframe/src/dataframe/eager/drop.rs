@@ -5,7 +5,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use super::super::values::{utils::convert_columns, Column, NuDataFrame};
+use super::super::values::utils::convert_columns;
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct DropDF;
@@ -110,7 +111,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

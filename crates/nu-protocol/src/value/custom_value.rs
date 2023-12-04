@@ -7,7 +7,7 @@ use crate::{ast::Operator, ShellError, Span, Value};
 pub trait CustomValue: fmt::Debug + Send + Sync {
     fn clone_value(&self, span: Span) -> Value;
 
-    // fn category(&self) -> Category;
+    //fn category(&self) -> Category;
 
     // Define string representation of the custom value
     fn value_string(&self) -> String;

@@ -1,7 +1,6 @@
+use crate::Value;
 #[allow(unused_imports)]
 use serde::{Deserialize, Serialize};
-
-use crate::Value;
 
 #[derive(Debug)]
 pub struct Example<'a> {
@@ -10,9 +9,9 @@ pub struct Example<'a> {
     pub result: Option<Value>,
 }
 
-// PluginExample is somehow like struct `Example`, but it owned a String for
-// `example` and `description` fields, because these information is fetched from
-// plugin, a third party binary, nushell have no way to construct it directly.
+// PluginExample is somehow like struct `Example`, but it owned a String for `example`
+// and `description` fields, because these information is fetched from plugin, a third party
+// binary, nushell have no way to construct it directly.
 #[cfg(feature = "plugin")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PluginExample {

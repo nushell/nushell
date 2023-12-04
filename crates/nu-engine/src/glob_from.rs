@@ -9,12 +9,11 @@ use nu_protocol::{ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
-/// This function is like `nu_glob::glob` from the `glob` crate, except it is
-/// relative to a given cwd.
+/// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
-/// It returns a tuple of two values: the first is an optional prefix that the
-/// expanded filenames share. This prefix can be removed from the front of each
-/// value to give an approximation of the relative path to the user
+/// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
+/// This prefix can be removed from the front of each value to give an approximation of the relative path
+/// to the user
 ///
 /// The second of the two values is an iterator over the matching filepaths.
 #[allow(clippy::type_complexity)]

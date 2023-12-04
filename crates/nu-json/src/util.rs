@@ -1,4 +1,5 @@
-use std::{io, str};
+use std::io;
+use std::str;
 
 use super::error::{Error, ErrorCode, Result};
 
@@ -126,7 +127,7 @@ where
                         Some(_) => {
                             self.eat_char();
                         }
-                        None => return Err(self.error(ErrorCode::TrailingCharacters)), // todo
+                        None => return Err(self.error(ErrorCode::TrailingCharacters)), //todo
                     }
                 }
                 _ => {

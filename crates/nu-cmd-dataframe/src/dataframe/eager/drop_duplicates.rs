@@ -6,7 +6,8 @@ use nu_protocol::{
 };
 use polars::prelude::UniqueKeepStrategy;
 
-use super::super::values::{utils::convert_columns_string, Column, NuDataFrame};
+use super::super::values::utils::convert_columns_string;
+use super::super::values::{Column, NuDataFrame};
 
 #[derive(Clone)]
 pub struct DropDuplicates;
@@ -113,7 +114,8 @@ fn command(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
 
     #[test]
     fn test_examples() {

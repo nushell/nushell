@@ -1,8 +1,8 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
@@ -134,12 +134,11 @@ fn convert_yaml_value_to_nu_value(
                             convert_yaml_value_to_nu_value(v, span, val_span)?,
                         );
                     }
-                    // Hard-code fix for cases where "v" is a string without quotations with double
-                    // curly braces e.g. k = value
+                    // Hard-code fix for cases where "v" is a string without quotations with double curly braces
+                    // e.g. k = value
                     // value: {{ something }}
                     // Strangely, serde_yaml returns
-                    // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map:
-                    // {String("something"): Null} }): Null} })
+                    // "value" -> Mapping(Mapping { map: {Mapping(Mapping { map: {String("something"): Null} }): Null} })
                     (serde_yaml::Value::Mapping(m), serde_yaml::Value::Null) => {
                         return m
                             .iter()
@@ -252,9 +251,8 @@ fn from_yaml(input: PipelineData, head: Span) -> Result<PipelineData, ShellError
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::Config;
-
     use super::*;
+    use nu_protocol::Config;
 
     #[test]
     fn test_problematic_yaml() {
@@ -316,10 +314,9 @@ mod test {
 - a: g
   b: h";
 
-        // Before the fix this test is verifying, the ordering of columns in the
-        // resulting table was non-deterministic. It would take a few executions
-        // of the YAML conversion to see this ordering difference. This loop
-        // should be far more than enough to catch a regression.
+        // Before the fix this test is verifying, the ordering of columns in the resulting
+        // table was non-deterministic. It would take a few executions of the YAML conversion to
+        // see this ordering difference. This loop should be far more than enough to catch a regression.
         for ii in 1..1000 {
             let actual = from_yaml_string_to_value(
                 String::from(test_yaml),

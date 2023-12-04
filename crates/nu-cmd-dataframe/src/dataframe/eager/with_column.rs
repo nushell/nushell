@@ -1,12 +1,11 @@
+use super::super::values::{Column, NuDataFrame};
+use crate::dataframe::values::{NuExpression, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-
-use super::super::values::{Column, NuDataFrame};
-use crate::dataframe::values::{NuExpression, NuLazyFrame};
 
 #[derive(Clone)]
 pub struct WithColumn;
@@ -190,8 +189,10 @@ fn command_lazy(
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
-    use crate::dataframe::expressions::{ExprAlias, ExprCol};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::expressions::ExprCol;
 
     #[test]
     fn test_examples() {

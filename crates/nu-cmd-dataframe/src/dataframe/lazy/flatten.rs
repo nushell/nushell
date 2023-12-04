@@ -4,8 +4,9 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
-use super::explode::explode;
 use crate::dataframe::values::{Column, NuDataFrame};
+
+use super::explode::explode;
 
 #[derive(Clone)]
 pub struct LazyFlatten;
@@ -41,61 +42,55 @@ impl Command for LazyFlatten {
 
     fn examples(&self) -> Vec<Example> {
         vec![
-            Example {
+Example {
                 description: "Flatten the specified dataframe",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
-                          Football]]] | dfr into-df | dfr flatten hobbies | dfr collect",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr flatten hobbies | dfr collect",
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "id".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(1),
-                                Value::test_int(2),
-                                Value::test_int(2),
-                            ],
-                        ),
-                        Column::new(
-                            "name".to_string(),
-                            vec![
-                                Value::test_string("Mercy"),
-                                Value::test_string("Mercy"),
-                                Value::test_string("Bob"),
-                                Value::test_string("Bob"),
-                            ],
-                        ),
-                        Column::new(
-                            "hobbies".to_string(),
-                            vec![
-                                Value::test_string("Cycling"),
-                                Value::test_string("Knitting"),
-                                Value::test_string("Skiing"),
-                                Value::test_string("Football"),
-                            ],
-                        ),
-                    ])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
-            },
-            Example {
-                description: "Select a column and flatten the values",
-                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing \
-                          Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr flatten)",
-                result: Some(
-                    NuDataFrame::try_from_columns(vec![Column::new(
-                        "hobbies".to_string(),
+                   NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "id".to_string(), 
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(2),
+                        ]),
+                    Column::new(
+                        "name".to_string(), 
+                        vec![
+                            Value::test_string("Mercy"),
+                            Value::test_string("Mercy"),
+                            Value::test_string("Bob"),
+                            Value::test_string("Bob"),
+                        ]),
+                    Column::new(
+                        "hobbies".to_string(), 
                         vec![
                             Value::test_string("Cycling"),
                             Value::test_string("Knitting"),
                             Value::test_string("Skiing"),
                             Value::test_string("Football"),
-                        ],
-                    )])
-                    .expect("simple df for test should not fail")
-                    .into_value(Span::test_data()),
-                ),
+                        ]),
+                   ]).expect("simple df for test should not fail")
+                   .into_value(Span::test_data()),
+                    )
+            },
+        Example {
+                description: "Select a column and flatten the values",
+                example: "[[id name hobbies]; [1 Mercy [Cycling Knitting]] [2 Bob [Skiing Football]]] | dfr into-df | dfr select (dfr col hobbies | dfr flatten)",
+                result: Some(
+                   NuDataFrame::try_from_columns(vec![
+                    Column::new(
+                        "hobbies".to_string(), 
+                        vec![
+                            Value::test_string("Cycling"),
+                            Value::test_string("Knitting"),
+                            Value::test_string("Skiing"),
+                            Value::test_string("Football"),
+                        ]),
+                   ]).expect("simple df for test should not fail")
+                   .into_value(Span::test_data()),
+                    ),
             },
         ]
     }
@@ -113,11 +108,10 @@ impl Command for LazyFlatten {
 
 #[cfg(test)]
 mod test {
-    use super::{
-        super::super::test_dataframe::{build_test_engine_state, test_dataframe_example},
-        *,
-    };
-    use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+    use super::super::super::test_dataframe::{build_test_engine_state, test_dataframe_example};
+    use super::*;
+    use crate::dataframe::lazy::aggregate::LazyAggregate;
+    use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
     #[test]
     fn test_examples_dataframe() {

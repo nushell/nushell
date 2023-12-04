@@ -1,8 +1,9 @@
-use std::{fmt, str};
-
 use hamcrest2::core::{MatchResult, Matcher};
+use std::fmt;
+use std::str;
 
-use super::{nu_process::Outcome, Director, Executable};
+use super::nu_process::Outcome;
+use super::{Director, Executable};
 
 #[derive(Clone)]
 pub struct Play {

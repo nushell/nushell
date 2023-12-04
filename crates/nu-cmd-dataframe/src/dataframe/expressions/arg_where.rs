@@ -1,3 +1,4 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,8 +6,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::arg_where;
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression};
 
 #[derive(Clone)]
 pub struct ExprArgWhere;
@@ -64,8 +63,10 @@ impl Command for ExprArgWhere {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
-    use crate::dataframe::{expressions::ExprAlias, lazy::LazySelect};
+    use super::super::super::test_dataframe::test_dataframe;
+    use super::*;
+    use crate::dataframe::expressions::ExprAlias;
+    use crate::dataframe::lazy::LazySelect;
 
     #[test]
     fn test_examples() {

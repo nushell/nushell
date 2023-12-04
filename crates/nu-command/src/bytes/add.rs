@@ -1,10 +1,10 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 struct Arguments {
     added_data: Vec<u8>,
@@ -91,33 +91,28 @@ impl Command for BytesAdd {
             Example {
                 description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA]",
-                result: Some(Value::binary(
-                    vec![0xaa, 0x1f, 0xff, 0xaa, 0xaa],
+                result: Some(Value::binary(vec![0xAA, 0x1F, 0xFF, 0xAA, 0xAA],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA BB] --index 1",
-                result: Some(Value::binary(
-                    vec![0x1f, 0xaa, 0xbb, 0xff, 0xaa, 0xaa],
+                result: Some(Value::binary(vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end",
                 example: "0x[FF AA AA] | bytes add 0x[11] --end",
-                result: Some(Value::binary(
-                    vec![0xff, 0xaa, 0xaa, 0x11],
+                result: Some(Value::binary(vec![0xFF, 0xAA, 0xAA, 0x11],
                     Span::test_data(),
                 )),
             },
             Example {
-                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index \
-                              1(the index is start from end)",
+                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
                 example: "0x[FF AA BB] | bytes add 0x[11 22 33] --end --index 1",
-                result: Some(Value::binary(
-                    vec![0xff, 0xaa, 0x11, 0x22, 0x33, 0xbb],
+                result: Some(Value::binary(vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],
                     Span::test_data(),
                 )),
             },

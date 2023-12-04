@@ -1,4 +1,6 @@
-use nu_test_support::{fs::Stub::EmptyFile, nu, playground::Playground};
+use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn gets_first_rows_by_amount() {
@@ -38,8 +40,7 @@ fn gets_first_row_when_no_amount_given() {
     Playground::setup("first_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("caballeros.txt"), EmptyFile("arepas.clu")]);
 
-        // FIXME: We should probably change first to return a one row table instead of a
-        // record here
+        // FIXME: We should probably change first to return a one row table instead of a record here
         let actual = nu!(cwd: dirs.test(), "ls | first | values | length");
 
         assert_eq!(actual.out, "4");
@@ -68,8 +69,7 @@ fn gets_first_byte() {
 }
 
 #[test]
-// covers a situation where `first` used to behave strangely on list<binary>
-// input
+// covers a situation where `first` used to behave strangely on list<binary> input
 fn works_with_binary_list() {
     let actual = nu!("([0x[01 11]] | first) == 0x[01 11]");
 

@@ -1,7 +1,6 @@
+use crate::GStat;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{Category, PluginSignature, Spanned, SyntaxShape, Value};
-
-use crate::GStat;
 
 impl Plugin for GStat {
     fn signature(&self) -> Vec<PluginSignature> {

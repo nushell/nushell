@@ -1,7 +1,7 @@
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Closure, Command, EngineState, Stack},
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, SyntaxShape, Type, Value,
 };
@@ -111,14 +111,18 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "a" => Value::test_int(2),
-                })])),
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                    })],
+                )),
             },
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::test_list(vec![Value::test_int(2)])),
+                result: Some(Value::test_list(
+                    vec![Value::test_int(2)],
+                )),
             },
             Example {
                 description: "List all files in the current directory with sizes greater than 2kb",
@@ -141,10 +145,8 @@ not supported."#
                 result: None,
             },
             Example {
-                description: "Find files whose filenames don't begin with the correct sequential \
-                              number",
-                example: "ls | where type == file | sort-by name --natural | enumerate | where \
-                          {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
+                description: "Find files whose filenames don't begin with the correct sequential number",
+                example: "ls | where type == file | sort-by name --natural | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | each {|| get item }",
                 result: None,
             },
             Example {
@@ -156,7 +158,9 @@ not supported."#
                 description: "same as above but with regex only",
                 example: "ls | where name =~ '(?i)readme'",
                 result: None,
-            },
+            }
+
+
         ]
     }
 }

@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
@@ -77,8 +77,7 @@ impl Command for Zip {
                 )),
             },
             Example {
-                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv \
-                          $in.0 $in.1 }",
+                example: "glob *.ogg | zip ['bang.ogg', 'fanfare.ogg', 'laser.ogg'] | each {|| mv $in.0 $in.1 }",
                 description: "Rename .ogg files to match an existing list of filenames",
                 result: None,
             },

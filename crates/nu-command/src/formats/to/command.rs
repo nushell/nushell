@@ -1,9 +1,7 @@
 use nu_engine::get_full_help;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct To;
@@ -24,8 +22,7 @@ impl Command for To {
     }
 
     fn extra_usage(&self) -> &str {
-        "You must use one of the following subcommands. Using this command as-is will only produce \
-         this help message."
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn run(

@@ -1,12 +1,10 @@
-use nu_engine::CallExt;
-use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
-};
-
 use super::{get_number_bytes, NumberBytes};
+use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct BitsNot;
@@ -96,8 +94,8 @@ impl Command for BitsNot {
                 )),
             },
             Example {
-                description: "Apply logical negation to a list of numbers, treat input as 2 bytes \
-                              number",
+                description:
+                    "Apply logical negation to a list of numbers, treat input as 2 bytes number",
                 example: "[4 3 2] | bits not --number-bytes '2'",
                 result: Some(Value::list(
                     vec![
@@ -109,8 +107,8 @@ impl Command for BitsNot {
                 )),
             },
             Example {
-                description: "Apply logical negation to a list of numbers, treat input as signed \
-                              number",
+                description:
+                    "Apply logical negation to a list of numbers, treat input as signed number",
                 example: "[4 3 2] | bits not --signed",
                 result: Some(Value::list(
                     vec![
@@ -134,19 +132,19 @@ fn operate(value: Value, head: Span, signed: bool, number_size: NumberBytes) -> 
             } else {
                 use NumberBytes::*;
                 let out_val = match number_size {
-                    One => !val & 0x00_00_00_00_00_ff,
-                    Two => !val & 0x00_00_00_00_ff_ff,
-                    Four => !val & 0x00_00_ff_ff_ff_ff,
-                    Eight => !val & 0x7f_ff_ff_ff_ff_ff,
+                    One => !val & 0x00_00_00_00_00_FF,
+                    Two => !val & 0x00_00_00_00_FF_FF,
+                    Four => !val & 0x00_00_FF_FF_FF_FF,
+                    Eight => !val & 0x7F_FF_FF_FF_FF_FF,
                     Auto => {
-                        if val <= 0xff {
-                            !val & 0x00_00_00_00_00_ff
-                        } else if val <= 0xff_ff {
-                            !val & 0x00_00_00_00_ff_ff
-                        } else if val <= 0xff_ff_ff_ff {
-                            !val & 0x00_00_ff_ff_ff_ff
+                        if val <= 0xFF {
+                            !val & 0x00_00_00_00_00_FF
+                        } else if val <= 0xFF_FF {
+                            !val & 0x00_00_00_00_FF_FF
+                        } else if val <= 0xFF_FF_FF_FF {
+                            !val & 0x00_00_FF_FF_FF_FF
                         } else {
-                            !val & 0x7f_ff_ff_ff_ff_ff
+                            !val & 0x7F_FF_FF_FF_FF_FF
                         }
                     }
                     // This case shouldn't happen here, as it's handled before

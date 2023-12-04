@@ -1,11 +1,11 @@
-use std::{collections::BTreeMap, fmt, str};
-
 use fancy_regex::Regex;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
+use std::collections::BTreeMap;
+use std::{fmt, str};
 use unicode_segmentation::UnicodeSegmentation;
 
 // borrowed liberally from here https://github.com/dead10ck/uwc
@@ -174,8 +174,7 @@ impl Count for Counter {
                 const LS: &str = "\u{2028}"; // 0xe280a8
                 const PS: &str = "\u{2029}"; // 0xe280a9
 
-                // use regex here because it can search for CRLF first and not duplicate the
-                // count
+                // use regex here because it can search for CRLF first and not duplicate the count
                 let line_ending_types = [CRLF, LF, CR, NEL, FF, LS, PS];
                 let pattern = &line_ending_types.join("|");
                 let newline_pattern = Regex::new(pattern).expect("Unable to create regex");

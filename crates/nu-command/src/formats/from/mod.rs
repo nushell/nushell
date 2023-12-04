@@ -11,6 +11,8 @@ mod xlsx;
 mod xml;
 mod yaml;
 
+pub use self::csv::FromCsv;
+pub use self::toml::FromToml;
 pub use command::From;
 pub use json::FromJson;
 pub use nuon::FromNuon;
@@ -19,6 +21,5 @@ pub use ssv::FromSsv;
 pub use tsv::FromTsv;
 pub use xlsx::FromXlsx;
 pub use xml::FromXml;
-pub use yaml::{FromYaml, FromYml};
-
-pub use self::{csv::FromCsv, toml::FromToml};
+pub use yaml::FromYaml;
+pub use yaml::FromYml;

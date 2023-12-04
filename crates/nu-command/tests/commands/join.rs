@@ -87,8 +87,7 @@ fn do_cases_where_result_is_same_between_join_types(join_type: &str) {
         let actual = nu!(expr).out;
         assert_eq!(actual, expected);
 
-        // Test again with streaming input (using `each` to convert the input into a
-        // ListStream)
+        // Test again with streaming input (using `each` to convert the input into a ListStream)
         let to_list_stream = "each { |i| $i } | ";
         let expr = format!(
             "{} | {} join {} {} {} | to nuon",
@@ -203,8 +202,7 @@ fn do_cases_where_result_differs_between_join_types(join_type: &str) {
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
 
-                // Test again with streaming input (using `each` to convert the input into a
-                // ListStream)
+                // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr = format!(
                     "{} | {} join {} {} {} | to nuon",
@@ -333,23 +331,18 @@ fn do_cases_where_result_differs_between_join_types_with_different_join_keys(joi
                 ),
                 (
                     "--outer",
-                    "[[a, c, z, b]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3], [null, null, \
-                     4, 4]]",
+                    "[[a, c, z, b]; [1, 1, 1, 1], [2, 2, null, null], [3, 3, 3, 3], [null, null, 4, 4]]",
                 ),
             ],
         ),
     ] {
         for (join_type_, expected) in join_types {
             if join_type_ == join_type {
-                let expr = format!(
-                    "{} | join {} {} {} {} | to nuon",
-                    left, right, join_type, left_on, right_on
-                );
+                let expr = format!("{} | join {} {} {} {} | to nuon", left, right, join_type, left_on, right_on);
                 let actual = nu!(expr).out;
                 assert_eq!(actual, expected);
 
-                // Test again with streaming input (using `each` to convert the input into a
-                // ListStream)
+                // Test again with streaming input (using `each` to convert the input into a ListStream)
                 let to_list_stream = "each { |i| $i } | ";
                 let expr = format!(
                     "{} | {} join {} {} {} {} | to nuon",

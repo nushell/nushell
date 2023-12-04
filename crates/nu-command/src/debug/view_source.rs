@@ -1,12 +1,11 @@
-use std::fmt::Write;
-
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct ViewSource;
@@ -166,17 +165,14 @@ impl Command for ViewSource {
                 result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
-                description: "View the source of a custom command, which participates in the \
-                              caller environment",
+                description: "View the source of a custom command, which participates in the caller environment",
                 example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
                 result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(Value::test_string(
-                    "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
-                )),
+                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
             },
             Example {
                 description: "View the source of a module",

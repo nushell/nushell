@@ -1,6 +1,8 @@
 // use super::icons::{icon_for_file, iconify_style_ansi_to_nu};
+use super::icons::icon_for_file;
 use lscolors::Style;
-use nu_engine::{env_to_string, CallExt};
+use nu_engine::env_to_string;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -10,8 +12,6 @@ use nu_protocol::{
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
 use terminal_size::{Height, Width};
-
-use super::icons::icon_for_file;
 #[derive(Clone)]
 pub struct Griddle;
 

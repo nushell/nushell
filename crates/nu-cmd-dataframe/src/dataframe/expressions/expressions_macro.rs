@@ -1,13 +1,12 @@
+/// Definition of multiple Expression commands using a macro rule
+/// All of these expressions have an identical body and only require
+/// to have a change in the name, description and expression function
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
 };
-
-/// Definition of multiple Expression commands using a macro rule
-/// All of these expressions have an identical body and only require
-/// to have a change in the name, description and expression function
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame};
 
 // The structs defined in this file are structs that form part of other commands
 // since they share a similar name
@@ -57,8 +56,10 @@ macro_rules! expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{super::super::test_dataframe::test_dataframe, *};
-            use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
             fn test_examples() {
@@ -116,8 +117,10 @@ macro_rules! expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{super::super::test_dataframe::test_dataframe, *};
-            use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
             fn test_examples() {
@@ -193,11 +196,12 @@ macro_rules! lazy_expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{
-                super::super::test_dataframe::{build_test_engine_state, test_dataframe_example},
-                *,
+            use super::super::super::test_dataframe::{
+                build_test_engine_state, test_dataframe_example,
             };
-            use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
             fn test_examples_dataframe() {
@@ -280,11 +284,12 @@ macro_rules! lazy_expr_command {
 
         #[cfg(test)]
         mod $test {
-            use super::{
-                super::super::test_dataframe::{build_test_engine_state, test_dataframe_example},
-                *,
+            use super::super::super::test_dataframe::{
+                build_test_engine_state, test_dataframe_example,
             };
-            use crate::dataframe::lazy::{aggregate::LazyAggregate, groupby::ToLazyGroupBy};
+            use super::*;
+            use crate::dataframe::lazy::aggregate::LazyAggregate;
+            use crate::dataframe::lazy::groupby::ToLazyGroupBy;
 
             #[test]
             fn test_examples_dataframe() {
@@ -634,8 +639,8 @@ lazy_expr_command!(
     "Create a var expression for an aggregation",
     vec![
         Example {
-            description: "Var value from columns in a dataframe or aggregates columns to their \
-                          var value",
+            description:
+                "Var value from columns in a dataframe or aggregates columns to their var value",
             example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr var",
             result: Some(
                 NuDataFrame::try_from_columns(vec![

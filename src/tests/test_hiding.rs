@@ -1,7 +1,6 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
-// TODO: Test the use/hide tests also as separate lines in REPL (i.e., with
-// merging the delta in between)
+// TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
 #[test]
 fn hides_def() -> TestResult {
     fail_test(
@@ -28,8 +27,8 @@ fn hides_env() -> TestResult {
 
 #[test]
 fn hides_def_then_redefines() -> TestResult {
-    // this one should fail because of predecl -- cannot have more defs with the
-    // same name in a block
+    // this one should fail because of predecl -- cannot have more defs with the same name in a
+    // block
     fail_test(
         r#"def myfoosymbol [] { "myfoosymbol" }; hide myfoosymbol; def myfoosymbol [] { "bar" }; myfoosymbol"#,
         "defined more than once",

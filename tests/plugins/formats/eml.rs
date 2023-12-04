@@ -3,9 +3,8 @@ use pretty_assertions::assert_eq;
 
 const TEST_CWD: &str = "tests/fixtures/formats";
 
-// Note: the tests can only run successfully if nushell binary is in
-// `target/debug/` The To field in this email is just "to@example.com", which
-// gets parsed out as the Address. The Name is empty.
+// Note: the tests can only run successfully if nushell binary is in `target/debug/`
+// The To field in this email is just "to@example.com", which gets parsed out as the Address. The Name is empty.
 #[test]
 fn from_eml_get_to_field() {
     let actual = nu_with_plugins!(
@@ -24,9 +23,7 @@ fn from_eml_get_to_field() {
     assert_eq!(actual.out, "");
 }
 
-// The Reply-To field in this email is "replyto@example.com"
-// <replyto@example.com>, meaning both the Name and Address values are
-// identical.
+// The Reply-To field in this email is "replyto@example.com" <replyto@example.com>, meaning both the Name and Address values are identical.
 #[test]
 fn from_eml_get_replyto_field() {
     let actual = nu_with_plugins!(

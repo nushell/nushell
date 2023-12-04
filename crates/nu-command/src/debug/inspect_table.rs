@@ -192,10 +192,9 @@ fn push_empty_column(data: &mut Vec<Vec<String>>) {
 }
 
 mod util {
+    use crate::debug::explain::debug_string_without_formatting;
     use nu_engine::get_columns;
     use nu_protocol::Value;
-
-    use crate::debug::explain::debug_string_without_formatting;
 
     /// Try to build column names and a table grid.
     pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<String>>) {

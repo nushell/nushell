@@ -109,10 +109,9 @@ fn build_xpath(xpath_str: &str, span: Span) -> Result<sxd_xpath::XPath, LabeledE
 
 #[cfg(test)]
 mod tests {
+    use super::execute_xpath_query as query;
     use nu_plugin::EvaluatedCall;
     use nu_protocol::{record, Span, Spanned, Value};
-
-    use super::execute_xpath_query as query;
 
     #[test]
     fn position_function_in_predicate() {

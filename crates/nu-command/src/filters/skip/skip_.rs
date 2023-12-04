@@ -61,7 +61,6 @@ impl Command for Skip {
             },
         ]
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -113,7 +112,7 @@ impl Command for Skip {
                             let bytes = val.as_bytes();
                             if bytes.len() < remaining {
                                 remaining -= bytes.len();
-                                // output.extend_from_slice(bytes)
+                                //output.extend_from_slice(bytes)
                             } else {
                                 output.extend_from_slice(&bytes[remaining..]);
                                 break;

@@ -1,6 +1,5 @@
-use std::{collections::HashMap, fmt::Display, str::FromStr};
-
 use crate::{Record, ShellError, Span, Value};
+use std::{collections::HashMap, fmt::Display, str::FromStr};
 
 pub(super) trait ReconstructVal {
     fn reconstruct_value(&self, span: Span) -> Value;

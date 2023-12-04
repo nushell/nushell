@@ -22,6 +22,8 @@ mod shift;
 mod unique;
 mod value_counts;
 
+use nu_protocol::engine::StateWorkingSet;
+
 pub use all_false::AllFalse;
 pub use all_true::AllTrue;
 pub use arg_max::ArgMax;
@@ -29,7 +31,6 @@ pub use arg_min::ArgMin;
 pub use cumulative::Cumulative;
 pub use n_null::NNull;
 pub use n_unique::NUnique;
-use nu_protocol::engine::StateWorkingSet;
 pub use rolling::Rolling;
 pub use shift::Shift;
 pub use unique::Unique;

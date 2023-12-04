@@ -1,7 +1,7 @@
+use crate::inc::SemVerAction;
+use crate::Inc;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
 use nu_protocol::{ast::CellPath, PluginSignature, SyntaxShape, Value};
-
-use crate::{inc::SemVerAction, Inc};
 
 impl Plugin for Inc {
     fn signature(&self) -> Vec<PluginSignature> {

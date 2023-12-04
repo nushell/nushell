@@ -1,11 +1,10 @@
-use std::sync::Arc;
-
 use nu_engine::eval_block;
 use nu_protocol::{
     engine::{EngineState, Stack},
     IntoPipelineData, Span, Value,
 };
 use reedline::{menu_functions::parse_selection_char, Completer, Suggestion};
+use std::sync::Arc;
 
 const SELECTION_CHAR: char = '!';
 

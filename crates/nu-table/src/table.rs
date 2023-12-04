@@ -1,9 +1,10 @@
-use std::{cmp::min, collections::HashMap};
-
+use crate::{convert_style, table_theme::TableTheme};
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
 use nu_protocol::TrimStrategy;
 use nu_utils::strip_ansi_unlikely;
+use std::cmp::min;
+use std::collections::HashMap;
 use tabled::{
     builder::Builder,
     grid::{
@@ -22,8 +23,6 @@ use tabled::{
     },
     Table,
 };
-
-use crate::{convert_style, table_theme::TableTheme};
 
 /// NuTable is a table rendering implementation.
 #[derive(Debug, Clone)]
@@ -487,8 +486,7 @@ fn maybe_truncate_columns(
     truncate(data, theme, pad, termwidth)
 }
 
-// VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH
-// CONTENT AS POSSIBLE.
+// VERSION where we are showing AS LITTLE COLUMNS AS POSSIBLE but WITH AS MUCH CONTENT AS POSSIBLE.
 fn truncate_columns_by_content(
     data: &mut NuRecords,
     theme: &TableTheme,
@@ -568,8 +566,7 @@ fn truncate_columns_by_content(
     widths
 }
 
-// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect
-// they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
+// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE but as a side affect they MIGHT CONTAIN AS LITTLE CONTENT AS POSSIBLE
 fn truncate_columns_by_columns(
     data: &mut NuRecords,
     theme: &TableTheme,
@@ -641,8 +638,7 @@ fn truncate_columns_by_columns(
     widths
 }
 
-/// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns
-/// first in case of equal width.
+/// The same as [`tabled::peaker::PriorityMax`] but prioritizes left columns first in case of equal width.
 #[derive(Debug, Default, Clone)]
 pub struct PriorityMax;
 

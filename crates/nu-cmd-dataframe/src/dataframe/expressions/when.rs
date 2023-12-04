@@ -1,3 +1,4 @@
+use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
@@ -5,8 +6,6 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use polars::prelude::when;
-
-use crate::dataframe::values::{Column, NuDataFrame, NuExpression, NuWhen};
 
 #[derive(Clone)]
 pub struct ExprWhen;
@@ -128,11 +127,12 @@ impl Command for ExprWhen {
 
 #[cfg(test)]
 mod test {
-    use super::{super::super::test_dataframe::test_dataframe, *};
-    use crate::dataframe::{
-        eager::{ToNu, WithColumn},
-        expressions::{otherwise::ExprOtherwise, ExprAlias, ExprCol},
-    };
+    use super::super::super::test_dataframe::test_dataframe;
+    use crate::dataframe::eager::{ToNu, WithColumn};
+    use crate::dataframe::expressions::otherwise::ExprOtherwise;
+    use crate::dataframe::expressions::{ExprAlias, ExprCol};
+
+    use super::*;
 
     #[test]
     fn test_examples() {

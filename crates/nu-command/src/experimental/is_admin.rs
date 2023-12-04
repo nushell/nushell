@@ -1,6 +1,6 @@
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
@@ -38,12 +38,13 @@ impl Command for IsAdmin {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Return 'iamroot' if nushell is running with admin/root privileges, and \
-                          'iamnotroot' if not.",
-            example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,
-            result: Some(Value::test_string("iamnotroot")),
-        }]
+        vec![
+            Example {
+                description: "Return 'iamroot' if nushell is running with admin/root privileges, and 'iamnotroot' if not.",
+                example: r#"if (is-admin) { "iamroot" } else { "iamnotroot" }"#,
+                result: Some(Value::test_string("iamnotroot")),
+            },
+        ]
     }
 }
 
@@ -68,19 +69,18 @@ fn is_root_impl() -> bool {
     let mut handle = HANDLE::default();
     let mut elevated = false;
 
-    // Checks whether the access token associated with the current process has
-    // elevated privileges. SAFETY: `elevated` only touched by safe code.
-    // `handle` lives long enough, initialized, mutated as out param, used, closed
-    // with validity check. `elevation` only read on success and passed with
-    // correct `size`.
+    // Checks whether the access token associated with the current process has elevated privileges.
+    // SAFETY: `elevated` only touched by safe code.
+    // `handle` lives long enough, initialized, mutated as out param, used, closed with validity check.
+    // `elevation` only read on success and passed with correct `size`.
     unsafe {
         // Opens the access token associated with the current process.
         if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut handle).as_bool() {
             let mut elevation = TOKEN_ELEVATION::default();
             let mut size = std::mem::size_of::<TOKEN_ELEVATION>() as u32;
 
-            // Retrieves elevation token information about the access token associated with
-            // the current process. Call available since XP
+            // Retrieves elevation token information about the access token associated with the current process.
+            // Call available since XP
             // https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation
             if GetTokenInformation(
                 handle,
@@ -92,8 +92,8 @@ fn is_root_impl() -> bool {
             .as_bool()
             {
                 // Whether the token has elevated privileges.
-                // Safe to read as `GetTokenInformation` will not write outside `elevation` and
-                // it succeeded See: https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation#parameters
+                // Safe to read as `GetTokenInformation` will not write outside `elevation` and it succeeded
+                // See: https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-gettokeninformation#parameters
                 elevated = elevation.TokenIsElevated != 0;
             }
         }

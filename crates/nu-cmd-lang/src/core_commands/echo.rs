@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
+use nu_protocol::ast::Call;
+use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    ast::Call,
-    engine::{Command, EngineState, Stack},
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
@@ -53,8 +53,8 @@ little reason to use this over just writing the values as-is."#
                 )),
             },
             Example {
-                description: "Returns the piped-in value, by using the special $in variable to \
-                              obtain it.",
+                description:
+                    "Returns the piped-in value, by using the special $in variable to obtain it.",
                 example: "echo $in",
                 result: None,
             },
@@ -85,8 +85,7 @@ fn run(
         }
     });
 
-    // If echo is not redirected, then print to the screen (to behave in a similar
-    // way to other shells)
+    // If echo is not redirected, then print to the screen (to behave in a similar way to other shells)
     if !call.redirect_stdout {
         match result {
             Ok(pipeline) => {

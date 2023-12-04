@@ -68,8 +68,7 @@ used as the next argument to the closure, otherwise generation stops.
                 )),
             },
             Example {
-                example: "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} \
-                          } | first 10",
+                example: "generate [0, 1] {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } | first 10",
                 description: "Generate a stream of fibonacci numbers",
                 result: Some(Value::list(
                     vec![

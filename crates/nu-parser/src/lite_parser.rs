@@ -1,8 +1,8 @@
-use nu_protocol::{ast::Redirection, ParseError, Span};
-
-/// Lite parsing converts a flat stream of tokens from the lexer to a syntax
-/// element structure that can be parsed.
+/// Lite parsing converts a flat stream of tokens from the lexer to a syntax element structure that
+/// can be parsed.
 use crate::{Token, TokenContents};
+
+use nu_protocol::{ast::Redirection, ParseError, Span};
 
 #[derive(Debug)]
 pub struct LiteCommand {
@@ -131,8 +131,7 @@ impl LiteBlock {
             // we can make sure that cmd_index is less than outerr_index.
             let outerr_redirect = pipeline.commands.remove(outerr_index);
             let cmd = pipeline.commands.remove(cmd_index);
-            // `outerr_redirect` and `cmd` should always be `LiteElement::Command` and
-            // `LiteElement::Redirection`
+            // `outerr_redirect` and `cmd` should always be `LiteElement::Command` and `LiteElement::Redirection`
             if let (
                 LiteElement::Command(cmd_span, lite_cmd),
                 LiteElement::Redirection(span, _, outerr_cmd),
@@ -151,8 +150,7 @@ impl LiteBlock {
 
     fn merge_redirections(&self, pipeline: &mut LitePipeline) {
         // In case our command may contains both stdout and stderr redirection.
-        // We pick them out and Combine them into one LiteElement::SeparateRedirection
-        // variant.
+        // We pick them out and Combine them into one LiteElement::SeparateRedirection variant.
         let mut stdout_index = None;
         let mut stderr_index = None;
         for (index, cmd) in pipeline.commands.iter().enumerate() {

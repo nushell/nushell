@@ -1,10 +1,10 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;

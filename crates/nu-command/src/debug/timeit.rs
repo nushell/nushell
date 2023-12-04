@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use nu_engine::{eval_block, eval_expression_with_input};
 use nu_protocol::{
     ast::Call,
@@ -7,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct TimeIt;

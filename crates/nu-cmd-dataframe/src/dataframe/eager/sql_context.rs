@@ -1,18 +1,12 @@
-use std::collections::HashMap;
-
-use polars::{
-    error::{ErrString, PolarsError},
-    prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame},
-};
-use sqlparser::{
-    ast::{
-        Expr as SqlExpr, Select, SelectItem, SetExpr, Statement, TableFactor, Value as SQLValue,
-    },
-    dialect::GenericDialect,
-    parser::Parser,
-};
-
 use crate::dataframe::eager::sql_expr::parse_sql_expr;
+use polars::error::{ErrString, PolarsError};
+use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
+use sqlparser::ast::{
+    Expr as SqlExpr, Select, SelectItem, SetExpr, Statement, TableFactor, Value as SQLValue,
+};
+use sqlparser::dialect::GenericDialect;
+use sqlparser::parser::Parser;
+use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct SQLContext {
@@ -34,8 +28,7 @@ impl SQLContext {
 
     fn execute_select(&self, select_stmt: &Select) -> Result<LazyFrame, PolarsError> {
         // Determine involved dataframe
-        // Implicit join require some more work in query parsers, Explicit join are
-        // preferred for now.
+        // Implicit join require some more work in query parsers, Explicit join are preferred for now.
         let tbl = select_stmt.from.first().ok_or_else(|| {
             PolarsError::ComputeError(ErrString::from("No table found in select statement"))
         })?;
@@ -106,25 +99,24 @@ impl SQLContext {
         let group_by = select_stmt
             .group_by
             .iter()
-            .map(|e| match e {
-                SqlExpr::Value(SQLValue::Number(idx, _)) => {
+            .map(
+                |e|match e {
+                  SqlExpr::Value(SQLValue::Number(idx, _)) => {
                     let idx = match idx.parse::<usize>() {
-                        Ok(0) | Err(_) => Err(PolarsError::ComputeError(
-                            format!(
-                                "Group-By Error: Only positive number or expression are \
-                                 supported, got {idx}"
-                            )
-                            .into(),
+                        Ok(0)| Err(_) => Err(
+                        PolarsError::ComputeError(
+                            format!("Group-By Error: Only positive number or expression are supported, got {idx}").into()
                         )),
-                        Ok(idx) => Ok(idx),
+                        Ok(idx) => Ok(idx)
                     }?;
                     Ok(projection[idx].clone())
+                  }
+                  SqlExpr::Value(_) => Err(
+                      PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported".into())
+                  ),
+                  _ => parse_sql_expr(e)
                 }
-                SqlExpr::Value(_) => Err(PolarsError::ComputeError(
-                    "Group-By Error: Only positive number or expression are supported".into(),
-                )),
-                _ => parse_sql_expr(e),
-            })
+            )
             .collect::<Result<Vec<_>, PolarsError>>()?;
 
         let df = if group_by.is_empty() {
@@ -139,8 +131,8 @@ impl SQLContext {
             }
             // Default polars group by will have group by columns at the front
             // need some container to contain position of group by columns and its position
-            // at the final agg projection, check the schema for the existence of group by
-            // column and its projections columns, keeping the original index
+            // at the final agg projection, check the schema for the existence of group by column
+            // and its projections columns, keeping the original index
             let (exclude_expr, groupby_pos): (Vec<_>, Vec<_>) = group_by
                 .iter()
                 .map(|expr| raw_projection_before_alias.get(&format!("{expr:?}")))
@@ -167,8 +159,7 @@ impl SQLContext {
                 .map(|(_, shm_p)| {
                     col(agg_df
                         .clone()
-                        // FIXME: had to do this mess to get get_index to work, not sure why. need
-                        // help
+                        // FIXME: had to do this mess to get get_index to work, not sure why. need help
                         .collect()
                         .unwrap_or_default()
                         .schema()

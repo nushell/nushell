@@ -1,10 +1,10 @@
 use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
-use nu_protocol::{
-    ast::{Call, CellPath},
-    engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::ast::Call;
+use nu_protocol::ast::CellPath;
+use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 
@@ -57,14 +57,14 @@ impl Command for BytesReverse {
                 description: "Reverse bytes `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes reverse",
                 result: Some(Value::binary(
-                    vec![0xaa, 0xaa, 0xff, 0x1f],
+                    vec![0xAA, 0xAA, 0xFF, 0x1F],
                     Span::test_data(),
                 )),
             },
             Example {
                 description: "Reverse bytes `0x[FF AA AA]`",
                 example: "0x[FF AA AA] | bytes reverse",
-                result: Some(Value::binary(vec![0xaa, 0xaa, 0xff], Span::test_data())),
+                result: Some(Value::binary(vec![0xAA, 0xAA, 0xFF], Span::test_data())),
             },
         ]
     }
