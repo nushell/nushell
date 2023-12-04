@@ -17,7 +17,7 @@ use nu_protocol::{
         RecordItem,
     },
     engine::StateWorkingSet,
-    eval_const::{eval_constant, value_as_string},
+    eval_const::eval_constant,
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
@@ -2703,7 +2703,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     let head_expr = parse_value(working_set, *head_span, &SyntaxShape::Any);
 
     let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
-        Ok(val) => match value_as_string(val, head_expr.span) {
+        Ok(val) => match val.as_string() {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
                 working_set.error(err.wrap(working_set, span(spans)));
