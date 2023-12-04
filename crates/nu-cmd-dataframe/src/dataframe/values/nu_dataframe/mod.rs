@@ -288,7 +288,10 @@ impl NuDataFrame {
                 .collect::<Vec<String>>();
 
             let option = did_you_mean(&possibilities, column).unwrap_or_else(|| column.to_string());
-            ShellError::DidYouMean(option, span)
+            ShellError::DidYouMean {
+                suggestion: option,
+                span,
+            }
         })?;
 
         let df = DataFrame::new(vec![s.clone()]).map_err(|e| {
