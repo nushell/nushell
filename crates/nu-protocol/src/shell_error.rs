@@ -1064,7 +1064,10 @@ pub enum ShellError {
     /// Guard against negative values or check your inputs.
     #[error("Negative value passed when positive one is required")]
     #[diagnostic(code(nu::shell::needs_positive_value))]
-    NeedsPositiveValue(#[label = "use a positive value"] Span),
+    NeedsPositiveValue {
+        #[label("use a positive value")]
+        span: Span,
+    },
 
     /// This is a generic error type used for different situations.
     #[error("{0}")]

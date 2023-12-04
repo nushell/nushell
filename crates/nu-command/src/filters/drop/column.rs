@@ -50,7 +50,7 @@ impl Command for DropColumn {
 
         let columns = if let Some(columns) = columns {
             if columns.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(columns.span));
+                return Err(ShellError::NeedsPositiveValue { span: columns.span });
             } else {
                 columns.item as usize
             }
