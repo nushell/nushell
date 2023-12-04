@@ -40,7 +40,7 @@ impl Command for HistorySession {
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {

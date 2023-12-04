@@ -68,27 +68,27 @@ impl Command for History {
                 // TODO: FIXME also clear the auxiliary files when using sqlite
                 Ok(PipelineData::empty())
             } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> =
-                    match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => {
-                            SqliteBackedHistory::with_file(history_path, None)
-                                .map(|inner| {
-                                    let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                    boxed
-                                })
-                                .ok()
-                        }
-
-                        HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                            engine_state.config.max_history_size as usize,
-                            history_path,
-                        )
+                let history_reader: Option<Box<dyn ReedlineHistory>> = match engine_state
+                    .config
+                    .history_file_format
+                {
+                    HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path, None)
                         .map(|inner| {
                             let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
                             boxed
                         })
                         .ok(),
-                    };
+
+                    HistoryFileFormat::PlainText => FileBackedHistory::with_file(
+                        engine_state.config.max_history_size as usize,
+                        history_path,
+                    )
+                    .map(|inner| {
+                        let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                        boxed
+                    })
+                    .ok(),
+                };
 
                 match engine_state.config.history_file_format {
                     HistoryFileFormat::PlainText => Ok(history_reader
