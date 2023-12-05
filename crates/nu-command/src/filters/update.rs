@@ -144,6 +144,7 @@ fn update(
                             Err(e) => return Value::error(e, span),
                             Ok(v) => v,
                         };
+
                     let output = eval_block(
                         &engine_state,
                         &mut stack,

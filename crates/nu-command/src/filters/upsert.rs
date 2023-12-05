@@ -163,11 +163,17 @@ fn upsert(
                         }
                     }
 
+                    let input_at_path = input
+                        .clone()
+                        .follow_cell_path(&cell_path.members, false)
+                        .map(IntoPipelineData::into_pipeline_data)
+                        .unwrap_or(PipelineData::Empty);
+
                     let output = eval_block(
                         &engine_state,
                         &mut stack,
                         &block,
-                        input.clone().into_pipeline_data(),
+                        input_at_path,
                         redirect_stdout,
                         redirect_stderr,
                     );

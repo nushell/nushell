@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, ShellError,
+    Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -149,7 +149,7 @@ fn insert(
                         &engine_state,
                         &mut stack,
                         &block,
-                        input.clone().into_pipeline_data(),
+                        PipelineData::Empty,
                         redirect_stdout,
                         redirect_stderr,
                     );
