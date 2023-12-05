@@ -1,13 +1,13 @@
+use nu_ansi_term::{Color, Style};
 use nu_color_config::TextStyle;
-use nu_table::{Table, TableConfig, TableTheme};
-use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
+use nu_table::{NuTable, NuTableConfig, TableTheme};
+use tabled::grid::records::vec_records::CellInfo;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     let mut width = 0;
 
     if args.len() > 1 {
-        // Width in terminal characters
         width = args[1].parse::<usize>().expect("Need a width in columns");
     }
 
@@ -16,31 +16,29 @@ fn main() {
         width = 80;
     }
 
-    // The mocked up table data
     let (table_headers, row_data) = make_table_data();
 
-    // The table headers
-    let headers = vec_of_str_to_vec_of_styledstr(&table_headers, true);
+    let headers = to_cell_info_vec(&table_headers);
+    let rows = to_cell_info_vec(&row_data);
 
-    // The table rows
-    let rows = vec_of_str_to_vec_of_styledstr(&row_data, false);
-
-    // The table itself
-    let count_cols = std::cmp::max(rows.len(), headers.len());
     let mut rows = vec![rows; 3];
     rows.insert(0, headers);
 
-    let theme = TableTheme::rounded();
-    let table_cfg = TableConfig::new(theme, true, false, false);
+    let mut table = NuTable::from(rows);
 
-    let table = Table::new(rows, (3, count_cols));
+    table.set_data_style(TextStyle::basic_left());
+    table.set_header_style(TextStyle::basic_center().style(Style::new().on(Color::Blue)));
 
-    // Capture the table as a string
+    let table_cfg = NuTableConfig {
+        theme: TableTheme::rounded(),
+        with_header: true,
+        ..Default::default()
+    };
+
     let output_table = table
         .draw(table_cfg, width)
         .unwrap_or_else(|| format!("Couldn't fit table into {width} columns!"));
 
-    // Draw the table
     println!("{output_table}")
 }
 
@@ -82,24 +80,11 @@ fn make_table_data() -> (Vec<&'static str>, Vec<&'static str>) {
     (table_headers, row_data)
 }
 
-fn vec_of_str_to_vec_of_styledstr(
-    data: &[&str],
-    is_header: bool,
-) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
+fn to_cell_info_vec(data: &[&str]) -> Vec<CellInfo<String>> {
     let mut v = vec![];
-
     for x in data {
-        if is_header {
-            v.push(Table::create_cell(
-                String::from(*x),
-                TextStyle::default_header(),
-            ))
-        } else {
-            v.push(Table::create_cell(
-                String::from(*x),
-                TextStyle::basic_left(),
-            ))
-        }
+        v.push(CellInfo::new(String::from(*x)));
     }
+
     v
 }

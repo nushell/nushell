@@ -43,7 +43,7 @@ fn module_def_imports_5() -> TestResult {
 #[test]
 fn module_env_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1' } }; use foo; $env.a"#,
+        r#"module foo { export-env { $env.a = '1' } }; use foo; $env.a"#,
         "1",
     )
 }
@@ -51,7 +51,7 @@ fn module_env_imports_1() -> TestResult {
 #[test]
 fn module_env_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1'; let-env b = '2' } }; use foo; $env.b"#,
+        r#"module foo { export-env { $env.a = '1'; $env.b = '2' } }; use foo; $env.b"#,
         "2",
     )
 }
@@ -59,7 +59,7 @@ fn module_env_imports_2() -> TestResult {
 #[test]
 fn module_env_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export-env { let-env a = '1' }; export-env { let-env b = '2' }; export-env {let-env c = '3'} }; use foo; $env.c"#,
+        r#"module foo { export-env { $env.a = '1' }; export-env { $env.b = '2' }; export-env {$env.c = '3'} }; use foo; $env.c"#,
         "3",
     )
 }
@@ -67,7 +67,7 @@ fn module_env_imports_3() -> TestResult {
 #[test]
 fn module_def_and_env_imports_1() -> TestResult {
     run_test(
-        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam; $env.foo"#,
+        r#"module spam { export-env { $env.foo = "foo" }; export def foo [] { "bar" } }; use spam; $env.foo"#,
         "foo",
     )
 }
@@ -75,7 +75,7 @@ fn module_def_and_env_imports_1() -> TestResult {
 #[test]
 fn module_def_and_env_imports_2() -> TestResult {
     run_test(
-        r#"module spam { export-env { let-env foo = "foo" }; export def foo [] { "bar" } }; use spam foo; foo"#,
+        r#"module spam { export-env { $env.foo = "foo" }; export def foo [] { "bar" } }; use spam foo; foo"#,
         "bar",
     )
 }
@@ -91,7 +91,7 @@ fn module_def_import_uses_internal_command() -> TestResult {
 #[test]
 fn module_env_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { "2" }; export-env { let-env a = (b) }  }; use foo; $env.a"#,
+        r#"module foo { def b [] { "2" }; export-env { $env.a = (b) }  }; use foo; $env.a"#,
         "2",
     )
 }
@@ -109,5 +109,49 @@ fn export_alias() -> TestResult {
     run_test(
         r#"module foo { export alias hi = echo hello }; use foo hi; hi"#,
         "hello",
+    )
+}
+
+#[test]
+fn export_consts() -> TestResult {
+    run_test(
+        r#"module spam { export const b = 3; }; use spam b; $b"#,
+        "3",
+    )
+}
+
+#[test]
+fn func_use_consts() -> TestResult {
+    run_test(
+        r#"module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "3",
+    )
+}
+
+#[test]
+fn export_module_which_defined_const() -> TestResult {
+    run_test(
+        r#"module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "7",
+    )
+}
+
+#[test]
+fn cannot_export_private_const() -> TestResult {
+    fail_test(
+        r#"module spam { const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "cannot find column 'b'",
+    )
+}
+
+#[test]
+fn test_lexical_binding() -> TestResult {
+    run_test(
+        r#"module spam { const b = 3; export def c [] { $b } }; use spam c; const b = 4; c"#,
+        "3",
+    )?;
+    run_test(
+        r#"const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "3",
     )
 }

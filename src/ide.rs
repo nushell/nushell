@@ -1,13 +1,13 @@
 use miette::IntoDiagnostic;
 use nu_cli::NuCompleter;
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
-    DeclId, ShellError, Span, Value, VarId,
+    eval_const::create_nu_constant,
+    report_error, DeclId, ShellError, Span, Value, VarId, NU_VARIABLE_ID,
 };
 use reedline::Completer;
-use serde_json::json;
+use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -51,7 +51,7 @@ fn find_id(
 
 fn read_in_file<'a>(
     engine_state: &'a mut EngineState,
-    file_path: &String,
+    file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
     let file = std::fs::read(file_path)
         .into_diagnostic()
@@ -59,10 +59,10 @@ fn read_in_file<'a>(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::FileNotFoundCustom(
-                    format!("Could not read file '{}': {:?}", file_path, e.to_string()),
-                    Span::unknown(),
-                ),
+                &ShellError::FileNotFoundCustom {
+                    msg: format!("Could not read file '{}': {:?}", file_path, e.to_string()),
+                    span: Span::unknown(),
+                },
             );
             std::process::exit(1);
         });
@@ -74,9 +74,19 @@ fn read_in_file<'a>(
     (file, working_set)
 }
 
-pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Value) {
+pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+    let working_set = StateWorkingSet::new(engine_state);
+
+    let nu_const = match create_nu_constant(engine_state, Span::unknown()) {
+        Ok(nu_const) => nu_const,
+        Err(err) => {
+            report_error(&working_set, &err);
+            std::process::exit(1);
+        }
+    };
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     let mut working_set = StateWorkingSet::new(engine_state);
     let file = std::fs::read(file_path);
@@ -137,7 +147,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &String, max_errors: &Va
     }
 }
 
-pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn goto_def(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -191,7 +201,7 @@ pub fn goto_def(engine_state: &mut EngineState, file_path: &String, location: &V
     println!("{{}}");
 }
 
-pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Value) {
+pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) {
     let cwd = std::env::current_dir().expect("Could not get current working directory.");
     engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
@@ -504,7 +514,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
             FlatShape::MatchPattern => println!(
                 "{}",
                 json!({
-                    "hover": "match pattern",
+                    "hover": "match-pattern",
                     "span": {
                         "start": span.start - offset,
                         "end": span.end - offset
@@ -577,7 +587,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &String, location: &Valu
     }
 }
 
-pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location: &Value) {
+pub fn complete(engine_reference: Arc<EngineState>, file_path: &str, location: &Value) {
     let stack = Stack::new();
     let mut completer = NuCompleter::new(engine_reference, stack);
 
@@ -600,5 +610,61 @@ pub fn complete(engine_reference: Arc<EngineState>, file_path: &String, location
             print!("\"{}\"", result.value,)
         }
         println!("]}}");
+    }
+}
+
+pub fn ast(engine_state: &mut EngineState, file_path: &str) {
+    let cwd = std::env::current_dir().expect("Could not get current working directory.");
+    engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
+    let mut working_set = StateWorkingSet::new(engine_state);
+    let file = std::fs::read(file_path);
+
+    if let Ok(contents) = file {
+        let offset = working_set.next_span_start();
+        let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
+
+        let flat = flatten_block(&working_set, &parsed_block);
+        let mut json_val: JsonValue = json!([]);
+        for (span, shape) in flat {
+            let content = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+
+            let json = json!(
+                {
+                    "type": "ast",
+                    "span": {
+                        "start": span.start - offset,
+                        "end": span.end - offset,
+                    },
+                    "shape": shape.to_string(),
+                    "content": content // may not be necessary, but helpful for debugging
+                }
+            );
+            json_merge(&mut json_val, &json);
+        }
+        if let Ok(json_str) = serde_json::to_string(&json_val) {
+            println!("{json_str}");
+        } else {
+            println!("{{}}");
+        };
+    }
+}
+
+fn json_merge(a: &mut JsonValue, b: &JsonValue) {
+    match (a, b) {
+        (JsonValue::Object(ref mut a), JsonValue::Object(b)) => {
+            for (k, v) in b {
+                json_merge(a.entry(k).or_insert(JsonValue::Null), v);
+            }
+        }
+        (JsonValue::Array(ref mut a), JsonValue::Array(b)) => {
+            a.extend(b.clone());
+        }
+        (JsonValue::Array(ref mut a), JsonValue::Object(b)) => {
+            a.extend([JsonValue::Object(b.clone())]);
+        }
+        (a, b) => {
+            *a = b.clone();
+        }
     }
 }

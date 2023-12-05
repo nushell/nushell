@@ -60,8 +60,9 @@ impl Command for NuCheck {
                 None, vec![]));
         }
 
+        let span = input.span().unwrap_or(call.head);
         match input {
-            PipelineData::Value(Value::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, .. }, ..) => {
                 let contents = Vec::from(val);
                 if is_all {
                     heuristic_parse(&mut working_set, None, &contents, is_debug, call.head)
@@ -116,7 +117,9 @@ impl Command for NuCheck {
                             if let Some(path) = path {
                                 path
                             } else {
-                                return Err(ShellError::FileNotFound(path_str.span));
+                                return Err(ShellError::FileNotFound {
+                                    span: path_str.span,
+                                });
                             }
                         }
                         Err(error) => return Err(error),
@@ -186,17 +189,17 @@ impl Command for NuCheck {
             },
             Example {
                 description: "Parse a input file by showing error message",
-                example: "nu-check -d script.nu",
+                example: "nu-check --debug script.nu",
                 result: None,
             },
             Example {
                 description: "Parse an external stream as script by showing error message",
-                example: "open foo.nu | nu-check -d script.nu",
+                example: "open foo.nu | nu-check --debug script.nu",
                 result: None,
             },
             Example {
                 description: "Parse an internal stream as module by showing error message",
-                example: "open module.nu | lines | nu-check -d --as-module module.nu",
+                example: "open module.nu | lines | nu-check --debug --as-module module.nu",
                 result: None,
             },
             Example {
@@ -211,7 +214,7 @@ impl Command for NuCheck {
             },
             Example {
                 description: "Heuristically parse by showing error message",
-                example: "open foo.nu | lines | nu-check -ad",
+                example: "open foo.nu | lines | nu-check --all --debug",
                 result: None,
             },
         ]
@@ -246,7 +249,7 @@ fn heuristic_parse(
                             Vec::new(),
                         ))
                     } else {
-                        Ok(PipelineData::Value(Value::boolean(false, span), None))
+                        Ok(PipelineData::Value(Value::bool(false, span), None))
                     }
                 }
             }
@@ -291,14 +294,16 @@ fn heuristic_parse_file(
                                     Vec::new(),
                                 ))
                             } else {
-                                Ok(PipelineData::Value(Value::boolean(false, call.head), None))
+                                Ok(PipelineData::Value(Value::bool(false, call.head), None))
                             }
                         }
                     }
                 }
             }
         } else {
-            Err(ShellError::IOError("Can not read input".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read input".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -337,10 +342,10 @@ fn parse_module(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(Value::boolean(false, new_span), None))
+            Ok(PipelineData::Value(Value::bool(false, new_span), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::boolean(true, new_span), None))
+        Ok(PipelineData::Value(Value::bool(true, new_span), None))
     }
 }
 
@@ -370,10 +375,10 @@ fn parse_script(
                 Vec::new(),
             ))
         } else {
-            Ok(PipelineData::Value(Value::boolean(false, span), None))
+            Ok(PipelineData::Value(Value::bool(false, span), None))
         }
     } else {
-        Ok(PipelineData::Value(Value::boolean(true, span), None))
+        Ok(PipelineData::Value(Value::bool(true, span), None))
     }
 }
 
@@ -399,7 +404,9 @@ fn parse_file_script(
                 call.head,
             )
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -422,7 +429,9 @@ fn parse_file_module(
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })

@@ -35,13 +35,13 @@ fn to_column() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            r"
                 open sample2.txt
                 | lines
                 | str trim
-                | split column -r '\s*,\s*'
+                | split column --regex '\s*,\s*'
                 | get column2
-            "#
+            "
         ));
 
         assert!(actual.out.contains("shipper"));

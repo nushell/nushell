@@ -1,7 +1,101 @@
 use nu_test_support::fs::Stub::EmptyFile;
+use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+
+#[test]
+fn parses_file_with_uppercase_extension() {
+    Playground::setup("open_test_uppercase_extension", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "nu.zion.JSON",
+            r#"{
+                "glossary": {
+                    "GlossDiv": {
+                        "GlossList": {
+                            "GlossEntry": {
+                                "ID": "SGML"
+                            }
+                        }
+                    }
+                }
+            }"#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                open nu.zion.JSON
+                | get glossary.GlossDiv.GlossList.GlossEntry.ID
+            "#
+        ));
+
+        assert_eq!(actual.out, "SGML");
+    })
+}
+
+#[test]
+fn parses_file_with_multiple_extensions() {
+    Playground::setup("open_test_multiple_extensions", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            FileWithContent("file.tar.gz", "this is a tar.gz file"),
+            FileWithContent("file.tar.xz", "this is a tar.xz file"),
+        ]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from tar.gz" ;
+                hide "from gz" ;
+
+                def "from tar.gz" [] { 'opened tar.gz' } ;
+                def "from gz" [] { 'opened gz' } ;
+                open file.tar.gz
+            "#
+        ));
+
+        assert_eq!(actual.out, "opened tar.gz");
+
+        let actual2 = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from tar.xz" ;
+                hide "from xz" ;
+                hide "from tar" ;
+
+                def "from tar" [] { 'opened tar' } ;
+                def "from xz" [] { 'opened xz' } ;
+                open file.tar.xz
+            "#
+        ));
+
+        assert_eq!(actual2.out, "opened xz");
+    })
+}
+
+#[test]
+fn parses_dotfile() {
+    Playground::setup("open_test_dotfile", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            ".gitignore",
+            r#"
+              /target/
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                hide "from gitignore" ;
+
+                def "from gitignore" [] { 'opened gitignore' } ;
+                open .gitignore
+            "#
+        ));
+
+        assert_eq!(actual.out, "opened gitignore");
+    })
+}
 
 #[test]
 fn parses_csv() {
@@ -27,59 +121,6 @@ fn parses_csv() {
 
         assert_eq!(actual.out, "Ecuador");
     })
-}
-
-// sample.bson has the following format:
-// ━━━━━━━━━━┯━━━━━━━━━━━
-//  _id      │ root
-// ──────────┼───────────
-//  [object] │ [9 items]
-// ━━━━━━━━━━┷━━━━━━━━━━━
-//
-// the root value is:
-// ━━━┯━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━━━━━━━━━━━━━━━━┯━━━━━━━━━━┯━━━━━━━━━━
-//  # │ _id               │ a                       │ b        │ c
-// ───┼───────────────────┼─────────────────────────┼──────────┼──────────
-//  0 │ [object]          │       1.000000000000000 │ hello    │ [2 items]
-//  1 │ [object]          │       42.00000000000000 │ whel     │ hello
-//  2 │ [object]          │ [object]                │          │
-//  3 │ [object]          │                         │ [object] │
-//  4 │ [object]          │                         │          │ [object]
-//  5 │ [object]          │                         │          │ [object]
-//  6 │ [object]          │ [object]                │ [object] │
-//  7 │ [object]          │ <date value>            │ [object] │
-//  8 │ 1.000000          │ <decimal value>         │ [object] │
-//
-// The decimal value is supposed to be π, but is currently wrong due to
-// what appears to be an issue in the bson library that is under investigation.
-//
-
-#[cfg(feature = "bson")]
-#[test]
-fn parses_bson() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open sample.bson | get root | select 0 | get b"
-    );
-
-    assert_eq!(actual.out, "hello");
-}
-
-#[cfg(feature = "bson")]
-#[test]
-fn parses_more_bson_complexity() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
-        r#"
-            open sample.bson
-            | get root
-            | select 6
-            | get b
-            | get '$binary_subtype'
-        "#
-    ));
-
-    assert_eq!(actual.out, "function");
 }
 
 // sample.db has the following format:
@@ -113,11 +154,11 @@ fn parses_more_bson_complexity() {
 fn parses_sqlite() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample.db
             | columns
             | length
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "3");
@@ -128,11 +169,11 @@ fn parses_sqlite() {
 fn parses_sqlite_get_column_name() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sample.db
             | get strings
             | get x.0
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "hello");
@@ -152,11 +193,11 @@ fn parses_toml() {
 fn parses_tsv() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open caco3_plastics.tsv
             | first
             | get origin
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "SPAIN")
@@ -166,10 +207,10 @@ fn parses_tsv() {
 fn parses_json() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open sgml_description.json
             | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "markup")
@@ -179,7 +220,7 @@ fn parses_json() {
 fn parses_xml() {
     let actual = nu!(
         cwd: "tests/fixtures/formats",
-        pipeline(r#"
+        pipeline("
             open jt.xml
             | get content
             | where tag == channel
@@ -190,7 +231,7 @@ fn parses_xml() {
             | flatten
             | where tag == guid
             | get content.0.content.0
-        "#)
+        ")
     );
 
     assert_eq!(actual.out, "https://www.jntrnr.com/off-to-new-adventures/")
@@ -201,12 +242,12 @@ fn parses_xml() {
 fn parses_arrow_ipc() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             dfr open caco3_plastics.arrow
             | dfr into-nu
             | first
             | get origin
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "SPAIN")
@@ -222,7 +263,7 @@ fn errors_if_file_not_found() {
     //
     // This seems to be not directly affected by localization compared to the OS
     // provided error message
-    let expected = "not found";
+    let expected = "File not found";
 
     assert!(
         actual.err.contains(expected),
@@ -236,9 +277,9 @@ fn errors_if_file_not_found() {
 fn open_wildcard() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             open *.nu | where $it =~ echo | length
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "3")
@@ -248,9 +289,9 @@ fn open_wildcard() {
 fn open_multiple_files() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
         open caco3_plastics.csv caco3_plastics.tsv | get tariff_item | math sum
-        "#
+        "
     ));
 
     assert_eq!(actual.out, "58309279992")
@@ -280,9 +321,9 @@ fn open_ignore_ansi() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 ls | find nu.zion | get 0 | get name | open $in
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -291,12 +332,7 @@ fn open_ignore_ansi() {
 
 #[test]
 fn open_no_parameter() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        r#"
-            open
-        "#
-    );
+    let actual = nu!("open");
 
     assert!(actual.err.contains("needs filename"));
 }

@@ -35,15 +35,24 @@ fn to_row() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            r"
                 open sample2.txt
                 | lines
                 | str trim
                 | split row -r '\s*,\s*'
                 | length
-            "#
+            "
         ));
 
         assert!(actual.out.contains('5'));
+
+        let actual = nu!(r#"
+                def foo [a: list<string>] {
+                    $a | describe
+                }
+                foo (["a b", "c d"] | split row " ")
+            "#);
+
+        assert!(actual.out.contains("list<string>"));
     })
 }

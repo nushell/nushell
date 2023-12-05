@@ -30,6 +30,10 @@ impl Command for While {
             .category(Category::Core)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["loop"]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -86,7 +90,7 @@ impl Command for While {
                     return Err(ShellError::CantConvert {
                         to_type: "bool".into(),
                         from_type: x.get_type().to_string(),
-                        span: result.span()?,
+                        span: result.span(),
                         help: None,
                     })
                 }

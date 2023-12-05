@@ -91,5 +91,47 @@ fn nth_missing_first_argument() {
 fn fail_on_non_iterator() {
     let actual = nu!("1 | drop 50");
 
-    assert!(actual.err.contains("only_supports_this_input_type"));
+    assert!(actual.err.contains("command doesn't support"));
+}
+
+#[test]
+fn disjoint_columns_first_row_becomes_empty() {
+    let actual = nu!(pipeline(
+        "
+            [{a: 1}, {b: 2, c: 3}]
+            | drop column
+            | columns
+            | to nuon
+        "
+    ));
+
+    assert_eq!(actual.out, "[b, c]");
+}
+
+#[test]
+fn disjoint_columns() {
+    let actual = nu!(pipeline(
+        "
+            [{a: 1, b: 2}, {c: 3}]
+            | drop column
+            | columns
+            | to nuon
+        "
+    ));
+
+    assert_eq!(actual.out, "[a, c]");
+}
+
+#[test]
+fn record() {
+    let actual = nu!("{a: 1, b: 2} | drop column | to nuon");
+
+    assert_eq!(actual.out, "{a: 1}");
+}
+
+#[test]
+fn more_columns_than_record_has() {
+    let actual = nu!("{a: 1, b: 2} | drop column 3 | to nuon");
+
+    assert_eq!(actual.out, "{}");
 }

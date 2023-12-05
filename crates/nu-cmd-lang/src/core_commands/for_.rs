@@ -2,7 +2,8 @@ use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -91,11 +92,13 @@ impl Command for For {
                     stack.add_var(
                         var_id,
                         if numbered {
-                            Value::Record {
-                                cols: vec!["index".into(), "item".into()],
-                                vals: vec![Value::int(idx as i64, head), x],
-                                span: head,
-                            }
+                            Value::record(
+                                record! {
+                                    "index" => Value::int(idx as i64, head),
+                                    "item" => x,
+                                },
+                                head,
+                            )
                         } else {
                             x
                         },
@@ -135,11 +138,13 @@ impl Command for For {
                     stack.add_var(
                         var_id,
                         if numbered {
-                            Value::Record {
-                                cols: vec!["index".into(), "item".into()],
-                                vals: vec![Value::int(idx as i64, head), x],
-                                span: head,
-                            }
+                            Value::record(
+                                record! {
+                                    "index" => Value::int(idx as i64, head),
+                                    "item" => x,
+                                },
+                                head,
+                            )
                         } else {
                             x
                         },
@@ -194,7 +199,7 @@ impl Command for For {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Echo the square of each integer",
+                description: "Print the square of each integer",
                 example: "for x in [1 2 3] { print ($x * $x) }",
                 result: None,
             },
@@ -204,7 +209,7 @@ impl Command for For {
                 result: None,
             },
             Example {
-                description: "Number each item and echo a message",
+                description: "Number each item and print a message",
                 example:
                     "for $it in ['bob' 'fred'] --numbered { print $\"($it.index) is ($it.item)\" }",
                 result: None,

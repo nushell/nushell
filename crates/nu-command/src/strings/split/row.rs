@@ -16,8 +16,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split row")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    (Type::List(Box::new(Type::String))),
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .required(
                 "separator",
                 SyntaxShape::String,
@@ -38,7 +44,7 @@ impl Command for SubCommand {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["separate", "divide"]
+        vec!["separate", "divide", "regex"]
     }
 
     fn run(
@@ -56,54 +62,54 @@ impl Command for SubCommand {
             Example {
                 description: "Split a string into rows of char",
                 example: "'abc' | split row ''",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string(""),
                         Value::test_string("a"),
                         Value::test_string("b"),
                         Value::test_string("c"),
                         Value::test_string(""),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a string into rows by the specified separator",
                 example: "'a--b--c' | split row '--'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("a"),
                         Value::test_string("b"),
                         Value::test_string("c"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a string by '-'",
                 example: "'-a-b-c-' | split row '-'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string(""),
                         Value::test_string("a"),
                         Value::test_string("b"),
                         Value::test_string("c"),
                         Value::test_string(""),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Split a string by regex",
                 example: r"'a   b       c' | split row -r '\s+'",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("a"),
                         Value::test_string("b"),
                         Value::test_string("c"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -140,8 +146,14 @@ fn split_row(
 }
 
 fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Span) -> Vec<Value> {
-    match v.span() {
-        Ok(v_span) => {
+    let span = v.span();
+    match v {
+        Value::Error { error, .. } => {
+            vec![Value::error(*error.clone(), span)]
+        }
+        v => {
+            let v_span = v.span();
+
             if let Ok(s) = v.as_string() {
                 match max_split {
                     Some(max_split) => regex
@@ -154,18 +166,16 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                         .collect(),
                 }
             } else {
-                vec![Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                vec![Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: name,
                         src_span: v_span,
-                    }),
-                }]
+                    },
+                    name,
+                )]
             }
         }
-        Err(error) => vec![Value::Error {
-            error: Box::new(error),
-        }],
     }
 }
 

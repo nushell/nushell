@@ -117,8 +117,8 @@ is described below:
       a main command as well.  
       Use `export def` to make these names public to your users.
     * If your command is updating environment variables, you must use
-      `export def-env` (instead of `export def`) to define the subcommand,
-      `export-env {}` to initialize the environment variables and `let-env` to
+      `export def --env` (instead of `export def`) to define the subcommand,
+      `export-env {}` to initialize the environment variables and `$env.VAR = val` to
       update them. For an example of a custom command which modifies
       environment variables, see: `./crates/nu-std/lib/dirs.nu`.  
       For an example of a custom command which does *not* modify environment
@@ -204,7 +204,7 @@ More design guidelines:
 ### Useful Commands
 - Run all unit tests for the standard library:
   ```nushell
-  cargo run -- -c 'use std; NU_LOG_LEVEL=ERROR std run-tests'
+  cargo run -- -c 'use std testing; testing run-tests --path crates/nu-std'
   ```
   > **Note**  
   > this uses the debug version of NU interpreter from the same repo, which is
@@ -216,7 +216,7 @@ More design guidelines:
 - Run all tests for a specific test module, e.g,
   `crates/nu-std/tests/test_foo.nu`
   ```nushell
-  cargo run -- -c 'use std; NU_LOG_LEVEL=INFO std run-tests --module test_foo'
+  cargo run -- -c 'use std testing; testing run-tests --path crates/nu-std --module test_foo'
   ```
 - Run a custom command with additional logging (assuming you have instrumented
   the command with `log <level>`, as we recommend.)

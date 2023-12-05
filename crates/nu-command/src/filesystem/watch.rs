@@ -2,7 +2,13 @@ use std::path::PathBuf;
 use std::sync::mpsc::{channel, RecvTimeoutError};
 use std::time::Duration;
 
-use notify::{DebouncedEvent, RecommendedWatcher, RecursiveMode, Watcher};
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{
+        event::{DataChange, ModifyKind, RenameMode},
+        EventKind, RecursiveMode, Watcher,
+    },
+};
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
@@ -76,11 +82,11 @@ impl Command for Watch {
 
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
-            Err(e) => {
-                return Err(ShellError::DirectoryNotFound(
-                    path_arg.span,
-                    Some(format!("IO Error: {e:?}")),
-                ))
+            Err(_) => {
+                return Err(ShellError::DirectoryNotFound {
+                    dir: path_no_whitespace.to_string(),
+                    span: path_arg.span,
+                })
             }
         };
 
@@ -144,18 +150,21 @@ impl Command for Watch {
         let ctrlc_ref = &engine_state.ctrlc.clone();
         let (tx, rx) = channel();
 
-        let mut watcher: RecommendedWatcher = match Watcher::new(tx, debounce_duration) {
-            Ok(w) => w,
+        let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
+            Ok(d) => d,
             Err(e) => {
-                return Err(ShellError::IOError(format!(
-                    "Failed to create watcher: {e}"
-                )))
+                return Err(ShellError::IOError {
+                    msg: format!("Failed to create watcher: {e}"),
+                })
             }
         };
-
-        if let Err(e) = watcher.watch(path.clone(), recursive_mode) {
-            return Err(ShellError::IOError(format!("Failed to start watcher: {e}")));
+        if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
+            return Err(ShellError::IOError {
+                msg: format!("Failed to create watcher: {e}"),
+            });
         }
+        // need to cache to make sure that rename event works.
+        debouncer.cache().add_root(&path, recursive_mode);
 
         eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
 
@@ -204,7 +213,7 @@ impl Command for Watch {
                         engine_state,
                         stack,
                         &block,
-                        Value::Nothing { span: call.span() }.into_pipeline_data(),
+                        Value::nothing(call.span()).into_pipeline_data(),
                         call.redirect_stdout,
                         call.redirect_stderr,
                     );
@@ -225,35 +234,55 @@ impl Command for Watch {
 
         loop {
             match rx.recv_timeout(CHECK_CTRL_C_FREQUENCY) {
-                Ok(event) => {
+                Ok(Ok(events)) => {
                     if verbose {
-                        eprintln!("{event:?}");
+                        eprintln!("{events:?}");
                     }
-                    let handler_result = match event {
-                        DebouncedEvent::Create(path) => event_handler("Create", path, None),
-                        DebouncedEvent::Write(path) => event_handler("Write", path, None),
-                        DebouncedEvent::Remove(path) => event_handler("Remove", path, None),
-                        DebouncedEvent::Rename(path, new_path) => {
-                            event_handler("Rename", path, Some(new_path))
-                        }
-                        DebouncedEvent::Error(err, path) => match path {
-                            Some(path) => Err(ShellError::IOError(format!(
-                                "Error detected for {path:?}: {err:?}"
-                            ))),
-                            None => Err(ShellError::IOError(format!("Error detected: {err:?}"))),
-                        },
-                        // These are less likely to be interesting events
-                        DebouncedEvent::Chmod(_)
-                        | DebouncedEvent::NoticeRemove(_)
-                        | DebouncedEvent::NoticeWrite(_)
-                        | DebouncedEvent::Rescan => Ok(()),
-                    };
-                    handler_result?;
+                    for mut one_event in events {
+                        let handle_result = match one_event.event.kind {
+                            // only want to handle event if relative path exists.
+                            EventKind::Create(_) => one_event
+                                .paths
+                                .pop()
+                                .map(|path| event_handler("Create", path, None))
+                                .unwrap_or(Ok(())),
+                            EventKind::Remove(_) => one_event
+                                .paths
+                                .pop()
+                                .map(|path| event_handler("Remove", path, None))
+                                .unwrap_or(Ok(())),
+                            EventKind::Modify(ModifyKind::Data(DataChange::Content))
+                            | EventKind::Modify(ModifyKind::Data(DataChange::Any))
+                            | EventKind::Modify(ModifyKind::Any) => one_event
+                                .paths
+                                .pop()
+                                .map(|path| event_handler("Write", path, None))
+                                .unwrap_or(Ok(())),
+                            EventKind::Modify(ModifyKind::Name(RenameMode::Both)) => one_event
+                                .paths
+                                .pop()
+                                .map(|to| {
+                                    one_event
+                                        .paths
+                                        .pop()
+                                        .map(|from| event_handler("Rename", from, Some(to)))
+                                        .unwrap_or(Ok(()))
+                                })
+                                .unwrap_or(Ok(())),
+                            _ => Ok(()),
+                        };
+                        handle_result?;
+                    }
+                }
+                Ok(Err(_)) => {
+                    return Err(ShellError::IOError {
+                        msg: "Unexpected errors when receiving events".into(),
+                    })
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::IOError(
-                        "Unexpected disconnect from file watcher".into(),
-                    ));
+                    return Err(ShellError::IOError {
+                        msg: "Unexpected disconnect from file watcher".into(),
+                    });
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }
@@ -280,6 +309,11 @@ impl Command for Watch {
             Example {
                 description: "Log all changes in a directory",
                 example: r#"watch /foo/bar { |op, path| $"($op) - ($path)(char nl)" | save --append changes_in_bar.log }"#,
+                result: None,
+            },
+            Example {
+                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
+                example: r#"loop { command; sleep duration }"#,
                 result: None,
             },
         ]

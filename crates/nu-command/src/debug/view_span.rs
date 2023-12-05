@@ -42,7 +42,7 @@ impl Command for ViewSpan {
 
         if start_span.item < end_span.item {
             let bin_contents =
-                engine_state.get_span_contents(&Span::new(start_span.item, end_span.item));
+                engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
             Ok(
                 Value::string(String::from_utf8_lossy(bin_contents), call.head)
                     .into_pipeline_data(),
@@ -60,8 +60,8 @@ impl Command for ViewSpan {
 
     fn examples(&self) -> Vec<Example> {
         vec![Example {
-            description: "View the source of a span. 1 and 2 are just example values. Use the return of debug -r to get the actual values",
-            example: r#"some | pipeline | or | variable | debug -r; view span 1 2"#,
+            description: "View the source of a span. 1 and 2 are just example values. Use the return of debug --raw to get the actual values",
+            example: r#"some | pipeline | or | variable | debug --raw; view span 1 2"#,
             result: None,
         }]
     }

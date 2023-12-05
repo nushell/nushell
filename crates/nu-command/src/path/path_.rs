@@ -2,7 +2,7 @@ use nu_engine::get_full_help;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -14,7 +14,9 @@ impl Command for PathCommand {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("path").input_output_types(vec![(Type::Nothing, Type::String)])
+        Signature::build("path")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
@@ -45,16 +47,16 @@ the path literal."#
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: get_full_help(
+        Ok(Value::string(
+            get_full_help(
                 &PathCommand.signature(),
                 &PathCommand.examples(),
                 engine_state,
                 stack,
                 self.is_parser_keyword(),
             ),
-            span: call.head,
-        }
+            call.head,
+        )
         .into_pipeline_data())
     }
 }

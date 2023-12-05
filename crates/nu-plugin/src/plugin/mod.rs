@@ -8,7 +8,7 @@ use crate::EncodingType;
 use std::env;
 use std::fmt::Write;
 use std::io::{BufReader, ErrorKind, Read, Write as WriteTrait};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Child, ChildStdout, Command as CommandSys, Stdio};
 
 use nu_protocol::{CustomValue, PluginSignature, ShellError, Span, Value};
@@ -17,30 +17,38 @@ use super::EvaluatedCall;
 
 pub(crate) const OUTPUT_BUFFER_SIZE: usize = 8192;
 
+/// Encoding scheme that defines a plugin's communication protocol with Nu
 pub trait PluginEncoder: Clone {
+    /// The name of the encoder (e.g., `json`)
     fn name(&self) -> &str;
 
+    /// Serialize a `PluginCall` in the `PluginEncoder`s format
     fn encode_call(
         &self,
         plugin_call: &PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
+    /// Deserialize a `PluginCall` from the `PluginEncoder`s format
     fn decode_call(&self, reader: &mut impl std::io::BufRead) -> Result<PluginCall, ShellError>;
 
+    /// Serialize a `PluginResponse` from the plugin in this `PluginEncoder`'s preferred
+    /// format
     fn encode_response(
         &self,
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError>;
 
+    /// Deserialize a `PluginResponse` from the plugin from this `PluginEncoder`'s
+    /// preferred format
     fn decode_response(
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError>;
 }
 
-pub(crate) fn create_command(path: &Path, shell: &Option<PathBuf>) -> CommandSys {
+pub(crate) fn create_command(path: &Path, shell: Option<&Path>) -> CommandSys {
     let mut process = match (path.extension(), shell) {
         (_, Some(shell)) => {
             let mut process = std::process::Command::new(shell);
@@ -113,9 +121,10 @@ pub(crate) fn call_plugin(
     }
 }
 
+#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 pub fn get_signature(
     path: &Path,
-    shell: &Option<PathBuf>,
+    shell: Option<&Path>,
     current_envs: &HashMap<String, String>,
 ) -> Result<Vec<PluginSignature>, ShellError> {
     let mut plugin_cmd = create_command(path, shell);
@@ -137,17 +146,21 @@ pub fn get_signature(
             }
         };
 
-        ShellError::PluginFailedToLoad(error_msg)
+        ShellError::PluginFailedToLoad { msg: error_msg }
     })?;
 
     let mut stdin_writer = child
         .stdin
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("plugin missing stdin writer".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "plugin missing stdin writer".into(),
+        })?;
     let mut stdout_reader = child
         .stdout
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "Plugin missing stdout reader".into(),
+        })?;
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
 
     // Create message to plugin to indicate that signature is required and
@@ -168,21 +181,68 @@ pub fn get_signature(
     let signatures = match response {
         PluginResponse::Signature(sign) => Ok(sign),
         PluginResponse::Error(err) => Err(err.into()),
-        _ => Err(ShellError::PluginFailedToLoad(
-            "Plugin missing signature".into(),
-        )),
+        _ => Err(ShellError::PluginFailedToLoad {
+            msg: "Plugin missing signature".into(),
+        }),
     }?;
 
     match child.wait() {
         Ok(_) => Ok(signatures),
-        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{err}"))),
+        Err(err) => Err(ShellError::PluginFailedToLoad {
+            msg: format!("{err}"),
+        }),
     }
 }
 
-// The next trait and functions are part of the plugin that is being created
-// The `Plugin` trait defines the API which plugins use to "hook" into nushell.
+/// The basic API for a Nushell plugin
+///
+/// This is the trait that Nushell plugins must implement. The methods defined on
+/// `Plugin` are invoked by [serve_plugin] during plugin registration and execution.
+///
+/// # Examples
+/// Basic usage:
+/// ```
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Type, Value};
+/// struct HelloPlugin;
+///
+/// impl Plugin for HelloPlugin {
+///     fn signature(&self) -> Vec<PluginSignature> {
+///         let sig = PluginSignature::build("hello")
+///             .input_output_type(Type::Nothing, Type::String);
+///
+///         vec![sig]
+///     }
+///
+///     fn run(
+///         &mut self,
+///         name: &str,
+///         call: &EvaluatedCall,
+///         input: &Value,
+///     ) -> Result<Value, LabeledError> {
+///         Ok(Value::string("Hello, World!".to_owned(), call.head))
+///     }
+/// }
+/// ```
 pub trait Plugin {
+    /// The signature of the plugin
+    ///
+    /// This method returns the [PluginSignature]s that describe the capabilities
+    /// of this plugin. Since a single plugin executable can support multiple invocation
+    /// patterns we return a `Vec` of signatures.
     fn signature(&self) -> Vec<PluginSignature>;
+
+    /// Perform the actual behavior of the plugin
+    ///
+    /// The behavior of the plugin is defined by the implementation of this method.
+    /// When Nushell invoked the plugin [serve_plugin] will call this method and
+    /// print the serialized returned value or error to stdout, which Nushell will
+    /// interpret.
+    ///
+    /// The `name` is only relevant for plugins that implement multiple commands as the
+    /// invoked command will be passed in via this argument. The `call` contains
+    /// metadata describing how the plugin was invoked and `input` contains the structured
+    /// data passed to the command implemented by this [Plugin].
     fn run(
         &mut self,
         name: &str,
@@ -191,23 +251,30 @@ pub trait Plugin {
     ) -> Result<Value, LabeledError>;
 }
 
-// Function used in the plugin definition for the communication protocol between
-// nushell and the external plugin.
-// When creating a new plugin you have to use this function as the main
-// entry point for the plugin, e.g.
-//
-// fn main() {
-//    serve_plugin(plugin)
-// }
-//
-// where plugin is your struct that implements the Plugin trait
-//
-// Note. When defining a plugin in other language but Rust, you will have to compile
-// the plugin.capnp schema to create the object definitions that will be returned from
-// the plugin.
-// The object that is expected to be received by nushell is the PluginResponse struct.
-// That should be encoded correctly and sent to StdOut for nushell to decode and
-// and present its result
+/// Function used to implement the communication protocol between
+/// nushell and an external plugin.
+///
+/// When creating a new plugin this function is typically used as the main entry
+/// point for the plugin, e.g.
+///
+/// ```
+/// # use nu_plugin::*;
+/// # use nu_protocol::{PluginSignature, Value};
+/// # struct MyPlugin;
+/// # impl MyPlugin { fn new() -> Self { Self }}
+/// # impl Plugin for MyPlugin {
+/// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
+/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
+/// #         -> Result<Value, LabeledError> {todo!();}
+/// # }
+/// fn main() {
+///    serve_plugin(&mut MyPlugin::new(), MsgPackSerializer)
+/// }
+/// ```
+///
+/// The object that is expected to be received by nushell is the `PluginResponse` struct.
+/// The `serve_plugin` function should ensure that it is encoded correctly and sent
+/// to StdOut for nushell to decode and and present its result.
 pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
     if env::args().any(|arg| (arg == "-h") || (arg == "--help")) {
         print_help(plugin, encoder);
@@ -256,11 +323,12 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                         CallInput::Value(value) => Ok(value),
                         CallInput::Data(plugin_data) => {
                             bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                                .map(|custom_value| Value::CustomValue {
-                                    val: custom_value,
-                                    span: plugin_data.span,
+                                .map(|custom_value| {
+                                    Value::custom_value(custom_value, plugin_data.span)
                                 })
-                                .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                                .map_err(|err| ShellError::PluginFailedToDecode {
+                                    msg: err.to_string(),
+                                })
                         }
                     };
 
@@ -270,16 +338,24 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let response = match value {
-                        Ok(Value::CustomValue { val, span }) => match bincode::serialize(&val) {
-                            Ok(data) => {
-                                let name = val.value_string();
-                                PluginResponse::PluginData(name, PluginData { data, span })
+                        Ok(value) => {
+                            let span = value.span();
+                            match value {
+                                Value::CustomValue { val, .. } => match bincode::serialize(&val) {
+                                    Ok(data) => {
+                                        let name = val.value_string();
+                                        PluginResponse::PluginData(name, PluginData { data, span })
+                                    }
+                                    Err(err) => PluginResponse::Error(
+                                        ShellError::PluginFailedToEncode {
+                                            msg: err.to_string(),
+                                        }
+                                        .into(),
+                                    ),
+                                },
+                                value => PluginResponse::Value(Box::new(value)),
                             }
-                            Err(err) => PluginResponse::Error(
-                                ShellError::PluginFailedToEncode(err.to_string()).into(),
-                            ),
-                        },
-                        Ok(value) => PluginResponse::Value(Box::new(value)),
+                        }
                         Err(err) => PluginResponse::Error(err),
                     };
                     encoder
@@ -288,7 +364,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
                     let response = bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                        .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToDecode {
+                            msg: err.to_string(),
+                        })
                         .and_then(|val| val.to_base_value(plugin_data.span))
                         .map(Box::new)
                         .map_err(LabeledError::from)
@@ -320,7 +398,7 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
             })
             .and_then(|_| {
-                let flags = get_flags_section(&signature.sig);
+                let flags = get_flags_section(None, &signature.sig, |v| format!("{:#?}", v));
                 write!(help, "{flags}")
             })
             .and_then(|_| writeln!(help, "\nParameters:"))
@@ -373,19 +451,23 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
 
 pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
     let mut length_buf = [0u8; 1];
-    child_stdout.read_exact(&mut length_buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut length_buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     let mut buf = vec![0u8; length_buf[0] as usize];
-    child_stdout.read_exact(&mut buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     EncodingType::try_from_bytes(&buf).ok_or_else(|| {
         let encoding_for_debug = String::from_utf8_lossy(&buf);
-        ShellError::PluginFailedToLoad(format!(
-            "get unsupported plugin encoding: {encoding_for_debug}"
-        ))
+        ShellError::PluginFailedToLoad {
+            msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
+        }
     })
 }

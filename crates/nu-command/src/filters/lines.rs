@@ -23,11 +23,10 @@ impl Command for Lines {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("lines")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
+            .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::String)))])
             .switch("skip-empty", "skip empty lines", Some('s'))
             .category(Category::Filters)
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -42,12 +41,13 @@ impl Command for Lines {
         // match \r\n or \n
         static LINE_BREAK_REGEX: Lazy<Regex> =
             Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
+        let span = input.span().unwrap_or(call.head);
         match input {
             #[allow(clippy::needless_collect)]
             // Collect is needed because the string may not live long enough for
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
-            PipelineData::Value(Value::String { val, span }, ..) => {
+            PipelineData::Value(Value::String { val, .. }, ..) => {
                 let mut lines = LINE_BREAK_REGEX
                     .split(&val)
                     .map(|s| s.to_string())
@@ -76,7 +76,8 @@ impl Command for Lines {
                 let iter = stream
                     .into_iter()
                     .filter_map(move |value| {
-                        if let Value::String { val, span } = value {
+                        let span = value.span();
+                        if let Value::String { val, .. } = value {
                             let mut lines = LINE_BREAK_REGEX
                                 .split(&val)
                                 .filter_map(|s| {
@@ -96,11 +97,7 @@ impl Command for Lines {
                                 }
                             }
 
-                            Some(
-                                lines
-                                    .into_iter()
-                                    .map(move |x| Value::String { val: x, span }),
-                            )
+                            Some(lines.into_iter().map(move |x| Value::string(x, span)))
                         } else {
                             None
                         }
@@ -112,12 +109,12 @@ impl Command for Lines {
             PipelineData::Value(val, ..) => {
                 match val {
                     // Propagate existing errors
-                    Value::Error { error } => Err(*error),
+                    Value::Error { error, .. } => Err(*error),
                     _ => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "string or raw data".into(),
                         wrong_type: val.get_type().to_string(),
                         dst_span: head,
-                        src_span: val.expect_span(),
+                        src_span: val.span(),
                     }),
                 }
             }
@@ -129,9 +126,7 @@ impl Command for Lines {
                 .enumerate()
                 .map(move |(_idx, x)| match x {
                     Ok(x) => x,
-                    Err(err) => Value::Error {
-                        error: Box::new(err),
-                    },
+                    Err(err) => Value::error(err, head),
                 })
                 .into_pipeline_data(ctrlc)),
         }
@@ -141,10 +136,10 @@ impl Command for Lines {
         vec![Example {
             description: "Split multi-line string into lines",
             example: r#"$"two\nlines" | lines"#,
-            result: Some(Value::List {
-                vals: vec![Value::test_string("two"), Value::test_string("lines")],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::list(
+                vec![Value::test_string("two"), Value::test_string("lines")],
+                Span::test_data(),
+            )),
         }]
     }
 }
@@ -174,10 +169,7 @@ impl Iterator for RawStreamLinesAdapter {
                     continue;
                 }
 
-                return Some(Ok(Value::String {
-                    val: s,
-                    span: self.span,
-                }));
+                return Some(Ok(Value::string(s, self.span)));
             } else {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
@@ -197,9 +189,10 @@ impl Iterator for RawStreamLinesAdapter {
                 if let Some(result) = self.inner.next() {
                     match result {
                         Ok(v) => {
+                            let span = v.span();
                             match v {
                                 // TODO: Value::Binary support required?
-                                Value::String { val, span } => {
+                                Value::String { val, .. } => {
                                     self.span = span;
 
                                     let mut lines = LINE_BREAK_REGEX
@@ -234,18 +227,18 @@ impl Iterator for RawStreamLinesAdapter {
                                     self.queue.append(&mut lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
-                                Value::Error { error } => return Some(Err(*error)),
+                                Value::Error { error, .. } => return Some(Err(*error)),
                                 other => {
                                     return Some(Err(ShellError::OnlySupportsThisInputType {
                                         exp_input_type: "string".into(),
                                         wrong_type: other.get_type().to_string(),
                                         dst_span: self.span,
-                                        src_span: other.expect_span(),
+                                        src_span: other.span(),
                                     }));
                                 }
                             }
                         }
-                        Err(_) => todo!(),
+                        Err(err) => return Some(Err(err)),
                     }
                 } else {
                     self.inner_complete = true;

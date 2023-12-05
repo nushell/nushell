@@ -1,11 +1,16 @@
 pub mod support;
 
+use std::path::PathBuf;
+
 use nu_cli::NuCompleter;
 use nu_parser::parse;
 use nu_protocol::engine::StateWorkingSet;
 use reedline::{Completer, Suggestion};
 use rstest::{fixture, rstest};
-use support::{completions_helpers::new_quote_engine, file, folder, match_suggestions, new_engine};
+use support::{
+    completions_helpers::{new_partial_engine, new_quote_engine},
+    file, folder, match_suggestions, new_engine,
+};
 
 #[fixture]
 fn completer() -> NuCompleter {
@@ -47,6 +52,29 @@ fn extern_completer() -> NuCompleter {
             --foo (-f): string@animals
             -b: string@animals
         ]
+    "#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(std::sync::Arc::new(engine), stack)
+}
+
+#[fixture]
+fn custom_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Add record value as example
+    let record = r#"
+        let external_completer = {|spans| 
+            $spans
+        }
+
+        $env.config.completions.external = {
+            enable: true
+            max_results: 100
+            completer: $external_completer
+        }
     "#;
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
@@ -117,14 +145,14 @@ fn dotnu_completions() {
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
 }
 
 #[test]
@@ -136,30 +164,30 @@ fn external_completer_trailing_space() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
     assert_eq!("", suggestions.get(2).unwrap().value);
 }
 
 #[test]
 fn external_completer_no_trailing_space() {
-    let block = "let external_completer = {|spans| $spans}";
+    let block = "{|spans| $spans}";
     let input = "gh alias".to_string();
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(2, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
 }
 
 #[test]
 fn external_completer_pass_flags() {
-    let block = "let external_completer = {|spans| $spans}";
+    let block = "{|spans| $spans}";
     let input = "gh api --".to_string();
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("api", suggestions.get(1).unwrap().value);
     assert_eq!("--", suggestions.get(2).unwrap().value);
 }
@@ -196,6 +224,87 @@ fn file_completions() {
 
     // Create the expected values
     let expected_paths: Vec<String> = vec![file(dir.join("another").join("newfile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+}
+
+#[test]
+fn partial_completions() {
+    // Create a new engine
+    let (dir, _, engine, stack) = new_partial_engine();
+
+    // Instantiate a new completer
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+
+    // Test completions for a folder's name
+    let target_dir = format!("cd {}", file(dir.join("pa")));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        folder(dir.join("partial_a")),
+        folder(dir.join("partial_b")),
+        folder(dir.join("partial_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completions for the files whose name begin with "h"
+    // and are present under directories whose names begin with "pa"
+    let dir_str = file(dir.join("pa").join("h"));
+    let target_dir = format!("cp {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for all files under directories whose names begin with "pa"
+    let dir_str = folder(dir.join("pa"));
+    let target_dir = format!("ls {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![
+        file(dir.join("partial_a").join("anotherfile")),
+        file(dir.join("partial_a").join("hello")),
+        file(dir.join("partial_a").join("hola")),
+        file(dir.join("partial_b").join("hello_b")),
+        file(dir.join("partial_b").join("hi_b")),
+        file(dir.join("partial_c").join("hello_c")),
+    ];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion for a single file
+    let dir_str = file(dir.join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
+
+    // Match the results
+    match_suggestions(expected_paths, suggestions);
+
+    // Test completion where there is a sneaky `..` in the path
+    let dir_str = file(dir.join("par").join("..").join("fi").join("so"));
+    let target_dir = format!("rm {dir_str}");
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    // Create the expected values
+    let expected_paths: Vec<String> = vec![file(dir.join("final_partial").join("somefile"))];
 
     // Match the results
     match_suggestions(expected_paths, suggestions);
@@ -441,10 +550,26 @@ fn file_completion_quoted() {
     let suggestions = completer.complete(target_dir, target_dir.len());
 
     let expected_paths: Vec<String> = vec![
+        "`--help`".to_string(),
+        "`-42`".to_string(),
+        "`-inf`".to_string(),
+        "`4.2`".to_string(),
         "`te st.txt`".to_string(),
         "`te#st.txt`".to_string(),
         "`te'st.txt`".to_string(),
         "`te(st).txt`".to_string(),
+        format!("`{}`", folder("test dir".into())),
+    ];
+
+    match_suggestions(expected_paths, suggestions);
+
+    let dir: PathBuf = "test dir".into();
+    let target_dir = format!("open '{}'", folder(dir.clone()));
+    let suggestions = completer.complete(&target_dir, target_dir.len());
+
+    let expected_paths: Vec<String> = vec![
+        format!("`{}`", file(dir.join("double quote"))),
+        format!("`{}`", file(dir.join("single quote"))),
     ];
 
     match_suggestions(expected_paths, suggestions)
@@ -538,7 +663,7 @@ fn variables_completions() {
         "loginshell-path".into(),
         "os-info".into(),
         "pid".into(),
-        "scope".into(),
+        "plugin-path".into(),
         "startup-time".into(),
         "temp-path".into(),
     ];
@@ -553,6 +678,18 @@ fn variables_completions() {
 
     let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
 
+    // Match results
+    match_suggestions(expected, suggestions);
+
+    // Test completions for $nu.os-info
+    let suggestions = completer.complete("$nu.os-info.", 12);
+    assert_eq!(4, suggestions.len());
+    let expected: Vec<String> = vec![
+        "arch".into(),
+        "family".into(),
+        "kernel_version".into(),
+        "name".into(),
+    ];
     // Match results
     match_suggestions(expected, suggestions);
 
@@ -681,7 +818,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     // Change config adding the external completer
     let mut config = engine_state.get_config().clone();
     config.external_completer = Some(latest_block_id);
-    engine_state.set_config(&config);
+    engine_state.set_config(config);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
@@ -821,6 +958,34 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
 fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -", 6);
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_before_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo  bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_on_word_left_boundary(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_next_to_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 11);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar ", 12);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into(), "".into()];
     match_suggestions(expected, suggestions);
 }
 

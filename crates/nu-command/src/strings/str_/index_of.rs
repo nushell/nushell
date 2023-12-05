@@ -1,5 +1,6 @@
-use crate::input_handler::{operate, CmdArgument};
-use crate::{grapheme_flags, util};
+use crate::grapheme_flags;
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -12,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 struct Arguments {
     end: bool,
     substring: String,
-    range: Option<Range>,
+    range: Option<Spanned<Range>>,
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
 }
@@ -36,8 +37,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str index-of")
-            .input_output_types(vec![(Type::String, Type::Int)])
-            .vectorizes_over_list(true) // TODO: no test coverage
+            .input_output_types(vec![
+                (Type::String, Type::Int),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Int))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to find in the input")
             .switch(
                 "grapheme-clusters",
@@ -101,22 +107,22 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count length using grapheme clusters",
-                example: "'🇯🇵ほげ ふが ぴよ' | str index-of -g 'ふが'",
+                example: "'🇯🇵ほげ ふが ぴよ' | str index-of --grapheme-clusters 'ふが'",
                 result: Some(Value::test_int(4)),
             },
             Example {
                 description: "Returns index of string in input within a`rhs open range`",
-                example: " '.rb.rb' | str index-of '.rb' -r 1..",
+                example: " '.rb.rb' | str index-of '.rb' --range 1..",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 description: "Returns index of string in input within a lhs open range",
-                example: " '123456' | str index-of '6' -r ..4",
+                example: " '123456' | str index-of '6' --range ..4",
                 result: Some(Value::test_int(-1)),
             },
             Example {
                 description: "Returns index of string in input within a range",
-                example: " '123456' | str index-of '3' -r 1..4",
+                example: " '123456' | str index-of '3' --range 1..4",
                 result: Some(Value::test_int(2)),
             },
             Example {
@@ -141,7 +147,10 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
-            let (start_index, end_index) = if let Some(range) = range {
+            let mut range_span = head;
+            let (start_index, end_index) = if let Some(spanned_range) = range {
+                range_span = spanned_range.span;
+                let range = &spanned_range.item;
                 match util::process_range(range) {
                     Ok(r) => {
                         // `process_range()` returns `isize::MAX` if the range is open-ended,
@@ -155,14 +164,23 @@ fn action(
                     }
                     Err(processing_error) => {
                         let err = processing_error("could not find `index-of`", head);
-                        return Value::Error {
-                            error: Box::new(err),
-                        };
+                        return Value::error(err, head);
                     }
                 }
             } else {
                 (0usize, s.len())
             };
+
+            if s.get(start_index..end_index).is_none() {
+                return Value::error(
+                    ShellError::OutOfBounds {
+                        left_flank: start_index.to_string(),
+                        right_flank: end_index.to_string(),
+                        span: range_span,
+                    },
+                    head,
+                );
+            }
 
             // When the -e flag is present, search using rfind instead of find.s
             if let Some(result) = if *end {
@@ -191,14 +209,15 @@ fn action(
             }
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -254,24 +273,21 @@ mod tests {
     fn returns_index_of_next_substring() {
         let word = Value::test_string("Cargo.Cargo");
         let range = Range {
-            from: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Nothing {
-                span: Span::test_data(),
-            },
+            from: Value::int(1, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::nothing(Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
         };
 
         let options = Arguments {
             substring: String::from("Cargo"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -285,24 +301,21 @@ mod tests {
     fn index_does_not_exist_due_to_end_index() {
         let word = Value::test_string("Cargo.Banana");
         let range = Range {
-            from: Value::Nothing {
-                span: Span::test_data(),
-            },
+            from: Value::nothing(Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 5,
-                span: Span::test_data(),
-            },
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(5, Span::test_data()),
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
         };
 
         let options = Arguments {
             substring: String::from("Banana"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -316,25 +329,21 @@ mod tests {
     fn returns_index_of_nums_in_middle_due_to_index_limit_from_both_ends() {
         let word = Value::test_string("123123123");
         let range = Range {
-            from: Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 6,
-                span: Span::test_data(),
-            },
+            from: Value::int(2, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(6, Span::test_data()),
             inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
         };
 
         let options = Arguments {
             substring: String::from("123"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -348,25 +357,21 @@ mod tests {
     fn index_does_not_exists_due_to_strict_bounds() {
         let word = Value::test_string("123456");
         let range = Range {
-            from: Value::Int {
-                val: 2,
-                span: Span::test_data(),
-            },
-            incr: Value::Int {
-                val: 1,
-                span: Span::test_data(),
-            },
-            to: Value::Int {
-                val: 5,
-                span: Span::test_data(),
-            },
+            from: Value::int(2, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(5, Span::test_data()),
             inclusion: RangeInclusion::RightExclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
         };
 
         let options = Arguments {
             substring: String::from("1"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -378,10 +383,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             substring: String::from("ふが"),
@@ -394,5 +396,63 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(15));
+    }
+
+    #[test]
+    fn index_is_not_a_char_boundary() {
+        let word = Value::string(String::from("💛"), Span::test_data());
+
+        let range = Range {
+            from: Value::int(0, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(3, Span::test_data()),
+            inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::new(),
+
+            range: Some(spanned_range),
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert!(actual.is_error());
+    }
+
+    #[test]
+    fn index_is_out_of_bounds() {
+        let word = Value::string(String::from("hello"), Span::test_data());
+
+        let range = Range {
+            from: Value::int(-1, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(3, Span::test_data()),
+            inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::from("h"),
+
+            range: Some(spanned_range),
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert!(actual.is_error());
     }
 }

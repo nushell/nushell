@@ -1,24 +1,27 @@
 mod common;
 
 use nu_protocol::TrimStrategy;
-use nu_table::{Table, TableConfig, TableTheme as theme};
+use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
 
-use common::{_str, create_row, test_table, TestCase, VecCells};
+use common::{create_row, test_table, TestCase};
+use tabled::grid::records::vec_records::CellInfo;
 
 #[test]
-fn data_and_header_has_different_size() {
-    let table = Table::new(vec![create_row(3), create_row(5), create_row(5)], (3, 5));
+fn data_and_header_has_different_size_doesnt_work() {
+    let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
+    let cfg = NuTableConfig {
+        theme: theme::heavy(),
+        with_header: true,
+        ..Default::default()
+    };
 
-    let table = table.draw(
-        TableConfig::new(theme::heavy(), true, false, false),
-        usize::MAX,
-    );
+    let table = table.draw(cfg.clone(), usize::MAX);
 
     assert_eq!(
         table.as_deref(),
         Some(
             "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
              ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
              ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
              ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
@@ -26,12 +29,9 @@ fn data_and_header_has_different_size() {
         )
     );
 
-    let table = Table::new(vec![create_row(5), create_row(3), create_row(3)], (3, 5));
+    let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
 
-    let table = table.draw(
-        TableConfig::new(theme::heavy(), true, false, false),
-        usize::MAX,
-    );
+    let table = table.draw(cfg, usize::MAX);
 
     assert_eq!(
         table.as_deref(),
@@ -39,8 +39,8 @@ fn data_and_header_has_different_size() {
             "┏━━━┳━━━┳━━━┳━━━┳━━━┓\n\
              ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
              ┣━━━╋━━━╋━━━╋━━━╋━━━┫\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
-             ┃ 0 ┃ 1 ┃ 2 ┃   ┃   ┃\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
+             ┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃\n\
              ┗━━━┻━━━┻━━━┻━━━┻━━━┛"
         )
     );
@@ -48,38 +48,31 @@ fn data_and_header_has_different_size() {
 
 #[test]
 fn termwidth_too_small() {
-    let test_loop = |config: TableConfig| {
+    let test_loop = |config: NuTableConfig| {
         for i in 0..10 {
-            let table = Table::new(vec![create_row(3), create_row(3), create_row(5)], (3, 5));
+            let table = NuTable::from(vec![create_row(5), create_row(5), create_row(5)]);
             let table = table.draw(config.clone(), i);
 
             assert!(table.is_none());
         }
     };
 
-    let base_config = TableConfig::new(theme::heavy(), true, false, false);
+    let mut cfg = NuTableConfig {
+        theme: theme::heavy(),
+        with_header: true,
+        ..Default::default()
+    };
 
-    let config = base_config.clone();
-    test_loop(config);
-
-    let config = base_config.clone().trim(TrimStrategy::truncate(None));
-    test_loop(config);
-
-    let config = base_config
-        .clone()
-        .trim(TrimStrategy::truncate(Some(String::from("**"))));
-    test_loop(config);
-
-    let config = base_config
-        .clone()
-        .trim(TrimStrategy::truncate(Some(String::from(""))));
-    test_loop(config);
-
-    let config = base_config.clone().trim(TrimStrategy::wrap(false));
-    test_loop(config);
-
-    let config = base_config.trim(TrimStrategy::wrap(true));
-    test_loop(config);
+    for case in [
+        TrimStrategy::truncate(None),
+        TrimStrategy::truncate(Some(String::from("**"))),
+        TrimStrategy::truncate(Some(String::from(""))),
+        TrimStrategy::wrap(false),
+        TrimStrategy::wrap(true),
+    ] {
+        cfg.trim = case;
+        test_loop(cfg.clone());
+    }
 }
 
 #[test]
@@ -123,9 +116,9 @@ fn wrap_keep_words_test() {
         (10, None),
         (11, None),
         (12, Some("┏━━━━┳━━━━━┓\n┃ 12 ┃ ... ┃\n┃ 3  ┃     ┃\n┃ 45 ┃     ┃\n┃ 67 ┃     ┃\n┃ 8  ┃     ┃\n┣━━━━╋━━━━━┫\n┃ 0  ┃ ... ┃\n┃ 0  ┃ ... ┃\n┗━━━━┻━━━━━┛")),
-        (13, Some("┏━━━━━┳━━━━━┓\n┃ 123 ┃ ... ┃\n┃     ┃     ┃\n┃ 456 ┃     ┃\n┃ 78  ┃     ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
-        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃  w   ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
-        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃   123    ┃  qweqw   ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
+        (13, Some("┏━━━━━┳━━━━━┓\n┃ 123 ┃ ... ┃\n┃  45 ┃     ┃\n┃ 678 ┃     ┃\n┣━━━━━╋━━━━━┫\n┃ 0   ┃ ... ┃\n┃ 0   ┃ ... ┃\n┗━━━━━┻━━━━━┛")),
+        (21, Some("┏━━━━━━┳━━━━━━┳━━━━━┓\n┃ 123  ┃ qweq ┃ ... ┃\n┃ 4567 ┃ w    ┃     ┃\n┃ 8    ┃ eqwe ┃     ┃\n┣━━━━━━╋━━━━━━╋━━━━━┫\n┃ 0    ┃ 1    ┃ ... ┃\n┃ 0    ┃ 1    ┃ ... ┃\n┗━━━━━━┻━━━━━━┻━━━━━┛")),
+        (29, Some("┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━┓\n┃ 123      ┃ qweqw    ┃ ... ┃\n┃ 45678    ┃ eqwe     ┃     ┃\n┣━━━━━━━━━━╋━━━━━━━━━━╋━━━━━┫\n┃ 0        ┃ 1        ┃ ... ┃\n┃ 0        ┃ 1        ┃ ... ┃\n┗━━━━━━━━━━┻━━━━━━━━━━┻━━━━━┛")),
         (49, Some("┏━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━┓\n┃ 123 45678 ┃ qweqw eqwe ┃ xxx xx xx x xx ┃ ... ┃\n┃           ┃            ┃  x xx xx       ┃     ┃\n┣━━━━━━━━━━━╋━━━━━━━━━━━━╋━━━━━━━━━━━━━━━━╋━━━━━┫\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┃ 0         ┃ 1          ┃ 2              ┃ ... ┃\n┗━━━━━━━━━━━┻━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━┻━━━━━┛")),
     ];
 
@@ -185,9 +178,9 @@ fn truncate_with_suffix_test() {
 #[test]
 fn width_control_test_0() {
     let data = vec![
-        vec![_str("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"); 16],
-        vec![_str("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"); 16],
-        vec![_str("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"); 16],
+        vec![common::cell("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"); 16],
+        vec![common::cell("yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"); 16],
+        vec![common::cell("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"); 16],
     ];
 
     let tests = [
@@ -202,9 +195,13 @@ fn width_control_test_0() {
     test_width(data, &tests);
 }
 
-fn test_width(data: VecCells, tests: &[(usize, &str)]) {
-    let trim = TrimStrategy::truncate(Some(String::from("...")));
-    let config = TableConfig::new(nu_table::TableTheme::heavy(), true, false, false).trim(trim);
+fn test_width(data: Vec<Vec<CellInfo<String>>>, tests: &[(usize, &str)]) {
+    let config = NuTableConfig {
+        theme: theme::heavy(),
+        trim: TrimStrategy::truncate(Some(String::from("..."))),
+        with_header: true,
+        ..Default::default()
+    };
 
     let tests = tests.iter().map(|&(termwidth, expected)| {
         TestCase::new(config.clone(), termwidth, Some(expected.to_owned()))
@@ -214,24 +211,28 @@ fn test_width(data: VecCells, tests: &[(usize, &str)]) {
 }
 
 fn test_trim(tests: &[(usize, Option<&str>)], trim: TrimStrategy) {
-    let config = TableConfig::new(nu_table::TableTheme::heavy(), true, false, false).trim(trim);
+    let config = NuTableConfig {
+        theme: theme::heavy(),
+        with_header: true,
+        trim,
+        ..Default::default()
+    };
+
     let tests = tests.iter().map(|&(termwidth, expected)| {
         TestCase::new(config.clone(), termwidth, expected.map(|s| s.to_string()))
     });
 
-    let data = create_test_table0();
-
-    test_table(data, tests);
-}
-
-fn create_test_table0() -> VecCells {
-    let header = vec![
-        _str("123 45678"),
-        _str("qweqw eqwe"),
-        _str("xxx xx xx x xx x xx xx"),
-        _str("qqq qqq qqqq qqq qq"),
-        _str("qw"),
+    let data = vec![
+        vec![
+            common::cell("123 45678"),
+            common::cell("qweqw eqwe"),
+            common::cell("xxx xx xx x xx x xx xx"),
+            common::cell("qqq qqq qqqq qqq qq"),
+            common::cell("qw"),
+        ],
+        create_row(5),
+        create_row(5),
     ];
 
-    vec![header, create_row(5), create_row(5)]
+    test_table(data, tests);
 }

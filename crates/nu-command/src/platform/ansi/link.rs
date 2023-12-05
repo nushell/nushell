@@ -39,7 +39,6 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "for a data structure input, add links to all strings at the given cell paths",
             )
-            .vectorizes_over_list(true)
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -99,12 +98,12 @@ fn operate(
 
     if column_paths.is_empty() {
         input.map(
-            move |v| process_value(&v, &text, &command_span),
+            move |v| process_value(&v, text.as_deref()),
             engine_state.ctrlc.clone(),
         )
     } else {
         input.map(
-            move |v| process_each_path(v, &column_paths, &text, &command_span),
+            move |v| process_each_path(v, &column_paths, text.as_deref(), command_span),
             engine_state.ctrlc.clone(),
         )
     }
@@ -112,40 +111,37 @@ fn operate(
 
 fn process_each_path(
     mut value: Value,
-    column_paths: &Vec<CellPath>,
-    text: &Option<String>,
-    command_span: &Span,
+    column_paths: &[CellPath],
+    text: Option<&str>,
+    command_span: Span,
 ) -> Value {
     for path in column_paths {
-        let ret = value.update_cell_path(
-            &path.members,
-            Box::new(|v| process_value(v, text, command_span)),
-        );
+        let ret = value.update_cell_path(&path.members, Box::new(|v| process_value(v, text)));
         if let Err(error) = ret {
-            return Value::Error {
-                error: Box::new(error),
-            };
+            return Value::error(error, command_span);
         }
     }
     value
 }
 
-fn process_value(value: &Value, text: &Option<String>, command_span: &Span) -> Value {
+fn process_value(value: &Value, text: Option<&str>) -> Value {
+    let span = value.span();
     match value {
-        Value::String { val, span } => {
-            let text = text.as_deref().unwrap_or(val.as_str());
+        Value::String { val, .. } => {
+            let text = text.unwrap_or(val.as_str());
             let result = add_osc_link(text, val.as_str());
-            Value::string(result, *span)
+            Value::string(result, span)
         }
         other => {
             let got = format!("value is {}, not string", other.get_type());
 
-            Value::Error {
-                error: Box::new(ShellError::TypeMismatch {
+            Value::error(
+                ShellError::TypeMismatch {
                     err_message: got,
-                    span: other.span().unwrap_or(*command_span),
-                }),
-            }
+                    span: other.span(),
+                },
+                other.span(),
+            )
         }
     }
 }

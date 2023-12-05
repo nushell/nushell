@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use super::util::try_interaction;
+use nu_cmd_base::arg_glob;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -8,13 +9,6 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
-};
-
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
 };
 
 #[derive(Clone)]
@@ -53,6 +47,11 @@ impl Command for Mv {
             )
             .switch("force", "overwrite the destination.", Some('f'))
             .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("update", 
+                "move only when the SOURCE file is newer than the destination file(with -f) or when the destination file is missing",
+                Some('u')
+            )
+            // TODO: add back in additional features
             .category(Category::FileSystem)
     }
 
@@ -65,16 +64,11 @@ impl Command for Mv {
     ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let spanned_source = {
-            Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(spanned_source.item),
-                span: spanned_source.span,
-            }
-        };
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let force = call.has_flag("force");
+        let update_mode = call.has_flag("update");
 
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -82,17 +76,13 @@ impl Command for Mv {
         let source = path.join(spanned_source.item.as_str());
         let destination = path.join(spanned_destination.item.as_str());
 
-        let mut sources = nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS)
-            .map_or_else(|_| Vec::new(), Iterator::collect);
+        let mut sources =
+            arg_glob(&spanned_source, &path).map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "File(s) not found".into(),
-                "could not find any files matching this glob pattern".into(),
-                Some(spanned_source.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::FileNotFound {
+                span: spanned_source.span,
+            });
         }
 
         // We have two possibilities.
@@ -191,11 +181,10 @@ impl Command for Mv {
                         span: spanned_destination.span,
                     },
                     interactive,
+                    update_mode,
                 );
                 if let Err(error) = result {
-                    Some(Value::Error {
-                        error: Box::new(error),
-                    })
+                    Some(Value::error(error, spanned_source.span))
                 } else if verbose {
                     let val = match result {
                         Ok(true) => format!(
@@ -209,7 +198,7 @@ impl Command for Mv {
                             destination.to_string_lossy()
                         ),
                     };
-                    Some(Value::String { val, span })
+                    Some(Value::string(val, span))
                 } else {
                     None
                 }
@@ -244,6 +233,7 @@ fn move_file(
     spanned_from: Spanned<PathBuf>,
     spanned_to: Spanned<PathBuf>,
     interactive: bool,
+    update_mode: bool,
 ) -> Result<bool, ShellError> {
     let Spanned {
         item: from,
@@ -270,7 +260,10 @@ fn move_file(
     };
 
     if !destination_dir_exists {
-        return Err(ShellError::DirectoryNotFound(to_span, None));
+        return Err(ShellError::DirectoryNotFound {
+            dir: to.to_string_lossy().to_string(),
+            span: to_span,
+        });
     }
 
     // This can happen when changing case on a case-insensitive filesystem (ex: changing foo to Foo on Windows)
@@ -281,7 +274,12 @@ fn move_file(
     if !from_to_are_same_file && to.is_dir() {
         let from_file_name = match from.file_name() {
             Some(name) => name,
-            None => return Err(ShellError::DirectoryNotFound(to_span, None)),
+            None => {
+                return Err(ShellError::DirectoryNotFound {
+                    dir: from.to_string_lossy().to_string(),
+                    span: to_span,
+                })
+            }
         };
 
         to.push(from_file_name);
@@ -305,9 +303,13 @@ fn move_file(
         }
     }
 
-    match move_item(&from, from_span, &to) {
-        Ok(()) => Ok(true),
-        Err(e) => Err(e),
+    if update_mode && super::util::is_older(&from, &to).unwrap_or(false) {
+        Ok(false)
+    } else {
+        match move_item(&from, from_span, &to) {
+            Ok(()) => Ok(true),
+            Err(e) => Err(e),
+        }
     }
 }
 

@@ -29,84 +29,42 @@ const ALLOWED_COLUMNS: [&str; 4] = ["prefix", "parent", "stem", "extension"];
 #[cfg(not(windows))]
 const ALLOWED_COLUMNS: [&str; 3] = ["parent", "stem", "extension"];
 
-trait PathSubcommandArguments {
-    fn get_columns(&self) -> Option<Vec<String>>;
-}
+trait PathSubcommandArguments {}
 
 fn operate<F, A>(cmd: &F, args: &A, v: Value, name: Span) -> Value
 where
     F: Fn(&StdPath, Span, &A) -> Value + Send + Sync + 'static,
     A: PathSubcommandArguments + Send + Sync + 'static,
 {
+    let span = v.span();
     match v {
-        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
-        Value::Record { cols, vals, span } => {
-            let col = if let Some(col) = args.get_columns() {
-                col
-            } else {
-                vec![]
-            };
-            if col.is_empty() {
-                return Value::Error {
-                    error: Box::new(ShellError::UnsupportedInput(
-                        String::from("when the input is a table, you must specify the columns"),
-                        "value originates from here".into(),
-                        name,
-                        span,
-                    )),
-                };
-            }
-
-            let mut output_cols = vec![];
-            let mut output_vals = vec![];
-
-            for (k, v) in cols.iter().zip(vals) {
-                output_cols.push(k.clone());
-                if col.contains(k) {
-                    let new_val = match v {
-                        Value::String { val, span } => cmd(StdPath::new(&val), span, args),
-                        _ => return handle_invalid_values(v, name),
-                    };
-                    output_vals.push(new_val);
-                } else {
-                    output_vals.push(v);
-                }
-            }
-
-            Value::Record {
-                cols: output_cols,
-                vals: output_vals,
-                span,
-            }
-        }
+        Value::String { val, .. } => cmd(StdPath::new(&val), span, args),
         _ => handle_invalid_values(v, name),
     }
 }
 
 fn handle_invalid_values(rest: Value, name: Span) -> Value {
-    Value::Error {
-        error: Box::new(err_from_value(&rest, name)),
-    }
+    Value::error(err_from_value(&rest, name), name)
 }
 
 fn err_from_value(rest: &Value, name: Span) -> ShellError {
-    match rest.span() {
-        Ok(span) => {
+    match rest {
+        Value::Error { error, .. } => *error.clone(),
+        _ => {
             if rest.is_nothing() {
                 ShellError::OnlySupportsThisInputType {
                     exp_input_type: "string, record or list".into(),
                     wrong_type: "nothing".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             } else {
                 ShellError::PipelineMismatch {
                     exp_input_type: "string, row or list".into(),
                     dst_span: name,
-                    src_span: span,
+                    src_span: rest.span(),
                 }
             }
         }
-        Err(error) => error,
     }
 }

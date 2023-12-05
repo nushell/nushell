@@ -1,8 +1,8 @@
-use crate::input_handler::{operate as general_operate, CmdArgument};
 use base64::{
     alphabet, engine::general_purpose::NO_PAD, engine::general_purpose::PAD,
     engine::GeneralPurpose, Engine,
 };
+use nu_cmd_base::input_handler::{operate as general_operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::{Call, CellPath};
 use nu_protocol::engine::{EngineState, Stack};
@@ -90,8 +90,8 @@ fn action(
         "binhex" => GeneralPurpose::new(&alphabet::BIN_HEX, NO_PAD),
         "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
         "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
-        not_valid => return Value::Error { error:
-            Box::new(ShellError::GenericError(
+        not_valid => return Value::error (
+            ShellError::GenericError(
             "value is not an accepted character set".to_string(),
             format!(
                 "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
@@ -99,46 +99,44 @@ fn action(
             Some(config_character_set.span),
             None,
             Vec::new(),
-        ))}
+        ), config_character_set.span)
     };
+    let value_span = input.span();
     match input {
         // Propagate existing errors.
         Value::Error { .. } => input.clone(),
         Value::Binary { val, .. } => match base64_config.action_type {
             ActionType::Encode => {
-                let mut enc_vec = Vec::new();
-                enc_vec.resize(val.len() * 4 / 3 + 4, 0);
+                let mut enc_vec = vec![0; val.len() * 4 / 3 + 4];
                 let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
                     Ok(bytes_written) => bytes_written,
                     Err(err) => {
-                        return Value::Error {
-                            error: Box::new(ShellError::GenericError(
+                        return Value::error(
+                            ShellError::GenericError(
                                 "Error encoding data".into(),
                                 err.to_string(),
-                                Some(Span::unknown()),
+                                Some(value_span),
                                 None,
                                 Vec::new(),
-                            )),
-                        }
+                            ),
+                            value_span,
+                        )
                     }
                 };
                 enc_vec.truncate(bytes_written);
                 Value::string(std::str::from_utf8(&enc_vec).unwrap_or(""), command_span)
             }
-            ActionType::Decode => Value::Error {
-                error: Box::new(ShellError::UnsupportedInput(
-                    "Binary data can only be encoded".to_string(),
-                    "value originates from here".into(),
-                    command_span,
-                    // This line requires the Value::Error {} match above.
-                    input.expect_span(),
-                )),
-            },
+            ActionType::Decode => Value::error(
+                ShellError::UnsupportedInput {
+                    msg: "Binary data can only be encoded".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: command_span,
+                    input_span: input.span(),
+                },
+                command_span,
+            ),
         },
-        Value::String {
-            val,
-            span: value_span,
-        } => {
+        Value::String { val, .. } => {
             match base64_config.action_type {
                 ActionType::Encode => {
                     let mut enc_str = String::new();
@@ -158,21 +156,22 @@ fn action(
                             } else {
                                 match String::from_utf8(decoded_value) {
                                     Ok(string_value) => Value::string(string_value, command_span),
-                                    Err(e) => Value::Error {
-                                        error: Box::new(ShellError::GenericError(
+                                    Err(e) => Value::error(
+                                        ShellError::GenericError(
                                             "base64 payload isn't a valid utf-8 sequence"
                                                 .to_owned(),
                                             e.to_string(),
-                                            Some(*value_span),
+                                            Some(value_span),
                                             Some("consider using the `--binary` flag".to_owned()),
                                             Vec::new(),
-                                        )),
-                                    },
+                                        ),
+                                        value_span,
+                                    ),
                                 }
                             }
                         }
-                        Err(_) => Value::Error {
-                            error: Box::new(ShellError::GenericError(
+                        Err(_) => Value::error(
+                            ShellError::GenericError(
                                 "value could not be base64 decoded".to_string(),
                                 format!(
                                     "invalid base64 input for character set {}",
@@ -181,18 +180,20 @@ fn action(
                                 Some(command_span),
                                 None,
                                 Vec::new(),
-                            )),
-                        },
+                            ),
+                            command_span,
+                        ),
                     }
                 }
             }
         }
-        other => Value::Error {
-            error: Box::new(ShellError::TypeMismatch {
+        other => Value::error(
+            ShellError::TypeMismatch {
                 err_message: format!("string or binary, not {}", other.get_type()),
-                span: other.span().unwrap_or(command_span),
-            }),
-        },
+                span: other.span(),
+            },
+            other.span(),
+        ),
     }
 }
 
@@ -318,10 +319,7 @@ mod tests {
 
     #[test]
     fn base64_encode_binary() {
-        let word = Value::Binary {
-            val: vec![77, 97, 110],
-            span: Span::test_data(),
-        };
+        let word = Value::binary(vec![77, 97, 110], Span::test_data());
         let expected = Value::test_string("TWFu");
 
         let actual = action(
@@ -344,10 +342,7 @@ mod tests {
 
     #[test]
     fn base64_decode_binary_expect_error() {
-        let word = Value::Binary {
-            val: vec![77, 97, 110],
-            span: Span::test_data(),
-        };
+        let word = Value::binary(vec![77, 97, 110], Span::test_data());
 
         let actual = action(
             &word,

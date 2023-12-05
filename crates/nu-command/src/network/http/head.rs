@@ -94,12 +94,13 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Get headers from example.com, with username and password",
-                example: "http head -u myuser -p mypass https://www.example.com",
+                example: "http head --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
                 description: "Get headers from example.com, with custom header",
-                example: "http head -H [my-header-key my-header-value] https://www.example.com",
+                example:
+                    "http head --headers [my-header-key my-header-value] https://www.example.com",
                 result: None,
             },
         ]
@@ -131,20 +132,22 @@ fn run_head(
     };
     let ctrl_c = engine_state.ctrlc.clone();
 
-    helper(call, args, ctrl_c)
+    helper(engine_state, stack, call, args, ctrl_c)
 }
 
 // Helper function that actually goes to retrieve the resource from the url given
 // The Option<String> return a possible file extension which can be used in AutoConvert commands
 fn helper(
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     args: Arguments,
     ctrlc: Option<Arc<AtomicBool>>,
 ) -> Result<PipelineData, ShellError> {
-    let span = args.url.span()?;
+    let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.head(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

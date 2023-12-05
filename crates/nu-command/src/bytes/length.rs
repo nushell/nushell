@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -16,8 +16,16 @@ impl Command for BytesLen {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes length")
-            .input_output_types(vec![(Type::Binary, Type::Int)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Binary, Type::Int),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Int)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -56,31 +64,30 @@ impl Command for BytesLen {
             Example {
                 description: "Return the lengths of multiple binaries",
                 example: "[0x[1F FF AA AB] 0x[1F]] | bytes length",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(4), Value::test_int(1)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_int(4), Value::test_int(1)],
+                    Span::test_data(),
+                )),
             },
         ]
     }
 }
 
 fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => Value::int(val.len() as i64, *val_span),
+        Value::Binary { val, .. } => Value::int(val.len() as i64, val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

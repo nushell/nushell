@@ -89,7 +89,7 @@ impl CommandCompletion {
         let filter_predicate = |command: &[u8]| match_algorithm.matches_u8(command, partial);
 
         let mut results = working_set
-            .find_commands_by_predicate(filter_predicate)
+            .find_commands_by_predicate(filter_predicate, true)
             .into_iter()
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
@@ -205,10 +205,7 @@ impl Completer for CommandCompletion {
             vec![]
         };
 
-        subcommands
-            .into_iter()
-            .chain(commands.into_iter())
-            .collect::<Vec<_>>()
+        subcommands.into_iter().chain(commands).collect::<Vec<_>>()
     }
 
     fn get_sort_by(&self) -> SortBy {
@@ -237,7 +234,7 @@ pub fn is_passthrough_command(working_set_file_contents: &[(Vec<u8>, usize, usiz
         let cur_pos = find_non_whitespace_index(contents, last_pipe_pos);
 
         let result = match contents.get(cur_pos..) {
-            Some(contents) => contents.starts_with(b"sudo "),
+            Some(contents) => contents.starts_with(b"sudo ") || contents.starts_with(b"doas "),
             None => false,
         };
         if result {
@@ -266,7 +263,7 @@ mod command_completions_tests {
             ("	hello sud", 1),
         ];
         for (idx, ele) in commands.iter().enumerate() {
-            let index = find_non_whitespace_index(&Vec::from(ele.0.as_bytes()), 0);
+            let index = find_non_whitespace_index(ele.0.as_bytes(), 0);
             assert_eq!(index, ele.1, "Failed on index {}", idx);
         }
     }

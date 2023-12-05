@@ -50,5 +50,33 @@ fn returns_type_of_existing_directory() {
         ));
 
         assert_eq!(actual.out, "file");
+
+        let actual = nu!(pipeline(
+            r#"
+                echo "~"
+                | path type
+            "#
+        ));
+
+        assert_eq!(actual.out, "dir");
+    })
+}
+
+#[test]
+fn returns_type_of_existing_file_const() {
+    Playground::setup("path_type_const", |dirs, sandbox| {
+        sandbox
+            .within("menu")
+            .with_files(vec![EmptyFile("spam.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            r#"
+                const ty = ("menu" | path type);
+                $ty
+            "#
+        ));
+
+        assert_eq!(actual.out, "dir");
     })
 }

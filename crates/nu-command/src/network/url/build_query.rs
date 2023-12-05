@@ -64,47 +64,46 @@ impl Command for SubCommand {
 fn to_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
     let output: Result<String, ShellError> = input
         .into_iter()
-        .map(move |value| match value {
-            Value::Record {
-                ref cols,
-                ref vals,
-                span,
-            } => {
-                let mut row_vec = vec![];
-                for (k, v) in cols.iter().zip(vals.iter()) {
-                    match v.as_string() {
-                        Ok(s) => {
-                            row_vec.push((k.clone(), s.to_string()));
-                        }
-                        _ => {
-                            return Err(ShellError::UnsupportedInput(
-                                "Expected a record with string values".to_string(),
-                                "value originates from here".into(),
-                                head,
-                                span,
-                            ));
+        .map(move |value| {
+            let span = value.span();
+            match value {
+                Value::Record { ref val, .. } => {
+                    let mut row_vec = vec![];
+                    for (k, v) in val {
+                        match v.as_string() {
+                            Ok(s) => {
+                                row_vec.push((k.clone(), s.to_string()));
+                            }
+                            _ => {
+                                return Err(ShellError::UnsupportedInput {
+                                    msg: "Expected a record with string values".to_string(),
+                                    input: "value originates from here".into(),
+                                    msg_span: head,
+                                    input_span: span,
+                                });
+                            }
                         }
                     }
-                }
 
-                match serde_urlencoded::to_string(row_vec) {
-                    Ok(s) => Ok(s),
-                    _ => Err(ShellError::CantConvert {
-                        to_type: "URL".into(),
-                        from_type: value.get_type().to_string(),
-                        span: head,
-                        help: None,
-                    }),
+                    match serde_urlencoded::to_string(row_vec) {
+                        Ok(s) => Ok(s),
+                        _ => Err(ShellError::CantConvert {
+                            to_type: "URL".into(),
+                            from_type: value.get_type().to_string(),
+                            span: head,
+                            help: None,
+                        }),
+                    }
                 }
+                // Propagate existing errors
+                Value::Error { error, .. } => Err(*error),
+                other => Err(ShellError::UnsupportedInput {
+                    msg: "Expected a table from pipeline".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: head,
+                    input_span: other.span(),
+                }),
             }
-            // Propagate existing errors
-            Value::Error { error } => Err(*error),
-            other => Err(ShellError::UnsupportedInput(
-                "Expected a table from pipeline".to_string(),
-                "value originates from here".into(),
-                head,
-                other.expect_span(),
-            )),
         })
         .collect();
 

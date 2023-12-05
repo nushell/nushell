@@ -1,6 +1,7 @@
 use nu_ansi_term::*;
 use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::{
     ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
@@ -115,21 +116,21 @@ static CODE_LIST: Lazy<Vec<AnsiCode>> = Lazy::new(|| { vec![
     AnsiCode{ short_name: Some("lpr"), long_name: "light_purple_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
     AnsiCode{ short_name: Some("bg_lp"), long_name: "bg_light_purple", code: Style::new().on(Color::LightPurple).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Purple.prefix().to_string()},
-    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Purple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Purple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Purple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Purple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Purple.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Purple).prefix().to_string()},
+    AnsiCode{ short_name: Some("m"), long_name: "magenta", code: Color::Magenta.prefix().to_string()},
+    AnsiCode{ short_name: Some("mb"), long_name: "magenta_bold", code: Color::Magenta.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("mu"), long_name: "magenta_underline", code: Color::Magenta.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("mi"), long_name: "magenta_italic", code: Color::Magenta.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("md"), long_name: "magenta_dimmed", code: Color::Magenta.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("mr"), long_name: "magenta_reverse", code: Color::Magenta.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_m"), long_name: "bg_magenta", code: Style::new().on(Color::Magenta).prefix().to_string()},
 
-    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightPurple.prefix().to_string()},
-    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightPurple.bold().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightPurple.underline().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightPurple.italic().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightPurple.dimmed().prefix().to_string()},
-    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightPurple.reverse().prefix().to_string()},
-    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightPurple).prefix().to_string()},
+    AnsiCode{ short_name: Some("lm"), long_name: "light_magenta", code: Color::LightMagenta.prefix().to_string()},
+    AnsiCode{ short_name: Some("lmb"), long_name: "light_magenta_bold", code: Color::LightMagenta.bold().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmu"), long_name: "light_magenta_underline", code: Color::LightMagenta.underline().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmi"), long_name: "light_magenta_italic", code: Color::LightMagenta.italic().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmd"), long_name: "light_magenta_dimmed", code: Color::LightMagenta.dimmed().prefix().to_string()},
+    AnsiCode{ short_name: Some("lmr"), long_name: "light_magenta_reverse", code: Color::LightMagenta.reverse().prefix().to_string()},
+    AnsiCode{ short_name: Some("bg_lm"), long_name: "bg_light_magenta", code: Style::new().on(Color::LightMagenta).prefix().to_string()},
 
     AnsiCode{ short_name: Some("c"), long_name: "cyan", code: Color::Cyan.prefix().to_string()},
     AnsiCode{ short_name: Some("cb"), long_name: "cyan_bold", code: Color::Cyan.bold().prefix().to_string()},
@@ -507,7 +508,9 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
-            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::String),
+                (Type::Nothing, Type::Table(vec![]))])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -515,15 +518,16 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                r#"escape sequence without the escape character(s) ('\x1b[' is not required)"#,
+                r"escape sequence without the escape character(s) ('\x1b[' is not required)",
                 Some('e'),
             )
             .switch(
                 "osc", // \x1b]
-                r#"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)"#,
+                r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
+            .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
 
@@ -545,6 +549,7 @@ Escape sequences usual values:
 │  3 │ foreground │     33 │     93 │ yellow  │
 │  4 │ foreground │     34 │     94 │ blue    │
 │  5 │ foreground │     35 │     95 │ magenta │
+│  5 │ foreground │     35 │     95 │ purple  │
 │  6 │ foreground │     36 │     96 │ cyan    │
 │  7 │ foreground │     37 │     97 │ white   │
 │  8 │ foreground │     39 │        │ default │
@@ -554,6 +559,7 @@ Escape sequences usual values:
 │ 12 │ background │     43 │    103 │ yellow  │
 │ 13 │ background │     44 │    104 │ blue    │
 │ 14 │ background │     45 │    105 │ magenta │
+│ 14 │ background │     45 │    105 │ purple  │
 │ 15 │ background │     46 │    106 │ cyan    │
 │ 16 │ background │     47 │    107 │ white   │
 │ 17 │ background │     49 │        │ default │
@@ -618,7 +624,7 @@ Operating system commands:
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
-                example: r#"$"(ansi -e '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
+                example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
@@ -628,7 +634,7 @@ Operating system commands:
         bg: '#ff0000'
         attr: b
     }
-    $"(ansi -e $bold_blue_on_red)Hello Nu World(ansi reset)""#,
+    $"(ansi --escape $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
@@ -669,7 +675,7 @@ Operating system commands:
             }
         };
 
-        let param_is_string = matches!(code, Value::String { val: _, span: _ });
+        let param_is_string = matches!(code, Value::String { .. });
 
         if escape && osc {
             return Err(ShellError::IncompatibleParameters {
@@ -697,12 +703,14 @@ Operating system commands:
         if (escape || osc) && (param_is_valid_string) {
             let code_vec: Vec<char> = code_string.chars().collect();
             if code_vec[0] == '\\' {
+                let span = match call.get_flag_expr("escape") {
+                    Some(expr) => expr.span,
+                    None => call.head,
+                };
+
                 return Err(ShellError::TypeMismatch {
                     err_message: "no need for escape characters".into(),
-                    span: call
-                        .get_flag_expr("escape")
-                        .expect("Unexpected missing argument")
-                        .span,
+                    span,
                 });
             }
         }
@@ -727,7 +735,7 @@ Operating system commands:
                         return Err(ShellError::GenericError(
                             "error parsing hex color".to_string(),
                             format!("{err}"),
-                            Some(code.span()?),
+                            Some(code.span()),
                             None,
                             Vec::new(),
                         ));
@@ -758,7 +766,7 @@ Operating system commands:
                 attr: None,
             };
             // Iterate and populate NuStyle with real values
-            for (k, v) in record.0.iter().zip(record.1) {
+            for (k, v) in record {
                 match k.as_str() {
                     "fg" => nu_style.fg = Some(v.as_string()?),
                     "bg" => nu_style.bg = Some(v.as_string()?),
@@ -766,7 +774,7 @@ Operating system commands:
                     _ => {
                         return Err(ShellError::IncompatibleParametersSingle {
                             msg: format!("unknown ANSI format key: expected one of ['fg', 'bg', 'attr'], found '{k}'"),
-                            span: code.expect_span(),
+                            span: code.span(),
                         })
                     }
                 }
@@ -794,17 +802,7 @@ fn generate_ansi_code_list(
         .iter()
         .enumerate()
         .map(move |(i, ansi_code)| {
-            let cols = if use_ansi_coloring {
-                vec![
-                    "name".into(),
-                    "preview".into(),
-                    "short name".into(),
-                    "code".into(),
-                ]
-            } else {
-                vec!["name".into(), "short name".into(), "code".into()]
-            };
-            let name: Value = Value::string(String::from(ansi_code.long_name), call_span);
+            let name = Value::string(ansi_code.long_name, call_span);
             let short_name = Value::string(ansi_code.short_name.unwrap_or(""), call_span);
             // The first 102 items in the ansi array are colors
             let preview = if i < 389 {
@@ -812,18 +810,24 @@ fn generate_ansi_code_list(
             } else {
                 Value::string("\u{1b}[0m", call_span)
             };
-            let code_string = String::from(&ansi_code.code.replace('\u{1b}', "\\e"));
-            let code = Value::string(code_string, call_span);
-            let vals = if use_ansi_coloring {
-                vec![name, preview, short_name, code]
+            let code = Value::string(ansi_code.code.replace('\u{1b}', "\\e"), call_span);
+
+            let record = if use_ansi_coloring {
+                record! {
+                    "name" => name,
+                    "preview" => preview,
+                    "short name" => short_name,
+                    "code" => code,
+                }
             } else {
-                vec![name, short_name, code]
+                record! {
+                    "name" => name,
+                    "short name" => short_name,
+                    "code" => code,
+                }
             };
-            Value::Record {
-                cols,
-                vals,
-                span: call_span,
-            }
+
+            Value::record(record, call_span)
         })
         .into_pipeline_data(engine_state.ctrlc.clone()));
 }

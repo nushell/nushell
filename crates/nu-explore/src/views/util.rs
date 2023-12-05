@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use nu_color_config::{Alignment, StyleComputer};
 use nu_protocol::{ShellError, Value};
 use nu_table::{string_width, TextStyle};
-use tui::{
+use ratatui::{
     buffer::Buffer,
     style::{Color, Modifier, Style},
     text::Span,
@@ -33,8 +33,13 @@ pub fn set_span(
     text_width as u16
 }
 
-pub fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
-    let mut out = tui::style::Style::default();
+pub fn lookup_tui_color(style_computer: &StyleComputer, key: &str) -> Style {
+    let nu_style = style_computer.compute(key, &Value::nothing(nu_protocol::Span::unknown()));
+    nu_style_to_tui(nu_style)
+}
+
+pub fn nu_style_to_tui(style: NuStyle) -> ratatui::style::Style {
+    let mut out = ratatui::style::Style::default();
     if let Some(clr) = style.background {
         out.bg = nu_ansi_color_to_tui_color(clr);
     }
@@ -74,7 +79,7 @@ pub fn nu_style_to_tui(style: NuStyle) -> tui::style::Style {
     out
 }
 
-pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
+pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<ratatui::style::Color> {
     use NuColor::*;
 
     let clr = match clr {
@@ -94,7 +99,7 @@ pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
         LightCyan => Color::LightCyan,
         White => Color::White,
         Fixed(i) => Color::Indexed(i),
-        Rgb(r, g, b) => tui::style::Color::Rgb(r, g, b),
+        Rgb(r, g, b) => ratatui::style::Color::Rgb(r, g, b),
         LightGray => Color::Gray,
         LightPurple => Color::LightMagenta,
         Purple => Color::Magenta,
@@ -104,8 +109,8 @@ pub fn nu_ansi_color_to_tui_color(clr: NuColor) -> Option<tui::style::Color> {
     Some(clr)
 }
 
-pub fn text_style_to_tui_style(style: TextStyle) -> tui::style::Style {
-    let mut out = tui::style::Style::default();
+pub fn text_style_to_tui_style(style: TextStyle) -> ratatui::style::Style {
+    let mut out = ratatui::style::Style::default();
     if let Some(style) = style.color_style {
         out = nu_style_to_tui(style);
     }

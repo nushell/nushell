@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -28,7 +28,11 @@ impl Command for BytesEndsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes ends-with")
-            .input_output_types(vec![(Type::Binary, Type::Bool)])
+            .input_output_types(vec![(Type::Binary, Type::Bool),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
@@ -85,21 +89,20 @@ impl Command for BytesEndsWith {
 }
 
 fn ends_with(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => Value::boolean(val.ends_with(&args.pattern), *val_span),
+        Value::Binary { val, .. } => Value::bool(val.ends_with(&args.pattern), val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

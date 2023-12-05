@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code, pipeline};
 use pretty_assertions::assert_eq;
@@ -12,8 +12,7 @@ mod pipeline;
 #[ignore]
 #[test]
 fn plugins_are_declared_with_wix() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             open Cargo.toml
             | get bin.name
@@ -68,14 +67,14 @@ fn nu_lib_dirs_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source-env foo.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
+            "source-env foo.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -93,20 +92,20 @@ fn nu_lib_dirs_script() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     source-env foo.nu
-                "#,
+                ",
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ ('scripts' | path expand) ]"#,
-            r#"source-env main.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ ('scripts' | path expand) ]",
+            "source-env main.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -124,14 +123,14 @@ fn nu_lib_dirs_relative_repl() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source-env foo.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ 'scripts' ]",
+            "source-env foo.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -150,16 +149,16 @@ fn const_nu_lib_dirs_relative() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                     const NU_LIB_DIRS = [ 'scripts' ]
                     source-env foo.nu
                     $env.FOO
-                "#,
+                ",
             )]);
 
         let outcome = nu!(cwd: dirs.test(), "source main.nu");
@@ -176,21 +175,21 @@ fn nu_lib_dirs_relative_script() {
             .mkdir("scripts")
             .with_files(vec![FileWithContentToBeTrimmed(
                 "scripts/main.nu",
-                r#"
+                "
                     source-env ../foo.nu
-                "#,
+                ",
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = "foo"
+                    $env.FOO = "foo"
                 "#,
             )]);
 
         let inp_lines = &[
-            r#"let-env NU_LIB_DIRS = [ 'scripts' ]"#,
-            r#"source-env scripts/main.nu"#,
-            r#"$env.FOO"#,
+            "$env.NU_LIB_DIRS = [ 'scripts' ]",
+            "source-env scripts/main.nu",
+            "$env.FOO",
         ];
 
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp_lines));
@@ -204,12 +203,12 @@ fn nu_lib_dirs_relative_script() {
 fn run_script_that_looks_like_module() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
         let inp_lines = &[
-            r#"module spam { export def eggs [] { 'eggs' } }"#,
-            r#"export use spam eggs"#,
-            r#"export def foo [] { eggs }"#,
-            r#"export alias bar = foo"#,
-            r#"export def-env baz [] { bar }"#,
-            r#"baz"#,
+            "module spam { export def eggs [] { 'eggs' } }",
+            "export use spam eggs",
+            "export def foo [] { eggs }",
+            "export alias bar = foo",
+            "export def --env baz [] { bar }",
+            "baz",
         ];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
@@ -221,7 +220,7 @@ fn run_script_that_looks_like_module() {
 #[test]
 fn run_export_extern() {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
-        let inp_lines = &[r#"export extern foo []"#, r#"help foo"#];
+        let inp_lines = &["export extern foo []", "help foo"];
 
         let actual = nu!(cwd: dirs.test(), inp_lines.join("; "));
 
@@ -235,7 +234,7 @@ fn run_in_login_mode() {
     let child_output = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} -l -c 'echo $nu.is-login'",
+            "{:?} --no-config-file --login --commands 'echo $nu.is-login'",
             nu_test_support::fs::executable_path()
         ))
         .output()
@@ -287,4 +286,46 @@ fn run_in_noninteractive_mode() {
         .expect("false");
 
     assert!(child_output.stderr.is_empty());
+}
+
+#[test]
+fn main_script_can_have_subcommands1() {
+    Playground::setup("main_subcommands", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands");
+        sandbox.with_files(vec![FileWithContent(
+            "script.nu",
+            r#"def "main foo" [x: int] {
+                    print ($x + 100)
+                  }
+                  
+                  def "main" [] {
+                    print "usage: script.nu <command name>"
+                  }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu foo 123"));
+
+        assert_eq!(actual.out, "223");
+    })
+}
+
+#[test]
+fn main_script_can_have_subcommands2() {
+    Playground::setup("main_subcommands", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands");
+        sandbox.with_files(vec![FileWithContent(
+            "script.nu",
+            r#"def "main foo" [x: int] {
+                    print ($x + 100)
+                  }
+                  
+                  def "main" [] {
+                    print "usage: script.nu <command name>"
+                  }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), pipeline("nu script.nu"));
+
+        assert!(actual.out.contains("usage: script.nu"));
+    })
 }

@@ -136,6 +136,41 @@ fn comment_skipping_2() -> TestResult {
 }
 
 #[test]
+fn comment_skipping_in_pipeline_1() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        each { |$it| $it + 2 } | # foo
+        math sum #bar"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_2() -> TestResult {
+    run_test(
+        r#"[1,2,3] #comment
+        | #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        math sum #baz"#,
+        "12",
+    )
+}
+
+#[test]
+fn comment_skipping_in_pipeline_3() -> TestResult {
+    run_test(
+        r#"[1,2,3] | #comment
+        #comment2
+        each { |$it| $it + 2 } #foo
+        | # bar
+        #baz
+        math sum #foobar"#,
+        "12",
+    )
+}
+
+#[test]
 fn bad_var_name() -> TestResult {
     fail_test(r#"let $"foo bar" = 4"#, "can't contain")
 }
@@ -146,16 +181,30 @@ fn bad_var_name2() -> TestResult {
 }
 
 #[test]
+fn assignment_with_no_var() -> TestResult {
+    let cases = [
+        "let = if $",
+        "mut = if $",
+        "const = if $",
+        "let = 'foo' | $in; $x | describe",
+        "mut = 'foo' | $in; $x | describe",
+    ];
+
+    let expected = "valid variable";
+
+    for case in cases {
+        fail_test(case, expected)?;
+    }
+
+    Ok(())
+}
+
+#[test]
 fn long_flag() -> TestResult {
     run_test(
         r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
         "null",
     )
-}
-
-#[test]
-fn let_not_statement() -> TestResult {
-    fail_test(r#"let x = "hello" | str length"#, "used in pipeline")
 }
 
 #[test]
@@ -177,15 +226,6 @@ fn multiline_pipe_in_block() -> TestResult {
 #[test]
 fn bad_short_flag() -> TestResult {
     fail_test(r#"def foo3 [-l?:int] { $l }"#, "short flag")
-}
-
-#[test]
-fn alias_with_error_doesnt_panic() -> TestResult {
-    fail_test(
-        r#"alias s = shells
-        s ."#,
-        "extra positional",
-    )
 }
 
 #[test]
@@ -231,10 +271,10 @@ fn equals_separates_long_flag() -> TestResult {
 }
 
 #[test]
-fn let_env_expressions() -> TestResult {
+fn assign_expressions() -> TestResult {
     let env = HashMap::from([("VENV_OLD_PATH", "Foobar"), ("Path", "Quux")]);
     run_test_with_env(
-        r#"let-env Path = if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }; echo $env.Path"#,
+        r#"$env.Path = (if ($env | columns | "VENV_OLD_PATH" in $in) { $env.VENV_OLD_PATH } else { $env.Path }); echo $env.Path"#,
         "Foobar",
         &env,
     )
@@ -400,7 +440,7 @@ fn string_escape_interpolation2() -> TestResult {
 #[test]
 fn proper_rest_types() -> TestResult {
     run_test(
-        r#"def foo [--verbose(-v): bool, # my test flag
+        r#"def foo [--verbose(-v), # my test flag
                    ...rest: int # my rest comment
                 ] { if $verbose { print "verbose!" } else { print "not verbose!" } }; foo"#,
         "not verbose!",
@@ -413,6 +453,13 @@ fn single_value_row_condition() -> TestResult {
         r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
         "2",
     )
+}
+
+#[test]
+fn performance_nested_lists() -> TestResult {
+    // Parser used to be exponential on deeply nested lists
+    // TODO: Add a timeout
+    fail_test(r#"[[[[[[[[[[[[[[[[[[[[[[[[[[[["#, "Unexpected end of code")
 }
 
 #[test]
@@ -448,6 +495,16 @@ fn unary_not_6() -> TestResult {
     run_test(
         r#"[[name, present]; [abc, true], [def, false]] | where not present | get name.0"#,
         "def",
+    )
+}
+
+#[test]
+fn comment_in_multiple_pipelines() -> TestResult {
+    run_test(
+        r#"[[name, present]; [abc, true], [def, false]]
+        # | where not present
+        | get name.0"#,
+        "abc",
     )
 }
 
@@ -524,4 +581,185 @@ const file = 6
 register $file
 ";
     fail_test(input, "expected string, found int")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
+    fail_test("extern cmd[]", "expected space")
+}
+
+#[test]
+fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
+    fail_test("extern cmd(--flag)", "expected space")
+}
+
+#[test]
+fn duration_with_underscores_1() -> TestResult {
+    run_test("420_min", "7hr")
+}
+
+#[test]
+fn duration_with_underscores_2() -> TestResult {
+    run_test("1_000_000sec", "1wk 4day 13hr 46min 40sec")
+}
+
+#[test]
+fn duration_with_underscores_3() -> TestResult {
+    fail_test("1_000_d_ay", "executable was not found")
+}
+
+#[test]
+fn duration_with_faulty_number() -> TestResult {
+    fail_test("sleep 4-ms", "duration value must be a number")
+}
+
+#[test]
+fn filesize_with_underscores_1() -> TestResult {
+    run_test("420_mb", "400.5 MiB")
+}
+
+#[test]
+fn filesize_with_underscores_2() -> TestResult {
+    run_test("1_000_000B", "976.6 KiB")
+}
+
+#[test]
+fn filesize_with_underscores_3() -> TestResult {
+    fail_test("42m_b", "executable was not found")
+}
+
+#[test]
+fn filesize_is_not_hex() -> TestResult {
+    run_test("0x42b", "1067")
+}
+
+#[test]
+fn let_variable_type_mismatch() -> TestResult {
+    fail_test(r#"let x: int = "foo""#, "expected int, found string")
+}
+
+#[test]
+fn let_variable_disallows_completer() -> TestResult {
+    fail_test(
+        r#"let x: int@completer = 42"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
+fn def_with_input_output_1() -> TestResult {
+    run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
+}
+
+#[test]
+fn def_with_input_output_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; 10 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_input_output_3() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; "bob" | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_input_output_mismatch_1() -> TestResult {
+    fail_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; foo"#,
+        "command doesn't support",
+    )
+}
+
+#[test]
+fn def_with_input_output_mismatch_2() -> TestResult {
+    fail_test(
+        r#"def foo []: [int -> int, string -> int] { 3 }; {x: 2} | foo"#,
+        "command doesn't support",
+    )
+}
+
+#[test]
+fn def_with_input_output_broken_1() -> TestResult {
+    fail_test(r#"def foo []: int { 3 }"#, "expected arrow")
+}
+
+#[test]
+fn def_with_input_output_broken_2() -> TestResult {
+    fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
+}
+
+#[test]
+fn def_with_input_output_broken_3() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> int@completer {}"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
+fn def_with_input_output_broken_4() -> TestResult {
+    fail_test(
+        r#"def foo []: int -> list<int@completer> {}"#,
+        "Unexpected custom completer",
+    )
+}
+
+#[test]
+fn def_with_in_var_let_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_let_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { let x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_1() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; "100" | foo"#,
+        "4",
+    )
+}
+
+#[test]
+fn def_with_in_var_mut_2() -> TestResult {
+    run_test(
+        r#"def foo []: [int -> int, string -> int] { mut x = $in; if ($x | describe) == "int" { 3 } else { 4 } }; 100 | foo"#,
+        "3",
+    )
+}
+
+#[test]
+fn properly_nest_captures() -> TestResult {
+    run_test(r#"do { let b = 3; def c [] { $b }; c }"#, "3")
+}
+
+#[test]
+fn properly_nest_captures_call_first() -> TestResult {
+    run_test(r#"do { let b = 3; c; def c [] { $b }; c }"#, "3")
+}
+
+#[test]
+fn properly_typecheck_rest_param() -> TestResult {
+    run_test(
+        r#"def foo [...rest: string] { $rest | length }; foo "a" "b" "c""#,
+        "3",
+    )
+}
+
+#[test]
+fn implied_collect_has_compatible_type() -> TestResult {
+    run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
 }

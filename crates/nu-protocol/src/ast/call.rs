@@ -12,6 +12,28 @@ pub enum Argument {
     Unknown(Expression), // unknown argument used in "fall-through" signatures
 }
 
+impl Argument {
+    /// The span for an argument
+    pub fn span(&self) -> Span {
+        match self {
+            Argument::Positional(e) => e.span,
+            Argument::Named((named, short, expr)) => {
+                let start = named.span.start;
+                let end = if let Some(expr) = expr {
+                    expr.span.end
+                } else if let Some(short) = short {
+                    short.span.end
+                } else {
+                    named.span.end
+                };
+
+                Span::new(start, end)
+            }
+            Argument::Unknown(e) => e.span,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     /// identifier of the declaration to call
@@ -34,6 +56,26 @@ impl Call {
             redirect_stderr: false,
             parser_info: HashMap::new(),
         }
+    }
+
+    /// The span encompassing the arguments
+    ///
+    /// If there are no arguments the span covers where the first argument would exist
+    ///
+    /// If there are one or more arguments the span encompasses the start of the first argument to
+    /// end of the last argument
+    pub fn arguments_span(&self) -> Span {
+        let past = self.head.past();
+
+        let start = self
+            .arguments
+            .first()
+            .map(|a| a.span())
+            .unwrap_or(past)
+            .start;
+        let end = self.arguments.last().map(|a| a.span()).unwrap_or(past).end;
+
+        Span::new(start, end)
     }
 
     pub fn named_iter(
@@ -164,5 +206,66 @@ impl Call {
         }
 
         span
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn argument_span_named() {
+        let named = Spanned {
+            item: "named".to_string(),
+            span: Span::new(2, 3),
+        };
+        let short = Spanned {
+            item: "short".to_string(),
+            span: Span::new(5, 7),
+        };
+        let expr = Expression::garbage(Span::new(11, 13));
+
+        let arg = Argument::Named((named.clone(), None, None));
+
+        assert_eq!(Span::new(2, 3), arg.span());
+
+        let arg = Argument::Named((named.clone(), Some(short.clone()), None));
+
+        assert_eq!(Span::new(2, 7), arg.span());
+
+        let arg = Argument::Named((named.clone(), None, Some(expr.clone())));
+
+        assert_eq!(Span::new(2, 13), arg.span());
+
+        let arg = Argument::Named((named.clone(), Some(short.clone()), Some(expr.clone())));
+
+        assert_eq!(Span::new(2, 13), arg.span());
+    }
+
+    #[test]
+    fn argument_span_positional() {
+        let span = Span::new(2, 3);
+        let expr = Expression::garbage(span);
+        let arg = Argument::Positional(expr);
+
+        assert_eq!(span, arg.span());
+    }
+
+    #[test]
+    fn argument_span_unknown() {
+        let span = Span::new(2, 3);
+        let expr = Expression::garbage(span);
+        let arg = Argument::Unknown(expr);
+
+        assert_eq!(span, arg.span());
+    }
+
+    #[test]
+    fn call_arguments_span() {
+        let mut call = Call::new(Span::new(0, 1));
+        call.add_positional(Expression::garbage(Span::new(2, 3)));
+        call.add_positional(Expression::garbage(Span::new(5, 7)));
+
+        assert_eq!(Span::new(2, 7), call.arguments_span());
     }
 }

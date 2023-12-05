@@ -1,7 +1,7 @@
 use crossterm::event::KeyEvent;
 use nu_color_config::TextStyle;
 use nu_protocol::engine::{EngineState, Stack};
-use tui::{layout::Rect, widgets::Paragraph};
+use ratatui::{layout::Rect, widgets::Paragraph};
 
 use crate::{
     nu_common::NuText,

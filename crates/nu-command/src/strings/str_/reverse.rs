@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -16,8 +16,16 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str reverse")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -56,14 +64,14 @@ impl Command for SubCommand {
             Example {
                 description: "Reverse multiple strings in a list",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("llehsuN"),
                         Value::test_string("si"),
                         Value::test_string("looc"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -71,19 +79,17 @@ impl Command for SubCommand {
 
 fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::String {
-            val: val.chars().rev().collect::<String>(),
-            span: head,
-        },
+        Value::String { val, .. } => Value::string(val.chars().rev().collect::<String>(), head),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

@@ -13,6 +13,7 @@ use crate::{
 pub fn garbage(span: Span) -> MatchPattern {
     MatchPattern {
         pattern: Pattern::Garbage,
+        guard: None,
         span,
     }
 }
@@ -45,6 +46,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
     } else if bytes == b"_" {
         MatchPattern {
             pattern: Pattern::IgnoreValue,
+            guard: None,
             span,
         }
     } else {
@@ -53,6 +55,7 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
 
         MatchPattern {
             pattern: Pattern::Value(value),
+            guard: None,
             span,
         }
     }
@@ -78,10 +81,11 @@ pub fn parse_variable_pattern(working_set: &mut StateWorkingSet, span: Span) -> 
     if let Some(var_id) = parse_variable_pattern_helper(working_set, span) {
         MatchPattern {
             pattern: Pattern::Variable(var_id),
+            guard: None,
             span,
         }
     } else {
-        working_set.error(ParseError::Expected("valid variable name".into(), span));
+        working_set.error(ParseError::Expected("valid variable name", span));
         garbage(span)
     }
 }
@@ -126,6 +130,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
                     if contents == b".." {
                         args.push(MatchPattern {
                             pattern: Pattern::IgnoreRest,
+                            guard: None,
                             span: command.parts[spans_idx],
                         });
                         break;
@@ -139,13 +144,14 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
                         ) {
                             args.push(MatchPattern {
                                 pattern: Pattern::Rest(var_id),
+                                guard: None,
                                 span: command.parts[spans_idx],
                             });
                             break;
                         } else {
                             args.push(garbage(command.parts[spans_idx]));
                             working_set.error(ParseError::Expected(
-                                "valid variable name".into(),
+                                "valid variable name",
                                 command.parts[spans_idx],
                             ));
                         }
@@ -163,6 +169,7 @@ pub fn parse_list_pattern(working_set: &mut StateWorkingSet, span: Span) -> Matc
 
     MatchPattern {
         pattern: Pattern::List(args),
+        guard: None,
         span,
     }
 }
@@ -176,10 +183,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
     if bytes.starts_with(b"{") {
         start += 1;
     } else {
-        working_set.error(ParseError::Expected(
-            "{".into(),
-            Span::new(start, start + 1),
-        ));
+        working_set.error(ParseError::Expected("{", Span::new(start, start + 1)));
         bytes = working_set.get_span_contents(span);
     }
 
@@ -214,14 +218,14 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
 
             idx += 1;
             if idx == tokens.len() {
-                working_set.error(ParseError::Expected("record".into(), span));
+                working_set.error(ParseError::Expected("record", span));
                 return garbage(span);
             }
             let colon = working_set.get_span_contents(tokens[idx].span);
             idx += 1;
             if idx == tokens.len() || colon != b":" {
                 //FIXME: need better error
-                working_set.error(ParseError::Expected("record".into(), span));
+                working_set.error(ParseError::Expected("record", span));
                 return garbage(span);
             }
             let pattern = parse_pattern(working_set, tokens[idx].span);
@@ -235,6 +239,7 @@ pub fn parse_record_pattern(working_set: &mut StateWorkingSet, span: Span) -> Ma
 
     MatchPattern {
         pattern: Pattern::Record(output),
+        guard: None,
         span,
     }
 }

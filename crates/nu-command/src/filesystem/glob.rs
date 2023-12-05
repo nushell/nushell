@@ -3,10 +3,12 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
-use wax::{Glob as WaxGlob, WalkBehavior};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use wax::{Glob as WaxGlob, WalkBehavior, WalkEntry};
 
 #[derive(Clone)]
 pub struct Glob;
@@ -40,6 +42,12 @@ impl Command for Glob {
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
+            )
+            .named(
+                "exclude",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Patterns to exclude from the search: `glob` will not walk the inside of directories matching the excluded patterns.",
+                Some('e'),
             )
             .category(Category::FileSystem)
     }
@@ -101,11 +109,21 @@ impl Command for Glob {
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
+            Example {
+                description: "Search for files named tsconfig.json that are not in node_modules directories",
+                example: r#"glob **/tsconfig.json --exclude [**/node_modules/**]"#,
+                result: None,
+            },
+            Example {
+                description: "Search for all files that are not in the target nor .git directories",
+                example: r#"glob **/* --exclude [**/target/** **/.git/** */]"#,
+                result: None,
+            },
         ]
     }
 
     fn extra_usage(&self) -> &str {
-        r#"For more glob pattern help, please refer to https://github.com/olson-sean-k/wax"#
+        r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
     }
 
     fn run(
@@ -115,14 +133,29 @@ impl Command for Glob {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
-        let path = current_dir(engine_state, stack)?;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
-
         let no_dirs = call.has_flag("no-dir");
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
+
+        let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
+
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
+            None => (vec![], span),
+            Some(f) => {
+                let pat_span = f.span();
+                match f {
+                    Value::List { vals: pats, .. } => {
+                        let p = convert_patterns(pats.as_slice())?;
+                        (p, pat_span)
+                    }
+                    _ => (vec![], span),
+                }
+            }
+        };
 
         if glob_pattern.item.is_empty() {
             return Err(ShellError::GenericError(
@@ -140,8 +173,8 @@ impl Command for Glob {
             usize::MAX
         };
 
-        let glob = match WaxGlob::new(&glob_pattern.item) {
-            Ok(p) => p,
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+            Ok(p) => p.partition(),
             Err(e) => {
                 return Err(ShellError::GenericError(
                     "error with glob pattern".to_string(),
@@ -153,31 +186,109 @@ impl Command for Glob {
             }
         };
 
-        #[allow(clippy::needless_collect)]
-        let glob_results: Vec<Value> = glob
-            .walk_with_behavior(
-                path,
-                WalkBehavior {
-                    depth: folder_depth,
-                    ..Default::default()
-                },
-            )
-            .flatten()
-            .filter(|entry| {
-                let file_type = entry.file_type();
+        let path = current_dir(engine_state, stack)?;
+        let path = match nu_path::canonicalize_with(prefix, path) {
+            Ok(path) => path,
+            Err(e) if e.to_string().contains("os error 2") =>
+            // path we're trying to glob doesn't exist,
+            {
+                std::path::PathBuf::new() // user should get empty list not an error
+            }
+            Err(e) => {
+                return Err(ShellError::GenericError(
+                    "error in canonicalize".to_string(),
+                    format!("{e}"),
+                    Some(glob_pattern.span),
+                    None,
+                    Vec::new(),
+                ))
+            }
+        };
 
-                !(no_dirs && file_type.is_dir()
-                    || no_files && file_type.is_file()
-                    || no_symlinks && file_type.is_symlink())
-            })
-            .map(|entry| Value::String {
-                val: entry.into_path().to_string_lossy().to_string(),
-                span,
-            })
-            .collect();
-
-        Ok(glob_results
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+        Ok(if !not_patterns.is_empty() {
+            let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .not(np)
+                .map_err(|err| {
+                    ShellError::GenericError(
+                        "error with glob's not pattern".to_string(),
+                        format!("{err}"),
+                        Some(not_pattern_span),
+                        None,
+                        Vec::new(),
+                    )
+                })?
+                .flatten();
+            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
+            result
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+        } else {
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .flatten();
+            let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;
+            result
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone())
+        })
     }
+}
+
+fn convert_patterns(columns: &[Value]) -> Result<Vec<String>, ShellError> {
+    let res = columns
+        .iter()
+        .map(|value| match &value {
+            Value::String { val: s, .. } => Ok(s.clone()),
+            _ => Err(ShellError::IncompatibleParametersSingle {
+                msg: "Incorrect column format, Only string as column name".to_string(),
+                span: value.span(),
+            }),
+        })
+        .collect::<Result<Vec<String>, _>>()?;
+
+    Ok(res)
+}
+
+fn glob_to_value<'a>(
+    ctrlc: Option<Arc<AtomicBool>>,
+    glob_results: impl Iterator<Item = WalkEntry<'a>>,
+    no_dirs: bool,
+    no_files: bool,
+    no_symlinks: bool,
+    span: Span,
+) -> Result<Vec<Value>, ShellError> {
+    let mut result: Vec<Value> = Vec::new();
+    for entry in glob_results {
+        if nu_utils::ctrl_c::was_pressed(&ctrlc) {
+            result.clear();
+            return Err(ShellError::InterruptedByUser { span: None });
+        }
+        let file_type = entry.file_type();
+
+        if !(no_dirs && file_type.is_dir()
+            || no_files && file_type.is_file()
+            || no_symlinks && file_type.is_symlink())
+        {
+            result.push(Value::string(
+                entry.into_path().to_string_lossy().to_string(),
+                span,
+            ));
+        }
+    }
+
+    Ok(result)
 }

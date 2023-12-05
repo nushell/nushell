@@ -4,8 +4,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::io::Cursor;
@@ -23,10 +23,10 @@ impl Command for ToXml {
         Signature::build("to xml")
             .input_output_types(vec![(Type::Record(vec![]), Type::String)])
             .named(
-                "pretty",
+                "indent",
                 SyntaxShape::Int,
                 "Formats the XML text with the provided indentation setting",
-                Some('p'),
+                Some('i'),
             )
             .category(Category::Formats)
     }
@@ -60,7 +60,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml -p 3"#,
+                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -80,9 +80,9 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let pretty: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "pretty")?;
+        let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
         let input = input.try_expand_range()?;
-        to_xml(input, head, pretty)
+        to_xml(input, head, indent)
     }
 }
 
@@ -97,63 +97,62 @@ fn to_xml_entry<W: Write>(
     top_level: bool,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
-    let entry_span = entry.span()?;
+    let entry_span = entry.span();
+    let span = entry.span();
 
     // Allow using strings directly as content.
     // So user can write
     // {tag: a content: ['qwe']}
     // instead of longer
     // {tag: a content: [{content: 'qwe'}]}
-    if let (Value::String { val, span }, false) = (&entry, top_level) {
-        return to_xml_text(val.as_str(), *span, writer);
+    if let (Value::String { val, .. }, false) = (&entry, top_level) {
+        return to_xml_text(val.as_str(), span, writer);
     }
 
-    if !matches!(entry, Value::Record { .. }) {
-        return Err(ShellError::CantConvert {
+    if let Value::Record { val: record, .. } = &entry {
+        // If key is not found it is assumed to be nothing. This way
+        // user can write a tag like {tag: a content: [...]} instead
+        // of longer {tag: a attributes: {} content: [...]}
+        let tag = record
+            .get(COLUMN_TAG_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let attrs = record
+            .get(COLUMN_ATTRS_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let content = record
+            .get(COLUMN_CONTENT_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+
+        let content_span = content.span();
+        let tag_span = tag.span();
+        match (tag, attrs, content) {
+            (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
+                // Strings can not appear on top level of document
+                if top_level {
+                    return Err(ShellError::CantConvert {
+                        to_type: "XML".into(),
+                        from_type: entry.get_type().to_string(),
+                        span: entry_span,
+                        help: Some("Strings can not be a root element of document".into()),
+                    });
+                }
+                to_xml_text(val.as_str(), content_span, writer)
+            }
+            (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
+                entry_span, tag_name, tag_span, attrs, children, top_level, writer,
+            ),
+            _ => Ok(()),
+        }
+    } else {
+        Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: entry.get_type().to_string(),
             span: entry_span,
             help: Some("Xml entry expected to be a record".into()),
-        });
-    };
-
-    // If key is not found it is assumed to be nothing. This way
-    // user can write a tag like {tag: a content: [...]} instead
-    // of longer {tag: a attributes: {} content: [...]}
-    let tag = entry
-        .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let attrs = entry
-        .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let content = entry
-        .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-
-    match (tag, attrs, content) {
-        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, span }) => {
-            // Strings can not appear on top level of document
-            if top_level {
-                return Err(ShellError::CantConvert {
-                    to_type: "XML".into(),
-                    from_type: entry.get_type().to_string(),
-                    span: entry_span,
-                    help: Some("Strings can not be a root element of document".into()),
-                });
-            }
-            to_xml_text(val.as_str(), span, writer)
-        }
-        (
-            Value::String {
-                val: tag_name,
-                span: tag_span,
-            },
-            attrs,
-            children,
-        ) => to_tag_like(
-            entry_span, tag_name, tag_span, attrs, children, top_level, writer,
-        ),
-        _ => Ok(()),
+        })
     }
 }
 
@@ -197,7 +196,7 @@ fn to_tag_like<W: Write>(
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: Type::Record(vec![]).to_string(),
-                    span: content.span()?,
+                    span: content.span(),
                     help: Some("PI content expected to be a string".into()),
                 });
             }
@@ -208,14 +207,14 @@ fn to_tag_like<W: Write>(
         // Allow tag to have no attributes or content for short hand input
         // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
         // content: null}, {tag: a}. See to_xml_entry for more
-        let (attr_cols, attr_values) = match attrs {
-            Value::Record { cols, vals, .. } => (cols, vals),
-            Value::Nothing { .. } => (Vec::new(), Vec::new()),
+        let attrs = match attrs {
+            Value::Record { val, .. } => val,
+            Value::Nothing { .. } => Record::new(),
             _ => {
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: attrs.get_type().to_string(),
-                    span: attrs.span()?,
+                    span: attrs.span(),
                     help: Some("Tag attributes expected to be a record".into()),
                 });
             }
@@ -228,21 +227,13 @@ fn to_tag_like<W: Write>(
                 return Err(ShellError::CantConvert {
                     to_type: "XML".into(),
                     from_type: content.get_type().to_string(),
-                    span: content.span()?,
+                    span: content.span(),
                     help: Some("Tag content expected to be a list".into()),
                 });
             }
         };
 
-        to_tag(
-            entry_span,
-            tag,
-            tag_span,
-            attr_cols,
-            attr_values,
-            content,
-            writer,
-        )
+        to_tag(entry_span, tag, tag_span, attrs, content, writer)
     }
 }
 
@@ -305,8 +296,7 @@ fn to_tag<W: Write>(
     entry_span: Span,
     tag: String,
     tag_span: Span,
-    attr_cols: Vec<String>,
-    attr_vals: Vec<Value>,
+    attrs: Record,
     children: Vec<Value>,
     writer: &mut quick_xml::Writer<W>,
 ) -> Result<(), ShellError> {
@@ -322,7 +312,7 @@ fn to_tag<W: Write>(
         });
     }
 
-    let attributes = parse_attributes(attr_cols, attr_vals)?;
+    let attributes = parse_attributes(attrs)?;
     let mut open_tag_event = BytesStart::new(tag.clone());
     add_attributes(&mut open_tag_event, &attributes);
 
@@ -350,19 +340,16 @@ fn to_tag<W: Write>(
         })
 }
 
-fn parse_attributes(
-    cols: Vec<String>,
-    vals: Vec<Value>,
-) -> Result<IndexMap<String, String>, ShellError> {
+fn parse_attributes(attrs: Record) -> Result<IndexMap<String, String>, ShellError> {
     let mut h = IndexMap::new();
-    for (k, v) in cols.into_iter().zip(vals.into_iter()) {
+    for (k, v) in attrs {
         if let Value::String { val, .. } = v {
             h.insert(k, val);
         } else {
             return Err(ShellError::CantConvert {
                 to_type: "XML".to_string(),
                 from_type: v.get_type().to_string(),
-                span: v.span()?,
+                span: v.span(),
                 help: Some("Attribute value expected to be a string".into()),
             });
         }
@@ -389,9 +376,9 @@ fn to_xml_text<W: Write>(
 fn to_xml(
     input: PipelineData,
     head: Span,
-    pretty: Option<Spanned<i64>>,
+    indent: Option<Spanned<i64>>,
 ) -> Result<PipelineData, ShellError> {
-    let mut w = pretty.as_ref().map_or_else(
+    let mut w = indent.as_ref().map_or_else(
         || quick_xml::Writer::new(Cursor::new(Vec::new())),
         |p| quick_xml::Writer::new_with_indent(Cursor::new(Vec::new()), b' ', p.item as usize),
     );
@@ -403,7 +390,7 @@ fn to_xml(
         let s = if let Ok(s) = String::from_utf8(b) {
             s
         } else {
-            return Err(ShellError::NonUtf8(head));
+            return Err(ShellError::NonUtf8 { span: head });
         };
         Ok(Value::string(s, head).into_pipeline_data())
     })

@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
@@ -40,6 +40,13 @@ impl Command for SubCommand {
                 (Type::Bool, Type::String),
                 (Type::Filesize, Type::String),
                 (Type::Date, Type::String),
+                (Type::Duration, Type::String),
+                (
+                    Type::List(Box::new(Type::Any)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .rest(
@@ -77,39 +84,27 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "convert integer to string and append three decimal places",
-                example: "5 | into string -d 3",
+                description: "convert int to string and append three decimal places",
+                example: "5 | into string --decimals 3",
                 result: Some(Value::test_string("5.000")),
             },
             Example {
-                description: "convert decimal to string and round to nearest integer",
-                example: "1.7 | into string -d 0",
+                description: "convert float to string and round to nearest integer",
+                example: "1.7 | into string --decimals 0",
                 result: Some(Value::test_string("2")),
             },
             Example {
-                description: "convert decimal to string",
-                example: "1.7 | into string -d 1",
+                description: "convert float to string",
+                example: "1.7 | into string --decimals 1",
                 result: Some(Value::test_string("1.7")),
             },
             Example {
-                description: "convert decimal to string and limit to 2 decimals",
-                example: "1.734 | into string -d 2",
+                description: "convert float to string and limit to 2 decimals",
+                example: "1.734 | into string --decimals 2",
                 result: Some(Value::test_string("1.73")),
             },
             Example {
-                description: "try to convert decimal to string and provide negative decimal points",
-                example: "1.734 | into string -d -2",
-                result: None,
-                // FIXME
-                // result: Some(Value::Error {
-                //     error: ShellError::UnsupportedInput(
-                //         String::from("Cannot accept negative integers for decimals arguments"),
-                //         Span::test_data(),
-                //     ),
-                // }),
-            },
-            Example {
-                description: "convert decimal to string",
+                description: "convert float to string",
                 example: "4.3 | into string",
                 result: Some(Value::test_string("4.3")),
             },
@@ -123,12 +118,11 @@ impl Command for SubCommand {
                 example: "true | into string",
                 result: Some(Value::test_string("true")),
             },
-            // TODO: This should work but does not; see https://github.com/nushell/nushell/issues/7032
-            // Example {
-            //     description: "convert date to string",
-            //     example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
-            //     result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
-            // },
+            Example {
+                description: "convert date to string",
+                example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
+                result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
+            },
             Example {
                 description: "convert filepath to string",
                 example: "ls Cargo.toml | get name | into string",
@@ -138,6 +132,11 @@ impl Command for SubCommand {
                 description: "convert filesize to string",
                 example: "1KiB | into string",
                 result: Some(Value::test_string("1,024 B")),
+            },
+            Example {
+                description: "convert duration to string",
+                example: "9day | into string",
+                result: Some(Value::test_string("1wk 2day")),
             },
         ]
     }
@@ -171,22 +170,16 @@ fn string_helper(
     };
 
     match input {
-        PipelineData::ExternalStream { stdout: None, .. } => Ok(Value::String {
-            val: String::new(),
-            span: head,
+        PipelineData::ExternalStream { stdout: None, .. } => {
+            Ok(Value::string(String::new(), head).into_pipeline_data())
         }
-        .into_pipeline_data()),
         PipelineData::ExternalStream {
             stdout: Some(stream),
             ..
         } => {
             // TODO: in the future, we may want this to stream out, converting each to bytes
             let output = stream.into_string()?;
-            Ok(Value::String {
-                val: output.item,
-                span: head,
-            }
-            .into_pipeline_data())
+            Ok(Value::string(output.item, head).into_pipeline_data())
         }
         _ => operate(action, args, input, head, engine_state.ctrlc.clone()),
     }
@@ -200,76 +193,53 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Int { val, .. } => {
             let decimal_value = digits.unwrap_or(0) as usize;
             let res = format_int(*val, false, decimal_value);
-            Value::String { val: res, span }
+            Value::string(res, span)
         }
         Value::Float { val, .. } => {
             if decimals {
                 let decimal_value = digits.unwrap_or(2) as usize;
-                Value::String {
-                    val: format!("{val:.decimal_value$}"),
-                    span,
-                }
+                Value::string(format!("{val:.decimal_value$}"), span)
             } else {
-                Value::String {
-                    val: val.to_string(),
-                    span,
-                }
+                Value::string(val.to_string(), span)
             }
         }
-        Value::Bool { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
-        Value::Date { val, .. } => Value::String {
-            val: val.format("%c").to_string(),
-            span,
-        },
-        Value::String { val, .. } => Value::String {
-            val: val.to_string(),
-            span,
-        },
+        Value::Bool { val, .. } => Value::string(val.to_string(), span),
+        Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
+        Value::String { val, .. } => Value::string(val.to_string(), span),
 
-        Value::Filesize { val: _, .. } => Value::String {
-            val: input.into_string(", ", config),
-            span,
-        },
-        Value::Error { error } => Value::String {
-            val: into_code(error).unwrap_or_default(),
-            span,
-        },
-        Value::Nothing { .. } => Value::String {
-            val: "".to_string(),
-            span,
-        },
-        Value::Record {
-            cols: _,
-            vals: _,
-            span: _,
-        } => Value::Error {
+        Value::Filesize { val: _, .. } => Value::string(input.into_string(", ", config), span),
+        Value::Duration { val: _, .. } => Value::string(input.into_string("", config), span),
+
+        Value::Error { error, .. } => Value::string(into_code(error).unwrap_or_default(), span),
+        Value::Nothing { .. } => Value::string("".to_string(), span),
+        Value::Record { .. } => Value::error(
             // Watch out for CantConvert's argument order
-            error: Box::new(ShellError::CantConvert {
+            ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: "record".into(),
                 span,
                 help: Some("try using the `to nuon` command".into()),
-            }),
-        },
-        Value::Binary { .. } => Value::Error {
-            error: Box::new(ShellError::CantConvert {
+            },
+            span,
+        ),
+        Value::Binary { .. } => Value::error(
+            ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: "binary".into(),
                 span,
                 help: Some("try using the `decode` command".into()),
-            }),
-        },
-        x => Value::Error {
-            error: Box::new(ShellError::CantConvert {
+            },
+            span,
+        ),
+        x => Value::error(
+            ShellError::CantConvert {
                 to_type: String::from("string"),
                 from_type: x.get_type().to_string(),
                 span,
                 help: None,
-            }),
-        },
+            },
+            span,
+        ),
     }
 }
 

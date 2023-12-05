@@ -646,7 +646,10 @@ impl Menu for DescriptionMenu {
                 |lb| {
                     lb.replace_range(start..end, replacement);
                     let mut offset = lb.insertion_point();
-                    offset += lb.len().saturating_sub(end.saturating_sub(start));
+                    offset += lb
+                        .len()
+                        .saturating_sub(end.saturating_sub(start))
+                        .saturating_sub(start);
                     lb.set_insertion_point(offset);
                 },
                 UndoBehavior::CreateUndoPoint,

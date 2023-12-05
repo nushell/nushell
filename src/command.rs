@@ -33,11 +33,11 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
 
         let flag_value = match arg.as_ref() {
             "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" | "-I" => args.next().map(|a| escape_quote_string(&a)),
+            | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
+            | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
             | "--ide-check" => args.next(),
             _ => None,
         };
@@ -81,14 +81,14 @@ pub(crate) fn parse_commandline_args(
     let mut stack = Stack::new();
 
     // We should have a successful parse now
-    if let Some(pipeline) = block.pipelines.get(0) {
+    if let Some(pipeline) = block.pipelines.first() {
         if let Some(PipelineElement::Expression(
             _,
             Expression {
                 expr: Expr::Call(call),
                 ..
             },
-        )) = pipeline.elements.get(0)
+        )) = pipeline.elements.first()
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
@@ -104,16 +104,19 @@ pub(crate) fn parse_commandline_args(
             let log_level: Option<Expression> = call.get_flag_expr("log-level");
             let log_target: Option<Expression> = call.get_flag_expr("log-target");
             let execute: Option<Expression> = call.get_flag_expr("execute");
-            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
+            // ide flags
+            let lsp = call.has_flag("lsp");
+            let include_path: Option<Expression> = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
             let ide_complete: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-complete")?;
             let ide_check: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-check")?;
+            let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
                 expression: Option<Expression>,
@@ -191,7 +194,9 @@ pub(crate) fn parse_commandline_args(
                 ide_goto_def,
                 ide_hover,
                 ide_complete,
+                lsp,
                 ide_check,
+                ide_ast,
                 table_mode,
             });
         }
@@ -226,10 +231,12 @@ pub(crate) struct NushellCliArgs {
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
     pub(crate) include_path: Option<Spanned<String>>,
+    pub(crate) lsp: bool,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
     pub(crate) ide_check: Option<Value>,
+    pub(crate) ide_ast: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -258,7 +265,7 @@ impl Command for Nu {
             .named(
                 "include-path",
                 SyntaxShape::String,
-                "set the NU_LIB_DIRS for the given script (semicolon-delimited)",
+                "set the NU_LIB_DIRS for the given script (delimited by char record_sep ('\x1e'))",
                 Some('I'),
             )
             .switch("interactive", "start as an interactive shell", Some('i'))
@@ -294,7 +301,12 @@ impl Command for Nu {
                 "start with an alternate environment config file",
                 None,
             )
-            .named(
+            .switch(
+               "lsp",
+               "start nu's language server protocol",
+               None,
+            )
+           .named(
                 "ide-goto-def",
                 SyntaxShape::Int,
                 "go to the definition of the item at the given position",
@@ -305,7 +317,7 @@ impl Command for Nu {
                 SyntaxShape::Int,
                 "give information about the item at the given position",
                 None,
-            )
+             )
             .named(
                 "ide-complete",
                 SyntaxShape::Int,
@@ -315,9 +327,10 @@ impl Command for Nu {
             .named(
                 "ide-check",
                 SyntaxShape::Int,
-                "run a diagnostic check on the given source",
+                "run a diagnostic check on the given source and limit number of errors returned to provided number",
                 None,
-            );
+            )
+            .switch("ide-ast", "generate the ast on the given source", None);
 
         #[cfg(feature = "plugin")]
         {
@@ -379,10 +392,10 @@ impl Command for Nu {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::String {
-            val: get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
-            span: call.head,
-        }
+        Ok(Value::string(
+            get_full_help(&Nu.signature(), &Nu.examples(), engine_state, stack, true),
+            call.head,
+        )
         .into_pipeline_data())
     }
 

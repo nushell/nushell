@@ -68,7 +68,7 @@ fn do_rest_args() -> TestResult {
 #[test]
 fn custom_switch1() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
+        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
         "foo",
     )
 }
@@ -76,7 +76,7 @@ fn custom_switch1() -> TestResult {
 #[test]
 fn custom_switch2() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run: bool ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
+        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
         "bar",
     )
 }
@@ -84,16 +84,57 @@ fn custom_switch2() -> TestResult {
 #[test]
 fn custom_switch3() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb --dry-run"#,
-        "foo",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=false"#,
+        "false",
     )
 }
 
 #[test]
 fn custom_switch4() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
-        "bar",
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=true"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_switch5() -> TestResult {
+    run_test(r#"def florb [ --dry-run ] { $dry_run }; florb"#, "false")
+}
+
+#[test]
+fn custom_switch6() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_flag1() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int = 0
+            --name = "foobar"
+        ] { 
+            ($age | into string) + $name
+        }
+        florb"#,
+        "0foobar",
+    )
+}
+
+#[test]
+fn custom_flag2() -> TestResult {
+    run_test(
+        r#"def florb [
+            --age: int
+            --name = "foobar"
+        ] {
+            ($age | into string) + $name
+        }
+        florb --age 3"#,
+        "3foobar",
     )
 }
 
@@ -138,12 +179,12 @@ fn help_not_present_in_extern() -> TestResult {
 
 #[test]
 fn override_table() -> TestResult {
-    run_test(r#"def table [] { "hi" }; table"#, "hi")
+    run_test(r#"def table [-e] { "hi" }; table"#, "hi")
 }
 
 #[test]
 fn override_table_eval_file() {
-    let actual = nu!(cwd: ".", r#"def table [] { "hi" }; table"#);
+    let actual = nu!(r#"def table [-e] { "hi" }; table"#);
     assert_eq!(actual.out, "hi");
 }
 
@@ -153,11 +194,8 @@ fn override_table_eval_file() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() {
-    let actual = nu!(
-        cwd: ".",
-        r#"
+    let actual = nu!(r#"
             def bang [] { bang }; bang
-        "#
-    );
+        "#);
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }

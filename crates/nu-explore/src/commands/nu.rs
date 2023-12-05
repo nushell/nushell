@@ -4,7 +4,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     PipelineData, Value,
 };
-use tui::layout::Rect;
+use ratatui::layout::Rect;
 
 use crate::{
     nu_common::{collect_pipeline, has_simple_value, run_command_with_value},
@@ -62,10 +62,6 @@ impl ViewCommand for NuCmd {
             input: vec![],
             config_options: vec![],
         })
-    }
-
-    fn display_config_option(&mut self, _: String, _: String, _: String) -> bool {
-        false
     }
 
     fn parse(&mut self, args: &str) -> Result<()> {

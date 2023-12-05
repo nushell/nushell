@@ -4,12 +4,7 @@ use std::sync::mpsc;
 
 #[test]
 fn port_with_invalid_range() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        port 4000 3999
-        "#
-    ));
+    let actual = nu!("port 4000 3999");
 
     assert!(actual.err.contains("Invalid range"))
 }
@@ -29,15 +24,16 @@ fn port_with_already_usage() {
             let _listener = TcpListener::bind(format!("127.0.0.1:{free_port}"));
             let _ = rx.recv();
         });
-        let actual = nu!(
-            cwd: ".", pipeline(&format!("port {free_port} {free_port}"))
-        );
+        let actual = nu!(pipeline(&format!("port {free_port} {free_port}")));
         let _ = tx.send(true);
         // make sure that the thread is closed and we release the port.
         handler.join().unwrap();
 
         // check for error kind str.
-        if actual.err.contains("AddrInUse") {
+        if actual
+            .err
+            .contains("Every port has been tried, but no valid one was found")
+        {
             return;
         }
     }
@@ -46,13 +42,15 @@ fn port_with_already_usage() {
 
 #[test]
 fn port_from_system_given() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
-        port
-        "#
-    ));
+    let actual = nu!("port");
 
     // check that we can get an integer port from system.
     assert!(actual.out.parse::<u16>().unwrap() > 0)
+}
+
+#[test]
+fn port_out_of_range() {
+    let actual = nu!("port 65536 99999");
+
+    assert!(actual.err.contains("can't convert usize to u16"));
 }

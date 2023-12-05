@@ -14,7 +14,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math avg")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::List(Box::new(Type::Filesize)), Type::Filesize),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
@@ -45,19 +50,14 @@ impl Command for SubCommand {
     }
 }
 
-pub fn average(values: &[Value], span: Span, head: &Span) -> Result<Value, ShellError> {
+pub fn average(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
     let sum = reducer_for(Reduce::Summation);
-    let total = &sum(Value::int(0, *head), values.to_vec(), span, *head)?;
+    let total = &sum(Value::int(0, head), values.to_vec(), span, head)?;
+    let span = total.span();
     match total {
-        Value::Filesize { val, span } => Ok(Value::Filesize {
-            val: val / values.len() as i64,
-            span: *span,
-        }),
-        Value::Duration { val, span } => Ok(Value::Duration {
-            val: val / values.len() as i64,
-            span: *span,
-        }),
-        _ => total.div(*head, &Value::int(values.len() as i64, *head), *head),
+        Value::Filesize { val, .. } => Ok(Value::filesize(val / values.len() as i64, span)),
+        Value::Duration { val, .. } => Ok(Value::duration(val / values.len() as i64, span)),
+        _ => total.div(head, &Value::int(values.len() as i64, head), head),
     }
 }
 

@@ -5,17 +5,11 @@ use serde::Serialize;
 use crate::engine::Command;
 use crate::{BlockId, Category, Flag, PositionalArg, SyntaxShape, Type};
 
-/// A simple wrapper for Signature, includes examples.
+/// A simple wrapper for Signature that includes examples.
 #[derive(Clone, Serialize, Deserialize)]
 pub struct PluginSignature {
     pub sig: Signature,
     pub examples: Vec<PluginExample>,
-}
-
-impl std::fmt::Display for PluginSignature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.sig)
-    }
 }
 
 impl PluginSignature {
@@ -23,13 +17,13 @@ impl PluginSignature {
         Self { sig, examples }
     }
 
-    // Add a default help option to a signature
+    /// Add a default help option to a signature
     pub fn add_help(mut self) -> PluginSignature {
         self.sig = self.sig.add_help();
         self
     }
 
-    // Build an internal signature with default help option
+    /// Build an internal signature with default help option
     pub fn build(name: impl Into<String>) -> PluginSignature {
         let sig = Signature::new(name.into()).add_help();
         Self::new(sig, vec![])
@@ -54,8 +48,8 @@ impl PluginSignature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> PluginSignature {
-        self.sig = self.sig.update_from_command(name, command);
+    pub fn update_from_command(mut self, command: &dyn Command) -> PluginSignature {
+        self.sig = self.sig.update_from_command(command);
         self
     }
 
@@ -94,7 +88,6 @@ impl PluginSignature {
         desc: impl Into<String>,
     ) -> PluginSignature {
         self.sig = self.sig.rest(name, shape, desc);
-
         self
     }
 
@@ -112,7 +105,6 @@ impl PluginSignature {
         short: Option<char>,
     ) -> PluginSignature {
         self.sig = self.sig.named(name, shape, desc, short);
-
         self
     }
 
@@ -140,19 +132,8 @@ impl PluginSignature {
     }
 
     /// Changes the input type of the command signature
-    pub fn input_type(mut self, input_type: Type) -> PluginSignature {
-        self.sig = self.sig.input_type(input_type);
-        self
-    }
-
-    /// Changes the output type of the command signature
-    pub fn output_type(mut self, output_type: Type) -> PluginSignature {
-        self.sig = self.sig.output_type(output_type);
-        self
-    }
-
-    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> PluginSignature {
-        self.sig = self.sig.vectorizes_over_list(vectorizes_over_list);
+    pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> PluginSignature {
+        self.sig.input_output_types.push((input_type, output_type));
         self
     }
 
@@ -165,7 +146,6 @@ impl PluginSignature {
     /// Changes the signature category
     pub fn category(mut self, category: Category) -> PluginSignature {
         self.sig = self.sig.category(category);
-
         self
     }
 

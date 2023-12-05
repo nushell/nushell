@@ -3,7 +3,7 @@ use crate::{
     parse_nustyle, NuStyle,
 };
 use nu_ansi_term::Style;
-use nu_protocol::Value;
+use nu_protocol::{Record, Value};
 use std::collections::HashMap;
 
 pub fn lookup_ansi_color_style(s: &str) -> Style {
@@ -32,7 +32,7 @@ pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> 
 fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
     let value = match value {
         Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-        Value::Record { cols, vals, .. } => get_style_from_value(cols, vals).map(parse_nustyle),
+        Value::Record { val, .. } => get_style_from_value(val).map(parse_nustyle),
         _ => None,
     };
     if let Some(value) = value {
@@ -40,10 +40,10 @@ fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
     }
 }
 
-fn get_style_from_value(cols: &[String], vals: &[Value]) -> Option<NuStyle> {
+fn get_style_from_value(record: &Record) -> Option<NuStyle> {
     let mut was_set = false;
     let mut style = NuStyle::from(Style::default());
-    for (col, val) in cols.iter().zip(vals) {
+    for (col, val) in record {
         match col.as_str() {
             "bg" => {
                 if let Value::String { val, .. } = val {
@@ -86,4 +86,84 @@ fn color_string_to_nustyle(color_string: String) -> Style {
     };
 
     parse_nustyle(nu_style)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_ansi_term::{Color, Style};
+    use nu_protocol::{Span, Value};
+
+    #[test]
+    fn test_color_string_to_nustyle_empty_string() {
+        let color_string = String::new();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style, Style::default());
+    }
+
+    #[test]
+    fn test_color_string_to_nustyle_valid_string() {
+        let color_string = r#"{"fg": "black", "bg": "white", "attr": "b"}"#.to_string();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style.foreground, Some(Color::Black));
+        assert_eq!(style.background, Some(Color::White));
+        assert!(style.is_bold);
+    }
+
+    #[test]
+    fn test_color_string_to_nustyle_invalid_string() {
+        let color_string = "invalid string".to_string();
+        let style = color_string_to_nustyle(color_string);
+        assert_eq!(style, Style::default());
+    }
+
+    #[test]
+    fn test_get_style_from_value() {
+        // Test case 1: all values are valid
+        let record = Record {
+            cols: vec!["bg".to_string(), "fg".to_string(), "attr".to_string()],
+            vals: vec![
+                Value::string("red", Span::unknown()),
+                Value::string("blue", Span::unknown()),
+                Value::string("bold", Span::unknown()),
+            ],
+        };
+        let expected_style = NuStyle {
+            bg: Some("red".to_string()),
+            fg: Some("blue".to_string()),
+            attr: Some("bold".to_string()),
+        };
+        assert_eq!(get_style_from_value(&record), Some(expected_style));
+
+        // Test case 2: no values are valid
+        let record = Record {
+            cols: vec!["invalid".to_string()],
+            vals: vec![Value::nothing(Span::unknown())],
+        };
+        assert_eq!(get_style_from_value(&record), None);
+
+        // Test case 3: some values are valid
+        let record = Record {
+            cols: vec!["bg".to_string(), "invalid".to_string()],
+            vals: vec![
+                Value::string("green", Span::unknown()),
+                Value::nothing(Span::unknown()),
+            ],
+        };
+        let expected_style = NuStyle {
+            bg: Some("green".to_string()),
+            fg: None,
+            attr: None,
+        };
+        assert_eq!(get_style_from_value(&record), Some(expected_style));
+    }
+
+    #[test]
+    fn test_parse_map_entry() {
+        let mut hm = HashMap::new();
+        let key = "test_key".to_owned();
+        let value = Value::string("red", Span::unknown());
+        parse_map_entry(&mut hm, &key, &value);
+        assert_eq!(hm.get(&key), Some(&lookup_ansi_color_style("red")));
+    }
 }

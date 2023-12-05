@@ -1,8 +1,7 @@
-use crate::{
-    input_handler::{operate, CmdArgument},
-    util,
-};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
@@ -39,8 +38,15 @@ impl Command for BytesAt {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes at")
-            .input_output_types(vec![(Type::Binary, Type::Binary)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .required("range", SyntaxShape::Range, "the range to get bytes")
             .rest(
                 "rest",
@@ -88,60 +94,34 @@ impl Command for BytesAt {
             Example {
                 description: "Get a subbytes `0x[10 01]` from the bytes `0x[33 44 55 10 01 13]`",
                 example: " 0x[33 44 55 10 01 13] | bytes at 3..<4",
-                result: Some(Value::Binary {
-                    val: vec![0x10],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_binary(vec![0x10])),
             },
             Example {
                 description: "Get a subbytes `0x[10 01 13]` from the bytes `0x[33 44 55 10 01 13]`",
                 example: " 0x[33 44 55 10 01 13] | bytes at 3..6",
-                result: Some(Value::Binary {
-                    val: vec![0x10, 0x01, 0x13],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
             },
             Example {
                 description: "Get the remaining characters from a starting index",
-                example: " 0x[33 44 55 10 01 13] | bytes at 3..",
-                result: Some(Value::Binary {
-                    val: vec![0x10, 0x01, 0x13],
-                    span: Span::test_data(),
-                }),
+                example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
+                result: Some(Value::test_record(record! {
+                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13]),
+                })),
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
                 example: " 0x[33 44 55 10 01 13] | bytes at ..<4",
-                result: Some(Value::Binary {
-                    val: vec![0x33, 0x44, 0x55, 0x10],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
                 description:
                     "Or the characters from the beginning until ending index inside a table",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
-                        vals: vec![
-                            Value::Binary {
-                                val: vec![0x11, 0x12, 0x13],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x15, 0x16],
-                                span: Span::test_data(),
-                            },
-                            Value::Binary {
-                                val: vec![0x18, 0x19],
-                                span: Span::test_data(),
-                            },
-                        ],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
+                    "ColB" => Value::test_binary(vec![0x15, 0x16]),
+                    "ColC" => Value::test_binary(vec![0x18, 0x19]),
+                })])),
             },
         ]
     }
@@ -164,49 +144,45 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
 
             if start < len && end >= 0 {
                 match start.cmp(&end) {
-                    Ordering::Equal => Value::Binary {
-                        val: vec![],
-                        span: head,
-                    },
-                    Ordering::Greater => Value::Error {
-                        error: Box::new(ShellError::TypeMismatch {
+                    Ordering::Equal => Value::binary(vec![], head),
+                    Ordering::Greater => Value::error(
+                        ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
-                        }),
-                    },
-                    Ordering::Less => Value::Binary {
-                        val: {
-                            if end == isize::max_value() {
-                                val.iter().skip(start as usize).copied().collect()
-                            } else {
-                                val.iter()
-                                    .skip(start as usize)
-                                    .take((end - start) as usize)
-                                    .copied()
-                                    .collect()
-                            }
                         },
-                        span: head,
-                    },
+                        head,
+                    ),
+                    Ordering::Less => Value::binary(
+                        if end == isize::max_value() {
+                            val.iter()
+                                .skip(start as usize)
+                                .copied()
+                                .collect::<Vec<u8>>()
+                        } else {
+                            val.iter()
+                                .skip(start as usize)
+                                .take((end - start) as usize)
+                                .copied()
+                                .collect()
+                        },
+                        head,
+                    ),
                 }
             } else {
-                Value::Binary {
-                    val: vec![],
-                    span: head,
-                }
+                Value::binary(vec![], head)
             }
         }
 
         Value::Error { .. } => input.clone(),
 
-        other => Value::Error {
-            error: Box::new(ShellError::UnsupportedInput(
-                "Only binary values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            )),
-        },
+        other => Value::error(
+            ShellError::UnsupportedInput {
+                msg: "Only binary values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
+            head,
+        ),
     }
 }

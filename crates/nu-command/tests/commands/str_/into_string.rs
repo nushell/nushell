@@ -4,65 +4,45 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn from_range() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 1..5 | into string | to json -r
-        "#
-        )
-    );
+        "#);
 
     assert_eq!(actual.out, "[\"1\",\"2\",\"3\",\"4\",\"5\"]");
 }
 
 #[test]
 fn from_number() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo 5 | into string
-        "#
-        )
-    );
+        "#);
 
     assert_eq!(actual.out, "5");
 }
 
 #[test]
-fn from_decimal() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+fn from_float() {
+    let actual = nu!(r#"
         echo 1.5 | into string
-        "#
-        )
-    );
+        "#);
 
     assert_eq!(actual.out, "1.5");
 }
 
 #[test]
 fn from_boolean() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo true | into string
-        "#
-        )
-    );
+        "#);
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn from_string() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo "one" | into string
-        "#
-        )
-    );
+        "#);
 
     assert_eq!(actual.out, "one");
 }
@@ -110,45 +90,35 @@ fn from_filesize() {
 }
 
 #[test]
-fn from_decimal_correct_trailing_zeros() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+fn from_float_correct_trailing_zeros() {
+    let actual = nu!(r#"
         1.23000 | into string -d 3
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("1.230"));
 }
 
 #[test]
-fn from_int_decimal_correct_trailing_zeros() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+fn from_int_float_correct_trailing_zeros() {
+    let actual = nu!(r#"
         1.00000 | into string -d 3
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("1.000"));
 }
 
 #[test]
-fn from_int_decimal_trim_trailing_zeros() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+fn from_int_float_trim_trailing_zeros() {
+    let actual = nu!(r#"
         1.00000 | into string | $"($in) flat"
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("1 flat")); // "1" would match "1.0"
 }
 
 #[test]
 fn from_table() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
         echo '[{"name": "foo", "weight": 32.377}, {"name": "bar", "weight": 15.2}]'
         | from json
@@ -162,24 +132,18 @@ fn from_table() {
 
 #[test]
 fn from_nothing() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         null | into string
-        "#
-    ));
+        "#);
 
     assert_eq!(actual.out, "");
 }
 
 #[test]
 fn int_into_string() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         10 | into string
-        "#
-    ));
+        "#);
 
     assert_eq!(actual.out, "10");
 }

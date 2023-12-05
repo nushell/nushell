@@ -7,19 +7,22 @@ on:
     inputs:
       tag_name:
         description: 'Specific tag name'
-        required: true 
+        required: true
         type: string
 
 jobs:
 
   winget:
     name: Publish winget package
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - name: Submit package to Windows Package Manager Community Repository
         uses: vedantmgoyal2009/winget-releaser@v2
         with:
           identifier: Nushell.Nushell
+          # Exclude all `*-msvc-full.msi` full release files,
+          # and only the default `*msvc.msi` files will be included
+          installers-regex: 'msvc\.msi$'
           version: ${{ inputs.tag_name || github.event.release.tag_name }}
           release-tag: ${{ inputs.tag_name || github.event.release.tag_name }}
           token: ${{ secrets.NUSHELL_PAT }}

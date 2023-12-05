@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CellPathOnlyArgs};
+use nu_cmd_base::input_handler::{operate, CellPathOnlyArgs};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -17,7 +17,12 @@ impl Command for BytesReverse {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes reverse")
-            .input_output_types(vec![(Type::Binary, Type::Binary)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Binary),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -51,46 +56,39 @@ impl Command for BytesReverse {
             Example {
                 description: "Reverse bytes `0x[1F FF AA AA]`",
                 example: "0x[1F FF AA AA] | bytes reverse",
-                result: Some(Value::Binary {
-                    val: vec![0xAA, 0xAA, 0xFF, 0x1F],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(
+                    vec![0xAA, 0xAA, 0xFF, 0x1F],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Reverse bytes `0x[FF AA AA]`",
                 example: "0x[FF AA AA] | bytes reverse",
-                result: Some(Value::Binary {
-                    val: vec![0xAA, 0xAA, 0xFF],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::binary(vec![0xAA, 0xAA, 0xFF], Span::test_data())),
             },
         ]
     }
 }
 
 fn reverse(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => {
+        Value::Binary { val, .. } => {
             let mut reversed_input = val.to_vec();
             reversed_input.reverse();
-            Value::Binary {
-                val: reversed_input,
-                span: *val_span,
-            }
+            Value::binary(reversed_input, val_span)
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

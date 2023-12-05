@@ -1,10 +1,11 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_utils::IgnoreCaseExt;
 
 struct Arguments {
     substring: String,
@@ -28,8 +29,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str ends-with")
-            .input_output_types(vec![(Type::String, Type::Bool)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("string", SyntaxShape::String, "the string to match")
             .rest(
                 "rest",
@@ -73,13 +79,16 @@ impl Command for SubCommand {
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if string ends with '.txt'",
-                example: "'my_library.rb' | str ends-with '.txt'",
-                result: Some(Value::test_bool(false)),
+                description: "Checks if strings end with '.txt'",
+                example: "['my_library.rb', 'README.txt'] | str ends-with '.txt'",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(true),
+                ])),
             },
             Example {
                 description: "Checks if string ends with '.RB', case-insensitive",
-                example: "'my_library.rb' | str ends-with -i '.RB'",
+                example: "'my_library.rb' | str ends-with --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },
         ]
@@ -90,21 +99,23 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val: s, .. } => {
             let ends_with = if args.case_insensitive {
-                s.to_lowercase().ends_with(&args.substring.to_lowercase())
+                s.to_folded_case()
+                    .ends_with(&args.substring.to_folded_case())
             } else {
                 s.ends_with(&args.substring)
             };
-            Value::boolean(ends_with, head)
+            Value::bool(ends_with, head)
         }
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

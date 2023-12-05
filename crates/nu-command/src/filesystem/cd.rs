@@ -1,5 +1,3 @@
-use crate::filesystem::cd_query::query;
-use crate::{get_current_shell, get_shells};
 #[cfg(unix)]
 use libc::gid_t;
 use nu_engine::{current_dir, CallExt};
@@ -63,8 +61,6 @@ impl Command for Cd {
     ) -> Result<PipelineData, ShellError> {
         let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
         let cwd = current_dir(engine_state, stack)?;
-        let config = engine_state.get_config();
-        let use_abbrev = config.cd_with_abbreviations;
 
         let path_val = {
             if let Some(path) = path_val {
@@ -86,23 +82,11 @@ impl Command for Cd {
                         let path = oldpwd.as_path()?;
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
-                            Err(e1) => {
-                                if use_abbrev {
-                                    match query(&path, None, v.span) {
-                                        Ok(p) => p,
-                                        Err(e) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                Some(format!("IO Error: {e:?}")),
-                                            ))
-                                        }
-                                    }
-                                } else {
-                                    return Err(ShellError::DirectoryNotFound(
-                                        v.span,
-                                        Some(format!("IO Error: {e1:?}")),
-                                    ));
-                                }
+                            Err(_) => {
+                                return Err(ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: v.span,
+                                });
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -116,39 +100,17 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                if use_abbrev {
-                                    // if it's not a dir, let's check to see if it's something abbreviated
-                                    match query(&p, None, v.span) {
-                                        Ok(path) => path,
-                                        Err(e) => {
-                                            return Err(ShellError::DirectoryNotFound(
-                                                v.span,
-                                                Some(format!("IO Error: {e:?}")),
-                                            ))
-                                        }
-                                    };
-                                } else {
-                                    return Err(ShellError::NotADirectory(v.span));
-                                }
+                                return Err(ShellError::NotADirectory { span: v.span });
                             };
                             p
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
                         Err(_) => {
-                            if use_abbrev {
-                                match query(&path_no_whitespace, None, v.span) {
-                                    Ok(path) => path,
-                                    Err(e) => {
-                                        return Err(ShellError::DirectoryNotFound(
-                                            v.span,
-                                            Some(format!("IO Error: {e:?}")),
-                                        ))
-                                    }
-                                }
-                            } else {
-                                return Err(ShellError::DirectoryNotFound(v.span, None));
-                            }
+                            return Err(ShellError::DirectoryNotFound {
+                                dir: path_no_whitespace.to_string(),
+                                span: v.span,
+                            });
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
@@ -160,27 +122,7 @@ impl Command for Cd {
             }
         };
 
-        let path_value = Value::String {
-            val: path.clone(),
-            span,
-        };
-        let cwd = Value::string(cwd.to_string_lossy(), call.head);
-
-        let mut shells = get_shells(engine_state, stack, cwd);
-        let current_shell = get_current_shell(engine_state, stack);
-        shells[current_shell] = path_value.clone();
-
-        stack.add_env_var(
-            "NUSHELL_SHELLS".into(),
-            Value::List {
-                vals: shells,
-                span: call.head,
-            },
-        );
-        stack.add_env_var(
-            "NUSHELL_CURRENT_SHELL".into(),
-            Value::int(current_shell as i64, call.head),
-        );
+        let path_value = Value::string(path.clone(), span);
 
         if let Some(oldpwd) = stack.get_env_var(engine_state, "PWD") {
             stack.add_env_var("OLDPWD".into(), oldpwd)
@@ -193,9 +135,9 @@ impl Command for Cd {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {path}: {reason}"
-            ))),
+            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
+                msg: format!("Cannot change directory to {path}: {reason}"),
+            }),
         }
     }
 
@@ -204,11 +146,6 @@ impl Command for Cd {
             Example {
                 description: "Change to your home directory",
                 example: r#"cd ~"#,
-                result: None,
-            },
-            Example {
-                description: "Change to a directory via abbreviations",
-                example: r#"cd d/s/9"#,
                 result: None,
             },
             Example {
@@ -238,6 +175,8 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
+    use crate::filesystem::util::users;
+
     match dir.as_ref().metadata() {
         Ok(metadata) => {
             use std::os::unix::fs::MetadataExt;
@@ -292,26 +231,11 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
 
 #[cfg(unix)]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
-    users::get_current_username()
-        .map(|name| {
-            users::get_user_groups(&name, current_user_gid)
-                .map(|mut groups| {
-                    // Fixes https://github.com/ogham/rust-users/issues/44
-                    // If a user isn't in more than one group then this fix won't work,
-                    // However its common for a user to be in more than one group, so this should work for most.
-                    if groups.len() == 2 && groups[1].gid() == 0 {
-                        // We have no way of knowing if this is due to the issue or the user is actually in the root group
-                        // So we will assume they are in the root group and leave it.
-                        // It's not the end of the world if we are wrong, they will just get a permission denied error once inside.
-                    } else {
-                        groups.pop();
-                    }
+    use crate::filesystem::util::users;
 
-                    groups
-                })
-                .unwrap_or_default()
-        })
+    users::get_current_username()
+        .and_then(|name| users::get_user_groups(&name, current_user_gid))
         .unwrap_or_default()
         .into_iter()
-        .any(|group| group.gid() == owner_group)
+        .any(|gid| gid.as_raw() == owner_group)
 }

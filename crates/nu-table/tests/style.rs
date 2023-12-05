@@ -1,7 +1,8 @@
 mod common;
 
-use common::{create_row as row, VecCells};
-use nu_table::{TableConfig, TableTheme as theme};
+use common::create_row as row;
+use nu_table::{NuTable, NuTableConfig, TableTheme as theme};
+use tabled::grid::records::vec_records::CellInfo;
 
 #[test]
 fn test_rounded() {
@@ -47,7 +48,7 @@ fn test_rounded() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::rounded()),
+        create_table_with_size(vec![row(4); 0], true, theme::rounded()),
         ""
     );
 }
@@ -98,7 +99,7 @@ fn test_basic() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::basic()),
+        create_table_with_size(vec![row(4); 0], true, theme::basic()),
         ""
     );
 }
@@ -145,7 +146,7 @@ fn test_reinforced() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::reinforced()),
+        create_table_with_size(vec![row(4); 0], true, theme::reinforced()),
         ""
     );
 }
@@ -196,7 +197,7 @@ fn test_compact() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::compact()),
+        create_table_with_size(vec![row(4); 0], true, theme::compact()),
         ""
     );
 }
@@ -247,7 +248,7 @@ fn test_compact_double() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::compact_double()),
+        create_table_with_size(vec![row(4); 0], true, theme::compact_double()),
         ""
     );
 }
@@ -296,7 +297,7 @@ fn test_heavy() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::heavy()),
+        create_table_with_size(vec![row(4); 0], true, theme::heavy()),
         ""
     );
 }
@@ -334,7 +335,7 @@ fn test_light() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::light()),
+        create_table_with_size(vec![row(4); 0], true, theme::light()),
         ""
     );
 }
@@ -367,7 +368,7 @@ fn test_none() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::none()),
+        create_table_with_size(vec![row(4); 0], true, theme::none()),
         ""
     );
 }
@@ -418,7 +419,7 @@ fn test_thin() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::thin()),
+        create_table_with_size(vec![row(4); 0], true, theme::thin()),
         ""
     );
 }
@@ -469,27 +470,35 @@ fn test_with_love() {
     );
 
     assert_eq!(
-        create_table_with_size(vec![row(4); 0], (0, 4), true, theme::with_love()),
+        create_table_with_size(vec![row(4); 0], true, theme::with_love()),
         ""
     );
 }
 
-fn create_table(data: VecCells, with_header: bool, theme: theme) -> String {
-    let config = TableConfig::new(theme, with_header, false, false);
+fn create_table(data: Vec<Vec<CellInfo<String>>>, with_header: bool, theme: theme) -> String {
+    let config = NuTableConfig {
+        theme,
+        with_header,
+        ..Default::default()
+    };
+
     let out = common::create_table(data, config, usize::MAX);
 
     out.expect("not expected to get None")
 }
 
 fn create_table_with_size(
-    data: VecCells,
-    size: (usize, usize),
+    data: Vec<Vec<CellInfo<String>>>,
     with_header: bool,
     theme: theme,
 ) -> String {
-    let config = TableConfig::new(theme, with_header, false, false);
+    let config = NuTableConfig {
+        theme,
+        with_header,
+        ..Default::default()
+    };
 
-    let table = nu_table::Table::new(data, size);
+    let table = NuTable::from(data);
 
     table
         .draw(config, usize::MAX)

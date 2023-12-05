@@ -32,14 +32,92 @@ fn number_float() -> TestResult {
 
 #[test]
 fn date_minus_duration() -> TestResult {
-    let input = "2023-04-22 - 2day | date format %Y-%m-%d";
+    let input = "2023-04-22 - 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
     run_test(input, expected)
 }
 
 #[test]
 fn date_plus_duration() -> TestResult {
-    let input = "2023-04-18 + 2day | date format %Y-%m-%d";
+    let input = "2023-04-18 + 2day | format date %Y-%m-%d";
     let expected = "2023-04-20";
     run_test(input, expected)
+}
+
+#[test]
+fn block_not_first_class_def() -> TestResult {
+    fail_test(
+        "def foo [x: block] { do $x }",
+        "Blocks are not support as first-class values",
+    )
+}
+
+#[test]
+fn block_not_first_class_let() -> TestResult {
+    fail_test(
+        "let x: block = { 3 }",
+        "Blocks are not support as first-class values",
+    )
+}
+
+#[test]
+fn record_subtyping() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John' }",
+        "record<age: int, name: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_2() -> TestResult {
+    run_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { age: 4, name: 'John', height: '5-9' }",
+        "record<age: int, name: string, height: string>",
+    )
+}
+
+#[test]
+fn record_subtyping_3() -> TestResult {
+    fail_test(
+        "def test [rec: record<name: string, age: int>] { $rec | describe };
+        test { name: 'Nu' }",
+        "expected",
+    )
+}
+
+#[test]
+fn record_subtyping_allows_general_record() -> TestResult {
+    run_test(
+        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
+        def underspecified []: nothing -> record {{name:'Douglas', age:42}};
+        underspecified | test",
+        "success",
+    )
+}
+
+#[test]
+fn record_subtyping_allows_record_after_general_command() -> TestResult {
+    run_test(
+        "def test []: record<name: string, age: int> -> string { $in; echo 'success' };
+        {name:'Douglas', surname:'Adams', age:42} | select name age | test",
+        "success",
+    )
+}
+
+#[test]
+fn record_subtyping_allows_general_inner() -> TestResult {
+    run_test(
+        "def merge_records [other: record<bar: int>]: record<foo: string> -> record<foo: string, bar: int> { merge $other }",
+       "",
+    )
+}
+
+#[test]
+fn transpose_into_load_env() -> TestResult {
+    run_test(
+        "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
+        "10",
+    )
 }

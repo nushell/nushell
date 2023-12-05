@@ -1,18 +1,16 @@
-use nu_table::{string_width, Table, TableConfig, TextStyle};
-use tabled::papergrid::records::{cell_info::CellInfo, tcell::TCell};
+#![allow(dead_code)]
 
-pub type VecCells = Vec<Vec<TCell<CellInfo<'static>, TextStyle>>>;
+use nu_table::{string_width, NuTable, NuTableConfig};
+use tabled::grid::records::vec_records::CellInfo;
 
-#[allow(dead_code)]
 pub struct TestCase {
-    cfg: TableConfig,
+    cfg: NuTableConfig,
     termwidth: usize,
     expected: Option<String>,
 }
 
 impl TestCase {
-    #[allow(dead_code)]
-    pub fn new(cfg: TableConfig, termwidth: usize, expected: Option<String>) -> Self {
+    pub fn new(cfg: NuTableConfig, termwidth: usize, expected: Option<String>) -> Self {
         Self {
             cfg,
             termwidth,
@@ -21,11 +19,9 @@ impl TestCase {
     }
 }
 
-#[allow(dead_code)]
-pub fn test_table<I>(data: VecCells, tests: I)
-where
-    I: IntoIterator<Item = TestCase>,
-{
+type Data = Vec<Vec<CellInfo<String>>>;
+
+pub fn test_table<I: IntoIterator<Item = TestCase>>(data: Data, tests: I) {
     for (i, test) in tests.into_iter().enumerate() {
         let actual = create_table(data.clone(), test.cfg.clone(), test.termwidth);
 
@@ -41,28 +37,20 @@ where
     }
 }
 
-pub fn create_table(data: VecCells, config: TableConfig, termwidth: usize) -> Option<String> {
-    let mut size = (0, 0);
-    for row in &data {
-        size.0 += 1;
-        size.1 = std::cmp::max(size.1, row.len());
-    }
-
-    let table = Table::new(data, size);
+pub fn create_table(data: Data, config: NuTableConfig, termwidth: usize) -> Option<String> {
+    let table = NuTable::from(data);
     table.draw(config, termwidth)
 }
 
-pub fn create_row(count_columns: usize) -> Vec<TCell<CellInfo<'static>, TextStyle>> {
+pub fn create_row(count_columns: usize) -> Vec<CellInfo<String>> {
     let mut row = Vec::with_capacity(count_columns);
-
     for i in 0..count_columns {
-        row.push(Table::create_cell(i.to_string(), TextStyle::default()));
+        row.push(CellInfo::new(i.to_string()));
     }
 
     row
 }
 
-#[allow(dead_code)]
-pub fn _str(s: &str) -> TCell<CellInfo<'static>, TextStyle> {
-    Table::create_cell(s.to_string(), TextStyle::default())
+pub fn cell(text: &str) -> CellInfo<String> {
+    CellInfo::new(text.to_string())
 }

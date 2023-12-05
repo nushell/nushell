@@ -31,17 +31,17 @@ fn sources_also_files_under_custom_lib_dirs_path() {
         nu.within("lib/my_library").with_files(vec![FileWithContent(
             "main.nu",
             r#"
-                let-env hello = "hello nu"
+                $env.hello = "hello nu"
             "#,
         )]);
 
         let actual = nu!(
             cwd: ".", pipeline(
-            r#"
+            "
                 source-env my_library.nu ;
 
                 hello
-        "#
+            "
         ));
 
         assert_eq!(actual.out, "hello nu");
@@ -163,13 +163,13 @@ fn source_env_eval_export_env() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                export-env { let-env FOO = 'foo' }
+                export-env { $env.FOO = 'foo' }
             "#,
         )]);
 
         let inp = &[r#"source-env spam.nu"#, r#"$env.FOO"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -186,12 +186,12 @@ fn source_env_eval_export_env_hide() {
         )]);
 
         let inp = &[
-            r#"let-env FOO = 'foo'"#,
+            r#"$env.FOO = 'foo'"#,
             r#"source-env spam.nu"#,
             r#"$env.FOO"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("not_found"));
     })
@@ -214,7 +214,7 @@ fn source_env_do_cd() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "test2");
     })
@@ -237,7 +237,7 @@ fn source_env_do_cd_file_relative() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "test1");
     })
@@ -262,7 +262,7 @@ fn source_env_dont_cd_overlay() {
             r#"$env.PWD | path basename"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "source_env_dont_cd_overlay");
     })
@@ -281,13 +281,13 @@ fn source_env_is_scoped() {
 
         let inp = &[r#"source-env spam.nu"#, r#"no-name-similar-to-this"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("executable was not found"));
 
         let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert!(actual.err.contains("executable was not found"));
     })
@@ -299,7 +299,7 @@ fn source_env_const_file() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                let-env FOO = 'foo'
+                $env.FOO = 'foo'
             "#,
         )]);
 
@@ -309,7 +309,7 @@ fn source_env_const_file() {
             r#"$env.FOO"#,
         ];
 
-        let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
         assert_eq!(actual.out, "foo");
     })
@@ -319,9 +319,9 @@ fn source_env_const_file() {
 fn source_respects_early_return() {
     let actual = nu!(
         cwd: "tests/fixtures/formats", pipeline(
-        r#"
+        "
             source early_return.nu
-        "#
+        "
     ));
 
     assert!(actual.err.is_empty());

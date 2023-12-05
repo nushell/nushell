@@ -2,7 +2,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::ast::Call;
-use crate::ast::Expression;
 use crate::engine::Command;
 use crate::engine::EngineState;
 use crate::engine::Stack;
@@ -11,6 +10,7 @@ use crate::PipelineData;
 use crate::ShellError;
 use crate::SyntaxShape;
 use crate::Type;
+use crate::Value;
 use crate::VarId;
 use std::fmt::Write;
 
@@ -24,7 +24,7 @@ pub struct Flag {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<Expression>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ pub struct PositionalArg {
 
     // For custom commands
     pub var_id: Option<VarId>,
-    pub default_value: Option<Expression>,
+    pub default_value: Option<Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -49,7 +49,7 @@ pub enum Category {
     Date,
     Debug,
     Default,
-    Deprecated,
+    Removed,
     Env,
     Experimental,
     FileSystem,
@@ -60,6 +60,7 @@ pub enum Category {
     Math,
     Misc,
     Network,
+    Path,
     Platform,
     Random,
     Shells,
@@ -80,7 +81,7 @@ impl std::fmt::Display for Category {
             Category::Date => "date",
             Category::Debug => "debug",
             Category::Default => "default",
-            Category::Deprecated => "deprecated",
+            Category::Removed => "removed",
             Category::Env => "env",
             Category::Experimental => "experimental",
             Category::FileSystem => "filesystem",
@@ -91,6 +92,7 @@ impl std::fmt::Display for Category {
             Category::Math => "math",
             Category::Misc => "misc",
             Category::Network => "network",
+            Category::Path => "path",
             Category::Platform => "platform",
             Category::Random => "random",
             Category::Shells => "shells",
@@ -112,10 +114,7 @@ pub struct Signature {
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
-    pub vectorizes_over_list: bool,
     pub named: Vec<Flag>,
-    pub input_type: Type,
-    pub output_type: Type,
     pub input_output_types: Vec<(Type, Type)>,
     pub allow_variants_without_examples: bool,
     pub is_filter: bool,
@@ -123,72 +122,6 @@ pub struct Signature {
     pub allows_unknown_args: bool,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
-}
-
-/// Format argument type for user readable output.
-///
-/// In general:
-/// if argument type is a simple type(like string), we'll wrapped with `<>`, the result will be `<string>`
-/// if argument type is already contains `<>`, like `list<any>`, the result will be `list<any>`.
-fn fmt_type(arg_type: &Type, optional: bool) -> String {
-    let arg_type = arg_type.to_string();
-    if arg_type.contains('<') && arg_type.contains('>') {
-        if optional {
-            format!("{arg_type}?")
-        } else {
-            arg_type
-        }
-    } else if optional {
-        format!("<{arg_type}?>")
-    } else {
-        format!("<{arg_type}>")
-    }
-}
-
-// in general, a commands signature should looks like this:
-//
-// <string> | <string>, <int?> => string
-//
-// More detail explanation:
-// the first one is the input from previous command, aka, pipeline input
-// then followed by `|`, then positional arguments type
-// then optional arguments type, which ends with `?`
-// Then followed by `->`
-// Finally output type.
-//
-// If a command contains multiple input/output types, separate them in different lines.
-impl std::fmt::Display for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut args = self
-            .required_positional
-            .iter()
-            .map(|p| fmt_type(&p.shape.to_type(), false))
-            .collect::<Vec<String>>();
-        args.append(
-            &mut self
-                .optional_positional
-                .iter()
-                .map(|p| fmt_type(&p.shape.to_type(), true))
-                .collect::<Vec<String>>(),
-        );
-        let args = args.join(", ");
-
-        let mut signatures = vec![];
-        for (input_type, output_type) in self.input_output_types.iter() {
-            // ident with two spaces for user friendly output.
-            let input_type = fmt_type(input_type, false);
-            let output_type = fmt_type(output_type, false);
-            if args.is_empty() {
-                signatures.push(format!("  {input_type} | {} -> {output_type}", self.name))
-            } else {
-                signatures.push(format!(
-                    "  {input_type} | {} {args} -> {output_type}",
-                    self.name
-                ))
-            }
-        }
-        write!(f, "{}", signatures.join("\n"))
-    }
 }
 
 impl PartialEq for Signature {
@@ -214,9 +147,6 @@ impl Signature {
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
-            vectorizes_over_list: false,
-            input_type: Type::Any,
-            output_type: Type::Any,
             input_output_types: vec![],
             allow_variants_without_examples: false,
             named: vec![],
@@ -224,6 +154,46 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+        }
+    }
+
+    // Gets the input type from the signature
+    pub fn get_input_type(&self) -> Type {
+        match self.input_output_types.len() {
+            0 => Type::Any,
+            1 => self.input_output_types[0].0.clone(),
+            _ => {
+                let first = &self.input_output_types[0].0;
+                if self
+                    .input_output_types
+                    .iter()
+                    .all(|(input, _)| input == first)
+                {
+                    first.clone()
+                } else {
+                    Type::Any
+                }
+            }
+        }
+    }
+
+    // Gets the output type from the signature
+    pub fn get_output_type(&self) -> Type {
+        match self.input_output_types.len() {
+            0 => Type::Any,
+            1 => self.input_output_types[0].1.clone(),
+            _ => {
+                let first = &self.input_output_types[0].1;
+                if self
+                    .input_output_types
+                    .iter()
+                    .all(|(_, output)| output == first)
+                {
+                    first.clone()
+                } else {
+                    Type::Any
+                }
+            }
         }
     }
 
@@ -267,8 +237,7 @@ impl Signature {
     }
 
     /// Update signature's fields from a Command trait implementation
-    pub fn update_from_command(mut self, name: String, command: &dyn Command) -> Signature {
-        self.name = name;
+    pub fn update_from_command(mut self, command: &dyn Command) -> Signature {
         self.search_terms = command
             .search_terms()
             .into_iter()
@@ -423,19 +392,8 @@ impl Signature {
     }
 
     /// Changes the input type of the command signature
-    pub fn input_type(mut self, input_type: Type) -> Signature {
-        self.input_type = input_type;
-        self
-    }
-
-    /// Changes the output type of the command signature
-    pub fn output_type(mut self, output_type: Type) -> Signature {
-        self.output_type = output_type;
-        self
-    }
-
-    pub fn vectorizes_over_list(mut self, vectorizes_over_list: bool) -> Signature {
-        self.vectorizes_over_list = vectorizes_over_list;
+    pub fn input_output_type(mut self, input_type: Type, output_type: Type) -> Signature {
+        self.input_output_types.push((input_type, output_type));
         self
     }
 
@@ -511,7 +469,8 @@ impl Signature {
         let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
+                "There may be duplicate short flags for '-{}'",
+                c
             );
             c
         });
@@ -520,7 +479,8 @@ impl Signature {
             let name: String = name.into();
             debug_assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags, such as --help"
+                "There may be duplicate name flags for '--{}'",
+                name
             );
             name
         };

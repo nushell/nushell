@@ -2,6 +2,8 @@ use nu_protocol::ShellError;
 
 use crate::{plugin::PluginEncoder, protocol::PluginResponse};
 
+/// A `PluginEncoder` that enables the plugin to communicate with Nushel with JSON
+/// serialized data.
 #[derive(Clone, Debug)]
 pub struct JsonSerializer;
 
@@ -15,16 +17,18 @@ impl PluginEncoder for JsonSerializer {
         plugin_call: &crate::protocol::PluginCall,
         writer: &mut impl std::io::Write,
     ) -> Result<(), nu_protocol::ShellError> {
-        serde_json::to_writer(writer, plugin_call)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::to_writer(writer, plugin_call).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 
     fn decode_call(
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<crate::protocol::PluginCall, nu_protocol::ShellError> {
-        serde_json::from_reader(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::from_reader(reader).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 
     fn encode_response(
@@ -32,16 +36,20 @@ impl PluginEncoder for JsonSerializer {
         plugin_response: &PluginResponse,
         writer: &mut impl std::io::Write,
     ) -> Result<(), ShellError> {
-        serde_json::to_writer(writer, plugin_response)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::to_writer(writer, plugin_response).map_err(|err| {
+            ShellError::PluginFailedToEncode {
+                msg: err.to_string(),
+            }
+        })
     }
 
     fn decode_response(
         &self,
         reader: &mut impl std::io::BufRead,
     ) -> Result<PluginResponse, ShellError> {
-        serde_json::from_reader(reader)
-            .map_err(|err| ShellError::PluginFailedToEncode(err.to_string()))
+        serde_json::from_reader(reader).map_err(|err| ShellError::PluginFailedToEncode {
+            msg: err.to_string(),
+        })
     }
 }
 
@@ -77,32 +85,20 @@ mod tests {
     fn callinfo_round_trip_callinfo() {
         let name = "test".to_string();
 
-        let input = Value::Bool {
-            val: false,
-            span: Span::new(1, 20),
-        };
+        let input = Value::bool(false, Span::new(1, 20));
 
         let call = EvaluatedCall {
             head: Span::new(0, 10),
             positional: vec![
-                Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                },
-                Value::String {
-                    val: "something".into(),
-                    span: Span::new(0, 10),
-                },
+                Value::float(1.0, Span::new(0, 10)),
+                Value::string("something", Span::new(0, 10)),
             ],
             named: vec![(
                 Spanned {
                     item: "name".to_string(),
                     span: Span::new(0, 10),
                 },
-                Some(Value::Float {
-                    val: 1.0,
-                    span: Span::new(0, 10),
-                }),
+                Some(Value::float(1.0, Span::new(0, 10))),
             )],
         };
 
@@ -251,10 +247,7 @@ mod tests {
 
     #[test]
     fn response_round_trip_value() {
-        let value = Value::Int {
-            val: 10,
-            span: Span::new(2, 30),
-        };
+        let value = Value::int(10, Span::new(2, 30));
 
         let response = PluginResponse::Value(Box::new(value.clone()));
 

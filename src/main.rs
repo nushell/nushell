@@ -9,6 +9,10 @@ mod test_bins;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "mimalloc")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
@@ -19,9 +23,13 @@ use command::gather_commandline_args;
 use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
-use nu_command::{create_default_context, get_init_cwd};
-use nu_protocol::{report_error_new, Value};
-use nu_protocol::{util::BufferedReader, PipelineData, RawStream};
+use nu_cmd_base::util::get_init_cwd;
+use nu_lsp::LanguageServer;
+use nu_protocol::{
+    engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
+    PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
+};
+use nu_std::load_standard_library;
 use nu_utils::utils::perf;
 use run::{run_commands, run_file, run_repl};
 use signals::{ctrlc_protection, sigquit_protection};
@@ -30,6 +38,17 @@ use std::{
     str::FromStr,
     sync::{atomic::AtomicBool, Arc},
 };
+
+fn get_engine_state() -> EngineState {
+    let engine_state = nu_cmd_lang::create_default_context();
+    let engine_state = nu_command::add_shell_command_context(engine_state);
+    #[cfg(feature = "extra")]
+    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    #[cfg(feature = "dataframe")]
+    let engine_state = nu_cmd_dataframe::add_dataframe_context(engine_state);
+    let engine_state = nu_cli::add_cli_context(engine_state);
+    nu_explore::add_explore_context(engine_state)
+}
 
 fn main() -> Result<()> {
     let entire_start_time = std::time::Instant::now();
@@ -42,7 +61,7 @@ fn main() -> Result<()> {
 
     // Get initial current working directory.
     let init_cwd = get_init_cwd();
-    let mut engine_state = nu_cli::add_cli_context(create_default_context());
+    let mut engine_state = get_engine_state();
 
     // Custom additions
     let delta = {
@@ -61,11 +80,26 @@ fn main() -> Result<()> {
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
 
+    // This is the real secret sauce to having an in-memory sqlite db. You must
+    // start a connection to the memory database in main so it will exist for the
+    // lifetime of the program. If it's created with how MEMORY_DB is defined
+    // you'll be able to access this open connection from anywhere in the program
+    // by using the identical connection string.
+    #[cfg(feature = "sqlite")]
+    let db = nu_command::open_connection_in_memory_custom()?;
+    #[cfg(feature = "sqlite")]
+    db.last_insert_rowid();
+
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|_| std::process::exit(1));
 
-    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some();
+    // keep this condition in sync with the branches at the end
+    engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
+        || (parsed_nu_cli_args.testbin.is_none()
+            && parsed_nu_cli_args.commands.is_none()
+            && script_name.is_empty());
+
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
@@ -106,7 +140,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "config.nu",
         "config-path",
-        &parsed_nu_cli_args.config_file,
+        parsed_nu_cli_args.config_file.as_ref(),
     );
 
     set_config_path(
@@ -114,7 +148,7 @@ fn main() -> Result<()> {
         &init_cwd,
         "env.nu",
         "env-path",
-        &parsed_nu_cli_args.env_file,
+        parsed_nu_cli_args.env_file.as_ref(),
     );
     perf(
         "set_config_path",
@@ -126,8 +160,7 @@ fn main() -> Result<()> {
     );
 
     start_time = std::time::Instant::now();
-    // keep this condition in sync with the branches below
-    acquire_terminal(parsed_nu_cli_args.commands.is_none() && script_name.is_empty());
+    acquire_terminal(engine_state.is_interactive);
     perf(
         "acquire_terminal",
         start_time,
@@ -142,13 +175,35 @@ fn main() -> Result<()> {
         let vals: Vec<_> = include_path
             .item
             .split('\x1e') // \x1e is the record separator character (a character that is unlikely to appear in a path)
-            .map(|x| Value::String {
-                val: x.trim().to_string(),
-                span,
-            })
+            .map(|x| Value::string(x.trim().to_string(), span))
             .collect();
 
-        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::List { vals, span });
+        engine_state.add_env_var("NU_LIB_DIRS".into(), Value::list(vals, span));
+    }
+
+    start_time = std::time::Instant::now();
+    // First, set up env vars as strings only
+    gather_parent_env_vars(&mut engine_state, &init_cwd);
+    perf(
+        "gather env vars",
+        start_time,
+        file!(),
+        line!(),
+        column!(),
+        use_color,
+    );
+
+    engine_state.add_env_var(
+        "NU_VERSION".to_string(),
+        Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
+    );
+
+    if parsed_nu_cli_args.no_std_lib.is_none() {
+        load_standard_library(&mut engine_state)?;
+    }
+
+    if parsed_nu_cli_args.lsp {
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
     }
 
     // IDE commands
@@ -171,6 +226,10 @@ fn main() -> Result<()> {
         ide::check(&mut engine_state, &script_name, &max_errors);
 
         return Ok(());
+    } else if parsed_nu_cli_args.ide_ast.is_some() {
+        ide::ast(&mut engine_state, &script_name);
+
+        return Ok(());
     }
 
     start_time = std::time::Instant::now();
@@ -179,6 +238,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),
             "meowb" => test_bins::meowb(),
@@ -234,17 +294,9 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    start_time = std::time::Instant::now();
-    // First, set up env vars as strings only
-    gather_parent_env_vars(&mut engine_state, &init_cwd);
-    perf(
-        "gather env vars",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    // Set up the $nu constant before evaluating config files (need to have $nu available in them)
+    let nu_const = create_nu_constant(&engine_state, input.span().unwrap_or_else(Span::unknown))?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
 
     if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
@@ -265,7 +317,6 @@ fn main() -> Result<()> {
             input,
         )
     } else {
-        engine_state.is_interactive = true;
         run_repl(&mut engine_state, parsed_nu_cli_args, entire_start_time)
     }
 }

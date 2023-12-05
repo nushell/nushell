@@ -54,7 +54,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Generate random chars with specified length",
-                example: "random chars -l 20",
+                example: "random chars --length 20",
                 result: None,
             },
         ]
@@ -79,10 +79,7 @@ fn chars(
         .collect::<String>();
 
     Ok(PipelineData::Value(
-        Value::String {
-            val: random_string,
-            span,
-        },
+        Value::string(random_string, span),
         None,
     ))
 }

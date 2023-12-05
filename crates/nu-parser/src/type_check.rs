@@ -1,32 +1,67 @@
 use nu_protocol::{
-    ast::{Bits, Boolean, Comparison, Expr, Expression, Math, Operator},
+    ast::{
+        Bits, Block, Boolean, Comparison, Expr, Expression, Math, Operator, Pipeline,
+        PipelineElement,
+    },
     engine::StateWorkingSet,
     ParseError, Type,
 };
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
+    // Structural subtyping
+    let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
+        if expected.is_empty() || found.is_empty() {
+            // We treat an incoming empty table/record type as compatible for typechecking purposes
+            // It is the responsibility of the runtime to reject if necessary
+            true
+        } else if expected.len() > found.len() {
+            false
+        } else {
+            expected.iter().all(|(col_x, ty_x)| {
+                if let Some((_, ty_y)) = found.iter().find(|(col_y, _)| col_x == col_y) {
+                    type_compatible(ty_x, ty_y)
+                } else {
+                    false
+                }
+            })
+        }
+    };
+
     match (lhs, rhs) {
         (Type::List(c), Type::List(d)) => type_compatible(c, d),
+        (Type::ListStream, Type::List(_)) => true,
+        (Type::List(_), Type::ListStream) => true,
+        (Type::List(c), Type::Table(table_fields)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(fields, table_fields)
+            } else {
+                false
+            }
+        }
+        (Type::Table(table_fields), Type::List(c)) => {
+            if matches!(**c, Type::Any) {
+                return true;
+            }
+
+            if let Type::Record(fields) = &**c {
+                is_compatible(table_fields, fields)
+            } else {
+                false
+            }
+        }
         (Type::Number, Type::Int) => true,
+        (Type::Int, Type::Number) => true,
         (Type::Number, Type::Float) => true,
+        (Type::Float, Type::Number) => true,
         (Type::Closure, Type::Block) => true,
         (Type::Any, _) => true,
         (_, Type::Any) => true,
-        (Type::Record(fields_lhs), Type::Record(fields_rhs)) => {
-            // Structural subtyping
-            'outer: for field_lhs in fields_lhs {
-                for field_rhs in fields_rhs {
-                    if field_lhs.0 == field_rhs.0 {
-                        if type_compatible(&field_lhs.1, &field_rhs.1) {
-                            continue 'outer;
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-                return false;
-            }
-            true
+        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
+            is_compatible(lhs, rhs)
         }
         (lhs, rhs) => lhs == rhs,
     }
@@ -45,6 +80,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::String, Type::String) => (Type::String, None),
                 (Type::Date, Type::Duration) => (Type::Date, None),
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
@@ -141,6 +181,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::Date, Type::Date) => (Type::Duration, None),
                 (Type::Date, Type::Duration) => (Type::Date, None),
                 (Type::Duration, Type::Duration) => (Type::Duration, None),
@@ -183,6 +228,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Int, Type::Filesize) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
@@ -191,10 +241,6 @@ pub fn math_result_type(
                 (Type::Int, Type::Duration) => (Type::Duration, None),
                 (Type::Duration, Type::Float) => (Type::Duration, None),
                 (Type::Float, Type::Duration) => (Type::Duration, None),
-                (Type::Int, Type::String) => (Type::String, None),
-                (Type::String, Type::Int) => (Type::String, None),
-                (Type::Int, Type::List(a)) => (Type::List(a.clone()), None),
-                (Type::List(a), Type::Int) => (Type::List(a.clone()), None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
@@ -239,6 +285,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
                 (Type::Custom(a), _) => (Type::Custom(a.to_string()), None),
@@ -278,6 +329,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Float, None),
                 (Type::Int, Type::Float) => (Type::Float, None),
                 (Type::Float, Type::Float) => (Type::Float, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::Filesize, Type::Filesize) => (Type::Float, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
@@ -322,6 +378,11 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Int, None),
                 (Type::Int, Type::Float) => (Type::Int, None),
                 (Type::Float, Type::Float) => (Type::Int, None),
+                (Type::Number, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Int) => (Type::Number, None),
+                (Type::Int, Type::Number) => (Type::Number, None),
+                (Type::Number, Type::Float) => (Type::Number, None),
+                (Type::Float, Type::Number) => (Type::Number, None),
                 (Type::Filesize, Type::Filesize) => (Type::Int, None),
                 (Type::Filesize, Type::Int) => (Type::Filesize, None),
                 (Type::Filesize, Type::Float) => (Type::Filesize, None),
@@ -408,7 +469,13 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Number, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Int) => (Type::Bool, None),
+                (Type::Int, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Float) => (Type::Bool, None),
+                (Type::Float, Type::Number) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -451,7 +518,13 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Number, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Int) => (Type::Bool, None),
+                (Type::Int, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Float) => (Type::Bool, None),
+                (Type::Float, Type::Number) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -494,7 +567,13 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Number, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Int) => (Type::Bool, None),
+                (Type::Int, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Float) => (Type::Bool, None),
+                (Type::Float, Type::Number) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -537,7 +616,13 @@ pub fn math_result_type(
                 (Type::Float, Type::Int) => (Type::Bool, None),
                 (Type::Int, Type::Float) => (Type::Bool, None),
                 (Type::Float, Type::Float) => (Type::Bool, None),
+                (Type::Number, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Int) => (Type::Bool, None),
+                (Type::Int, Type::Number) => (Type::Bool, None),
+                (Type::Number, Type::Float) => (Type::Bool, None),
+                (Type::Float, Type::Number) => (Type::Bool, None),
                 (Type::Duration, Type::Duration) => (Type::Bool, None),
+                (Type::Date, Type::Date) => (Type::Bool, None),
                 (Type::Filesize, Type::Filesize) => (Type::Bool, None),
 
                 (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.to_string()), None),
@@ -729,7 +814,7 @@ pub fn math_result_type(
             },
             Operator::Comparison(Comparison::In) => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
-                (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
+                (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
@@ -767,7 +852,7 @@ pub fn math_result_type(
             },
             Operator::Comparison(Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
                 (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
-                (Type::Int | Type::Float, Type::Range) => (Type::Bool, None),
+                (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
 
@@ -859,4 +944,135 @@ pub fn math_result_type(
             )
         }
     }
+}
+
+pub fn check_pipeline_type(
+    working_set: &StateWorkingSet,
+    pipeline: &Pipeline,
+    input_type: Type,
+) -> (Type, Option<Vec<ParseError>>) {
+    let mut current_type = input_type;
+
+    let mut output_errors: Option<Vec<ParseError>> = None;
+
+    'elem: for elem in &pipeline.elements {
+        match elem {
+            PipelineElement::Expression(
+                _,
+                Expression {
+                    expr: Expr::Call(call),
+                    ..
+                },
+            ) => {
+                let decl = working_set.get_decl(call.decl_id);
+
+                if current_type == Type::Any {
+                    let mut new_current_type = None;
+                    for (_, call_output) in decl.signature().input_output_types {
+                        if let Some(inner_current_type) = &new_current_type {
+                            if inner_current_type == &Type::Any {
+                                break;
+                            } else if inner_current_type != &call_output {
+                                // Union unequal types to Any for now
+                                new_current_type = Some(Type::Any)
+                            }
+                        } else {
+                            new_current_type = Some(call_output.clone())
+                        }
+                    }
+
+                    if let Some(new_current_type) = new_current_type {
+                        current_type = new_current_type
+                    } else {
+                        current_type = Type::Any;
+                    }
+                    continue 'elem;
+                } else {
+                    for (call_input, call_output) in decl.signature().input_output_types {
+                        if type_compatible(&call_input, &current_type) {
+                            current_type = call_output.clone();
+                            continue 'elem;
+                        }
+                    }
+                }
+
+                if !decl.signature().input_output_types.is_empty() {
+                    if let Some(output_errors) = &mut output_errors {
+                        output_errors.push(ParseError::InputMismatch(current_type, call.head))
+                    } else {
+                        output_errors =
+                            Some(vec![ParseError::InputMismatch(current_type, call.head)]);
+                    }
+                }
+                current_type = Type::Any;
+            }
+            PipelineElement::Expression(_, Expression { ty, .. }) => {
+                current_type = ty.clone();
+            }
+            _ => {
+                current_type = Type::Any;
+            }
+        }
+    }
+
+    (current_type, output_errors)
+}
+
+pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) -> Vec<ParseError> {
+    // let inputs = block.input_types();
+    let mut output_errors = vec![];
+
+    for (input_type, output_type) in &block.signature.input_output_types {
+        let mut current_type = input_type.clone();
+        let mut current_output_type = Type::Nothing;
+
+        for pipeline in &block.pipelines {
+            let (checked_output_type, err) =
+                check_pipeline_type(working_set, pipeline, current_type);
+            current_output_type = checked_output_type;
+            current_type = Type::Nothing;
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
+        }
+
+        if !type_compatible(output_type, &current_output_type)
+            && output_type != &Type::Any
+            && current_output_type != Type::Any
+        {
+            let span = if block.pipelines.is_empty() {
+                if let Some(span) = block.span {
+                    span
+                } else {
+                    continue;
+                }
+            } else {
+                block
+                    .pipelines
+                    .last()
+                    .expect("internal error: we should have pipelines")
+                    .elements
+                    .last()
+                    .expect("internal error: we should have elements")
+                    .span()
+            };
+
+            output_errors.push(ParseError::OutputMismatch(output_type.clone(), span))
+        }
+    }
+
+    if block.signature.input_output_types.is_empty() {
+        let mut current_type = Type::Any;
+
+        for pipeline in &block.pipelines {
+            let (_, err) = check_pipeline_type(working_set, pipeline, current_type);
+            current_type = Type::Nothing;
+
+            if let Some(err) = err {
+                output_errors.extend_from_slice(&err);
+            }
+        }
+    }
+
+    output_errors
 }

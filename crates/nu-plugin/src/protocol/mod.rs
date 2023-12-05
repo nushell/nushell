@@ -29,10 +29,19 @@ pub enum PluginCall {
     CollapseCustomValue(PluginData),
 }
 
+/// An error message with debugging information that can be passed to Nushell from the plugin
+///
+/// The `LabeledError` struct is a structured error message that can be returned from
+/// a [Plugin](crate::Plugin)'s [`run`](crate::Plugin::run()) method. It contains
+/// the error message along with optional [Span] data to support highlighting in the
+/// shell.
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub struct LabeledError {
+    /// The name of the error
     pub label: String,
+    /// A detailed error description
     pub msg: String,
+    /// The [Span] in which the error occurred
     pub span: Option<Span>,
 }
 
@@ -66,25 +75,25 @@ impl From<ShellError> for LabeledError {
                 help: _help,
             } => LabeledError {
                 label: format!("Can't convert to {expected}"),
-                msg: format!("can't convert {expected} to {input}"),
+                msg: format!("can't convert from {input} to {expected}"),
                 span: Some(span),
             },
-            ShellError::DidYouMean(suggestion, span) => LabeledError {
+            ShellError::DidYouMean { suggestion, span } => LabeledError {
                 label: "Name not found".into(),
-                msg: format!("did you mean '{suggestion}'"),
+                msg: format!("did you mean '{suggestion}'?"),
                 span: Some(span),
             },
-            ShellError::PluginFailedToLoad(msg) => LabeledError {
+            ShellError::PluginFailedToLoad { msg } => LabeledError {
                 label: "Plugin failed to load".into(),
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToEncode(msg) => LabeledError {
+            ShellError::PluginFailedToEncode { msg } => LabeledError {
                 label: "Plugin failed to encode".into(),
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToDecode(msg) => LabeledError {
+            ShellError::PluginFailedToDecode { msg } => LabeledError {
                 label: "Plugin failed to decode".into(),
                 msg,
                 span: None,
@@ -99,6 +108,9 @@ impl From<ShellError> for LabeledError {
 }
 
 // Information received from the plugin
+// Needs to be public to communicate with nu-parser but not typically
+// used by Plugin authors
+#[doc(hidden)]
 #[derive(Serialize, Deserialize)]
 pub enum PluginResponse {
     Error(LabeledError),

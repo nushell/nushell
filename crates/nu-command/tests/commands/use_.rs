@@ -20,13 +20,13 @@ fn use_module_file_within_block() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                     def bar [] {
                         use spam.nu foo;
                         foo
                     };
                     bar
-                "#
+                "
             )
         );
 
@@ -53,10 +53,10 @@ fn use_keeps_doc_comments() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-                r#"
+                "
                     use spam.nu foo;
                     help foo
-                "#
+                "
             )
         );
 
@@ -71,7 +71,7 @@ fn use_eval_export_env() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                export-env { let-env FOO = 'foo' }
+                export-env { $env.FOO = 'foo' }
             "#,
         )]);
 
@@ -93,7 +93,7 @@ fn use_eval_export_env_hide() {
             "#,
         )]);
 
-        let inp = &[r#"let-env FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
+        let inp = &[r#"$env.FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
 
         let actual = nu!(cwd: dirs.test(), pipeline(&inp.join("; ")));
 
@@ -171,9 +171,9 @@ fn use_export_env_combined() {
         sandbox.with_files(vec![FileWithContentToBeTrimmed(
             "spam.nu",
             r#"
-                alias bar = foo
-                export-env { let-env FOO = (bar) }
                 def foo [] { 'foo' }
+                alias bar = foo
+                export-env { $env.FOO = (bar) }
             "#,
         )]);
 
@@ -186,13 +186,9 @@ fn use_export_env_combined() {
 
 #[test]
 fn use_module_creates_accurate_did_you_mean_1() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
             module spam { export def foo [] { "foo" } }; use spam; foo
-        "#
-        )
-    );
+        "#);
     assert!(actual.err.contains(
         "command 'foo' was not found but it was imported from module 'spam'; try using `spam foo`"
     ));
@@ -200,13 +196,9 @@ fn use_module_creates_accurate_did_you_mean_1() {
 
 #[test]
 fn use_module_creates_accurate_did_you_mean_2() {
-    let actual = nu!(
-    cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
             module spam { export def foo [] { "foo" } }; foo
-        "#
-        )
-    );
+        "#);
     assert!(actual.err.contains(
         "command 'foo' was not found but it exists in module 'spam'; try importing it with `use`"
     ));
@@ -220,7 +212,7 @@ fn use_main_1() {
         r#"spam"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
@@ -233,7 +225,7 @@ fn use_main_2() {
         r#"spam"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
@@ -246,7 +238,7 @@ fn use_main_3() {
         r#"spam"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
@@ -259,7 +251,7 @@ fn use_main_4() {
         r#"spam"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
@@ -267,13 +259,13 @@ fn use_main_4() {
 #[test]
 fn use_main_def_env() {
     let inp = &[
-        r#"module spam { export def-env main [] { let-env SPAM = "spam" } }"#,
+        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
         r#"use spam"#,
         r#"spam"#,
         r#"$env.SPAM"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "spam");
 }
@@ -287,7 +279,7 @@ fn use_main_def_known_external() {
         r#"cargo --version"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.out.contains("cargo"));
 }
@@ -300,7 +292,7 @@ fn use_main_not_exported() {
         r#"spam"#,
     ];
 
-    let actual = nu!(cwd: ".", pipeline(&inp.join("; ")));
+    let actual = nu!(&inp.join("; "));
 
     assert!(actual.err.contains("external_command"));
 }

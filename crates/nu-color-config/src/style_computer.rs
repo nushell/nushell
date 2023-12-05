@@ -1,16 +1,14 @@
+use crate::text_style::Alignment;
 use crate::{color_record_to_nustyle, lookup_ansi_color_style, TextStyle};
 use nu_ansi_term::{Color, Style};
-use nu_engine::eval_block;
+use nu_engine::{env::get_config, eval_block};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     CliError, IntoPipelineData, Value,
 };
-use tabled::alignment::AlignmentHorizontal;
+use std::collections::HashMap;
 
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Formatter, Result},
-};
+use std::fmt::{Debug, Formatter, Result};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
@@ -56,51 +54,53 @@ impl<'a> StyleComputer<'a> {
             // Static values require no computation.
             Some(ComputableStyle::Static(s)) => *s,
             // Closures are run here.
-            Some(ComputableStyle::Closure(Value::Closure {
-                val: block_id,
-                captures,
-                span,
-            })) => {
-                let block = self.engine_state.get_block(*block_id).clone();
-                // Because captures_to_stack() clones, we don't need to use with_env() here
-                // (contrast with_env() usage in `each` or `do`).
-                let mut stack = self.stack.captures_to_stack(captures);
+            Some(ComputableStyle::Closure(v)) => {
+                let span = v.span();
+                match v {
+                    Value::Closure { val, .. } => {
+                        let block = self.engine_state.get_block(val.block_id).clone();
+                        // Because captures_to_stack() clones, we don't need to use with_env() here
+                        // (contrast with_env() usage in `each` or `do`).
+                        let mut stack = self.stack.captures_to_stack(val.captures.clone());
 
-                // Support 1-argument blocks as well as 0-argument blocks.
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, value.clone());
-                    }
-                }
+                        // Support 1-argument blocks as well as 0-argument blocks.
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone());
+                            }
+                        }
 
-                // Run the block.
-                match eval_block(
-                    self.engine_state,
-                    &mut stack,
-                    &block,
-                    value.clone().into_pipeline_data(),
-                    false,
-                    false,
-                ) {
-                    Ok(v) => {
-                        let value = v.into_value(*span);
-                        // These should be the same color data forms supported by color_config.
-                        match value {
-                            Value::Record { .. } => color_record_to_nustyle(&value),
-                            Value::String { val, .. } => lookup_ansi_color_style(&val),
-                            _ => Style::default(),
+                        // Run the block.
+                        match eval_block(
+                            self.engine_state,
+                            &mut stack,
+                            &block,
+                            value.clone().into_pipeline_data(),
+                            false,
+                            false,
+                        ) {
+                            Ok(v) => {
+                                let value = v.into_value(span);
+                                // These should be the same color data forms supported by color_config.
+                                match value {
+                                    Value::Record { .. } => color_record_to_nustyle(&value),
+                                    Value::String { val, .. } => lookup_ansi_color_style(&val),
+                                    _ => Style::default(),
+                                }
+                            }
+                            // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
+                            // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
+                            // currently hook closure errors behave roughly the same.
+                            Err(e) => {
+                                eprintln!(
+                                    "Error: {:?}",
+                                    CliError(&e, &StateWorkingSet::new(self.engine_state))
+                                );
+                                Style::default()
+                            }
                         }
                     }
-                    // This is basically a copy of nu_cli::report_error(), but that isn't usable due to
-                    // dependencies. While crudely spitting out a bunch of errors like this is not ideal,
-                    // currently hook closure errors behave roughly the same.
-                    Err(e) => {
-                        eprintln!(
-                            "Error: {:?}",
-                            CliError(&e, &StateWorkingSet::new(self.engine_state))
-                        );
-                        Style::default()
-                    }
+                    _ => Style::default(),
                 }
             }
             // There should be no other kinds of values (due to create_map() in config.rs filtering them out)
@@ -111,73 +111,60 @@ impl<'a> StyleComputer<'a> {
 
     // Used only by the `table` command.
     pub fn style_primitive(&self, value: &Value) -> TextStyle {
+        use Alignment::*;
         let s = self.compute(&value.get_type().get_non_specified_string(), value);
         match *value {
-            Value::Bool { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Int { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Filesize { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Duration { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::Date { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Range { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Float { .. } => TextStyle::with_style(AlignmentHorizontal::Right, s),
-
-            Value::String { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Nothing { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::Binary { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
-            Value::CellPath { .. } => TextStyle::with_style(AlignmentHorizontal::Left, s),
-
+            Value::Bool { .. } => TextStyle::with_style(Left, s),
+            Value::Int { .. } => TextStyle::with_style(Right, s),
+            Value::Filesize { .. } => TextStyle::with_style(Right, s),
+            Value::Duration { .. } => TextStyle::with_style(Right, s),
+            Value::Date { .. } => TextStyle::with_style(Left, s),
+            Value::Range { .. } => TextStyle::with_style(Left, s),
+            Value::Float { .. } => TextStyle::with_style(Right, s),
+            Value::String { .. } => TextStyle::with_style(Left, s),
+            Value::Nothing { .. } => TextStyle::with_style(Left, s),
+            Value::Binary { .. } => TextStyle::with_style(Left, s),
+            Value::CellPath { .. } => TextStyle::with_style(Left, s),
             Value::Record { .. } | Value::List { .. } | Value::Block { .. } => {
-                TextStyle::with_style(AlignmentHorizontal::Left, s)
+                TextStyle::with_style(Left, s)
             }
-            _ => TextStyle::basic_left(),
+            Value::Closure { .. }
+            | Value::CustomValue { .. }
+            | Value::Error { .. }
+            | Value::LazyRecord { .. }
+            | Value::MatchPattern { .. } => TextStyle::basic_left(),
         }
     }
 
     // The main constructor.
     pub fn from_config(engine_state: &'a EngineState, stack: &'a Stack) -> StyleComputer<'a> {
-        let config = engine_state.get_config();
-
-        macro_rules! initial {
-            ($a:expr, $b:expr) => {
-                ($a.to_string(), ComputableStyle::Static($b))
-            };
-        }
+        let config = get_config(engine_state, stack);
 
         // Create the hashmap
-        let mut map: StyleMapping = HashMap::from([
-            initial!("separator", Color::White.normal()),
-            initial!(
-                "leading_trailing_space_bg",
-                Style::default().on(Color::Rgb(128, 128, 128))
-            ),
-            initial!("header", Color::White.normal()),
-            initial!("empty", Color::White.normal()),
-            initial!("bool", Color::White.normal()),
-            initial!("int", Color::White.normal()),
-            initial!("filesize", Color::White.normal()),
-            initial!("duration", Color::White.normal()),
-            initial!("date", Color::White.normal()),
-            initial!("range", Color::White.normal()),
-            initial!("float", Color::White.normal()),
-            initial!("string", Color::White.normal()),
-            initial!("nothing", Color::White.normal()),
-            initial!("binary", Color::White.normal()),
-            initial!("cellpath", Color::White.normal()),
-            initial!("row_index", Color::Green.bold()),
-            initial!("record", Color::White.normal()),
-            initial!("list", Color::White.normal()),
-            initial!("block", Color::White.normal()),
-            initial!("hints", Color::DarkGray.normal()),
-        ]);
+        #[rustfmt::skip]
+        let mut map: StyleMapping = [
+            ("separator".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("leading_trailing_space_bg".to_string(), ComputableStyle::Static(Style::default().on(Color::Rgb(128, 128, 128)))),
+            ("header".to_string(), ComputableStyle::Static(Color::Green.bold())),
+            ("empty".to_string(), ComputableStyle::Static(Color::Blue.normal())),
+            ("bool".to_string(), ComputableStyle::Static(Color::LightCyan.normal())),
+            ("int".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("filesize".to_string(), ComputableStyle::Static(Color::Cyan.normal())),
+            ("duration".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("date".to_string(), ComputableStyle::Static(Color::Purple.normal())),
+            ("range".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("float".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("string".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("nothing".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("binary".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("cell-path".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
+            ("record".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("list".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("block".to_string(), ComputableStyle::Static(Color::White.normal())),
+            ("hints".to_string(), ComputableStyle::Static(Color::DarkGray.normal())),
+            ("search_result".to_string(), ComputableStyle::Static(Color::White.normal().on(Color::Red))),
+        ].into_iter().collect();
 
         for (key, value) in &config.color_config {
             match value {
@@ -229,10 +216,12 @@ fn test_computable_style_static() {
     let style_computer = StyleComputer::new(
         &dummy_engine_state,
         &dummy_stack,
-        HashMap::from([
+        [
             ("string".into(), ComputableStyle::Static(style1)),
             ("row_index".into(), ComputableStyle::Static(style2)),
-        ]),
+        ]
+        .into_iter()
+        .collect(),
     );
     assert_eq!(
         style_computer.compute("string", &Value::nothing(Span::unknown())),
@@ -251,7 +240,7 @@ fn test_computable_style_closure_basic() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("computable_style_closure_basic", |dirs, _| {
         let inp = [
-            r#"let-env config = {
+            r#"$env.config = {
                 color_config: {
                     string: {|e| touch ($e + '.obj'); 'red' }
                 }
@@ -269,14 +258,14 @@ fn test_computable_style_closure_basic() {
 fn test_computable_style_closure_errors() {
     use nu_test_support::{nu, nu_repl_code};
     let inp = [
-        r#"let-env config = {
+        r#"$env.config = {
             color_config: {
                 string: {|e| $e + 2 }
             }
         };"#,
         "[bell] | table",
     ];
-    let actual_repl = nu!(cwd: ".", nu_repl_code(&inp));
+    let actual_repl = nu!(nu_repl_code(&inp));
     // Check that the error was printed
     assert!(actual_repl.err.contains("type mismatch for operator"));
     // Check that the value was printed

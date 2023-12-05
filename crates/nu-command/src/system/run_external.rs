@@ -1,6 +1,4 @@
-use crate::hook::eval_hook;
-use fancy_regex::Regex;
-use itertools::Itertools;
+use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -11,6 +9,8 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundProcess;
+use nu_utils::IgnoreCaseExt;
+use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -41,6 +41,11 @@ impl Command for External {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch("redirect-stdout", "redirect stdout to the pipeline", None)
             .switch("redirect-stderr", "redirect stderr to the pipeline", None)
+            .switch(
+                "redirect-combine",
+                "redirect both stdout and stderr combined to the pipeline (collected in stdout)",
+                None,
+            )
             .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "external command to run")
             .rest("args", SyntaxShape::Any, "arguments for external command")
@@ -56,7 +61,17 @@ impl Command for External {
     ) -> Result<PipelineData, ShellError> {
         let redirect_stdout = call.has_flag("redirect-stdout");
         let redirect_stderr = call.has_flag("redirect-stderr");
+        let redirect_combine = call.has_flag("redirect-combine");
         let trim_end_newline = call.has_flag("trim-end-newline");
+
+        if redirect_combine && (redirect_stdout || redirect_stderr) {
+            return Err(ShellError::ExternalCommand {
+                label: "Cannot use --redirect-combine with --redirect-stdout or --redirect-stderr"
+                    .into(),
+                help: "use either --redirect-combine or redirect a single output stream".into(),
+                span: call.head,
+            });
+        }
 
         let command = create_external_command(
             engine_state,
@@ -64,6 +79,7 @@ impl Command for External {
             call,
             redirect_stdout,
             redirect_stderr,
+            redirect_combine,
             trim_end_newline,
         )?;
 
@@ -93,6 +109,7 @@ pub fn create_external_command(
     call: &Call,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    redirect_combine: bool,
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -102,7 +119,7 @@ pub fn create_external_command(
     let env_vars_str = env_to_strings(engine_state, stack)?;
 
     fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
-        let span = value.span()?;
+        let span = value.span();
 
         value
             .as_string()
@@ -149,6 +166,7 @@ pub fn create_external_command(
         arg_keep_raw,
         redirect_stdout,
         redirect_stderr,
+        redirect_combine,
         env_vars: env_vars_str,
         trim_end_newline,
     })
@@ -161,6 +179,7 @@ pub struct ExternalCommand {
     pub arg_keep_raw: Vec<bool>,
     pub redirect_stdout: bool,
     pub redirect_stderr: bool,
+    pub redirect_combine: bool,
     pub env_vars: HashMap<String, String>,
     pub trim_end_newline: bool,
 }
@@ -177,10 +196,10 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        let mut fg_process = ForegroundProcess::new(
-            self.create_process(&input, false, head)?,
-            engine_state.pipeline_externals_state.clone(),
-        );
+        #[allow(unused_mut)]
+        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let mut fg_process =
+            ForegroundProcess::new(cmd, engine_state.pipeline_externals_state.clone());
         // mut is used in the windows branch only, suppress warning on other platforms
         #[allow(unused_mut)]
         let mut child;
@@ -195,7 +214,7 @@ impl ExternalCommand {
             // fails to be run as a normal executable:
             // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
             // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-            match fg_process.spawn() {
+            match fg_process.spawn(engine_state.is_interactive) {
                 Err(err) => {
                     // set the default value, maybe we'll override it later
                     child = Err(err);
@@ -205,17 +224,19 @@ impl ExternalCommand {
                     const CMD_INTERNAL_COMMANDS: [&str; 9] = [
                         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
                     ];
-                    let command_name_upper = self.name.item.to_uppercase();
+                    let command_name = &self.name.item;
                     let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
                         .iter()
-                        .any(|&cmd| command_name_upper == cmd);
+                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
                     if looks_like_cmd_internal {
+                        let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                        reader = new_reader;
                         let mut cmd_process = ForegroundProcess::new(
-                            self.create_process(&input, true, head)?,
+                            cmd,
                             engine_state.pipeline_externals_state.clone(),
                         );
-                        child = cmd_process.spawn();
+                        child = cmd_process.spawn(engine_state.is_interactive);
                     } else {
                         #[cfg(feature = "which-support")]
                         {
@@ -232,9 +253,10 @@ impl ExternalCommand {
                                         which::which_in(&self.name.item, Some(path_with_cwd), cwd)
                                     {
                                         if let Some(file_name) = which_path.file_name() {
-                                            let file_name_upper =
-                                                file_name.to_string_lossy().to_uppercase();
-                                            if file_name_upper != command_name_upper {
+                                            if !file_name
+                                                .to_string_lossy()
+                                                .eq_ignore_case(command_name)
+                                            {
                                                 // which-rs found an executable file with a slightly different name
                                                 // than the one the user tried. Let's try running it
                                                 let mut new_command = self.clone();
@@ -242,12 +264,15 @@ impl ExternalCommand {
                                                     item: file_name.to_string_lossy().to_string(),
                                                     span: self.name.span,
                                                 };
+                                                let (cmd, new_reader) = new_command
+                                                    .create_process(&input, true, head)?;
+                                                reader = new_reader;
                                                 let mut cmd_process = ForegroundProcess::new(
-                                                    new_command
-                                                        .create_process(&input, true, head)?,
+                                                    cmd,
                                                     engine_state.pipeline_externals_state.clone(),
                                                 );
-                                                child = cmd_process.spawn();
+                                                child =
+                                                    cmd_process.spawn(engine_state.is_interactive);
                                             }
                                         }
                                     }
@@ -264,7 +289,7 @@ impl ExternalCommand {
 
         #[cfg(not(windows))]
         {
-            child = fg_process.spawn()
+            child = fg_process.spawn(engine_state.is_interactive)
         }
 
         match child {
@@ -272,15 +297,15 @@ impl ExternalCommand {
                 match err.kind() {
                     // If file not found, try suggesting alternative commands to the user
                     std::io::ErrorKind::NotFound => {
-                        // recommend a replacement if the user tried a deprecated command
+                        // recommend a replacement if the user tried a removed command
                         let command_name_lower = self.name.item.to_lowercase();
-                        let deprecated = crate::deprecated_commands();
-                        if deprecated.contains_key(&command_name_lower) {
-                            let replacement = match deprecated.get(&command_name_lower) {
+                        let removed_from_nu = crate::removed_commands();
+                        if removed_from_nu.contains_key(&command_name_lower) {
+                            let replacement = match removed_from_nu.get(&command_name_lower) {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::DeprecatedCommand(
+                            return Err(ShellError::RemovedCommand(
                                 command_name_lower,
                                 replacement,
                                 self.name.span,
@@ -348,6 +373,7 @@ impl ExternalCommand {
                                             ),
                                         )],
                                         &hook,
+                                        "command_not_found",
                                     )
                                 {
                                     err_str = format!("{}\n{}", err_str, val);
@@ -419,6 +445,7 @@ impl ExternalCommand {
                 let commandname = self.name.item.clone();
                 let redirect_stdout = self.redirect_stdout;
                 let redirect_stderr = self.redirect_stderr;
+                let redirect_combine = self.redirect_combine;
                 let span = self.name.span;
                 let output_ctrlc = ctrlc.clone();
                 let stderr_ctrlc = ctrlc.clone();
@@ -441,6 +468,12 @@ impl ExternalCommand {
                                         .to_string(), span }
                             })?;
 
+                            read_and_redirect_message(stdout, stdout_tx, ctrlc)
+                        } else if redirect_combine {
+                            let stdout = reader.ok_or_else(|| {
+                                ShellError::ExternalCommand { label: "Error taking combined stdout and stderr from external".to_string(), help: "Combined redirects need access to reader pipe of an external command"
+                                        .to_string(), span }
+                            })?;
                             read_and_redirect_message(stdout, stdout_tx, ctrlc)
                         }
 
@@ -475,9 +508,10 @@ impl ExternalCommand {
                                             "{cause}: oops, process '{commandname}' core dumped"
                                         ))
                                     );
-                                    let _ = exit_code_tx.send(Value::Error {
-                                        error: Box::new(ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head }),
-                                    });
+                                    let _ = exit_code_tx.send(Value::error (
+                                        ShellError::ExternalCommand { label: "core dumped".to_string(), help: format!("{cause}: child process '{commandname}' core dumped"), span: head },
+                                        head,
+                                    ));
                                     return Ok(());
                                 }
                             }
@@ -516,7 +550,7 @@ impl ExternalCommand {
                 let exit_code_receiver = ValueReceiver::new(exit_code_rx);
 
                 Ok(PipelineData::ExternalStream {
-                    stdout: if redirect_stdout {
+                    stdout: if redirect_stdout || redirect_combine {
                         Some(RawStream::new(
                             Box::new(stdout_receiver),
                             output_ctrlc.clone(),
@@ -553,7 +587,7 @@ impl ExternalCommand {
         input: &PipelineData,
         use_cmd: bool,
         span: Span,
-    ) -> Result<CommandSys, ShellError> {
+    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -583,13 +617,22 @@ impl ExternalCommand {
 
         // If the external is not the last command, its output will get piped
         // either as a string or binary
-        if self.redirect_stdout {
-            process.stdout(Stdio::piped());
-        }
+        let reader = if self.redirect_combine {
+            let (reader, writer) = os_pipe::pipe()?;
+            let writer_clone = writer.try_clone()?;
+            process.stdout(writer);
+            process.stderr(writer_clone);
+            Some(reader)
+        } else {
+            if self.redirect_stdout {
+                process.stdout(Stdio::piped());
+            }
 
-        if self.redirect_stderr {
-            process.stderr(Stdio::piped());
-        }
+            if self.redirect_stderr {
+                process.stderr(Stdio::piped());
+            }
+            None
+        };
 
         // If there is an input from the pipeline. The stdin from the process
         // is piped so it can be used to send the input information
@@ -597,7 +640,7 @@ impl ExternalCommand {
             process.stdin(Stdio::piped());
         }
 
-        Ok(process)
+        Ok((process, reader))
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
@@ -611,8 +654,6 @@ impl ExternalCommand {
             } else {
                 self.spawn_simple_command(cwd)
             }
-        } else if self.name.item.ends_with(".sh") {
-            Ok(self.spawn_sh_command())
         } else {
             self.spawn_simple_command(cwd)
         }
@@ -656,19 +697,6 @@ impl ExternalCommand {
             trim_expand_and_apply_arg(&mut process, &arg, arg_keep_raw, cwd)
         }
 
-        process
-    }
-
-    /// Spawn a sh command with `sh -c args...`
-    pub fn spawn_sh_command(&self) -> std::process::Command {
-        let joined_and_escaped_arguments = self
-            .args
-            .iter()
-            .map(|arg| shell_arg_escape(&arg.item))
-            .join(" ");
-        let cmd_with_args = vec![self.name.item.clone(), joined_and_escaped_arguments].join(" ");
-        let mut process = std::process::Command::new("sh");
-        process.arg("-c").arg(cmd_with_args);
         process
     }
 }
@@ -741,34 +769,17 @@ fn trim_expand_and_apply_arg(
 /// Given an invalid command name, try to suggest an alternative
 fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Option<String> {
     let commands = engine_state.get_signatures(false);
-    let command_name_lower = attempted_command.to_lowercase();
+    let command_folded_case = attempted_command.to_folded_case();
     let search_term_match = commands.iter().find(|sig| {
         sig.search_terms
             .iter()
-            .any(|term| term.to_lowercase() == command_name_lower)
+            .any(|term| term.to_folded_case() == command_folded_case)
     });
     match search_term_match {
         Some(sig) => Some(sig.name.clone()),
         None => {
             let command_names: Vec<String> = commands.iter().map(|sig| sig.name.clone()).collect();
             did_you_mean(&command_names, attempted_command)
-        }
-    }
-}
-
-fn has_unsafe_shell_characters(arg: &str) -> bool {
-    let re: Regex = Regex::new(r"[^\w@%+=:,./-]").expect("regex to be valid");
-
-    re.is_match(arg).unwrap_or(false)
-}
-
-fn shell_arg_escape(arg: &str) -> String {
-    match arg {
-        "" => String::from("''"),
-        s if !has_unsafe_shell_characters(s) => String::from(s),
-        _ => {
-            let single_quotes_escaped = arg.split('\'').join("'\"'\"'");
-            format!("'{single_quotes_escaped}'")
         }
     }
 }

@@ -3,12 +3,12 @@ use libproc::libproc::bsd_info::BSDInfo;
 use libproc::libproc::file_info::{pidfdinfo, ListFDs, ProcFDType};
 use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
 use libproc::libproc::pid_rusage::{pidrusage, RUsageInfoV2};
-use libproc::libproc::proc_pid::{listpidinfo, listpids, pidinfo, ListThreads, ProcType};
+use libproc::libproc::proc_pid::{listpidinfo, pidinfo, ListThreads};
 use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
+use libproc::processes::{pids_by_type, ProcFilter};
 use mach2::mach_time;
 use std::cmp;
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -33,7 +33,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     let mut ret = Vec::new();
     let arg_max = get_arg_max();
 
-    if let Ok(procs) = listpids(ProcType::ProcAllPIDS) {
+    if let Ok(procs) = pids_by_type(ProcFilter::All) {
         for p in procs {
             if let Ok(task) = pidinfo::<TaskAllInfo>(p as i32, 0) {
                 let res = pidrusage::<RUsageInfoV2>(p as i32).ok();
@@ -141,6 +141,7 @@ pub struct PathInfo {
     pub root: PathBuf,
     pub cmd: Vec<String>,
     pub env: Vec<String>,
+    pub cwd: PathBuf,
 }
 
 #[cfg_attr(tarpaulin, skip)]
@@ -184,7 +185,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
                 let name = exe
                     .file_name()
-                    .unwrap_or_else(|| OsStr::new(""))
+                    .unwrap_or_default()
                     .to_str()
                     .unwrap_or("")
                     .to_owned();
@@ -212,12 +213,17 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                 }
                 start = cp;
                 let mut env = Vec::new();
+                let mut cwd = PathBuf::default();
                 while cp < ptr.add(size) {
                     if *cp == 0 {
                         if cp == start {
                             break;
                         }
-                        env.push(get_unchecked_str(cp, start));
+                        let env_str = get_unchecked_str(cp, start);
+                        if let Some(pwd) = env_str.strip_prefix("PWD=") {
+                            cwd = PathBuf::from(pwd)
+                        }
+                        env.push(env_str);
                         start = cp.offset(1);
                     }
                     cp = cp.offset(1);
@@ -237,6 +243,7 @@ fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
                     root,
                     cmd,
                     env,
+                    cwd,
                 })
             } else {
                 None
@@ -392,6 +399,13 @@ impl ProcessInfo {
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.curr_task.ptinfo.pti_virtual_size
+    }
+
+    pub fn cwd(&self) -> String {
+        self.curr_path
+            .as_ref()
+            .map(|cur_path| cur_path.cwd.display().to_string())
+            .unwrap_or_default()
     }
 }
 

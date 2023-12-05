@@ -18,8 +18,14 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("split words")
-            .input_output_types(vec![(Type::String, Type::List(Box::new(Type::String)))])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::List(Box::new(Type::String))),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::List(Box::new(Type::String))))
+                ),
+            ])
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
             // .switch(
             //     "ignore-hyphenated",
@@ -67,28 +73,28 @@ impl Command for SubCommand {
             Example {
                 description: "Split the string's words into separate rows",
                 example: "'hello world' | split words",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("hello"), Value::test_string("world")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("hello"), Value::test_string("world")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "Split the string's words, of at least 3 characters, into separate rows",
-                example: "'hello to the world' | split words -l 3",
-                result: Some(Value::List {
-                    vals: vec![
+                example: "'hello to the world' | split words --min-word-length 3",
+                result: Some(Value::list(
+                    vec![
                         Value::test_string("hello"),
                         Value::test_string("the"),
                         Value::test_string("world"),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 description:
                     "A real-world example of splitting words",
-                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words -l 2 | uniq -c | sort-by count --reverse | first 10",
+                example: "http get https://www.gutenberg.org/files/11/11-0.txt | str downcase | split words --min-word-length 2 | uniq --count | sort-by count --reverse | first 10",
                 result: None,
             },
         ]
@@ -117,7 +123,7 @@ fn split_words(
     // let ignore_punctuation = call.has_flag("ignore-punctuation");
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
-    if matches!(word_length, None) {
+    if word_length.is_none() {
         if call.has_flag("grapheme-clusters") {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
@@ -133,34 +139,32 @@ fn split_words(
     }
     let graphemes = grapheme_flags(call)?;
 
-    input.flat_map(
+    input.map(
         move |x| split_words_helper(&x, word_length, span, graphemes),
         engine_state.ctrlc.clone(),
     )
 }
 
-fn split_words_helper(
-    v: &Value,
-    word_length: Option<usize>,
-    span: Span,
-    graphemes: bool,
-) -> Vec<Value> {
+fn split_words_helper(v: &Value, word_length: Option<usize>, span: Span, graphemes: bool) -> Value {
     // There are some options here with this regex.
     // [^A-Za-z\'] = do not match uppercase or lowercase letters or apostrophes
     // [^[:alpha:]\'] = do not match any uppercase or lowercase letters or apostrophes
     // [^\p{L}\'] = do not match any unicode uppercase or lowercase letters or apostrophes
     // Let's go with the unicode one in hopes that it works on more than just ascii characters
     let regex_replace = Regex::new(r"[^\p{L}\']").expect("regular expression error");
+    let v_span = v.span();
 
-    match v.span() {
-        Ok(v_span) => {
+    match v {
+        Value::Error { error, .. } => Value::error(*error.clone(), v_span),
+        v => {
+            let v_span = v.span();
             if let Ok(s) = v.as_string() {
                 // let splits = s.unicode_words();
                 // let words = trim_to_words(s);
                 // let words: Vec<&str> = s.split_whitespace().collect();
 
                 let replaced_string = regex_replace.replace_all(&s, " ").to_string();
-                replaced_string
+                let words = replaced_string
                     .split(' ')
                     .filter_map(|s| {
                         if s.trim() != "" {
@@ -182,20 +186,19 @@ fn split_words_helper(
                             None
                         }
                     })
-                    .collect::<Vec<Value>>()
+                    .collect::<Vec<Value>>();
+                Value::list(words, v_span)
             } else {
-                vec![Value::Error {
-                    error: Box::new(ShellError::PipelineMismatch {
+                Value::error(
+                    ShellError::PipelineMismatch {
                         exp_input_type: "string".into(),
                         dst_span: span,
                         src_span: v_span,
-                    }),
-                }]
+                    },
+                    v_span,
+                )
             }
         }
-        Err(error) => vec![Value::Error {
-            error: Box::new(error),
-        }],
     }
 }
 
@@ -363,17 +366,17 @@ fn split_words_helper(
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_test_support::{nu, pipeline};
+    use nu_test_support::nu;
 
     #[test]
     fn test_incompat_flags() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -bg -l 2"));
+        let out = nu!("'a' | split words -bg -l 2");
         assert!(out.err.contains("incompatible_parameters"));
     }
 
     #[test]
     fn test_incompat_flags_2() {
-        let out = nu!(cwd: ".", pipeline("'a' | split words -g"));
+        let out = nu!("'a' | split words -g");
         assert!(out.err.contains("incompatible_parameters"));
     }
 

@@ -7,22 +7,28 @@ use crate::{
 };
 use crossterm::cursor::SetCursorStyle;
 use log::{trace, warn};
-use miette::{IntoDiagnostic, Result};
+use miette::{ErrReport, IntoDiagnostic, Result};
+use nu_cmd_base::util::get_guaranteed_cwd;
+use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
-use nu_command::hook::eval_hook;
-use nu_command::util::get_guaranteed_cwd;
-use nu_engine::{convert_env_values, eval_block};
+use nu_engine::convert_env_values;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
-    format_duration, report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError,
-    Span, Spanned, Value,
+    eval_const::create_nu_constant,
+    report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
-use reedline::{CursorConfig, DefaultHinter, EditCommand, Emacs, SqliteBackedHistory, Vi};
+use reedline::{
+    CursorConfig, CwdAwareHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId,
+    Reedline, SqliteBackedHistory, Vi,
+};
 use std::{
-    io::{self, Write},
+    env::temp_dir,
+    io::{self, IsTerminal, Write},
+    path::Path,
     sync::atomic::Ordering,
     time::Instant,
 };
@@ -43,15 +49,16 @@ pub fn evaluate_repl(
     stack: &mut Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
+    load_std_lib: Option<Spanned<String>>,
     entire_start_time: Instant,
 ) -> Result<()> {
-    use nu_command::hook;
-    use reedline::{FileBackedHistory, Reedline, Signal};
+    use nu_cmd_base::hook;
+    use reedline::Signal;
     let use_color = engine_state.get_config().use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
-    if !atty::is(atty::Stream::Stdin) {
+    if !std::io::stdin().is_terminal() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
             "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
@@ -88,13 +95,10 @@ pub fn evaluate_repl(
 
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
+    let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
 
     // Now that reedline is created, get the history session id and store it in engine_state
-    let hist_sesh = line_editor
-        .get_history_session_id()
-        .map(i64::from)
-        .unwrap_or(0);
-    engine_state.history_session_id = hist_sesh;
+    store_history_id_in_engine(engine_state, &line_editor);
     perf(
         "setup reedline",
         start_time,
@@ -104,7 +108,13 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    let config = engine_state.get_config();
+    // Setup history_isolation aka "history per session"
+    let history_isolation = engine_state.get_config().history_isolation;
+    let history_session_id = if history_isolation {
+        Reedline::create_history_session_id()
+    } else {
+        None
+    };
 
     start_time = std::time::Instant::now();
     let history_path = crate::config_files::get_history_path(
@@ -112,19 +122,8 @@ pub fn evaluate_repl(
         engine_state.config.history_file_format,
     );
     if let Some(history_path) = history_path.as_deref() {
-        let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
-            HistoryFileFormat::PlainText => Box::new(
-                FileBackedHistory::with_file(
-                    config.max_history_size as usize,
-                    history_path.to_path_buf(),
-                )
-                .into_diagnostic()?,
-            ),
-            HistoryFileFormat::Sqlite => Box::new(
-                SqliteBackedHistory::with_file(history_path.to_path_buf()).into_diagnostic()?,
-            ),
-        };
-        line_editor = line_editor.with_history(history);
+        line_editor =
+            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
     };
     perf(
         "setup history",
@@ -137,19 +136,8 @@ pub fn evaluate_repl(
 
     start_time = std::time::Instant::now();
     let sys = sysinfo::System::new();
-
-    let show_banner = config.show_banner;
-    let use_ansi = config.use_ansi_coloring;
-    if show_banner {
-        let banner = get_banner(engine_state, stack);
-        if use_ansi {
-            println!("{banner}");
-        } else {
-            println!("{}", nu_utils::strip_ansi_string_likely(banner));
-        }
-    }
     perf(
-        "get sysinfo/show banner",
+        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -167,6 +155,27 @@ pub fn evaluate_repl(
             false,
         );
         engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
+    }
+
+    engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
+
+    // Regenerate the $nu constant to contain the startup time and any other potential updates
+    let nu_const = create_nu_constant(engine_state, Span::unknown())?;
+    engine_state.set_variable_const_val(NU_VARIABLE_ID, nu_const);
+
+    if load_std_lib.is_none() && engine_state.get_config().show_banner {
+        eval_source(
+            engine_state,
+            stack,
+            r#"use std banner; banner"#.as_bytes(),
+            "show_banner",
+            PipelineData::empty(),
+            false,
+        );
+    }
+
+    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
+        warn!("Terminal doesn't support use_kitty_protocol config");
     }
 
     loop {
@@ -224,13 +233,9 @@ pub fn evaluate_repl(
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_insert,
-            )),
-            vi_normal: Some(map_nucursorshape_to_cursorshape(
-                config.cursor_shape_vi_normal,
-            )),
-            emacs: Some(map_nucursorshape_to_cursorshape(config.cursor_shape_emacs)),
+            vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
+            vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
+            emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
         };
         perf(
             "get config/cursor config",
@@ -244,6 +249,10 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
 
         line_editor = line_editor
+            .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
+            // try to enable bracketed paste
+            // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+            .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
                 config: config.clone(),
@@ -258,7 +267,11 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
+            .with_cursor_config(cursor_config)
+            .with_transient_prompt(prompt_update::transient_prompt(
+                engine_reference.clone(),
+                stack,
+            ));
         perf(
             "reedline builder",
             start_time,
@@ -275,7 +288,7 @@ pub fn evaluate_repl(
             line_editor.with_hinter(Box::new({
                 // As of Nov 2022, "hints" color_config closures only get `null` passed in.
                 let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-                DefaultHinter::default().with_style(style)
+                CwdAwareHinter::default().with_style(style)
             }))
         } else {
             line_editor.disable_hints()
@@ -305,23 +318,17 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let buffer_editor = if !config.buffer_editor.is_empty() {
-            Some(config.buffer_editor.clone())
-        } else {
-            stack
-                .get_env_var(engine_state, "EDITOR")
-                .map(|v| v.as_string().unwrap_or_default())
-                .filter(|v| !v.is_empty())
-                .or_else(|| {
-                    stack
-                        .get_env_var(engine_state, "VISUAL")
-                        .map(|v| v.as_string().unwrap_or_default())
-                        .filter(|v| !v.is_empty())
-                })
-        };
+        let buffer_editor = get_editor(engine_state, stack, Span::unknown());
 
-        line_editor = if let Some(buffer_editor) = buffer_editor {
-            line_editor.with_buffer_editor(buffer_editor, "nu".into())
+        line_editor = if let Ok((cmd, args)) = buffer_editor {
+            let mut command = std::process::Command::new(&cmd);
+            command.args(args).envs(
+                engine_state
+                    .render_env_vars()
+                    .into_iter()
+                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+            );
+            line_editor.with_buffer_editor(command, temp_file.clone())
         } else {
             line_editor
         };
@@ -384,7 +391,7 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
                 report_error_new(engine_state, &err);
             }
         }
@@ -429,16 +436,6 @@ pub fn evaluate_repl(
 
         entry_num += 1;
 
-        if entry_num == 1 {
-            engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
-            if show_banner {
-                println!(
-                    "Startup Time: {}",
-                    format_duration(engine_state.get_startup_time())
-                );
-            }
-        }
-
         start_time = std::time::Instant::now();
         let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;
@@ -465,24 +462,21 @@ pub fn evaluate_repl(
                 // hook
                 if let Some(hook) = config.hooks.pre_execution.clone() {
                     // Set the REPL buffer to the current command for the "pre_execution" hook
-                    let mut repl_buffer = engine_state
-                        .repl_buffer_state
-                        .lock()
-                        .expect("repl buffer state mutex");
-                    *repl_buffer = s.to_string();
-                    drop(repl_buffer);
+                    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                    repl.buffer = s.to_string();
+                    drop(repl);
 
-                    if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook) {
+                    if let Err(err) =
+                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
+                    {
                         report_error_new(engine_state, &err);
                     }
                 }
 
-                let mut repl_buffer = engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex");
-                *repl_buffer = line_editor.current_buffer_contents().to_string();
-                drop(repl_buffer);
+                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+                repl.cursor_pos = line_editor.current_insertion_point();
+                repl.buffer = line_editor.current_buffer_contents().to_string();
+                drop(repl);
 
                 if shell_integration {
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
@@ -508,7 +502,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(tokens.0[0].span, None),
+                                &ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: tokens.0[0].span,
+                                },
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)
@@ -516,24 +513,12 @@ pub fn evaluate_repl(
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
 
-                    stack.add_env_var(
-                        "OLDPWD".into(),
-                        Value::String {
-                            val: cwd.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
+                    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
                     //FIXME: this only changes the current scope, but instead this environment variable
                     //should probably be a block that loads the information from the state in the overlay
-                    stack.add_env_var(
-                        "PWD".into(),
-                        Value::String {
-                            val: path.clone(),
-                            span: Span::unknown(),
-                        },
-                    );
-                    let cwd = Value::String { val: cwd, span };
+                    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+                    let cwd = Value::string(cwd, span);
 
                     let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
                     let mut shells = if let Some(v) = shells {
@@ -546,30 +531,48 @@ pub fn evaluate_repl(
 
                     let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
                     let current_shell = if let Some(v) = current_shell {
-                        v.as_integer().unwrap_or_default() as usize
+                        v.as_int().unwrap_or_default() as usize
                     } else {
                         0
                     };
 
                     let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
                     let last_shell = if let Some(v) = last_shell {
-                        v.as_integer().unwrap_or_default() as usize
+                        v.as_int().unwrap_or_default() as usize
                     } else {
                         0
                     };
 
-                    shells[current_shell] = Value::String { val: path, span };
+                    shells[current_shell] = Value::string(path, span);
 
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::List { vals: shells, span });
+                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
                     stack.add_env_var(
                         "NUSHELL_LAST_SHELL".into(),
-                        Value::Int {
-                            val: last_shell as i64,
-                            span,
-                        },
+                        Value::int(last_shell as i64, span),
                     );
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
+
+                    let mut cmds = s.split_whitespace();
+                    if let Some("exit") = cmds.next() {
+                        let mut working_set = StateWorkingSet::new(engine_state);
+                        let _ = parse(&mut working_set, None, s.as_bytes(), false);
+
+                        if working_set.parse_errors.is_empty() {
+                            match cmds.next() {
+                                Some(s) => {
+                                    if let Ok(n) = s.parse::<i32>() {
+                                        drop(line_editor);
+                                        std::process::exit(n);
+                                    }
+                                }
+                                None => {
+                                    drop(line_editor);
+                                    std::process::exit(0);
+                                }
+                            }
+                        }
+                    }
 
                     eval_source(
                         engine_state,
@@ -584,10 +587,7 @@ pub fn evaluate_repl(
 
                 stack.add_env_var(
                     "CMD_DURATION_MS".into(),
-                    Value::String {
-                        val: format!("{}", cmd_duration.as_millis()),
-                        span: Span::unknown(),
-                    },
+                    Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -608,19 +608,29 @@ pub fn evaluate_repl(
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
 
-                        // Communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-                        run_ansi_sequence(&format!(
-                            "\x1b]7;file://{}{}{}\x1b\\",
-                            percent_encoding::utf8_percent_encode(
-                                &hostname.unwrap_or_else(|| "localhost".to_string()),
-                                percent_encoding::CONTROLS
-                            ),
-                            if path.starts_with('/') { "" } else { "/" },
-                            percent_encoding::utf8_percent_encode(
-                                &path,
-                                percent_encoding::CONTROLS
-                            )
-                        ))?;
+                        // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
+                        // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
+                        if stack.get_env_var(engine_state, "TERM_PROGRAM")
+                            == Some(Value::test_string("vscode"))
+                        {
+                            // If we're in vscode, run their specific ansi escape sequence.
+                            // This is helpful for ctrl+g to change directories in the terminal.
+                            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path))?;
+                        } else {
+                            // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                            run_ansi_sequence(&format!(
+                                "\x1b]7;file://{}{}{}\x1b\\",
+                                percent_encoding::utf8_percent_encode(
+                                    &hostname.unwrap_or_else(|| "localhost".to_string()),
+                                    percent_encoding::CONTROLS
+                                ),
+                                if path.starts_with('/') { "" } else { "/" },
+                                percent_encoding::utf8_percent_encode(
+                                    &path,
+                                    percent_encoding::CONTROLS
+                                )
+                            ))?;
+                        }
 
                         // Try to abbreviate string for windows title
                         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
@@ -639,23 +649,15 @@ pub fn evaluate_repl(
                     run_ansi_sequence(RESET_APPLICATION_MODE)?;
                 }
 
-                let mut repl_buffer = engine_state
-                    .repl_buffer_state
-                    .lock()
-                    .expect("repl buffer state mutex");
-                let mut repl_cursor_pos = engine_state
-                    .repl_cursor_pos
-                    .lock()
-                    .expect("repl cursor pos mutex");
+                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
                 line_editor.run_edit_commands(&[
                     EditCommand::Clear,
-                    EditCommand::InsertString(repl_buffer.to_string()),
-                    EditCommand::MoveToPosition(*repl_cursor_pos),
+                    EditCommand::InsertString(repl.buffer.to_string()),
+                    EditCommand::MoveToPosition(repl.cursor_pos),
                 ]);
-                *repl_buffer = "".to_string();
-                drop(repl_buffer);
-                *repl_cursor_pos = 0;
-                drop(repl_cursor_pos);
+                repl.buffer = "".to_string();
+                repl.cursor_pos = 0;
+                drop(repl);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -707,110 +709,59 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
-    match shape {
-        NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::DefaultUserShape,
-        NuCursorShape::Line => SetCursorStyle::BlinkingBar,
-    }
+fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
+    let session_id = line_editor
+        .get_history_session_id()
+        .map(i64::from)
+        .unwrap_or(0);
+
+    engine_state.history_session_id = session_id;
 }
 
-fn get_banner(engine_state: &mut EngineState, stack: &mut Stack) -> String {
-    let age = match eval_string_with_input(
-        engine_state,
-        stack,
-        None,
-        "(date now) - ('2019-05-10 09:59:12-0700' | into datetime)",
-    ) {
-        Ok(Value::Duration { val, .. }) => format_duration(val),
-        _ => "".to_string(),
-    };
-
-    let banner = format!(
-        r#"{}     __  ,
-{} .--()°'.' {}Welcome to {}Nushell{},
-{}'|, . ,'   {}based on the {}nu{} language,
-{} !_-(_\    {}where all data is structured!
-
-Please join our {}Discord{} community at {}https://discord.gg/NtAbbGn{}
-Our {}GitHub{} repository is at {}https://github.com/nushell/nushell{}
-Our {}Documentation{} is located at {}https://nushell.sh{}
-{}Tweet{} us at {}@nu_shell{}
-Learn how to remove this at: {}https://nushell.sh/book/configuration.html#remove-welcome-message{}
-
-It's been this long since {}Nushell{}'s first commit:
-{}{}
-"#,
-        "\x1b[32m",   //start line 1 green
-        "\x1b[32m",   //start line 2
-        "\x1b[0m",    //before welcome
-        "\x1b[32m",   //before nushell
-        "\x1b[0m",    //after nushell
-        "\x1b[32m",   //start line 3
-        "\x1b[0m",    //before based
-        "\x1b[32m",   //before nu
-        "\x1b[0m",    //after nu
-        "\x1b[32m",   //start line 4
-        "\x1b[0m",    //before where
-        "\x1b[35m",   //before Discord purple
-        "\x1b[0m",    //after Discord
-        "\x1b[35m",   //before Discord URL
-        "\x1b[0m",    //after Discord URL
-        "\x1b[1;32m", //before GitHub green_bold
-        "\x1b[0m",    //after GitHub
-        "\x1b[1;32m", //before GitHub URL
-        "\x1b[0m",    //after GitHub URL
-        "\x1b[32m",   //before Documentation
-        "\x1b[0m",    //after Documentation
-        "\x1b[32m",   //before Documentation URL
-        "\x1b[0m",    //after Documentation URL
-        "\x1b[36m",   //before Tweet blue
-        "\x1b[0m",    //after Tweet
-        "\x1b[1;36m", //before @nu_shell cyan_bold
-        "\x1b[0m",    //after @nu_shell
-        "\x1b[32m",   //before Welcome Message
-        "\x1b[0m",    //after Welcome Message
-        "\x1b[32m",   //before Nushell
-        "\x1b[0m",    //after Nushell
-        age,
-        "\x1b[0m", //after banner disable
-    );
-
-    banner
-}
-
-// Taken from Nana's simple_eval
-/// Evaluate a block of Nu code, optionally with input.
-/// For example, source="$in * 2" will multiply the value in input by 2.
-pub fn eval_string_with_input(
+fn update_line_editor_history(
     engine_state: &mut EngineState,
-    stack: &mut Stack,
-    input: Option<Value>,
-    source: &str,
-) -> Result<Value, ShellError> {
-    let (block, delta) = {
-        let mut working_set = StateWorkingSet::new(engine_state);
-        let output = parse(&mut working_set, None, source.as_bytes(), false);
-
-        (output, working_set.render())
+    history_path: &Path,
+    line_editor: Reedline,
+    history_session_id: Option<HistorySessionId>,
+) -> Result<Reedline, ErrReport> {
+    let config = engine_state.get_config();
+    let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
+        HistoryFileFormat::PlainText => Box::new(
+            FileBackedHistory::with_file(
+                config.max_history_size as usize,
+                history_path.to_path_buf(),
+            )
+            .into_diagnostic()?,
+        ),
+        HistoryFileFormat::Sqlite => Box::new(
+            SqliteBackedHistory::with_file(
+                history_path.to_path_buf(),
+                history_session_id,
+                Some(chrono::Utc::now()),
+            )
+            .into_diagnostic()?,
+        ),
     };
+    let line_editor = line_editor
+        .with_history_session_id(history_session_id)
+        .with_history_exclusion_prefix(Some(" ".into()))
+        .with_history(history);
 
-    engine_state.merge_delta(delta)?;
+    store_history_id_in_engine(engine_state, &line_editor);
 
-    let input_as_pipeline_data = match input {
-        Some(input) => PipelineData::Value(input, None),
-        None => PipelineData::empty(),
-    };
+    Ok(line_editor)
+}
 
-    eval_block(
-        engine_state,
-        stack,
-        &block,
-        input_as_pipeline_data,
-        false,
-        true,
-    )
-    .map(|x| x.into_value(Span::unknown()))
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
+    match shape {
+        NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
+        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
+        NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
+        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
+        NuCursorShape::Inherit => None,
+    }
 }
 
 pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
@@ -862,14 +813,44 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('~')
         || orig.starts_with('/')
         || orig.starts_with('\\')
+        || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(windows)]
+#[test]
+fn looks_like_path_windows_drive_path_works() {
+    assert!(looks_like_path("C:"));
+    assert!(looks_like_path("D:\\"));
+    assert!(looks_like_path("E:/"));
+    assert!(looks_like_path("F:\\some_dir"));
+    assert!(looks_like_path("G:/some_dir"));
+}
+
+#[cfg(windows)]
+#[test]
+fn trailing_slash_looks_like_path() {
+    assert!(looks_like_path("foo\\"))
+}
+
+#[cfg(not(windows))]
+#[test]
+fn trailing_slash_looks_like_path() {
+    assert!(looks_like_path("foo/"))
 }
 
 #[test]
-fn looks_like_path_windows_drive_path_works() {
-    let on_windows = cfg!(windows);
-    assert_eq!(looks_like_path("C:"), on_windows);
-    assert_eq!(looks_like_path("D:\\"), on_windows);
-    assert_eq!(looks_like_path("E:/"), on_windows);
-    assert_eq!(looks_like_path("F:\\some_dir"), on_windows);
-    assert_eq!(looks_like_path("G:/some_dir"), on_windows);
+fn are_session_ids_in_sync() {
+    let engine_state = &mut EngineState::new();
+    let history_path_o =
+        crate::config_files::get_history_path("nushell", engine_state.config.history_file_format);
+    assert!(history_path_o.is_some());
+    let history_path = history_path_o.as_deref().unwrap();
+    let line_editor = reedline::Reedline::create();
+    let history_session_id = reedline::Reedline::create_history_session_id();
+    let line_editor =
+        update_line_editor_history(engine_state, history_path, line_editor, history_session_id);
+    assert_eq!(
+        i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
+        engine_state.history_session_id
+    );
 }

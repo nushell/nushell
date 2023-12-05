@@ -1,28 +1,21 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-use nu_engine::CallExt;
-use nu_glob::{GlobError, MatchOptions, Pattern};
+use nu_cmd_base::arg_glob;
+use nu_engine::{current_dir, CallExt};
+use nu_glob::{GlobError, Pattern};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
-use std::path::PathBuf;
-
-const GLOB_PARAMS: MatchOptions = MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: true,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
 
 #[derive(Clone)]
 pub struct Du;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
-    path: Option<Spanned<PathBuf>>,
+    path: Option<Spanned<String>>,
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
@@ -89,14 +82,20 @@ impl Command for Du {
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(max_depth.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: max_depth.span,
+                });
             }
         }
         if let Some(ref min_size) = min_size {
             if min_size.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(min_size.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: min_size.span,
+                });
             }
         }
+        let current_dir = current_dir(engine_state, stack)?;
+
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
             all: call.has_flag("all"),
@@ -107,38 +106,22 @@ impl Command for Du {
         };
 
         let exclude = args.exclude.map_or(Ok(None), move |x| {
-            Pattern::new(&x.item).map(Some).map_err(|e| {
-                ShellError::GenericError(
-                    "glob error".to_string(),
-                    e.msg.to_string(),
-                    Some(x.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            Pattern::new(&x.item)
+                .map(Some)
+                .map_err(|e| ShellError::InvalidGlobPattern(e.msg.to_string(), x.span))
         })?;
 
         let include_files = args.all;
         let mut paths = match args.path {
-            Some(p) => {
-                let item = p.item.to_str().expect("Why isn't this encoded properly?");
-                match nu_glob::glob_with(item, GLOB_PARAMS) {
-                    // Convert the PatternError to a ShellError, preserving the span
-                    // of the inputted glob.
-                    Err(e) => {
-                        return Err(ShellError::GenericError(
-                            "glob error".to_string(),
-                            e.msg.to_string(),
-                            Some(p.span),
-                            None,
-                            Vec::new(),
-                        ))
-                    }
-                    Ok(path) => path,
-                }
-            }
+            Some(p) => arg_glob(&p, &current_dir)?,
             // The * pattern should never fail.
-            None => nu_glob::glob_with("*", GLOB_PARAMS).expect("du: * pattern failed to glob"),
+            None => arg_glob(
+                &Spanned {
+                    item: "*".into(),
+                    span: Span::unknown(),
+                },
+                &current_dir,
+            )?,
         }
         .filter(move |p| {
             if include_files {
@@ -179,7 +162,7 @@ impl Command for Du {
                     }
                 }
                 Err(e) => {
-                    output.push(Value::Error { error: Box::new(e) });
+                    output.push(Value::error(e, tag));
                 }
             }
         }

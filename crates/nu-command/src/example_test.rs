@@ -9,9 +9,9 @@ pub fn test_examples(cmd: impl Command + 'static) {
 #[cfg(test)]
 mod test_examples {
     use super::super::{
-        Ansi, Date, Enumerate, Flatten, From, Get, Into, IntoString, LetEnv, Math, MathEuler,
-        MathPi, MathRound, ParEach, Path, Random, Sort, SortBy, Split, SplitColumn, SplitRow, Str,
-        StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
+        Ansi, Date, Enumerate, Filter, First, Flatten, From, Get, Into, IntoDatetime, IntoString,
+        Math, MathRound, ParEach, Path, PathParse, Random, Sort, SortBy, Split, SplitColumn,
+        SplitRow, Str, StrJoin, StrLength, StrReplace, Update, Url, Values, Wrap,
     };
     use crate::{Each, To};
     use nu_cmd_lang::example_support::{
@@ -46,7 +46,6 @@ mod test_examples {
                     &mut make_engine_state(cmd.clone_box()),
                     &signature.input_output_types,
                     signature.operates_on_cell_paths(),
-                    signature.vectorizes_over_list,
                 ),
             );
             check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);
@@ -71,20 +70,21 @@ mod test_examples {
             working_set.add_decl(Box::new(Each));
             working_set.add_decl(Box::new(Echo));
             working_set.add_decl(Box::new(Enumerate));
+            working_set.add_decl(Box::new(Filter));
+            working_set.add_decl(Box::new(First));
             working_set.add_decl(Box::new(Flatten));
             working_set.add_decl(Box::new(From));
             working_set.add_decl(Box::new(Get));
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(Into));
             working_set.add_decl(Box::new(IntoString));
+            working_set.add_decl(Box::new(IntoDatetime));
             working_set.add_decl(Box::new(Let));
-            working_set.add_decl(Box::new(LetEnv));
             working_set.add_decl(Box::new(Math));
-            working_set.add_decl(Box::new(MathEuler));
-            working_set.add_decl(Box::new(MathPi));
             working_set.add_decl(Box::new(MathRound));
             working_set.add_decl(Box::new(Mut));
             working_set.add_decl(Box::new(Path));
+            working_set.add_decl(Box::new(PathParse));
             working_set.add_decl(Box::new(ParEach));
             working_set.add_decl(Box::new(Random));
             working_set.add_decl(Box::new(Sort));

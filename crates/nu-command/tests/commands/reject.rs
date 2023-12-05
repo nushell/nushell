@@ -2,7 +2,7 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn regular_columns() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 [first_name, last_name, rusty_at, type];
@@ -22,15 +22,14 @@ fn regular_columns() {
 
 #[test]
 fn skip_cell_rejection() {
-    let actual = nu!(cwd: ".", pipeline(
-        r#"[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0"#));
+    let actual = nu!("[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0");
 
     assert_eq!(actual.out, "txt");
 }
 
 #[test]
 fn complex_nested_columns() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             {
                 "nu": {
@@ -63,7 +62,7 @@ fn complex_nested_columns() {
 
 #[test]
 fn ignores_duplicate_columns_rejected() {
-    let actual = nu!(cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo [
                 ["first name", "last name"];
@@ -81,71 +80,30 @@ fn ignores_duplicate_columns_rejected() {
 }
 
 #[test]
+fn ignores_duplicate_rows_rejected() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
 fn reject_record_from_raw_eval() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
-            {"a": 3} | reject a | describe
-            "#
-        )
-    );
+    let actual = nu!(r#"{"a": 3} | reject a | describe"#);
 
     assert!(actual.out.contains("record"));
 }
 
 #[test]
 fn reject_table_from_raw_eval() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
-            [{"a": 3}] | reject a
-            "#
-        )
-    );
+    let actual = nu!(r#"[{"a": 3}] | reject a"#);
 
     assert!(actual.out.contains("record 0 fields"));
 }
 
 #[test]
 fn reject_nested_field() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
-            {a:{b:3,c:5}} | reject a.b | debug
-            "#
-        )
-    );
+    let actual = nu!("{a:{b:3,c:5}} | reject a.b | debug");
 
     assert_eq!(actual.out, "{a: {c: 5}}");
-}
-
-#[test]
-fn reject_two_identical_elements() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"[[a, a]; [1, 2]] | reject a"#
-        )
-    );
-    assert!(actual.out.contains("record 0 fields"));
-}
-
-#[test]
-fn reject_large_vec_with_two_identical_elements() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"[[a, b, c, d, e, a]; [1323, 23, 45, 100, 2, 2423]] | reject a"#
-        )
-    );
-    assert!(!actual.out.contains("1323"));
-    assert!(!actual.out.contains("2423"));
-    assert!(actual.out.contains('b'));
-    assert!(actual.out.contains('c'));
-    assert!(actual.out.contains('d'));
-    assert!(actual.out.contains('e'));
-    assert!(actual.out.contains("23"));
-    assert!(actual.out.contains("45"));
-    assert!(actual.out.contains("100"));
-    assert!(actual.out.contains('2'));
 }
 
 #[test]
@@ -167,4 +125,53 @@ fn reject_optional_column() {
 fn reject_optional_row() {
     let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
     assert_eq!(actual.out, "[[foo]; [bar]]");
+}
+
+#[test]
+fn reject_list_columns() {
+    let actual = nu!("let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(actual.out, "[[name]; [Cargo.toml], [Cargo.lock], [src]]");
+}
+
+#[test]
+fn reject_list_rows() {
+    let actual = nu!("let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, type, size]; [Cargo.lock, file, 10000000b]]"
+    );
+}
+
+#[test]
+fn rject_list_mixed() {
+    let actual = nu!("let arg = [ type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject $arg | to nuon");
+    assert_eq!(
+        actual.out,
+        "[[name, size]; [Cargp.toml, 10000000b], [Cargo.lock, 10000000b]]"
+    );
+}
+
+#[test]
+fn reject_multiple_rows_ascending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn reject_multiple_rows_descending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn test_ignore_errors_flag() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -i | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
+}
+
+#[test]
+fn test_ignore_errors_flag_var() {
+    let actual =
+        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject $arg -i | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
 }

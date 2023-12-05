@@ -1,8 +1,14 @@
-use crate::{Span, Type};
+use std::{
+    fmt::Display,
+    str::{from_utf8, Utf8Error},
+};
+
+use crate::{did_you_mean, Span, Type};
 use miette::Diagnostic;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Diagnostic)]
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseError {
     /// The parser encountered unexpected tokens, when the code should have
     /// finished. You should remove these or finish adding what you intended
@@ -36,7 +42,19 @@ pub enum ParseError {
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
-    Expected(String, #[label("expected {0}")] Span),
+    Expected(&'static str, #[label("expected {0}")] Span),
+
+    #[error("Parse mismatch during operation.")]
+    #[diagnostic(code(nu::parser::parse_mismatch_with_full_string_msg))]
+    ExpectedWithStringMsg(String, #[label("expected {0}")] Span),
+
+    #[error("Command does not support {0} input.")]
+    #[diagnostic(code(nu::parser::input_type_mismatch))]
+    InputMismatch(Type, #[label("command doesn't support {0} input")] Span),
+
+    #[error("Command output doesn't match {0}.")]
+    #[diagnostic(code(nu::parser::output_type_mismatch))]
+    OutputMismatch(Type, #[label("command doesn't output {0}")] Span),
 
     #[error("Type mismatch during operation.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
@@ -161,7 +179,11 @@ pub enum ParseError {
 
     #[error("Variable not found.")]
     #[diagnostic(code(nu::parser::variable_not_found))]
-    VariableNotFound(#[label = "variable not found"] Span),
+    VariableNotFound(DidYouMean, #[label = "variable not found. {0}"] Span),
+
+    #[error("Use $env.{0} instead of ${0}.")]
+    #[diagnostic(code(nu::parser::env_var_not_var))]
+    EnvVarNotVar(String, #[label = "use $env.{0} instead of ${0}"] Span),
 
     #[error("Variable name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
@@ -187,6 +209,16 @@ pub enum ParseError {
     )]
     ModuleNotFound(#[label = "module not found"] Span),
 
+    #[error("Missing mod.nu file.")]
+    #[diagnostic(
+        code(nu::parser::module_missing_mod_nu_file),
+        help("Directory {0} is missing a mod.nu file.\n\nWhen importing a directory as a Nushell module, it needs to contain a mod.nu file (can be empty). Alternatively, you can use .nu files in the directory as modules individually.")
+    )]
+    ModuleMissingModNuFile(
+        String,
+        #[label = "module directory is missing a mod.nu file"] Span,
+    ),
+
     #[error("Cyclical module import.")]
     #[diagnostic(code(nu::parser::cyclical_module_import), help("{0}"))]
     CyclicalModuleImport(String, #[label = "detected cyclical module import"] Span),
@@ -194,12 +226,34 @@ pub enum ParseError {
     #[error("Can't export {0} named same as the module.")]
     #[diagnostic(
         code(nu::parser::named_as_module),
-        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `main` custom command.")
+        help("Module {1} can't export {0} named the same as the module. Either change the module name, or export `{2}` {0}.")
     )]
     NamedAsModule(
         String,
         String,
+        String,
         #[label = "can't export from module {1}"] Span,
+    ),
+
+    #[error("Module already contains 'main' command.")]
+    #[diagnostic(
+        code(nu::parser::module_double_main),
+        help("Tried to add 'main' command to module '{0}' but it has already been added.")
+    )]
+    ModuleDoubleMain(
+        String,
+        #[label = "module '{0}' already contains 'main'"] Span,
+    ),
+
+    #[error("Invalid module file name")]
+    #[diagnostic(
+        code(nu::parser::invalid_module_file_name),
+        help("File {0} resolves to module name {1} which is the same as the parent module. Either rename the file or, save it as 'mod.nu' to define the parent module.")
+    )]
+    InvalidModuleFileName(
+        String,
+        String,
+        #[label = "submodule can't have the same name as the parent module"] Span,
     ),
 
     #[error("Can't export alias defined as 'main'.")]
@@ -285,7 +339,10 @@ pub enum ParseError {
     OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
-    #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
+    #[diagnostic(
+        code(nu::parser::missing_positional),
+        help("Usage: {2}. Use `--help` for more information.")
+    )]
     MissingPositional(String, #[label("missing {0}")] Span, String),
 
     #[error("Missing argument to `{1}`.")]
@@ -303,6 +360,10 @@ pub enum ParseError {
     #[error("Type mismatch.")]
     #[diagnostic(code(nu::parser::type_mismatch))]
     TypeMismatch(Type, Type, #[label("expected {0}, found {1}")] Span), // expected, found, span
+
+    #[error("Type mismatch.")]
+    #[diagnostic(code(nu::parser::type_mismatch_help), help("{3}"))]
+    TypeMismatchHelp(Type, Type, #[label("expected {0}, found {1}")] Span, String), // expected, found, span, help
 
     #[error("Missing required flag.")]
     #[diagnostic(code(nu::parser::missing_required_flag))]
@@ -337,6 +398,10 @@ pub enum ParseError {
         #[label = "parameter {0} needs to be '{1}' instead of '{2}'"] Span,
     ),
 
+    #[error("Default values should be constant expressions.")]
+    #[diagnostic(code(nu::parser::non_constant_default_value))]
+    NonConstantDefaultValue(#[label = "expected a constant value"] Span),
+
     #[error("Extra columns.")]
     #[diagnostic(code(nu::parser::extra_columns))]
     ExtraColumns(
@@ -361,7 +426,7 @@ pub enum ParseError {
 
     #[error("Wrong import pattern structure.")]
     #[diagnostic(code(nu::parser::missing_import_pattern))]
-    WrongImportPattern(#[label = "invalid import pattern structure"] Span),
+    WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
     #[diagnostic(code(nu::parser::export_not_found))]
@@ -394,18 +459,6 @@ pub enum ParseError {
     #[diagnostic(code(nu::shell::error_reading_file))]
     ReadingFile(String, #[label("{0}")] Span),
 
-    /// Tried assigning non-constant value to a constant
-    ///
-    /// ## Resolution
-    ///
-    /// Only a subset of expressions are allowed to be assigned as a constant during parsing.
-    #[error("Not a constant.")]
-    #[diagnostic(
-        code(nu::parser::not_a_constant),
-        help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
-    )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
-
     #[error("Invalid literal")] // <problem> in <entity>.
     #[diagnostic()]
     InvalidLiteral(String, String, #[label("{0} in {1}")] Span),
@@ -413,6 +466,27 @@ pub enum ParseError {
     #[error("{0}")]
     #[diagnostic()]
     LabeledError(String, String, #[label("{1}")] Span),
+
+    #[error("{error}")]
+    #[diagnostic(help("{help}"))]
+    LabeledErrorWithHelp {
+        error: String,
+        label: String,
+        help: String,
+        #[label("{label}")]
+        span: Span,
+    },
+
+    #[error("Redirection can not be used with let/mut.")]
+    #[diagnostic()]
+    RedirectionInLetMut(
+        #[label("Not allowed here")] Span,
+        #[label("...and here")] Option<Span>,
+    ),
+
+    #[error("Unexpected spread operator outside list")]
+    #[diagnostic(code(nu::parser::unexpected_spread_operator))]
+    UnexpectedSpread(#[label("Spread operator not allowed here")] Span),
 }
 
 impl ParseError {
@@ -424,6 +498,7 @@ impl ParseError {
             ParseError::Unclosed(_, s) => *s,
             ParseError::Unbalanced(_, _, s) => *s,
             ParseError::Expected(_, s) => *s,
+            ParseError::ExpectedWithStringMsg(_, s) => *s,
             ParseError::Mismatch(_, _, s) => *s,
             ParseError::UnsupportedOperationLHS(_, _, s, _) => *s,
             ParseError::UnsupportedOperationRHS(_, _, _, _, s, _) => *s,
@@ -437,12 +512,16 @@ impl ParseError {
             ParseError::CaptureOfMutableVar(s) => *s,
             ParseError::IncorrectValue(_, s, _) => *s,
             ParseError::MultipleRestParams(s) => *s,
-            ParseError::VariableNotFound(s) => *s,
+            ParseError::VariableNotFound(_, s) => *s,
+            ParseError::EnvVarNotVar(_, s) => *s,
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
             ParseError::ModuleNotFound(s) => *s,
-            ParseError::NamedAsModule(_, _, s) => *s,
+            ParseError::ModuleMissingModNuFile(_, s) => *s,
+            ParseError::NamedAsModule(_, _, _, s) => *s,
+            ParseError::ModuleDoubleMain(_, s) => *s,
+            ParseError::InvalidModuleFileName(_, _, s) => *s,
             ParseError::ExportMainAliasNotAllowed(s) => *s,
             ParseError::CyclicalModuleImport(_, s) => *s,
             ParseError::ModuleOrOverlayNotFound(s) => *s,
@@ -464,6 +543,9 @@ impl ParseError {
             ParseError::KeywordMissingArgument(_, _, s) => *s,
             ParseError::MissingType(s) => *s,
             ParseError::TypeMismatch(_, _, s) => *s,
+            ParseError::TypeMismatchHelp(_, _, s, _) => *s,
+            ParseError::InputMismatch(_, s) => *s,
+            ParseError::OutputMismatch(_, s) => *s,
             ParseError::MissingRequiredFlag(_, s) => *s,
             ParseError::IncompleteMathExpression(s) => *s,
             ParseError::UnknownState(_, s) => *s,
@@ -471,11 +553,12 @@ impl ParseError {
             ParseError::IncompleteParser(s) => *s,
             ParseError::RestNeedsName(s) => *s,
             ParseError::ParameterMismatchType(_, _, _, s) => *s,
+            ParseError::NonConstantDefaultValue(s) => *s,
             ParseError::ExtraColumns(_, s) => *s,
             ParseError::MissingColumns(_, s) => *s,
             ParseError::AssignmentMismatch(_, _, s) => *s,
             ParseError::MissingImportPattern(s) => *s,
-            ParseError::WrongImportPattern(s) => *s,
+            ParseError::WrongImportPattern(_, s) => *s,
             ParseError::ExportNotFound(s) => *s,
             ParseError::SourcedFileNotFound(_, s) => *s,
             ParseError::RegisteredFileNotFound(_, s) => *s,
@@ -488,7 +571,43 @@ impl ParseError {
             ParseError::ShellOutErrRedirect(s) => *s,
             ParseError::UnknownOperator(_, _, s) => *s,
             ParseError::InvalidLiteral(_, _, s) => *s,
-            ParseError::NotAConstant(s) => *s,
+            ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
+            ParseError::RedirectionInLetMut(s, _) => *s,
+            ParseError::UnexpectedSpread(s) => *s,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DidYouMean(Option<String>);
+
+fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Option<String> {
+    let input = from_utf8(input_bytes).ok()?;
+    let possibilities = possibilities_bytes
+        .iter()
+        .map(|p| from_utf8(p))
+        .collect::<Result<Vec<&str>, Utf8Error>>()
+        .ok()?;
+    did_you_mean(&possibilities, input)
+}
+impl DidYouMean {
+    pub fn new(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> DidYouMean {
+        DidYouMean(did_you_mean_impl(possibilities_bytes, input_bytes))
+    }
+}
+
+impl From<Option<String>> for DidYouMean {
+    fn from(value: Option<String>) -> Self {
+        Self(value)
+    }
+}
+
+impl Display for DidYouMean {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(suggestion) = &self.0 {
+            write!(f, "Did you mean '{}'?", suggestion)
+        } else {
+            write!(f, "")
         }
     }
 }

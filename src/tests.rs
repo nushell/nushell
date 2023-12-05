@@ -1,12 +1,15 @@
+#[cfg(feature = "extra")]
 mod test_bits;
 mod test_cell_path;
 mod test_commandline;
 mod test_conditionals;
+mod test_config;
 mod test_config_path;
 mod test_converters;
 mod test_custom_commands;
 mod test_engine;
 mod test_env;
+mod test_help;
 mod test_hiding;
 mod test_ide;
 mod test_iteration;
@@ -17,6 +20,7 @@ mod test_parser;
 mod test_ranges;
 mod test_regex;
 mod test_signatures;
+mod test_spread;
 mod test_stdlib;
 mod test_strings;
 mod test_table_operations;
@@ -114,6 +118,7 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
 
+    println!("Expected output to contain: {expected}");
     assert!(output.status.success());
 
     assert!(stdout.contains(expected));
@@ -142,6 +147,7 @@ pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> 
 
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
+    println!("Expected output to contain: {expected}");
 
     assert!(output.status.success());
 
@@ -172,6 +178,7 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
 
     println!("stdout: {stdout}");
     println!("stderr: {stderr}");
+    println!("Expected error to contain: {expected}");
 
     assert!(!stderr.is_empty() && stderr.contains(expected));
 

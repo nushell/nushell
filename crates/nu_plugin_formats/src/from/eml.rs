@@ -2,7 +2,7 @@ use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{PluginExample, ShellError, Span, Spanned, Value};
+use nu_protocol::{record, PluginExample, ShellError, Span, Value};
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";
@@ -24,35 +24,18 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml"
                 .into(),
-            result: Some(Value::Record {
-                cols: vec![
-                    "Subject".to_string(),
-                    "From".to_string(),
-                    "To".to_string(),
-                    "Body".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
-                        ],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
-                        ],
-                        span: Span::test_data(),
-                    },
-                    Value::test_string("Test"),
-                ],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_record(record! {
+                    "Subject" => Value::test_string("Welcome"),
+                    "From" =>    Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("test@email.com"),
+                    }),
+                    "To" => Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("someone@somewhere.com"),
+                    }),
+                    "Body" => Value::test_string("Test"),
+            })),
         },
         PluginExample {
             description: "Convert eml structured data into record".into(),
@@ -61,65 +44,39 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml -b 1"
                 .into(),
-            result: Some(Value::Record {
-                cols: vec![
-                    "Subject".to_string(),
-                    "From".to_string(),
-                    "To".to_string(),
-                    "Body".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
-                        ],
-                        span: Span::test_data(),
-                    },
-                    Value::Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
-                        ],
-                        span: Span::test_data(),
-                    },
-                    Value::test_string("T"),
-                ],
-                span: Span::test_data(),
-            }),
+            result: Some(Value::test_record(record! {
+                    "Subject" => Value::test_string("Welcome"),
+                    "From" =>    Value::test_record(record! {
+                        "Name" =>          Value::nothing(Span::test_data()),
+                        "Address" =>       Value::test_string("test@email.com"),
+                    }),
+                    "To" => Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("someone@somewhere.com"),
+                    }),
+                    "Body" => Value::test_string("T"),
+            })),
         },
     ]
 }
 
 fn emailaddress_to_value(span: Span, email_address: &EmailAddress) -> Value {
     let (n, a) = match email_address {
-        EmailAddress::AddressOnly { address } => (
-            Value::nothing(span),
-            Value::String {
-                val: address.to_string(),
-                span,
-            },
-        ),
-        EmailAddress::NameAndEmailAddress { name, address } => (
-            Value::String {
-                val: name.to_string(),
-                span,
-            },
-            Value::String {
-                val: address.to_string(),
-                span,
-            },
-        ),
+        EmailAddress::AddressOnly { address } => {
+            (Value::nothing(span), Value::string(address, span))
+        }
+        EmailAddress::NameAndEmailAddress { name, address } => {
+            (Value::string(name, span), Value::string(address, span))
+        }
     };
 
-    Value::Record {
-        cols: vec!["Name".to_string(), "Address".to_string()],
-        vals: vec![n, a],
+    Value::record(
+        record! {
+            "Name" => n,
+            "Address" => a,
+        },
         span,
-    }
+    )
 }
 
 fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
@@ -127,13 +84,13 @@ fn headerfieldvalue_to_value(head: Span, value: &HeaderFieldValue) -> Value {
 
     match value {
         SingleEmailAddress(address) => emailaddress_to_value(head, address),
-        MultipleEmailAddresses(addresses) => Value::List {
-            vals: addresses
+        MultipleEmailAddresses(addresses) => Value::list(
+            addresses
                 .iter()
                 .map(|a| emailaddress_to_value(head, a))
                 .collect(),
-            span: head,
-        },
+            head,
+        ),
         Unstructured(s) => Value::string(s, head),
         Empty => Value::nothing(head),
     }
@@ -155,13 +112,7 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     let mut collected = IndexMap::new();
 
     if let Some(subj) = eml.subject {
-        collected.insert(
-            "Subject".to_string(),
-            Value::String {
-                val: subj,
-                span: head,
-            },
-        );
+        collected.insert("Subject".to_string(), Value::string(subj, head));
     }
 
     if let Some(from) = eml.from {
@@ -177,17 +128,8 @@ fn from_eml(input: &Value, body_preview: usize, head: Span) -> Result<Value, Lab
     }
 
     if let Some(body) = eml.body {
-        collected.insert(
-            "Body".to_string(),
-            Value::String {
-                val: body,
-                span: head,
-            },
-        );
+        collected.insert("Body".to_string(), Value::string(body, head));
     }
 
-    Ok(Value::from(Spanned {
-        item: collected,
-        span: head,
-    }))
+    Ok(Value::record(collected.into_iter().collect(), head))
 }

@@ -4,7 +4,7 @@ use nu_test_support::{nu, nu_repl_code, pipeline};
 
 #[test]
 fn table_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table"#);
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────╮\
@@ -18,7 +18,7 @@ fn table_0() {
 
 #[test]
 fn table_collapse_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"#);
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse");
     assert_eq!(
         actual.out,
         "╭───┬───┬───╮\
@@ -38,8 +38,8 @@ fn table_collapse_0() {
 #[test]
 fn table_collapse_basic() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: basic };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: basic }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -60,8 +60,8 @@ fn table_collapse_basic() {
 #[test]
 fn table_collapse_heavy() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: heavy };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: heavy }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -82,8 +82,8 @@ fn table_collapse_heavy() {
 #[test]
 fn table_collapse_compact() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: compact }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -104,8 +104,8 @@ fn table_collapse_compact() {
 #[test]
 fn table_collapse_compact_double() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: compact_double };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: compact_double }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -126,8 +126,8 @@ fn table_collapse_compact_double() {
 #[test]
 fn table_collapse_compact_light() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: light };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: light }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -148,17 +148,17 @@ fn table_collapse_compact_light() {
 #[test]
 fn table_collapse_none() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: none };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: none }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
         concat!(
-            " a   b   c ",
-            " 1   2   3 ",
-            " 4   5   1 ",
-            "         2 ",
-            "         3 ",
+            " a  b  c ",
+            " 1  2  3 ",
+            " 4  5  1 ",
+            "       2 ",
+            "       3 ",
         )
     );
 }
@@ -166,8 +166,8 @@ fn table_collapse_none() {
 #[test]
 fn table_collapse_compact_reinforced() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: reinforced };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: reinforced }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -188,8 +188,8 @@ fn table_collapse_compact_reinforced() {
 #[test]
 fn table_collapse_compact_thin() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: thin };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: thin }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -210,8 +210,8 @@ fn table_collapse_compact_thin() {
 #[test]
 fn table_collapse_hearts() {
     let actual = nu!(nu_repl_code(&[
-        "let-env config = { table_mode: with_love };",
-        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --collapse"
+        "$env.config = { table: { mode: with_love }};",
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --collapse"
     ]));
     assert_eq!(
         actual.out,
@@ -232,16 +232,25 @@ fn table_collapse_hearts() {
 }
 
 #[test]
-fn table_collapse_doesnot_support_width_control() {
+fn table_collapse_does_wrapping_for_long_strings() {
     let actual = nu!(
-        r#"[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --collapse"#
+        "[[a]; [11111111111111111111111111111111111111111111111111111111111111111111111111111111]] | table --width=80 --collapse"
     );
-    assert_eq!(actual.out, "Couldn't fit table into 80 columns!");
+    assert_eq!(
+        actual.out,
+        "╭────────────────────────────────╮\
+         │ a                              │\
+         ├────────────────────────────────┤\
+         │ 111111111111111109312339230430 │\
+         │ 179149313814687359833671239329 │\
+         │ 01313323321729744896.00        │\
+         ╰────────────────────────────────╯"
+    );
 }
 
 #[test]
 fn table_expand_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --expand"#);
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 --expand");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬───────────╮\
@@ -262,7 +271,8 @@ fn table_expand_0() {
 fn table_expand_exceed_overlap_0() {
     // no expand
 
-    let actual = nu!(r#"[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand"#);
+    let actual =
+        nu!("[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -281,7 +291,7 @@ fn table_expand_exceed_overlap_0() {
     // expand
 
     let actual = nu!(
-        r#"[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --expand"#
+        "[[a b, c]; [xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 2 3] [4 5 [1 2 3]]] | table --width=80 --expand"
     );
 
     assert_eq!(
@@ -301,7 +311,8 @@ fn table_expand_exceed_overlap_0() {
 
 #[test]
 fn table_expand_deep_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=1"#);
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=1");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────────────╮\
@@ -319,7 +330,8 @@ fn table_expand_deep_0() {
 
 #[test]
 fn table_expand_deep_1() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --expand --expand-deep=0"#);
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 2 3]]]] | table --width=80 --expand --expand-deep=0");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬────────────────╮\
@@ -333,7 +345,8 @@ fn table_expand_deep_1() {
 
 #[test]
 fn table_expand_flatten_0() {
-    let actual = nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --expand --flatten "#);
+    let actual =
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten ");
     assert_eq!(
         actual.out,
         "╭───┬───┬───┬───────────────╮\
@@ -352,7 +365,7 @@ fn table_expand_flatten_0() {
 #[test]
 fn table_expand_flatten_1() {
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --expand --flatten --flatten-separator=,"#
+        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 1 1]]]] | table --width=80 --expand --flatten --flatten-separator=,"
     );
     assert_eq!(
         actual.out,
@@ -372,7 +385,7 @@ fn table_expand_flatten_1() {
 #[test]
 fn table_expand_flatten_and_deep_1() {
     let actual = nu!(
-        r#"[[a b, c]; [1 2 3] [4 5 [1 2 [1 [1 1 1] 1]]]] | table --expand --expand-deep=2 --flatten --flatten-separator=,"#
+        "[[a b, c]; [1 2 3] [4 5 [1 2 [1 [1 1 1] 1]]]] | table --width=80 --expand --expand-deep=2 --flatten --flatten-separator=,"
     );
 
     assert_eq!(
@@ -396,7 +409,7 @@ fn table_expand_flatten_and_deep_1() {
 
 #[test]
 fn table_expand_record_0() {
-    let actual = nu!(r#"[{c: {d: 1}}] | table --expand"#);
+    let actual = nu!("[{c: {d: 1}}] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -413,7 +426,7 @@ fn table_expand_record_0() {
 #[test]
 fn table_expand_record_1() {
     let actual =
-        nu!(r#"[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --expand"#);
+        nu!("[[a b, c]; [1 2 3] [4 5 [1 2 {a: 123, b: 234, c: 345}]]] | table --width=80 --expand");
 
     assert_eq!(
         actual.out,
@@ -442,7 +455,7 @@ fn table_expand_record_2() {
         field3: [ [ head1, head2, head3 ]; [ 1 2 3 ] [ 79 79 79 ] [ { f1: 'a string', f2: 1000 }, 1, 2 ] ],\
         field4: { f1: 1, f2: 3, f3: { f1: f1, f2: f2, f3: f3 } }\
     }";
-    let actual = nu!(format!("{structure} | table --expand"));
+    let actual = nu!(format!("{structure} | table --width=80 --expand"));
 
     assert_eq!(
         actual.out,
@@ -496,9 +509,9 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                cat a_large_file.txt | table
-            "#
+            "
+                cat a_large_file.txt | table --width=80
+            "
         ));
 
         assert_eq!(actual.out, large_file_body);
@@ -507,13 +520,13 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
 
 #[test]
 fn table_pagging_row_offset_overlap() {
-    let actual = nu!(r#"0..1000"#);
+    let actual = nu!("0..1000");
     assert_eq!(actual.out, "╭─────┬─────╮│   0 │   0 ││   1 │   1 ││   2 │   2 ││   3 │   3 ││   4 │   4 ││   5 │   5 ││   6 │   6 ││   7 │   7 ││   8 │   8 ││   9 │   9 ││  10 │  10 ││  11 │  11 ││  12 │  12 ││  13 │  13 ││  14 │  14 ││  15 │  15 ││  16 │  16 ││  17 │  17 ││  18 │  18 ││  19 │  19 ││  20 │  20 ││  21 │  21 ││  22 │  22 ││  23 │  23 ││  24 │  24 ││  25 │  25 ││  26 │  26 ││  27 │  27 ││  28 │  28 ││  29 │  29 ││  30 │  30 ││  31 │  31 ││  32 │  32 ││  33 │  33 ││  34 │  34 ││  35 │  35 ││  36 │  36 ││  37 │  37 ││  38 │  38 ││  39 │  39 ││  40 │  40 ││  41 │  41 ││  42 │  42 ││  43 │  43 ││  44 │  44 ││  45 │  45 ││  46 │  46 ││  47 │  47 ││  48 │  48 ││  49 │  49 ││  50 │  50 ││  51 │  51 ││  52 │  52 ││  53 │  53 ││  54 │  54 ││  55 │  55 ││  56 │  56 ││  57 │  57 ││  58 │  58 ││  59 │  59 ││  60 │  60 ││  61 │  61 ││  62 │  62 ││  63 │  63 ││  64 │  64 ││  65 │  65 ││  66 │  66 ││  67 │  67 ││  68 │  68 ││  69 │  69 ││  70 │  70 ││  71 │  71 ││  72 │  72 ││  73 │  73 ││  74 │  74 ││  75 │  75 ││  76 │  76 ││  77 │  77 ││  78 │  78 ││  79 │  79 ││  80 │  80 ││  81 │  81 ││  82 │  82 ││  83 │  83 ││  84 │  84 ││  85 │  85 ││  86 │  86 ││  87 │  87 ││  88 │  88 ││  89 │  89 ││  90 │  90 ││  91 │  91 ││  92 │  92 ││  93 │  93 ││  94 │  94 ││  95 │  95 ││  96 │  96 ││  97 │  97 ││  98 │  98 ││  99 │  99 ││ 100 │ 100 ││ 101 │ 101 ││ 102 │ 102 ││ 103 │ 103 ││ 104 │ 104 ││ 105 │ 105 ││ 106 │ 106 ││ 107 │ 107 ││ 108 │ 108 ││ 109 │ 109 ││ 110 │ 110 ││ 111 │ 111 ││ 112 │ 112 ││ 113 │ 113 ││ 114 │ 114 ││ 115 │ 115 ││ 116 │ 116 ││ 117 │ 117 ││ 118 │ 118 ││ 119 │ 119 ││ 120 │ 120 ││ 121 │ 121 ││ 122 │ 122 ││ 123 │ 123 ││ 124 │ 124 ││ 125 │ 125 ││ 126 │ 126 ││ 127 │ 127 ││ 128 │ 128 ││ 129 │ 129 ││ 130 │ 130 ││ 131 │ 131 ││ 132 │ 132 ││ 133 │ 133 ││ 134 │ 134 ││ 135 │ 135 ││ 136 │ 136 ││ 137 │ 137 ││ 138 │ 138 ││ 139 │ 139 ││ 140 │ 140 ││ 141 │ 141 ││ 142 │ 142 ││ 143 │ 143 ││ 144 │ 144 ││ 145 │ 145 ││ 146 │ 146 ││ 147 │ 147 ││ 148 │ 148 ││ 149 │ 149 ││ 150 │ 150 ││ 151 │ 151 ││ 152 │ 152 ││ 153 │ 153 ││ 154 │ 154 ││ 155 │ 155 ││ 156 │ 156 ││ 157 │ 157 ││ 158 │ 158 ││ 159 │ 159 ││ 160 │ 160 ││ 161 │ 161 ││ 162 │ 162 ││ 163 │ 163 ││ 164 │ 164 ││ 165 │ 165 ││ 166 │ 166 ││ 167 │ 167 ││ 168 │ 168 ││ 169 │ 169 ││ 170 │ 170 ││ 171 │ 171 ││ 172 │ 172 ││ 173 │ 173 ││ 174 │ 174 ││ 175 │ 175 ││ 176 │ 176 ││ 177 │ 177 ││ 178 │ 178 ││ 179 │ 179 ││ 180 │ 180 ││ 181 │ 181 ││ 182 │ 182 ││ 183 │ 183 ││ 184 │ 184 ││ 185 │ 185 ││ 186 │ 186 ││ 187 │ 187 ││ 188 │ 188 ││ 189 │ 189 ││ 190 │ 190 ││ 191 │ 191 ││ 192 │ 192 ││ 193 │ 193 ││ 194 │ 194 ││ 195 │ 195 ││ 196 │ 196 ││ 197 │ 197 ││ 198 │ 198 ││ 199 │ 199 ││ 200 │ 200 ││ 201 │ 201 ││ 202 │ 202 ││ 203 │ 203 ││ 204 │ 204 ││ 205 │ 205 ││ 206 │ 206 ││ 207 │ 207 ││ 208 │ 208 ││ 209 │ 209 ││ 210 │ 210 ││ 211 │ 211 ││ 212 │ 212 ││ 213 │ 213 ││ 214 │ 214 ││ 215 │ 215 ││ 216 │ 216 ││ 217 │ 217 ││ 218 │ 218 ││ 219 │ 219 ││ 220 │ 220 ││ 221 │ 221 ││ 222 │ 222 ││ 223 │ 223 ││ 224 │ 224 ││ 225 │ 225 ││ 226 │ 226 ││ 227 │ 227 ││ 228 │ 228 ││ 229 │ 229 ││ 230 │ 230 ││ 231 │ 231 ││ 232 │ 232 ││ 233 │ 233 ││ 234 │ 234 ││ 235 │ 235 ││ 236 │ 236 ││ 237 │ 237 ││ 238 │ 238 ││ 239 │ 239 ││ 240 │ 240 ││ 241 │ 241 ││ 242 │ 242 ││ 243 │ 243 ││ 244 │ 244 ││ 245 │ 245 ││ 246 │ 246 ││ 247 │ 247 ││ 248 │ 248 ││ 249 │ 249 ││ 250 │ 250 ││ 251 │ 251 ││ 252 │ 252 ││ 253 │ 253 ││ 254 │ 254 ││ 255 │ 255 ││ 256 │ 256 ││ 257 │ 257 ││ 258 │ 258 ││ 259 │ 259 ││ 260 │ 260 ││ 261 │ 261 ││ 262 │ 262 ││ 263 │ 263 ││ 264 │ 264 ││ 265 │ 265 ││ 266 │ 266 ││ 267 │ 267 ││ 268 │ 268 ││ 269 │ 269 ││ 270 │ 270 ││ 271 │ 271 ││ 272 │ 272 ││ 273 │ 273 ││ 274 │ 274 ││ 275 │ 275 ││ 276 │ 276 ││ 277 │ 277 ││ 278 │ 278 ││ 279 │ 279 ││ 280 │ 280 ││ 281 │ 281 ││ 282 │ 282 ││ 283 │ 283 ││ 284 │ 284 ││ 285 │ 285 ││ 286 │ 286 ││ 287 │ 287 ││ 288 │ 288 ││ 289 │ 289 ││ 290 │ 290 ││ 291 │ 291 ││ 292 │ 292 ││ 293 │ 293 ││ 294 │ 294 ││ 295 │ 295 ││ 296 │ 296 ││ 297 │ 297 ││ 298 │ 298 ││ 299 │ 299 ││ 300 │ 300 ││ 301 │ 301 ││ 302 │ 302 ││ 303 │ 303 ││ 304 │ 304 ││ 305 │ 305 ││ 306 │ 306 ││ 307 │ 307 ││ 308 │ 308 ││ 309 │ 309 ││ 310 │ 310 ││ 311 │ 311 ││ 312 │ 312 ││ 313 │ 313 ││ 314 │ 314 ││ 315 │ 315 ││ 316 │ 316 ││ 317 │ 317 ││ 318 │ 318 ││ 319 │ 319 ││ 320 │ 320 ││ 321 │ 321 ││ 322 │ 322 ││ 323 │ 323 ││ 324 │ 324 ││ 325 │ 325 ││ 326 │ 326 ││ 327 │ 327 ││ 328 │ 328 ││ 329 │ 329 ││ 330 │ 330 ││ 331 │ 331 ││ 332 │ 332 ││ 333 │ 333 ││ 334 │ 334 ││ 335 │ 335 ││ 336 │ 336 ││ 337 │ 337 ││ 338 │ 338 ││ 339 │ 339 ││ 340 │ 340 ││ 341 │ 341 ││ 342 │ 342 ││ 343 │ 343 ││ 344 │ 344 ││ 345 │ 345 ││ 346 │ 346 ││ 347 │ 347 ││ 348 │ 348 ││ 349 │ 349 ││ 350 │ 350 ││ 351 │ 351 ││ 352 │ 352 ││ 353 │ 353 ││ 354 │ 354 ││ 355 │ 355 ││ 356 │ 356 ││ 357 │ 357 ││ 358 │ 358 ││ 359 │ 359 ││ 360 │ 360 ││ 361 │ 361 ││ 362 │ 362 ││ 363 │ 363 ││ 364 │ 364 ││ 365 │ 365 ││ 366 │ 366 ││ 367 │ 367 ││ 368 │ 368 ││ 369 │ 369 ││ 370 │ 370 ││ 371 │ 371 ││ 372 │ 372 ││ 373 │ 373 ││ 374 │ 374 ││ 375 │ 375 ││ 376 │ 376 ││ 377 │ 377 ││ 378 │ 378 ││ 379 │ 379 ││ 380 │ 380 ││ 381 │ 381 ││ 382 │ 382 ││ 383 │ 383 ││ 384 │ 384 ││ 385 │ 385 ││ 386 │ 386 ││ 387 │ 387 ││ 388 │ 388 ││ 389 │ 389 ││ 390 │ 390 ││ 391 │ 391 ││ 392 │ 392 ││ 393 │ 393 ││ 394 │ 394 ││ 395 │ 395 ││ 396 │ 396 ││ 397 │ 397 ││ 398 │ 398 ││ 399 │ 399 ││ 400 │ 400 ││ 401 │ 401 ││ 402 │ 402 ││ 403 │ 403 ││ 404 │ 404 ││ 405 │ 405 ││ 406 │ 406 ││ 407 │ 407 ││ 408 │ 408 ││ 409 │ 409 ││ 410 │ 410 ││ 411 │ 411 ││ 412 │ 412 ││ 413 │ 413 ││ 414 │ 414 ││ 415 │ 415 ││ 416 │ 416 ││ 417 │ 417 ││ 418 │ 418 ││ 419 │ 419 ││ 420 │ 420 ││ 421 │ 421 ││ 422 │ 422 ││ 423 │ 423 ││ 424 │ 424 ││ 425 │ 425 ││ 426 │ 426 ││ 427 │ 427 ││ 428 │ 428 ││ 429 │ 429 ││ 430 │ 430 ││ 431 │ 431 ││ 432 │ 432 ││ 433 │ 433 ││ 434 │ 434 ││ 435 │ 435 ││ 436 │ 436 ││ 437 │ 437 ││ 438 │ 438 ││ 439 │ 439 ││ 440 │ 440 ││ 441 │ 441 ││ 442 │ 442 ││ 443 │ 443 ││ 444 │ 444 ││ 445 │ 445 ││ 446 │ 446 ││ 447 │ 447 ││ 448 │ 448 ││ 449 │ 449 ││ 450 │ 450 ││ 451 │ 451 ││ 452 │ 452 ││ 453 │ 453 ││ 454 │ 454 ││ 455 │ 455 ││ 456 │ 456 ││ 457 │ 457 ││ 458 │ 458 ││ 459 │ 459 ││ 460 │ 460 ││ 461 │ 461 ││ 462 │ 462 ││ 463 │ 463 ││ 464 │ 464 ││ 465 │ 465 ││ 466 │ 466 ││ 467 │ 467 ││ 468 │ 468 ││ 469 │ 469 ││ 470 │ 470 ││ 471 │ 471 ││ 472 │ 472 ││ 473 │ 473 ││ 474 │ 474 ││ 475 │ 475 ││ 476 │ 476 ││ 477 │ 477 ││ 478 │ 478 ││ 479 │ 479 ││ 480 │ 480 ││ 481 │ 481 ││ 482 │ 482 ││ 483 │ 483 ││ 484 │ 484 ││ 485 │ 485 ││ 486 │ 486 ││ 487 │ 487 ││ 488 │ 488 ││ 489 │ 489 ││ 490 │ 490 ││ 491 │ 491 ││ 492 │ 492 ││ 493 │ 493 ││ 494 │ 494 ││ 495 │ 495 ││ 496 │ 496 ││ 497 │ 497 ││ 498 │ 498 ││ 499 │ 499 ││ 500 │ 500 ││ 501 │ 501 ││ 502 │ 502 ││ 503 │ 503 ││ 504 │ 504 ││ 505 │ 505 ││ 506 │ 506 ││ 507 │ 507 ││ 508 │ 508 ││ 509 │ 509 ││ 510 │ 510 ││ 511 │ 511 ││ 512 │ 512 ││ 513 │ 513 ││ 514 │ 514 ││ 515 │ 515 ││ 516 │ 516 ││ 517 │ 517 ││ 518 │ 518 ││ 519 │ 519 ││ 520 │ 520 ││ 521 │ 521 ││ 522 │ 522 ││ 523 │ 523 ││ 524 │ 524 ││ 525 │ 525 ││ 526 │ 526 ││ 527 │ 527 ││ 528 │ 528 ││ 529 │ 529 ││ 530 │ 530 ││ 531 │ 531 ││ 532 │ 532 ││ 533 │ 533 ││ 534 │ 534 ││ 535 │ 535 ││ 536 │ 536 ││ 537 │ 537 ││ 538 │ 538 ││ 539 │ 539 ││ 540 │ 540 ││ 541 │ 541 ││ 542 │ 542 ││ 543 │ 543 ││ 544 │ 544 ││ 545 │ 545 ││ 546 │ 546 ││ 547 │ 547 ││ 548 │ 548 ││ 549 │ 549 ││ 550 │ 550 ││ 551 │ 551 ││ 552 │ 552 ││ 553 │ 553 ││ 554 │ 554 ││ 555 │ 555 ││ 556 │ 556 ││ 557 │ 557 ││ 558 │ 558 ││ 559 │ 559 ││ 560 │ 560 ││ 561 │ 561 ││ 562 │ 562 ││ 563 │ 563 ││ 564 │ 564 ││ 565 │ 565 ││ 566 │ 566 ││ 567 │ 567 ││ 568 │ 568 ││ 569 │ 569 ││ 570 │ 570 ││ 571 │ 571 ││ 572 │ 572 ││ 573 │ 573 ││ 574 │ 574 ││ 575 │ 575 ││ 576 │ 576 ││ 577 │ 577 ││ 578 │ 578 ││ 579 │ 579 ││ 580 │ 580 ││ 581 │ 581 ││ 582 │ 582 ││ 583 │ 583 ││ 584 │ 584 ││ 585 │ 585 ││ 586 │ 586 ││ 587 │ 587 ││ 588 │ 588 ││ 589 │ 589 ││ 590 │ 590 ││ 591 │ 591 ││ 592 │ 592 ││ 593 │ 593 ││ 594 │ 594 ││ 595 │ 595 ││ 596 │ 596 ││ 597 │ 597 ││ 598 │ 598 ││ 599 │ 599 ││ 600 │ 600 ││ 601 │ 601 ││ 602 │ 602 ││ 603 │ 603 ││ 604 │ 604 ││ 605 │ 605 ││ 606 │ 606 ││ 607 │ 607 ││ 608 │ 608 ││ 609 │ 609 ││ 610 │ 610 ││ 611 │ 611 ││ 612 │ 612 ││ 613 │ 613 ││ 614 │ 614 ││ 615 │ 615 ││ 616 │ 616 ││ 617 │ 617 ││ 618 │ 618 ││ 619 │ 619 ││ 620 │ 620 ││ 621 │ 621 ││ 622 │ 622 ││ 623 │ 623 ││ 624 │ 624 ││ 625 │ 625 ││ 626 │ 626 ││ 627 │ 627 ││ 628 │ 628 ││ 629 │ 629 ││ 630 │ 630 ││ 631 │ 631 ││ 632 │ 632 ││ 633 │ 633 ││ 634 │ 634 ││ 635 │ 635 ││ 636 │ 636 ││ 637 │ 637 ││ 638 │ 638 ││ 639 │ 639 ││ 640 │ 640 ││ 641 │ 641 ││ 642 │ 642 ││ 643 │ 643 ││ 644 │ 644 ││ 645 │ 645 ││ 646 │ 646 ││ 647 │ 647 ││ 648 │ 648 ││ 649 │ 649 ││ 650 │ 650 ││ 651 │ 651 ││ 652 │ 652 ││ 653 │ 653 ││ 654 │ 654 ││ 655 │ 655 ││ 656 │ 656 ││ 657 │ 657 ││ 658 │ 658 ││ 659 │ 659 ││ 660 │ 660 ││ 661 │ 661 ││ 662 │ 662 ││ 663 │ 663 ││ 664 │ 664 ││ 665 │ 665 ││ 666 │ 666 ││ 667 │ 667 ││ 668 │ 668 ││ 669 │ 669 ││ 670 │ 670 ││ 671 │ 671 ││ 672 │ 672 ││ 673 │ 673 ││ 674 │ 674 ││ 675 │ 675 ││ 676 │ 676 ││ 677 │ 677 ││ 678 │ 678 ││ 679 │ 679 ││ 680 │ 680 ││ 681 │ 681 ││ 682 │ 682 ││ 683 │ 683 ││ 684 │ 684 ││ 685 │ 685 ││ 686 │ 686 ││ 687 │ 687 ││ 688 │ 688 ││ 689 │ 689 ││ 690 │ 690 ││ 691 │ 691 ││ 692 │ 692 ││ 693 │ 693 ││ 694 │ 694 ││ 695 │ 695 ││ 696 │ 696 ││ 697 │ 697 ││ 698 │ 698 ││ 699 │ 699 ││ 700 │ 700 ││ 701 │ 701 ││ 702 │ 702 ││ 703 │ 703 ││ 704 │ 704 ││ 705 │ 705 ││ 706 │ 706 ││ 707 │ 707 ││ 708 │ 708 ││ 709 │ 709 ││ 710 │ 710 ││ 711 │ 711 ││ 712 │ 712 ││ 713 │ 713 ││ 714 │ 714 ││ 715 │ 715 ││ 716 │ 716 ││ 717 │ 717 ││ 718 │ 718 ││ 719 │ 719 ││ 720 │ 720 ││ 721 │ 721 ││ 722 │ 722 ││ 723 │ 723 ││ 724 │ 724 ││ 725 │ 725 ││ 726 │ 726 ││ 727 │ 727 ││ 728 │ 728 ││ 729 │ 729 ││ 730 │ 730 ││ 731 │ 731 ││ 732 │ 732 ││ 733 │ 733 ││ 734 │ 734 ││ 735 │ 735 ││ 736 │ 736 ││ 737 │ 737 ││ 738 │ 738 ││ 739 │ 739 ││ 740 │ 740 ││ 741 │ 741 ││ 742 │ 742 ││ 743 │ 743 ││ 744 │ 744 ││ 745 │ 745 ││ 746 │ 746 ││ 747 │ 747 ││ 748 │ 748 ││ 749 │ 749 ││ 750 │ 750 ││ 751 │ 751 ││ 752 │ 752 ││ 753 │ 753 ││ 754 │ 754 ││ 755 │ 755 ││ 756 │ 756 ││ 757 │ 757 ││ 758 │ 758 ││ 759 │ 759 ││ 760 │ 760 ││ 761 │ 761 ││ 762 │ 762 ││ 763 │ 763 ││ 764 │ 764 ││ 765 │ 765 ││ 766 │ 766 ││ 767 │ 767 ││ 768 │ 768 ││ 769 │ 769 ││ 770 │ 770 ││ 771 │ 771 ││ 772 │ 772 ││ 773 │ 773 ││ 774 │ 774 ││ 775 │ 775 ││ 776 │ 776 ││ 777 │ 777 ││ 778 │ 778 ││ 779 │ 779 ││ 780 │ 780 ││ 781 │ 781 ││ 782 │ 782 ││ 783 │ 783 ││ 784 │ 784 ││ 785 │ 785 ││ 786 │ 786 ││ 787 │ 787 ││ 788 │ 788 ││ 789 │ 789 ││ 790 │ 790 ││ 791 │ 791 ││ 792 │ 792 ││ 793 │ 793 ││ 794 │ 794 ││ 795 │ 795 ││ 796 │ 796 ││ 797 │ 797 ││ 798 │ 798 ││ 799 │ 799 ││ 800 │ 800 ││ 801 │ 801 ││ 802 │ 802 ││ 803 │ 803 ││ 804 │ 804 ││ 805 │ 805 ││ 806 │ 806 ││ 807 │ 807 ││ 808 │ 808 ││ 809 │ 809 ││ 810 │ 810 ││ 811 │ 811 ││ 812 │ 812 ││ 813 │ 813 ││ 814 │ 814 ││ 815 │ 815 ││ 816 │ 816 ││ 817 │ 817 ││ 818 │ 818 ││ 819 │ 819 ││ 820 │ 820 ││ 821 │ 821 ││ 822 │ 822 ││ 823 │ 823 ││ 824 │ 824 ││ 825 │ 825 ││ 826 │ 826 ││ 827 │ 827 ││ 828 │ 828 ││ 829 │ 829 ││ 830 │ 830 ││ 831 │ 831 ││ 832 │ 832 ││ 833 │ 833 ││ 834 │ 834 ││ 835 │ 835 ││ 836 │ 836 ││ 837 │ 837 ││ 838 │ 838 ││ 839 │ 839 ││ 840 │ 840 ││ 841 │ 841 ││ 842 │ 842 ││ 843 │ 843 ││ 844 │ 844 ││ 845 │ 845 ││ 846 │ 846 ││ 847 │ 847 ││ 848 │ 848 ││ 849 │ 849 ││ 850 │ 850 ││ 851 │ 851 ││ 852 │ 852 ││ 853 │ 853 ││ 854 │ 854 ││ 855 │ 855 ││ 856 │ 856 ││ 857 │ 857 ││ 858 │ 858 ││ 859 │ 859 ││ 860 │ 860 ││ 861 │ 861 ││ 862 │ 862 ││ 863 │ 863 ││ 864 │ 864 ││ 865 │ 865 ││ 866 │ 866 ││ 867 │ 867 ││ 868 │ 868 ││ 869 │ 869 ││ 870 │ 870 ││ 871 │ 871 ││ 872 │ 872 ││ 873 │ 873 ││ 874 │ 874 ││ 875 │ 875 ││ 876 │ 876 ││ 877 │ 877 ││ 878 │ 878 ││ 879 │ 879 ││ 880 │ 880 ││ 881 │ 881 ││ 882 │ 882 ││ 883 │ 883 ││ 884 │ 884 ││ 885 │ 885 ││ 886 │ 886 ││ 887 │ 887 ││ 888 │ 888 ││ 889 │ 889 ││ 890 │ 890 ││ 891 │ 891 ││ 892 │ 892 ││ 893 │ 893 ││ 894 │ 894 ││ 895 │ 895 ││ 896 │ 896 ││ 897 │ 897 ││ 898 │ 898 ││ 899 │ 899 ││ 900 │ 900 ││ 901 │ 901 ││ 902 │ 902 ││ 903 │ 903 ││ 904 │ 904 ││ 905 │ 905 ││ 906 │ 906 ││ 907 │ 907 ││ 908 │ 908 ││ 909 │ 909 ││ 910 │ 910 ││ 911 │ 911 ││ 912 │ 912 ││ 913 │ 913 ││ 914 │ 914 ││ 915 │ 915 ││ 916 │ 916 ││ 917 │ 917 ││ 918 │ 918 ││ 919 │ 919 ││ 920 │ 920 ││ 921 │ 921 ││ 922 │ 922 ││ 923 │ 923 ││ 924 │ 924 ││ 925 │ 925 ││ 926 │ 926 ││ 927 │ 927 ││ 928 │ 928 ││ 929 │ 929 ││ 930 │ 930 ││ 931 │ 931 ││ 932 │ 932 ││ 933 │ 933 ││ 934 │ 934 ││ 935 │ 935 ││ 936 │ 936 ││ 937 │ 937 ││ 938 │ 938 ││ 939 │ 939 ││ 940 │ 940 ││ 941 │ 941 ││ 942 │ 942 ││ 943 │ 943 ││ 944 │ 944 ││ 945 │ 945 ││ 946 │ 946 ││ 947 │ 947 ││ 948 │ 948 ││ 949 │ 949 ││ 950 │ 950 ││ 951 │ 951 ││ 952 │ 952 ││ 953 │ 953 ││ 954 │ 954 ││ 955 │ 955 ││ 956 │ 956 ││ 957 │ 957 ││ 958 │ 958 ││ 959 │ 959 ││ 960 │ 960 ││ 961 │ 961 ││ 962 │ 962 ││ 963 │ 963 ││ 964 │ 964 ││ 965 │ 965 ││ 966 │ 966 ││ 967 │ 967 ││ 968 │ 968 ││ 969 │ 969 ││ 970 │ 970 ││ 971 │ 971 ││ 972 │ 972 ││ 973 │ 973 ││ 974 │ 974 ││ 975 │ 975 ││ 976 │ 976 ││ 977 │ 977 ││ 978 │ 978 ││ 979 │ 979 ││ 980 │ 980 ││ 981 │ 981 ││ 982 │ 982 ││ 983 │ 983 ││ 984 │ 984 ││ 985 │ 985 ││ 986 │ 986 ││ 987 │ 987 ││ 988 │ 988 ││ 989 │ 989 ││ 990 │ 990 ││ 991 │ 991 ││ 992 │ 992 ││ 993 │ 993 ││ 994 │ 994 ││ 995 │ 995 ││ 996 │ 996 ││ 997 │ 997 ││ 998 │ 998 ││ 999 │ 999 │╰─────┴─────╯╭──────┬──────╮│ 1000 │ 1000 │╰──────┴──────╯");
 }
 
 #[test]
 fn table_index_0() {
-    let actual = nu!(r#"[1 3 1 3 2 1 1]"#);
+    let actual = nu!("[1 3 1 3 2 1 1]");
     assert_eq!(
         actual.out,
         "╭───┬───╮│ 0 │ 1 ││ 1 │ 3 ││ 2 │ 1 ││ 3 │ 3 ││ 4 │ 2 ││ 5 │ 1 ││ 6 │ 1 │╰───┴───╯"
@@ -649,7 +662,7 @@ fn test_expand_big_0() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            "open sample.toml | table --expand"
+            "open sample.toml | table --width=80 --expand"
         ));
 
         let expected = join_lines([
@@ -775,22 +788,21 @@ fn test_expand_big_0() {
             "│                  │ │               │ │          │ │           │ field} │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-fmt   │ tgz    │ │ │ │",
             "│                  │ │               │ │          │ │ pkg-url   │ { repo │ │ │ │",
-            "│                  │ │               │ │          │ │           │        │ │ │ │",
-            "│                  │ │               │ │          │ │           │ }/rele │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ases/d │ │ │ │",
-            "│                  │ │               │ │          │ │           │ ownloa │ │ │ │",
-            "│                  │ │               │ │          │ │           │ d/{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }/{  │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/rel │ │ │ │",
+            "│                  │ │               │ │          │ │           │ eases/ │ │ │ │",
+            "│                  │ │               │ │          │ │           │ downlo │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ad/{ v │ │ │ │",
+            "│                  │ │               │ │          │ │           │ ersion │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }/{   │ │ │ │",
             "│                  │ │               │ │          │ │           │ name   │ │ │ │",
+            "│                  │ │               │ │          │ │           │ }-{ ve │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rsion  │ │ │ │",
             "│                  │ │               │ │          │ │           │ }-{    │ │ │ │",
-            "│                  │ │               │ │          │ │           │ versio │ │ │ │",
-            "│                  │ │               │ │          │ │           │ n }-{  │ │ │ │",
             "│                  │ │               │ │          │ │           │ target │ │ │ │",
-            "│                  │ │               │ │          │ │           │  }.{   │ │ │ │",
-            "│                  │ │               │ │          │ │           │ archiv │ │ │ │",
-            "│                  │ │               │ │          │ │           │ e-form │ │ │ │",
-            "│                  │ │               │ │          │ │           │ at }   │ │ │ │",
+            "│                  │ │               │ │          │ │           │  }.{ a │ │ │ │",
+            "│                  │ │               │ │          │ │           │ rchive │ │ │ │",
+            "│                  │ │               │ │          │ │           │ -forma │ │ │ │",
+            "│                  │ │               │ │          │ │           │ t }    │ │ │ │",
             "│                  │ │               │ │          │ ╰───────────┴────────╯ │ │ │",
             "│                  │ │               │ ╰──────────┴────────────────────────╯ │ │",
             "│                  │ │ name          │ nu                                    │ │",
@@ -1037,6 +1049,8 @@ fn test_expand_big_0() {
             "open sample.toml | table --expand --width=60"
         ));
 
+        _print_lines(&actual.out, 60);
+
         let expected = join_lines([
             "╭──────────────────┬───────────────────────────────────────╮",
             "│                  │ ╭───┬─────────┬────────────╮          │",
@@ -1221,9 +1235,8 @@ fn test_expand_big_0() {
             "│ package          │ │               │ ╭───┬───────────╮ │ │",
             "│                  │ │ authors       │ │ 0 │ The       │ │ │",
             "│                  │ │               │ │   │ Nushell   │ │ │",
-            "│                  │ │               │ │   │ Project   │ │ │",
-            "│                  │ │               │ │   │ Developer │ │ │",
-            "│                  │ │               │ │   │ s         │ │ │",
+            "│                  │ │               │ │   │ Project D │ │ │",
+            "│                  │ │               │ │   │ evelopers │ │ │",
             "│                  │ │               │ ╰───┴───────────╯ │ │",
             "│                  │ │ default-run   │ nu                │ │",
             "│                  │ │ description   │ A new type of     │ │",
@@ -1257,9 +1270,8 @@ fn test_expand_big_0() {
             "│                  │ ╭───────────┬───────────────────────╮ │",
             "│ patch            │ │           │ ╭──────────┬────────╮ │ │",
             "│                  │ │ crates-io │ │ reedline │ {recor │ │ │",
-            "│                  │ │           │ │          │ d 2    │ │ │",
-            "│                  │ │           │ │          │ fields │ │ │",
-            "│                  │ │           │ │          │ }      │ │ │",
+            "│                  │ │           │ │          │ d 2 fi │ │ │",
+            "│                  │ │           │ │          │ elds}  │ │ │",
             "│                  │ │           │ ╰──────────┴────────╯ │ │",
             "│                  │ ╰───────────┴───────────────────────╯ │",
             "│ target           │ {record 3 fields}                     │",
@@ -1302,6 +1314,8 @@ fn test_expand_big_0() {
             cwd: dirs.test(), pipeline(
             "open sample.toml | table --expand --width=40"
         ));
+
+        _print_lines(&actual.out, 40);
 
         let expected = join_lines([
             "╭──────────────────┬───────────────────╮",
@@ -1348,7 +1362,7 @@ fn test_expand_big_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_0() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cell-path": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 141", nu_value.trim()));
 
@@ -1449,12 +1463,16 @@ fn table_expande_with_no_header_internally_0() {
             "│                    │ │                                  │ │ string                     │ white              │                           │ │",
             "│                    │ │                                  │ │ nothing                    │ white              │                           │ │",
             "│                    │ │                                  │ │ binary                     │ white              │                           │ │",
-            "│                    │ │                                  │ │ cellpath                   │ white              │                           │ │",
+            "│                    │ │                                  │ │ cell-path                  │ white              │                           │ │",
             "│                    │ │                                  │ │ row_index                  │ green_bold         │                           │ │",
             "│                    │ │                                  │ │ record                     │ white              │                           │ │",
             "│                    │ │                                  │ │ list                       │ white              │                           │ │",
             "│                    │ │                                  │ │ block                      │ white              │                           │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                           │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                           │ │",
+            "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                           │ │",
+            "│                    │ │                                  │ │                            │ │ bg │ red   │     │                           │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴───────╯     │                           │ │",
             "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                           │ │",
             "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                           │ │",
             "│                    │ │                                  │ │ shape_block                │ blue_bold          │                           │ │",
@@ -1590,7 +1608,7 @@ fn table_expande_with_no_header_internally_0() {
 
 #[test]
 fn table_expande_with_no_header_internally_1() {
-    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cellpath": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
+    let nu_value = r##"{ "config            ": { "ls": { "use_ls_colors": true, "clickable_links": false }, "rm": { "always_trash": false }, "cd": { "abbreviations": false }, "table": { "mode": "rounded", "index_mode": "always", "trim": { "methodology": "wrapping", "wrapping_try_keep_words": true, "truncating_suffix": "..." } }, "explore": { "help_banner": true, "exit_esc": true, "command_bar_text": "#C4C9C6", "status_bar_background": { "fg": "#1D1F21", "bg": "#C4C9C6" }, "highlight": { "bg": "yellow", "fg": "black" }, "status": {}, "try": {}, "table": { "split_line": "#404040", "cursor": true, "line_index": true, "line_shift": true, "line_head_top": true, "line_head_bottom": true, "show_head": true, "show_index": true }, "config": { "cursor_color": { "bg": "yellow", "fg": "black" } } }, "history": { "max_size": 10000, "sync_on_enter": true, "file_format": "plaintext" }, "completions": { "case_sensitive": false, "quick": true, "partial": true, "algorithm": "prefix", "external": { "enable": true, "max_results": 100, "completer": null } }, "filesize": { "metric": true, "format": "auto" }, "cursor_shape": { "emacs": "line", "vi_insert": "block", "vi_normal": "underscore" }, "color_config": { "separator": "white", "leading_trailing_space_bg": { "attr": "n" }, "header": "green_bold", "empty": "blue", "bool": null, "int": "white", "filesize": null, "duration": "white", "date": null, "range": "white", "float": "white", "string": "white", "nothing": "white", "binary": "white", "cell-path": "white", "row_index": "green_bold", "record": "white", "list": "white", "block": "white", "hints": "dark_gray", "search_result": {"fg": "white", "bg": "red"}, "shape_and": "purple_bold", "shape_binary": "purple_bold", "shape_block": "blue_bold", "shape_bool": "light_cyan", "shape_custom": "green", "shape_datetime": "cyan_bold", "shape_directory": "cyan", "shape_external": "cyan", "shape_externalarg": "green_bold", "shape_filepath": "cyan", "shape_flag": "blue_bold", "shape_float": "purple_bold", "shape_garbage": { "fg": "#FFFFFF", "bg": "#FF0000", "attr": "b" }, "shape_globpattern": "cyan_bold", "shape_int": "purple_bold", "shape_internalcall": "cyan_bold", "shape_list": "cyan_bold", "shape_literal": "blue", "shape_matching_brackets": { "attr": "u" }, "shape_nothing": "light_cyan", "shape_operator": "yellow", "shape_or": "purple_bold", "shape_pipe": "purple_bold", "shape_range": "yellow_bold", "shape_record": "cyan_bold", "shape_redirection": "purple_bold", "shape_signature": "green_bold", "shape_string": "green", "shape_string_interpolation": "cyan_bold", "shape_table": "blue_bold", "shape_variable": "purple" }, "use_grid_icons": true, "footer_mode": "25", "float_precision": 2, "use_ansi_coloring": true, "edit_mode": "emacs", "shell_integration": true, "show_banner": true, "render_right_prompt_on_last_line": false, "hooks": { "pre_prompt": [ null ], "pre_execution": [ null ], "env_change": { "PWD": [ null ] }, "display_output": null }, "menus": [ { "name": "completion_menu", "only_buffer_difference": false, "marker": "| ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "history_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "help_menu", "only_buffer_difference": true, "marker": "? ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" } }, { "name": "commands_menu", "only_buffer_difference": false, "marker": "# ", "type": { "layout": "columnar", "columns": 4, "col_width": 20, "col_padding": 2 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "vars_menu", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "list", "page_size": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null }, { "name": "commands_with_description", "only_buffer_difference": true, "marker": "# ", "type": { "layout": "description", "columns": 4, "col_width": 20, "col_padding": 2, "selection_rows": 4, "description_rows": 10 }, "style": { "text": "green", "selected_text": "green_reverse", "description_text": "yellow" }, "source": null } ], "keybindings": [ { "name": "completion_menu", "modifier": "none", "keycode": "tab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "send": "menu", "name": "completion_menu" }, { "send": "menunext" } ] } }, { "name": "completion_previous", "modifier": "shift", "keycode": "backtab", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menuprevious" } }, { "name": "history_menu", "modifier": "control", "keycode": "char_r", "mode": "emacs", "event": { "send": "menu", "name": "history_menu" } }, { "name": "next_page", "modifier": "control", "keycode": "char_x", "mode": "emacs", "event": { "send": "menupagenext" } }, { "name": "undo_or_previous_page", "modifier": "control", "keycode": "char_z", "mode": "emacs", "event": { "until": [ { "send": "menupageprevious" }, { "edit": "undo" } ] } }, { "name": "yank", "modifier": "control", "keycode": "char_y", "mode": "emacs", "event": { "until": [ { "edit": "pastecutbufferafter" } ] } }, { "name": "unix-line-discard", "modifier": "control", "keycode": "char_u", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cutfromlinestart" } ] } }, { "name": "kill-line", "modifier": "control", "keycode": "char_k", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "until": [ { "edit": "cuttolineend" } ] } }, { "name": "commands_menu", "modifier": "control", "keycode": "char_t", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_menu" } }, { "name": "vars_menu", "modifier": "alt", "keycode": "char_o", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "vars_menu" } }, { "name": "commands_with_description", "modifier": "control", "keycode": "char_s", "mode": [ "emacs", "vi_normal", "vi_insert" ], "event": { "send": "menu", "name": "commands_with_description" } } ] } }"##;
 
     let actual = nu!(format!("{} | table --expand --width 136", nu_value.trim()));
 
@@ -1691,12 +1709,16 @@ fn table_expande_with_no_header_internally_1() {
             "│                    │ │                                  │ │ string                     │ white              │                      │ │",
             "│                    │ │                                  │ │ nothing                    │ white              │                      │ │",
             "│                    │ │                                  │ │ binary                     │ white              │                      │ │",
-            "│                    │ │                                  │ │ cellpath                   │ white              │                      │ │",
+            "│                    │ │                                  │ │ cell-path                  │ white              │                      │ │",
             "│                    │ │                                  │ │ row_index                  │ green_bold         │                      │ │",
             "│                    │ │                                  │ │ record                     │ white              │                      │ │",
             "│                    │ │                                  │ │ list                       │ white              │                      │ │",
             "│                    │ │                                  │ │ block                      │ white              │                      │ │",
             "│                    │ │                                  │ │ hints                      │ dark_gray          │                      │ │",
+            "│                    │ │                                  │ │                            │ ╭────┬───────╮     │                      │ │",
+            "│                    │ │                                  │ │ search_result              │ │ fg │ white │     │                      │ │",
+            "│                    │ │                                  │ │                            │ │ bg │ red   │     │                      │ │",
+            "│                    │ │                                  │ │                            │ ╰────┴───────╯     │                      │ │",
             "│                    │ │                                  │ │ shape_and                  │ purple_bold        │                      │ │",
             "│                    │ │                                  │ │ shape_binary               │ purple_bold        │                      │ │",
             "│                    │ │                                  │ │ shape_block                │ blue_bold          │                      │ │",
@@ -1795,6 +1817,526 @@ fn table_expande_with_no_header_internally_1() {
     );
 }
 
+#[test]
+fn test_collapse_big_0() {
+    Playground::setup("test_expand_big_0", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(
+            "sample.toml",
+            r#"
+            [package]
+            authors = ["The Nushell Project Developers"]
+            default-run = "nu"
+            description = "A new type of shell"
+            documentation = "https://www.nushell.sh/book/"
+            edition = "2021"
+            exclude = ["images"]
+            homepage = "https://www.nushell.sh"
+            license = "MIT"
+            name = "nu"
+            repository = "https://github.com/nushell/nushell"
+            rust-version = "1.60"
+            version = "0.74.1"
+
+            # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+            [package.metadata.binstall]
+            pkg-url = "{ repo }/releases/download/{ version }/{ name }-{ version }-{ target }.{ archive-format }"
+            pkg-fmt = "tgz"
+
+            [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+            pkg-fmt = "zip"
+
+            [workspace]
+            members = [
+                "crates/nu-cli",
+                "crates/nu-engine",
+                "crates/nu-parser",
+                "crates/nu-system",
+                "crates/nu-command",
+                "crates/nu-protocol",
+                "crates/nu-plugin",
+                "crates/nu_plugin_inc",
+                "crates/nu_plugin_gstat",
+                "crates/nu_plugin_example",
+                "crates/nu_plugin_query",
+                "crates/nu_plugin_custom_values",
+                "crates/nu-utils",
+            ]
+
+            [dependencies]
+            chrono = { version = "0.4.23", features = ["serde"] }
+            crossterm = "0.24.0"
+            ctrlc = "3.2.1"
+            log = "0.4"
+            miette = { version = "5.5.0", features = ["fancy-no-backtrace"] }
+            nu-ansi-term = "0.46.0"
+            nu-cli = { path = "./crates/nu-cli", version = "0.74.1" }
+            nu-engine = { path = "./crates/nu-engine", version = "0.74.1" }
+            reedline = { version = "0.14.0", features = ["bashisms", "sqlite"] }
+
+            rayon = "1.6.1"
+            is_executable = "1.0.1"
+            simplelog = "0.12.0"
+            time = "0.3.12"
+
+            [target.'cfg(not(target_os = "windows"))'.dependencies]
+            # Our dependencies don't use OpenSSL on Windows
+            openssl = { version = "0.10.38", features = ["vendored"], optional = true }
+            signal-hook = { version = "0.3.14", default-features = false }
+
+
+            [target.'cfg(windows)'.build-dependencies]
+            winres = "0.1"
+
+            [target.'cfg(target_family = "unix")'.dependencies]
+            nix = { version = "0.25", default-features = false, features = ["signal", "process", "fs", "term"] }
+            atty = "0.2"
+
+            [dev-dependencies]
+            nu-test-support = { path = "./crates/nu-test-support", version = "0.74.1" }
+            tempfile = "3.2.0"
+            assert_cmd = "2.0.2"
+            criterion = "0.4"
+            pretty_assertions = "1.0.0"
+            serial_test = "0.10.0"
+            hamcrest2 = "0.3.0"
+            rstest = { version = "0.15.0", default-features = false }
+            itertools = "0.10.3"
+
+            [features]
+            plugin = [
+                "nu-plugin",
+                "nu-cli/plugin",
+                "nu-parser/plugin",
+                "nu-command/plugin",
+                "nu-protocol/plugin",
+                "nu-engine/plugin",
+            ]
+            # extra used to be more useful but now it's the same as default. Leaving it in for backcompat with existing build scripts
+            extra = ["default"]
+            default = ["plugin", "which-support", "trash-support", "sqlite"]
+            stable = ["default"]
+            wasi = []
+
+            # Enable to statically link OpenSSL; otherwise the system version will be used. Not enabled by default because it takes a while to build
+            static-link-openssl = ["dep:openssl"]
+
+            # Stable (Default)
+            which-support = ["nu-command/which-support"]
+            trash-support = ["nu-command/trash-support"]
+
+            # Main nu binary
+            [[bin]]
+            name = "nu"
+            path = "src/main.rs"
+
+            # To use a development version of a dependency please use a global override here
+            # changing versions in each sub-crate of the workspace is tedious
+            [patch.crates-io]
+            reedline = { git = "https://github.com/nushell/reedline.git", branch = "main" }
+
+            # Criterion benchmarking setup
+            # Run all benchmarks with `cargo bench`
+            # Run individual benchmarks like `cargo bench -- <regex>` e.g. `cargo bench -- parse`
+            [[bench]]
+            name = "benchmarks"
+            harness = false
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --width=80 --collapse"
+        ));
+
+        _print_lines(&actual.out, 80);
+
+        let expected = join_lines([
+            "╭──────────────────┬─────────┬─────────────────────────────────────────────────╮",
+            "│ bench            │ harness │ name                                            │",
+            "│                  ├─────────┼─────────────────────────────────────────────────┤",
+            "│                  │ false   │ benchmarks                                      │",
+            "├──────────────────┼──────┬──┴─────────────────────────────────────────────────┤",
+            "│ bin              │ name │ path                                               │",
+            "│                  ├──────┼────────────────────────────────────────────────────┤",
+            "│                  │ nu   │ src/main.rs                                        │",
+            "├──────────────────┼──────┴────────┬──────────┬────────────────────────────────┤",
+            "│ dependencies     │ chrono        │ features │ serde                          │",
+            "│                  │               ├──────────┼────────────────────────────────┤",
+            "│                  │               │ version  │ 0.4.23                         │",
+            "│                  ├───────────────┼──────────┴────────────────────────────────┤",
+            "│                  │ crossterm     │ 0.24.0                                    │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ ctrlc         │ 3.2.1                                     │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ is_executable │ 1.0.1                                     │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ log           │ 0.4                                       │",
+            "│                  ├───────────────┼──────────┬────────────────────────────────┤",
+            "│                  │ miette        │ features │ fancy-no-backtrace             │",
+            "│                  │               ├──────────┼────────────────────────────────┤",
+            "│                  │               │ version  │ 5.5.0                          │",
+            "│                  ├───────────────┼──────────┴────────────────────────────────┤",
+            "│                  │ nu-ansi-term  │ 0.46.0                                    │",
+            "│                  ├───────────────┼─────────┬─────────────────────────────────┤",
+            "│                  │ nu-cli        │ path    │ ./crates/nu-cli                 │",
+            "│                  │               ├─────────┼─────────────────────────────────┤",
+            "│                  │               │ version │ 0.74.1                          │",
+            "│                  ├───────────────┼─────────┼─────────────────────────────────┤",
+            "│                  │ nu-engine     │ path    │ ./crates/nu-engine              │",
+            "│                  │               ├─────────┼─────────────────────────────────┤",
+            "│                  │               │ version │ 0.74.1                          │",
+            "│                  ├───────────────┼─────────┴─────────────────────────────────┤",
+            "│                  │ rayon         │ 1.6.1                                     │",
+            "│                  ├───────────────┼──────────┬────────────────────────────────┤",
+            "│                  │ reedline      │ features │ bashisms                       │",
+            "│                  │               │          ├────────────────────────────────┤",
+            "│                  │               │          │ sqlite                         │",
+            "│                  │               ├──────────┼────────────────────────────────┤",
+            "│                  │               │ version  │ 0.14.0                         │",
+            "│                  ├───────────────┼──────────┴────────────────────────────────┤",
+            "│                  │ simplelog     │ 0.12.0                                    │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ time          │ 0.3.12                                    │",
+            "├──────────────────┼───────────────┴───┬───────────────────────────────────────┤",
+            "│ dev-dependencies │ assert_cmd        │ 2.0.2                                 │",
+            "│                  ├───────────────────┼───────────────────────────────────────┤",
+            "│                  │ criterion         │ 0.4                                   │",
+            "│                  ├───────────────────┼───────────────────────────────────────┤",
+            "│                  │ hamcrest2         │ 0.3.0                                 │",
+            "│                  ├───────────────────┼───────────────────────────────────────┤",
+            "│                  │ itertools         │ 0.10.3                                │",
+            "│                  ├───────────────────┼─────────┬─────────────────────────────┤",
+            "│                  │ nu-test-support   │ path    │ ./crates/nu-test-support    │",
+            "│                  │                   ├─────────┼─────────────────────────────┤",
+            "│                  │                   │ version │ 0.74.1                      │",
+            "│                  ├───────────────────┼─────────┴─────────────────────────────┤",
+            "│                  │ pretty_assertions │ 1.0.0                                 │",
+            "│                  ├───────────────────┼──────────────────┬────────────────────┤",
+            "│                  │ rstest            │ default-features │ false              │",
+            "│                  │                   ├──────────────────┼────────────────────┤",
+            "│                  │                   │ version          │ 0.15.0             │",
+            "│                  ├───────────────────┼──────────────────┴────────────────────┤",
+            "│                  │ serial_test       │ 0.10.0                                │",
+            "│                  ├───────────────────┼───────────────────────────────────────┤",
+            "│                  │ tempfile          │ 3.2.0                                 │",
+            "├──────────────────┼───────────────────┴─┬─────────────────────────────────────┤",
+            "│ features         │ default             │ plugin                              │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ which-support                       │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ trash-support                       │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ sqlite                              │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ extra               │ default                             │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ plugin              │ nu-plugin                           │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ nu-cli/plugin                       │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ nu-parser/plugin                    │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ nu-command/plugin                   │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ nu-protocol/plugin                  │",
+            "│                  │                     ├─────────────────────────────────────┤",
+            "│                  │                     │ nu-engine/plugin                    │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ stable              │ default                             │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ static-link-openssl │ dep:openssl                         │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ trash-support       │ nu-command/trash-support            │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ wasi                │                                     │",
+            "│                  ├─────────────────────┼─────────────────────────────────────┤",
+            "│                  │ which-support       │ nu-command/which-support            │",
+            "├──────────────────┼───────────────┬─────┴─────────────────────────────────────┤",
+            "│ package          │ authors       │ The Nushell Project Developers            │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ default-run   │ nu                                        │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ description   │ A new type of shell                       │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ documentation │ https://www.nushell.sh/book/              │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ edition       │ 2021                                      │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ exclude       │ images                                    │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ homepage      │ https://www.nushell.sh                    │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ license       │ MIT                                       │",
+            "│                  ├───────────────┼──────────┬───────────┬────────────────────┤",
+            "│                  │ metadata      │ binstall │ overrides │ ...                │",
+            "│                  │               │          ├───────────┼────────────────────┤",
+            "│                  │               │          │ pkg-fmt   │ tgz                │",
+            "│                  │               │          ├───────────┼────────────────────┤",
+            "│                  │               │          │ pkg-url   │ { repo }/releases/ │",
+            "│                  │               │          │           │ download/{ v       │",
+            "│                  │               │          │           │ ersion             │",
+            "│                  │               │          │           │  }/{ name }-{ vers │",
+            "│                  │               │          │           │ ion }-             │",
+            "│                  │               │          │           │ { target }.{       │",
+            "│                  │               │          │           │  archive-format }  │",
+            "│                  ├───────────────┼──────────┴───────────┴────────────────────┤",
+            "│                  │ name          │ nu                                        │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ repository    │ https://github.com/nushell/nushell        │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ rust-version  │ 1.60                                      │",
+            "│                  ├───────────────┼───────────────────────────────────────────┤",
+            "│                  │ version       │ 0.74.1                                    │",
+            "├──────────────────┼───────────┬───┴──────┬────────┬───────────────────────────┤",
+            "│ patch            │ crates-io │ reedline │ branch │ main                      │",
+            "│                  │           │          ├────────┼───────────────────────────┤",
+            "│                  │           │          │ git    │ https://github.com/nushel │",
+            "│                  │           │          │        │ l/reedline.git            │",
+            "├──────────────────┼───────────┴──────────┴────────┴─┬──────────────┬──────────┤",
+            "│ target           │ cfg(not(target_os = \"windows\")) │ dependencies │ ...      │",
+            "│                  │                                 │              ├──────────┤",
+            "│                  │                                 │              │ ...      │",
+            "│                  ├─────────────────────────────────┼──────────────┼──────────┤",
+            "│                  │ cfg(target_family = \"unix\")     │ dependencies │ ...      │",
+            "│                  │                                 │              ├──────────┤",
+            "│                  │                                 │              │ ...      │",
+            "│                  ├─────────────────────────────────┼──────────────┴──────────┤",
+            "│                  │ cfg(windows)                    │ ...                     │",
+            "├──────────────────┼─────────┬───────────────────────┴─────────────────────────┤",
+            "│ workspace        │ members │ crates/nu-cli                                   │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-engine                                │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-parser                                │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-system                                │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-command                               │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-protocol                              │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-plugin                                │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_inc                            │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_gstat                          │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_example                        │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_query                          │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_custom_values                  │",
+            "│                  │         ├─────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-utils                                 │",
+            "╰──────────────────┴─────────┴─────────────────────────────────────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "open sample.toml | table --collapse --width=160"
+        ));
+
+        _print_lines(&actual.out, 111);
+
+        let expected = join_lines([
+            "╭──────────────────┬─────────┬────────────────────────────────────────────────────────────────────────────────╮",
+            "│ bench            │ harness │ name                                                                           │",
+            "│                  ├─────────┼────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ false   │ benchmarks                                                                     │",
+            "├──────────────────┼──────┬──┴────────────────────────────────────────────────────────────────────────────────┤",
+            "│ bin              │ name │ path                                                                              │",
+            "│                  ├──────┼───────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ nu   │ src/main.rs                                                                       │",
+            "├──────────────────┼──────┴────────┬──────────┬───────────────────────────────────────────────────────────────┤",
+            "│ dependencies     │ chrono        │ features │ serde                                                         │",
+            "│                  │               ├──────────┼───────────────────────────────────────────────────────────────┤",
+            "│                  │               │ version  │ 0.4.23                                                        │",
+            "│                  ├───────────────┼──────────┴───────────────────────────────────────────────────────────────┤",
+            "│                  │ crossterm     │ 0.24.0                                                                   │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ ctrlc         │ 3.2.1                                                                    │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ is_executable │ 1.0.1                                                                    │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ log           │ 0.4                                                                      │",
+            "│                  ├───────────────┼──────────┬───────────────────────────────────────────────────────────────┤",
+            "│                  │ miette        │ features │ fancy-no-backtrace                                            │",
+            "│                  │               ├──────────┼───────────────────────────────────────────────────────────────┤",
+            "│                  │               │ version  │ 5.5.0                                                         │",
+            "│                  ├───────────────┼──────────┴───────────────────────────────────────────────────────────────┤",
+            "│                  │ nu-ansi-term  │ 0.46.0                                                                   │",
+            "│                  ├───────────────┼─────────┬────────────────────────────────────────────────────────────────┤",
+            "│                  │ nu-cli        │ path    │ ./crates/nu-cli                                                │",
+            "│                  │               ├─────────┼────────────────────────────────────────────────────────────────┤",
+            "│                  │               │ version │ 0.74.1                                                         │",
+            "│                  ├───────────────┼─────────┼────────────────────────────────────────────────────────────────┤",
+            "│                  │ nu-engine     │ path    │ ./crates/nu-engine                                             │",
+            "│                  │               ├─────────┼────────────────────────────────────────────────────────────────┤",
+            "│                  │               │ version │ 0.74.1                                                         │",
+            "│                  ├───────────────┼─────────┴────────────────────────────────────────────────────────────────┤",
+            "│                  │ rayon         │ 1.6.1                                                                    │",
+            "│                  ├───────────────┼──────────┬───────────────────────────────────────────────────────────────┤",
+            "│                  │ reedline      │ features │ bashisms                                                      │",
+            "│                  │               │          ├───────────────────────────────────────────────────────────────┤",
+            "│                  │               │          │ sqlite                                                        │",
+            "│                  │               ├──────────┼───────────────────────────────────────────────────────────────┤",
+            "│                  │               │ version  │ 0.14.0                                                        │",
+            "│                  ├───────────────┼──────────┴───────────────────────────────────────────────────────────────┤",
+            "│                  │ simplelog     │ 0.12.0                                                                   │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ time          │ 0.3.12                                                                   │",
+            "├──────────────────┼───────────────┴───┬──────────────────────────────────────────────────────────────────────┤",
+            "│ dev-dependencies │ assert_cmd        │ 2.0.2                                                                │",
+            "│                  ├───────────────────┼──────────────────────────────────────────────────────────────────────┤",
+            "│                  │ criterion         │ 0.4                                                                  │",
+            "│                  ├───────────────────┼──────────────────────────────────────────────────────────────────────┤",
+            "│                  │ hamcrest2         │ 0.3.0                                                                │",
+            "│                  ├───────────────────┼──────────────────────────────────────────────────────────────────────┤",
+            "│                  │ itertools         │ 0.10.3                                                               │",
+            "│                  ├───────────────────┼─────────┬────────────────────────────────────────────────────────────┤",
+            "│                  │ nu-test-support   │ path    │ ./crates/nu-test-support                                   │",
+            "│                  │                   ├─────────┼────────────────────────────────────────────────────────────┤",
+            "│                  │                   │ version │ 0.74.1                                                     │",
+            "│                  ├───────────────────┼─────────┴────────────────────────────────────────────────────────────┤",
+            "│                  │ pretty_assertions │ 1.0.0                                                                │",
+            "│                  ├───────────────────┼──────────────────┬───────────────────────────────────────────────────┤",
+            "│                  │ rstest            │ default-features │ false                                             │",
+            "│                  │                   ├──────────────────┼───────────────────────────────────────────────────┤",
+            "│                  │                   │ version          │ 0.15.0                                            │",
+            "│                  ├───────────────────┼──────────────────┴───────────────────────────────────────────────────┤",
+            "│                  │ serial_test       │ 0.10.0                                                               │",
+            "│                  ├───────────────────┼──────────────────────────────────────────────────────────────────────┤",
+            "│                  │ tempfile          │ 3.2.0                                                                │",
+            "├──────────────────┼───────────────────┴─┬────────────────────────────────────────────────────────────────────┤",
+            "│ features         │ default             │ plugin                                                             │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ which-support                                                      │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ trash-support                                                      │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ sqlite                                                             │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ extra               │ default                                                            │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ plugin              │ nu-plugin                                                          │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ nu-cli/plugin                                                      │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ nu-parser/plugin                                                   │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ nu-command/plugin                                                  │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ nu-protocol/plugin                                                 │",
+            "│                  │                     ├────────────────────────────────────────────────────────────────────┤",
+            "│                  │                     │ nu-engine/plugin                                                   │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ stable              │ default                                                            │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ static-link-openssl │ dep:openssl                                                        │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ trash-support       │ nu-command/trash-support                                           │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ wasi                │                                                                    │",
+            "│                  ├─────────────────────┼────────────────────────────────────────────────────────────────────┤",
+            "│                  │ which-support       │ nu-command/which-support                                           │",
+            "├──────────────────┼───────────────┬─────┴────────────────────────────────────────────────────────────────────┤",
+            "│ package          │ authors       │ The Nushell Project Developers                                           │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ default-run   │ nu                                                                       │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ description   │ A new type of shell                                                      │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ documentation │ https://www.nushell.sh/book/                                             │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ edition       │ 2021                                                                     │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ exclude       │ images                                                                   │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ homepage      │ https://www.nushell.sh                                                   │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ license       │ MIT                                                                      │",
+            "│                  ├───────────────┼──────────┬───────────┬────────────────────────┬─────────┬────────────────┤",
+            "│                  │ metadata      │ binstall │ overrides │ x86_64-pc-windows-msvc │ pkg-fmt │ zip            │",
+            "│                  │               │          ├───────────┼────────────────────────┴─────────┴────────────────┤",
+            "│                  │               │          │ pkg-fmt   │ tgz                                               │",
+            "│                  │               │          ├───────────┼───────────────────────────────────────────────────┤",
+            "│                  │               │          │ pkg-url   │ { repo }/releases/download/{ v                    │",
+            "│                  │               │          │           │ ersion }/{ name }-{ version }-                    │",
+            "│                  │               │          │           │ { target }.{ archive-format }                     │",
+            "│                  ├───────────────┼──────────┴───────────┴───────────────────────────────────────────────────┤",
+            "│                  │ name          │ nu                                                                       │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ repository    │ https://github.com/nushell/nushell                                       │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ rust-version  │ 1.60                                                                     │",
+            "│                  ├───────────────┼──────────────────────────────────────────────────────────────────────────┤",
+            "│                  │ version       │ 0.74.1                                                                   │",
+            "├──────────────────┼───────────┬───┴──────┬────────┬──────────────────────────────────────────────────────────┤",
+            "│ patch            │ crates-io │ reedline │ branch │ main                                                     │",
+            "│                  │           │          ├────────┼──────────────────────────────────────────────────────────┤",
+            "│                  │           │          │ git    │ https://github.com/nushell/reedline.git                  │",
+            "├──────────────────┼───────────┴──────────┴────────┴─┬──────────────┬─────────────┬──────────┬────────────────┤",
+            "│ target           │ cfg(not(target_os = \"windows\")) │ dependencies │ openssl     │ features │ vendored       │",
+            "│                  │                                 │              │             ├──────────┼────────────────┤",
+            "│                  │                                 │              │             │ optional │ true           │",
+            "│                  │                                 │              │             ├──────────┼────────────────┤",
+            "│                  │                                 │              │             │ version  │ 0.10.38        │",
+            "│                  │                                 │              ├─────────────┼──────────┴───────┬────────┤",
+            "│                  │                                 │              │ signal-hook │ default-features │ false  │",
+            "│                  │                                 │              │             ├──────────────────┼────────┤",
+            "│                  │                                 │              │             │ version          │ 0.3.14 │",
+            "│                  ├─────────────────────────────────┼──────────────┼──────┬──────┴──────────────────┴────────┤",
+            "│                  │ cfg(target_family = \"unix\")     │ dependencies │ atty │ 0.2                              │",
+            "│                  │                                 │              ├──────┼──────────────────┬───────────────┤",
+            "│                  │                                 │              │ nix  │ default-features │ false         │",
+            "│                  │                                 │              │      ├──────────────────┼───────────────┤",
+            "│                  │                                 │              │      │ features         │ signal        │",
+            "│                  │                                 │              │      │                  ├───────────────┤",
+            "│                  │                                 │              │      │                  │ process       │",
+            "│                  │                                 │              │      │                  ├───────────────┤",
+            "│                  │                                 │              │      │                  │ fs            │",
+            "│                  │                                 │              │      │                  ├───────────────┤",
+            "│                  │                                 │              │      │                  │ term          │",
+            "│                  │                                 │              │      ├──────────────────┼───────────────┤",
+            "│                  │                                 │              │      │ version          │ 0.25          │",
+            "│                  ├─────────────────────────────────┼──────────────┴─────┬┴───────┬──────────┴───────────────┤",
+            "│                  │ cfg(windows)                    │ build-dependencies │ winres │ 0.1                      │",
+            "├──────────────────┼─────────┬───────────────────────┴────────────────────┴────────┴──────────────────────────┤",
+            "│ workspace        │ members │ crates/nu-cli                                                                  │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-engine                                                               │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-parser                                                               │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-system                                                               │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-command                                                              │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-protocol                                                             │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-plugin                                                               │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_inc                                                           │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_gstat                                                         │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_example                                                       │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_query                                                         │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu_plugin_custom_values                                                 │",
+            "│                  │         ├────────────────────────────────────────────────────────────────────────────────┤",
+            "│                  │         │ crates/nu-utils                                                                │",
+            "╰──────────────────┴─────────┴────────────────────────────────────────────────────────────────────────────────╯",
+        ]);
+
+        assert_eq!(actual.out, expected);
+    })
+}
+
 fn join_lines(lines: impl IntoIterator<Item = impl AsRef<str>>) -> String {
     lines
         .into_iter()
@@ -1830,4 +2372,498 @@ fn _split_str_by_width(s: &str, w: usize) -> Vec<String> {
     lines.push(line);
 
     lines
+}
+
+#[test]
+fn table_expand_index_offset() {
+    let actual = nu!("1..1002 | table --width=80 --expand");
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
+}
+
+#[test]
+fn table_index_offset() {
+    let actual = nu!("1..1002 | table --width=80");
+    let suffix = "╭──────┬──────╮│ 1000 │ 1001 ││ 1001 │ 1002 │╰──────┴──────╯";
+    let expected_suffix = actual.out.strip_suffix(suffix);
+    assert!(expected_suffix.is_some(), "{:?}", actual.out);
+}
+
+#[test]
+fn table_theme_on_border_light() {
+    assert_eq!(
+        create_theme_output("light"),
+        [
+            "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items] ",
+            "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items] ─#───a───b─────────c────────",
+            "─#───a───b───c─ 0   1   2   3 ─#───a───b───c─",
+            "─#───a_looooooong_name───b───c─ 0                   1   2   3 ─#───a_looooooong_name───b───c─",
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_basic() {
+    assert_eq!(
+        create_theme_output("basic"),
+        [
+            "+-#-+-a-+-b-+-------c--------+| 0 | 1 | 2 |              3 |+---+---+---+----------------+| 1 | 4 | 5 | [list 3 items] |+---+---+---+----------------+",
+            "+-#-+-a-+-b-+-------c--------+| 0 | 1 | 2 |              3 |+---+---+---+----------------+| 1 | 4 | 5 | [list 3 items] |+-#-+-a-+-b-+-------c--------+",
+            "+-#-+-a-+-b-+-c-+| 0 | 1 | 2 | 3 |+-#-+-a-+-b-+-c-+",
+            "+-#-+-a_looooooong_name-+-b-+-c-+| 0 |                 1 | 2 | 3 |+-#-+-a_looooooong_name-+-b-+-c-+"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_compact() {
+    assert_eq!(
+        create_theme_output("compact"),
+        [
+            "─#─┬─a─┬─b─┬───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ───┴───┴───┴────────────────",
+            "─#─┬─a─┬─b─┬───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ─#─┴─a─┴─b─┴───────c────────",
+            "─#─┬─a─┬─b─┬─c─ 0 │ 1 │ 2 │ 3 ─#─┴─a─┴─b─┴─c─",
+            "─#─┬─a_looooooong_name─┬─b─┬─c─ 0 │                 1 │ 2 │ 3 ─#─┴─a_looooooong_name─┴─b─┴─c─"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_compact_double() {
+    assert_eq!(
+        create_theme_output("compact_double"),
+        [
+            "═#═╦═a═╦═b═╦═══════c════════ 0 ║ 1 ║ 2 ║              3  1 ║ 4 ║ 5 ║ [list 3 items] ═══╩═══╩═══╩════════════════",
+            "═#═╦═a═╦═b═╦═══════c════════ 0 ║ 1 ║ 2 ║              3  1 ║ 4 ║ 5 ║ [list 3 items] ═#═╩═a═╩═b═╩═══════c════════",
+            "═#═╦═a═╦═b═╦═c═ 0 ║ 1 ║ 2 ║ 3 ═#═╩═a═╩═b═╩═c═",
+            "═#═╦═a_looooooong_name═╦═b═╦═c═ 0 ║                 1 ║ 2 ║ 3 ═#═╩═a_looooooong_name═╩═b═╩═c═"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_default() {
+    assert_eq!(
+        create_theme_output("default"),
+        [
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰───┴───┴───┴────────────────╯",
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰─#─┴─a─┴─b─┴───────c────────╯",
+            "╭─#─┬─a─┬─b─┬─c─╮│ 0 │ 1 │ 2 │ 3 │╰─#─┴─a─┴─b─┴─c─╯",
+            "╭─#─┬─a_looooooong_name─┬─b─┬─c─╮│ 0 │                 1 │ 2 │ 3 │╰─#─┴─a_looooooong_name─┴─b─┴─c─╯"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_heavy() {
+    assert_eq!(
+        create_theme_output("heavy"),
+        [
+            "┏━#━┳━a━┳━b━┳━━━━━━━c━━━━━━━━┓┃ 0 ┃ 1 ┃ 2 ┃              3 ┃┃ 1 ┃ 4 ┃ 5 ┃ [list 3 items] ┃┗━━━┻━━━┻━━━┻━━━━━━━━━━━━━━━━┛",
+            "┏━#━┳━a━┳━b━┳━━━━━━━c━━━━━━━━┓┃ 0 ┃ 1 ┃ 2 ┃              3 ┃┃ 1 ┃ 4 ┃ 5 ┃ [list 3 items] ┃┗━#━┻━a━┻━b━┻━━━━━━━c━━━━━━━━┛",
+            "┏━#━┳━a━┳━b━┳━c━┓┃ 0 ┃ 1 ┃ 2 ┃ 3 ┃┗━#━┻━a━┻━b━┻━c━┛",
+            "┏━#━┳━a_looooooong_name━┳━b━┳━c━┓┃ 0 ┃                 1 ┃ 2 ┃ 3 ┃┗━#━┻━a_looooooong_name━┻━b━┻━c━┛"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_reinforced() {
+    assert_eq!(
+        create_theme_output("reinforced"),
+        [
+            "┏─#─┬─a─┬─b─┬───────c────────┓│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │┗───┴───┴───┴────────────────┛",
+            "┏─#─┬─a─┬─b─┬───────c────────┓│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │┗─#─┴─a─┴─b─┴───────c────────┛",
+            "┏─#─┬─a─┬─b─┬─c─┓│ 0 │ 1 │ 2 │ 3 │┗─#─┴─a─┴─b─┴─c─┛",
+            "┏─#─┬─a_looooooong_name─┬─b─┬─c─┓│ 0 │                 1 │ 2 │ 3 │┗─#─┴─a_looooooong_name─┴─b─┴─c─┛"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_none() {
+    assert_eq!(
+        create_theme_output("none"),
+        [
+            " #   a   b         c         0   1   2                3  1   4   5   [list 3 items] ",
+            " #   a   b         c         0   1   2                3  1   4   5   [list 3 items]  #   a   b         c        ",
+            " #   a   b   c  0   1   2   3  #   a   b   c ",
+            " #   a_looooooong_name   b   c  0                   1   2   3  #   a_looooooong_name   b   c "
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_rounded() {
+    assert_eq!(
+        create_theme_output("rounded"),
+        [
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰───┴───┴───┴────────────────╯",
+            "╭─#─┬─a─┬─b─┬───────c────────╮│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] │╰─#─┴─a─┴─b─┴───────c────────╯",
+            "╭─#─┬─a─┬─b─┬─c─╮│ 0 │ 1 │ 2 │ 3 │╰─#─┴─a─┴─b─┴─c─╯",
+            "╭─#─┬─a_looooooong_name─┬─b─┬─c─╮│ 0 │                 1 │ 2 │ 3 │╰─#─┴─a_looooooong_name─┴─b─┴─c─╯"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_with_love() {
+    assert_eq!(
+        create_theme_output("with_love"),
+        [
+            "❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤ 0 ❤ 1 ❤ 2 ❤              3  1 ❤ 4 ❤ 5 ❤ [list 3 items] ❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤❤",
+            "❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤ 0 ❤ 1 ❤ 2 ❤              3  1 ❤ 4 ❤ 5 ❤ [list 3 items] ❤#❤❤❤a❤❤❤b❤❤❤❤❤❤❤❤❤c❤❤❤❤❤❤❤❤",
+            "❤#❤❤❤a❤❤❤b❤❤❤c❤ 0 ❤ 1 ❤ 2 ❤ 3 ❤#❤❤❤a❤❤❤b❤❤❤c❤",
+            "❤#❤❤❤a_looooooong_name❤❤❤b❤❤❤c❤ 0 ❤                 1 ❤ 2 ❤ 3 ❤#❤❤❤a_looooooong_name❤❤❤b❤❤❤c❤"
+        ]
+    );
+}
+
+#[test]
+fn table_theme_on_border_thin() {
+    assert_eq!(
+        create_theme_output("thin"),
+        [
+            "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└───┴───┴───┴────────────────┘",
+            "┌─#─┬─a─┬─b─┬───────c────────┐│ 0 │ 1 │ 2 │              3 │├───┼───┼───┼────────────────┤│ 1 │ 4 │ 5 │ [list 3 items] │└─#─┴─a─┴─b─┴───────c────────┘",
+            "┌─#─┬─a─┬─b─┬─c─┐│ 0 │ 1 │ 2 │ 3 │└─#─┴─a─┴─b─┴─c─┘",
+            "┌─#─┬─a_looooooong_name─┬─b─┬─c─┐│ 0 │                 1 │ 2 │ 3 │└─#─┴─a_looooooong_name─┴─b─┴─c─┘",
+        ]
+    );
+}
+
+fn create_theme_output(theme: &str) -> Vec<String> {
+    vec![
+        nu!(theme_cmd(
+            theme,
+            false,
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
+        ))
+        .out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
+        ))
+        .out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a b, c]; [1 2 3]] | table --width=80"
+        ))
+        .out,
+        nu!(theme_cmd(
+            theme,
+            true,
+            "[[a_looooooong_name b, c]; [1 2 3]] | table --width=80"
+        ))
+        .out,
+    ]
+}
+
+fn theme_cmd(theme: &str, footer: bool, then: &str) -> String {
+    let mut with_foorter = String::new();
+    if footer {
+        with_foorter = "$env.config.footer_mode = \"always\"".to_string();
+    }
+
+    format!("$env.config.table.mode = {theme}; $env.config.table.header_on_separator = true; {with_foorter}; {then}")
+}
+
+#[test]
+fn table_padding_not_default() {
+    let actual =
+        nu!("$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80");
+    assert_eq!(
+        actual.out,
+        "╭───────────┬───────────┬───────────┬────────────────────────╮\
+         │     #     │     a     │     b     │           c            │\
+         ├───────────┼───────────┼───────────┼────────────────────────┤\
+         │     0     │     1     │     2     │                  3     │\
+         │     1     │     4     │     5     │     [list 3 items]     │\
+         ╰───────────┴───────────┴───────────┴────────────────────────╯"
+    );
+}
+
+#[test]
+fn table_padding_zero() {
+    let actual = nu!(
+        "$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80"
+    );
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─┬──────────────╮\
+         │#│a│b│      c       │\
+         ├─┼─┼─┼──────────────┤\
+         │0│1│2│             3│\
+         │1│4│5│[list 3 items]│\
+         ╰─┴─┴─┴──────────────╯"
+    );
+}
+
+#[test]
+fn table_expand_padding_not_default() {
+    let actual = nu!(
+        "$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -e"
+    );
+    assert_eq!(
+        actual.out,
+        "╭─────────────┬─────────────┬─────────────┬────────────────────────────────────╮\
+         │       #     │      a      │      b      │                 c                  │\
+         ├─────────────┼─────────────┼─────────────┼────────────────────────────────────┤\
+         │       0     │       1     │       2     │                              3     │\
+         │       1     │       4     │       5     │     ╭───────────┬───────────╮      │\
+         │             │             │             │     │     0     │     1     │      │\
+         │             │             │             │     │     1     │     2     │      │\
+         │             │             │             │     │     2     │     3     │      │\
+         │             │             │             │     ╰───────────┴───────────╯      │\
+         ╰─────────────┴─────────────┴─────────────┴────────────────────────────────────╯"
+    );
+}
+
+#[test]
+fn table_expand_padding_zero() {
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -e");
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─┬─────╮\
+         │#│a│b│  c  │\
+         ├─┼─┼─┼─────┤\
+         │0│1│2│    3│\
+         │1│4│5│╭─┬─╮│\
+         │ │ │ ││0│1││\
+         │ │ │ ││1│2││\
+         │ │ │ ││2│3││\
+         │ │ │ │╰─┴─╯│\
+         ╰─┴─┴─┴─────╯"
+    );
+}
+
+#[test]
+fn table_collapse_padding_not_default() {
+    let actual = nu!(
+        "$env.config.table.padding = 5; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -c"
+    );
+    assert_eq!(
+        actual.out,
+        "╭───────────┬───────────┬───────────╮\
+         │     a     │     b     │     c     │\
+         ├───────────┼───────────┼───────────┤\
+         │     1     │     2     │     3     │\
+         ├───────────┼───────────┼───────────┤\
+         │     4     │     5     │     1     │\
+         │           │           ├───────────┤\
+         │           │           │     2     │\
+         │           │           ├───────────┤\
+         │           │           │     3     │\
+         ╰───────────┴───────────┴───────────╯"
+    );
+}
+
+#[test]
+fn table_collapse_padding_zero() {
+    let actual = nu!("$env.config.table.padding = {left: 0, right: 0}; [[a b, c]; [1 2 3] [4 5 [1 2 3]]] | table --width=80 -c");
+    assert_eq!(
+        actual.out,
+        "╭─┬─┬─╮\
+         │a│b│c│\
+         ├─┼─┼─┤\
+         │1│2│3│\
+         ├─┼─┼─┤\
+         │4│5│1│\
+         │ │ ├─┤\
+         │ │ │2│\
+         │ │ ├─┤\
+         │ │ │3│\
+         ╰─┴─┴─╯"
+    );
+}
+
+#[test]
+fn table_leading_trailing_space_bg() {
+    let actual = nu!(
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭───┬───────┬───────┬────────────────╮│ # │   a   │   b   │      c         │├───┼───────┼───────┼────────────────┤│ 0 │   1   │     2 │ 3              ││ 1 │   4   │ hello │ [list 3 items] ││   │       │ world │                │╰───┴───────┴───────┴────────────────╯"
+    );
+}
+
+#[test]
+fn table_leading_trailing_space_bg_expand() {
+    let actual = nu!(
+        r#"$env.config.color_config.leading_trailing_space_bg = { bg: 'white' }; [[a b, 'c   ']; ['  1  ' '    2' '3    '] ['  4  ' "hello\nworld" ['  1  ' 2 [1 '  2  ' 3]]]] | table --width=80 --expand"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭───┬───────┬───────┬───────────────────────╮│ # │   a   │   b   │         c             │├───┼───────┼───────┼───────────────────────┤│ 0 │   1   │     2 │ 3                     ││ 1 │   4   │ hello │ ╭───┬───────────────╮ ││   │       │ world │ │ 0 │   1           │ ││   │       │       │ │ 1 │             2 │ ││   │       │       │ │ 2 │ ╭───┬───────╮ │ ││   │       │       │ │   │ │ 0 │     1 │ │ ││   │       │       │ │   │ │ 1 │   2   │ │ ││   │       │       │ │   │ │ 2 │     3 │ │ ││   │       │       │ │   │ ╰───┴───────╯ │ ││   │       │       │ ╰───┴───────────────╯ │╰───┴───────┴───────┴───────────────────────╯"
+    );
+}
+
+#[test]
+fn table_abbreviation() {
+    let actual = nu!(
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 100"#
+    );
+    assert_eq!(actual.out, "╭───┬───┬───┬────────────────╮│ # │ a │ b │       c        │├───┼───┼───┼────────────────┤│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] ││ 2 │ 1 │ 2 │              3 ││ 3 │ 1 │ 2 │              3 ││ 4 │ 1 │ 2 │              3 ││ 5 │ 1 │ 2 │              3 ││ 6 │ 1 │ 2 │              3 │╰───┴───┴───┴────────────────╯");
+
+    let actual = nu!(
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 2"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
+
+    let actual = nu!(
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 1"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
+
+    let actual = nu!(
+        r#"[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 0"#
+    );
+    assert_eq!(actual.out, "╭───┬─────╮│ 0 │ ... │╰───┴─────╯");
+}
+
+#[test]
+fn table_abbreviation_kv() {
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 100"#
+    );
+    assert_eq!(actual.out, "╭───┬───────────────────╮│ a │ 1                 ││ b │ {record 3 fields} ││ c │ [list 4 items]    ││ e │ 1                 ││ q │ 2                 ││ t │ 4                 ││ r │ 1                 ││ x │ 9                 │╰───┴───────────────────╯");
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 2"#
+    );
+    assert_eq!(actual.out, "╭─────┬───────────────────╮│ a   │ 1                 ││ b   │ {record 3 fields} ││ ... │ ...               ││ r   │ 1                 ││ x   │ 9                 │╰─────┴───────────────────╯");
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 1"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭─────┬─────╮│ a   │ 1   ││ ... │ ... ││ x   │ 9   │╰─────┴─────╯"
+    );
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 0"#
+    );
+    assert_eq!(actual.out, "╭─────┬─────╮│ ... │ ... │╰─────┴─────╯");
+}
+
+#[test]
+fn table_abbreviation_kv_expand() {
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 100 -e"#
+    );
+    assert_eq!(actual.out, "╭───┬───────────────────╮│ a │ 1                 ││   │ ╭───┬───────────╮ ││ b │ │ a │ 1         │ ││   │ │   │ ╭───┬───╮ │ ││   │ │ b │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ │   │ ╭───┬───╮ │ ││   │ │ c │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ ╰───┴───────────╯ ││   │ ╭───┬───────────╮ ││ c │ │ 0 │         1 │ ││   │ │ 1 │         2 │ ││   │ │ 2 │ ╭───┬───╮ │ ││   │ │   │ │ 0 │ 1 │ │ ││   │ │   │ │ 1 │ 2 │ │ ││   │ │   │ │ 2 │ 3 │ │ ││   │ │   │ ╰───┴───╯ │ ││   │ │ 3 │         3 │ ││   │ ╰───┴───────────╯ ││ e │ 1                 ││ q │ 2                 ││ t │ 4                 ││ r │ 1                 ││ x │ 9                 │╰───┴───────────────────╯");
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 2 -e"#
+    );
+    assert_eq!(actual.out, "╭─────┬───────────────────╮│ a   │ 1                 ││     │ ╭───┬───────────╮ ││ b   │ │ a │ 1         │ ││     │ │   │ ╭───┬───╮ │ ││     │ │ b │ │ 0 │ 1 │ │ ││     │ │   │ │ 1 │ 2 │ │ ││     │ │   │ │ 2 │ 3 │ │ ││     │ │   │ ╰───┴───╯ │ ││     │ │   │ ╭───┬───╮ │ ││     │ │ c │ │ 0 │ 1 │ │ ││     │ │   │ │ 1 │ 2 │ │ ││     │ │   │ │ 2 │ 3 │ │ ││     │ │   │ ╰───┴───╯ │ ││     │ ╰───┴───────────╯ ││ ... │ ...               ││ r   │ 1                 ││ x   │ 9                 │╰─────┴───────────────────╯");
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 1 -e"#
+    );
+    assert_eq!(
+        actual.out,
+        "╭─────┬─────╮│ a   │ 1   ││ ... │ ... ││ x   │ 9   │╰─────┴─────╯"
+    );
+
+    let actual = nu!(
+        r#"{ a: 1 b: { a: 1 b: [1 2 3] c: [1 2 3] } c: [1 2 [1 2 3] 3] e: 1 q: 2 t: 4 r: 1 x: 9 } | table --width=80 -a 0 -e"#
+    );
+    assert_eq!(actual.out, "╭─────┬─────╮│ ... │ ... │╰─────┴─────╯");
+}
+
+#[test]
+fn table_abbreviation_by_config() {
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 100; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
+    );
+    assert_eq!(actual.out, "╭───┬───┬───┬────────────────╮│ # │ a │ b │       c        │├───┼───┼───┼────────────────┤│ 0 │ 1 │ 2 │              3 ││ 1 │ 4 │ 5 │ [list 3 items] ││ 2 │ 1 │ 2 │              3 ││ 3 │ 1 │ 2 │              3 ││ 4 │ 1 │ 2 │              3 ││ 5 │ 1 │ 2 │              3 ││ 6 │ 1 │ 2 │              3 │╰───┴───┴───┴────────────────╯");
+
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
+
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
+
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 0; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80"#
+    );
+    assert_eq!(actual.out, "╭───┬─────╮│ 0 │ ... │╰───┴─────╯");
+}
+
+#[test]
+fn table_abbreviation_by_config_override() {
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 2; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 1"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬─────╮│ # │  a  │  b  │  c  │├───┼─────┼─────┼─────┤│ 0 │   1 │   2 │   3 ││ 1 │ ... │ ... │ ... ││ 2 │   1 │   2 │   3 │╰───┴─────┴─────┴─────╯");
+
+    let actual = nu!(
+        r#"$env.config.table.abbreviated_row_count = 1; [[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3] [1 2 3] [1 2 3] [1 2 3] [1 2 3]] | table --width=80 -a 2"#
+    );
+    assert_eq!(actual.out, "╭───┬─────┬─────┬────────────────╮│ # │  a  │  b  │       c        │├───┼─────┼─────┼────────────────┤│ 0 │   1 │   2 │              3 ││ 1 │   4 │   5 │ [list 3 items] ││ 2 │ ... │ ... │ ...            ││ 3 │   1 │   2 │              3 ││ 4 │   1 │   2 │              3 │╰───┴─────┴─────┴────────────────╯");
+}
+
+#[test]
+fn table_expand_inner_index_0() {
+    let actual = nu!("0..1000 | each {[0]} | table -e");
+    assert_eq!(actual.out, "╭─────┬───────────╮│   0 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   1 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   2 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   3 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   4 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   5 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   6 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   7 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   8 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││   9 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  10 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  11 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  12 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  13 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  14 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  15 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  16 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  17 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  18 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  19 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  20 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  21 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  22 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  23 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  24 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  25 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  26 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  27 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  28 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  29 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  30 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  31 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  32 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  33 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  34 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  35 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  36 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  37 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  38 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  39 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  40 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  41 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  42 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  43 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  44 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  45 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  46 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  47 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  48 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  49 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  50 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  51 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  52 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  53 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  54 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  55 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  56 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  57 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  58 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  59 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  60 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  61 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  62 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  63 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  64 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  65 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  66 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  67 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  68 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  69 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  70 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  71 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  72 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  73 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  74 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  75 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  76 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  77 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  78 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  79 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  80 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  81 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  82 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  83 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  84 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  85 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  86 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  87 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  88 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  89 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  90 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  91 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  92 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  93 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  94 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  95 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  96 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  97 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  98 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││  99 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 100 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 101 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 102 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 103 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 104 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 105 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 106 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 107 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 108 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 109 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 110 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 111 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 112 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 113 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 114 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 115 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 116 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 117 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 118 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 119 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 120 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 121 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 122 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 123 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 124 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 125 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 126 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 127 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 128 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 129 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 130 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 131 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 132 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 133 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 134 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 135 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 136 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 137 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 138 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 139 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 140 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 141 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 142 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 143 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 144 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 145 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 146 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 147 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 148 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 149 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 150 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 151 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 152 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 153 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 154 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 155 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 156 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 157 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 158 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 159 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 160 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 161 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 162 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 163 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 164 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 165 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 166 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 167 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 168 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 169 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 170 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 171 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 172 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 173 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 174 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 175 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 176 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 177 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 178 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 179 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 180 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 181 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 182 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 183 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 184 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 185 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 186 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 187 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 188 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 189 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 190 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 191 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 192 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 193 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 194 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 195 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 196 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 197 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 198 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 199 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 200 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 201 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 202 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 203 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 204 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 205 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 206 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 207 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 208 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 209 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 210 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 211 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 212 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 213 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 214 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 215 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 216 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 217 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 218 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 219 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 220 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 221 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 222 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 223 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 224 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 225 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 226 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 227 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 228 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 229 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 230 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 231 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 232 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 233 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 234 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 235 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 236 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 237 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 238 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 239 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 240 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 241 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 242 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 243 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 244 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 245 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 246 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 247 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 248 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 249 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 250 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 251 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 252 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 253 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 254 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 255 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 256 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 257 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 258 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 259 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 260 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 261 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 262 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 263 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 264 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 265 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 266 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 267 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 268 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 269 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 270 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 271 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 272 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 273 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 274 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 275 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 276 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 277 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 278 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 279 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 280 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 281 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 282 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 283 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 284 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 285 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 286 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 287 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 288 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 289 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 290 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 291 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 292 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 293 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 294 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 295 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 296 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 297 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 298 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 299 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 300 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 301 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 302 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 303 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 304 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 305 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 306 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 307 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 308 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 309 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 310 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 311 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 312 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 313 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 314 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 315 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 316 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 317 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 318 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 319 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 320 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 321 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 322 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 323 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 324 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 325 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 326 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 327 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 328 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 329 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 330 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 331 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 332 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 333 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 334 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 335 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 336 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 337 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 338 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 339 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 340 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 341 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 342 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 343 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 344 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 345 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 346 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 347 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 348 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 349 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 350 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 351 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 352 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 353 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 354 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 355 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 356 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 357 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 358 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 359 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 360 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 361 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 362 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 363 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 364 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 365 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 366 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 367 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 368 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 369 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 370 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 371 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 372 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 373 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 374 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 375 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 376 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 377 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 378 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 379 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 380 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 381 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 382 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 383 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 384 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 385 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 386 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 387 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 388 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 389 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 390 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 391 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 392 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 393 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 394 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 395 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 396 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 397 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 398 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 399 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 400 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 401 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 402 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 403 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 404 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 405 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 406 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 407 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 408 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 409 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 410 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 411 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 412 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 413 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 414 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 415 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 416 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 417 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 418 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 419 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 420 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 421 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 422 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 423 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 424 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 425 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 426 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 427 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 428 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 429 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 430 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 431 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 432 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 433 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 434 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 435 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 436 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 437 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 438 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 439 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 440 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 441 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 442 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 443 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 444 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 445 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 446 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 447 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 448 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 449 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 450 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 451 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 452 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 453 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 454 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 455 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 456 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 457 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 458 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 459 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 460 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 461 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 462 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 463 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 464 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 465 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 466 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 467 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 468 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 469 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 470 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 471 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 472 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 473 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 474 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 475 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 476 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 477 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 478 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 479 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 480 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 481 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 482 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 483 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 484 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 485 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 486 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 487 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 488 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 489 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 490 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 491 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 492 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 493 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 494 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 495 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 496 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 497 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 498 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 499 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 500 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 501 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 502 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 503 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 504 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 505 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 506 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 507 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 508 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 509 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 510 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 511 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 512 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 513 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 514 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 515 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 516 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 517 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 518 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 519 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 520 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 521 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 522 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 523 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 524 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 525 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 526 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 527 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 528 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 529 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 530 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 531 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 532 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 533 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 534 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 535 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 536 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 537 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 538 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 539 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 540 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 541 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 542 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 543 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 544 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 545 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 546 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 547 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 548 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 549 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 550 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 551 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 552 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 553 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 554 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 555 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 556 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 557 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 558 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 559 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 560 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 561 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 562 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 563 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 564 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 565 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 566 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 567 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 568 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 569 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 570 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 571 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 572 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 573 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 574 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 575 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 576 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 577 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 578 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 579 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 580 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 581 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 582 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 583 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 584 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 585 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 586 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 587 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 588 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 589 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 590 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 591 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 592 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 593 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 594 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 595 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 596 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 597 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 598 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 599 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 600 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 601 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 602 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 603 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 604 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 605 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 606 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 607 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 608 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 609 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 610 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 611 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 612 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 613 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 614 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 615 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 616 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 617 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 618 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 619 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 620 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 621 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 622 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 623 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 624 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 625 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 626 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 627 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 628 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 629 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 630 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 631 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 632 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 633 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 634 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 635 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 636 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 637 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 638 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 639 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 640 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 641 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 642 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 643 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 644 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 645 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 646 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 647 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 648 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 649 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 650 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 651 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 652 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 653 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 654 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 655 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 656 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 657 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 658 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 659 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 660 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 661 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 662 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 663 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 664 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 665 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 666 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 667 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 668 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 669 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 670 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 671 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 672 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 673 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 674 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 675 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 676 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 677 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 678 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 679 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 680 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 681 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 682 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 683 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 684 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 685 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 686 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 687 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 688 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 689 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 690 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 691 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 692 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 693 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 694 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 695 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 696 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 697 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 698 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 699 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 700 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 701 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 702 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 703 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 704 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 705 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 706 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 707 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 708 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 709 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 710 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 711 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 712 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 713 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 714 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 715 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 716 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 717 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 718 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 719 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 720 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 721 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 722 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 723 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 724 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 725 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 726 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 727 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 728 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 729 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 730 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 731 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 732 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 733 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 734 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 735 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 736 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 737 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 738 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 739 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 740 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 741 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 742 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 743 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 744 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 745 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 746 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 747 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 748 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 749 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 750 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 751 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 752 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 753 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 754 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 755 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 756 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 757 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 758 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 759 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 760 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 761 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 762 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 763 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 764 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 765 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 766 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 767 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 768 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 769 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 770 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 771 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 772 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 773 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 774 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 775 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 776 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 777 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 778 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 779 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 780 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 781 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 782 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 783 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 784 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 785 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 786 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 787 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 788 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 789 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 790 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 791 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 792 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 793 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 794 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 795 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 796 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 797 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 798 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 799 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 800 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 801 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 802 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 803 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 804 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 805 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 806 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 807 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 808 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 809 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 810 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 811 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 812 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 813 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 814 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 815 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 816 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 817 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 818 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 819 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 820 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 821 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 822 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 823 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 824 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 825 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 826 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 827 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 828 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 829 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 830 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 831 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 832 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 833 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 834 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 835 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 836 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 837 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 838 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 839 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 840 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 841 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 842 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 843 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 844 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 845 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 846 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 847 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 848 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 849 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 850 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 851 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 852 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 853 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 854 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 855 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 856 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 857 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 858 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 859 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 860 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 861 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 862 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 863 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 864 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 865 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 866 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 867 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 868 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 869 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 870 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 871 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 872 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 873 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 874 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 875 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 876 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 877 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 878 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 879 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 880 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 881 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 882 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 883 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 884 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 885 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 886 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 887 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 888 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 889 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 890 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 891 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 892 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 893 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 894 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 895 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 896 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 897 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 898 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 899 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 900 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 901 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 902 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 903 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 904 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 905 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 906 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 907 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 908 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 909 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 910 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 911 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 912 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 913 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 914 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 915 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 916 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 917 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 918 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 919 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 920 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 921 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 922 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 923 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 924 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 925 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 926 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 927 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 928 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 929 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 930 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 931 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 932 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 933 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 934 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 935 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 936 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 937 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 938 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 939 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 940 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 941 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 942 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 943 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 944 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 945 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 946 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 947 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 948 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 949 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 950 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 951 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 952 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 953 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 954 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 955 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 956 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 957 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 958 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 959 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 960 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 961 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 962 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 963 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 964 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 965 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 966 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 967 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 968 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 969 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 970 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 971 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 972 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 973 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 974 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 975 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 976 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 977 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 978 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 979 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 980 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 981 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 982 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 983 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 984 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 985 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 986 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 987 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 988 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 989 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 990 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 991 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 992 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 993 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 994 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 995 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 996 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 997 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 998 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ ││ 999 │ ╭───┬───╮ ││     │ │ 0 │ 0 │ ││     │ ╰───┴───╯ │╰─────┴───────────╯╭──────┬───────────╮│ 1000 │ ╭───┬───╮ ││      │ │ 0 │ 0 │ ││      │ ╰───┴───╯ │╰──────┴───────────╯");
+}
+
+#[test]
+fn table_theme_arg() {
+    let actual = nu!("[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light");
+    assert_eq!(actual.out, " #   a   b         c        ──────────────────────────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 ");
+
+    let actual = nu!(theme_cmd(
+        "basic",
+        false,
+        "[[a b, c]; [1 2 3] [4 5 [1 2 3]] [1 2 3]] | table --width=80 --theme light"
+    ));
+    assert_eq!(actual.out, "─#───a───b─────────c──────── 0   1   2                3  1   4   5   [list 3 items]  2   1   2                3 ");
+}
+
+#[test]
+fn table_index_arg() {
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic -i false");
+    assert_eq!(actual.out, "+---+----------------+| a |       b        |+---+----------------+| 1 |              2 |+---+----------------+| 2 | [list 2 items] |+---+----------------+");
+
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic -i true");
+    assert_eq!(actual.out, "+---+---+----------------+| # | a |       b        |+---+---+----------------+| 0 | 1 |              2 |+---+---+----------------+| 1 | 2 | [list 2 items] |+---+---+----------------+");
+
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic -i 10");
+    assert_eq!(actual.out, "+----+---+----------------+|  # | a |       b        |+----+---+----------------+| 10 | 1 |              2 |+----+---+----------------+| 11 | 2 | [list 2 items] |+----+---+----------------+");
+}
+
+#[test]
+fn table_expand_index_arg() {
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic --expand -i false");
+    assert_eq!(actual.out, "+---+-------+| a |   b   |+---+-------+| 1 |     2 |+---+-------+| 2 | +---+ ||   | | 4 | ||   | +---+ ||   | | 4 | ||   | +---+ |+---+-------+");
+
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic --expand -i true");
+    assert_eq!(actual.out, "+---+---+-----------+| # | a |     b     |+---+---+-----------+| 0 | 1 |         2 |+---+---+-----------+| 1 | 2 | +---+---+ ||   |   | | 0 | 4 | ||   |   | +---+---+ ||   |   | | 1 | 4 | ||   |   | +---+---+ |+---+---+-----------+");
+
+    let actual = nu!("[[a b]; [1 2] [2 [4 4]]] | table --width=80 --theme basic --expand -i 10");
+    assert_eq!(actual.out, "+----+---+-----------+|  # | a |     b     |+----+---+-----------+| 10 | 1 |         2 |+----+---+-----------+| 11 | 2 | +---+---+ ||    |   | | 0 | 4 | ||    |   | +---+---+ ||    |   | | 1 | 4 | ||    |   | +---+---+ |+----+---+-----------+");
+}
+
+#[test]
+fn table_list() {
+    let actual = nu!("table --list");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
+
+    let actual = nu!("ls | table --list");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
+
+    let actual = nu!("table --list --theme basic");
+    assert_eq!(actual.out, "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  │╰────┴────────────────╯");
 }

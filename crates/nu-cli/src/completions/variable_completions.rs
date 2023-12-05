@@ -1,5 +1,5 @@
 use crate::completions::{Completer, CompletionOptions};
-use nu_engine::eval_variable;
+use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     Span, Value,
@@ -43,10 +43,8 @@ impl Completer for VariableCompletion {
         options: &CompletionOptions,
     ) -> Vec<Suggestion> {
         let mut output = vec![];
-        let builtins = ["$nu", "$in", "$env", "$nothing"];
-        let var_str = std::str::from_utf8(&self.var_context.0)
-            .unwrap_or("")
-            .to_lowercase();
+        let builtins = ["$nu", "$in", "$env"];
+        let var_str = std::str::from_utf8(&self.var_context.0).unwrap_or("");
         let var_id = working_set.find_variable(&self.var_context.0);
         let current_span = reedline::Span {
             start: span.start - offset,
@@ -57,7 +55,7 @@ impl Completer for VariableCompletion {
         // Completions for the given variable
         if !var_str.is_empty() {
             // Completion for $env.<tab>
-            if var_str.as_str() == "$env" {
+            if var_str == "$env" {
                 let env_vars = self.stack.get_env_vars(&self.engine_state);
 
                 // Return nested values
@@ -109,7 +107,7 @@ impl Completer for VariableCompletion {
             }
 
             // Completions for $nu.<tab>
-            if var_str.as_str() == "$nu" {
+            if var_str == "$nu" {
                 // Eval nu var
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
@@ -235,15 +233,11 @@ fn nested_suggestions(
     let value = recursive_value(val, sublevels);
 
     match value {
-        Value::Record {
-            cols,
-            vals: _,
-            span: _,
-        } => {
+        Value::Record { val, .. } => {
             // Add all the columns as completion
-            for item in cols {
+            for (col, _) in val.into_iter() {
                 output.push(Suggestion {
-                    value: item,
+                    value: col,
                     description: None,
                     extra: None,
                     span: current_span,
@@ -267,7 +261,19 @@ fn nested_suggestions(
 
             output
         }
+        Value::List { vals, .. } => {
+            for column_name in get_columns(vals.as_slice()) {
+                output.push(Suggestion {
+                    value: column_name,
+                    description: None,
+                    extra: None,
+                    span: current_span,
+                    append_whitespace: false,
+                });
+            }
 
+            output
+        }
         _ => output,
     }
 }
@@ -276,13 +282,10 @@ fn nested_suggestions(
 fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
     // Go to next sublevel
     if let Some(next_sublevel) = sublevels.clone().into_iter().next() {
+        let span = val.span();
         match val {
-            Value::Record {
-                cols,
-                vals,
-                span: _,
-            } => {
-                for item in cols.into_iter().zip(vals.into_iter()) {
+            Value::Record { val, .. } => {
+                for item in val {
                     // Check if index matches with sublevel
                     if item.0.as_bytes().to_vec() == next_sublevel {
                         // If matches try to fetch recursively the next
@@ -291,9 +294,35 @@ fn recursive_value(val: Value, sublevels: Vec<Vec<u8>>) -> Value {
                 }
 
                 // Current sublevel value not found
-                return Value::Nothing {
-                    span: Span::unknown(),
-                };
+                return Value::nothing(span);
+            }
+            Value::LazyRecord { val, .. } => {
+                for col in val.column_names() {
+                    if col.as_bytes().to_vec() == next_sublevel {
+                        return recursive_value(
+                            val.get_column_value(col).unwrap_or_default(),
+                            sublevels.into_iter().skip(1).collect(),
+                        );
+                    }
+                }
+
+                // Current sublevel value not found
+                return Value::nothing(span);
+            }
+            Value::List { vals, .. } => {
+                for col in get_columns(vals.as_slice()) {
+                    if col.as_bytes().to_vec() == next_sublevel {
+                        return recursive_value(
+                            Value::list(vals, span)
+                                .get_data_by_key(&col)
+                                .unwrap_or_default(),
+                            sublevels.into_iter().skip(1).collect(),
+                        );
+                    }
+                }
+
+                // Current sublevel value not found
+                return Value::nothing(span);
             }
             _ => return val,
         }

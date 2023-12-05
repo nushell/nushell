@@ -136,17 +136,13 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
             // check for stdout
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                r#"
-                do -c {bash test.sh} | complete | get stdout | str trim
-                "#,
+                "do -c {bash test.sh} | complete | get stdout | str trim",
             ));
             assert_eq!(actual.out, expect_body);
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                r#"
-                do -c {bash test.sh} | complete | get stderr | str trim
-                "#,
+                "do -c {bash test.sh} | complete | get stderr | str trim",
             ));
             assert_eq!(actual.out, expect_body);
         },
@@ -155,6 +151,6 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
 
 #[test]
 fn ignore_error_works_with_list_stream() {
-    let actual = nu!(r#"do -i { ["a", $nothing, "b"] | ansi strip }"#);
+    let actual = nu!(r#"do -i { ["a", null, "b"] | ansi strip }"#);
     assert!(actual.err.is_empty());
 }

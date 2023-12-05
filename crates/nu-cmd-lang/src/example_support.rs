@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nu_protocol::{
-    ast::Block,
+    ast::{Block, RangeInclusion},
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
     Example, PipelineData, Signature, Span, Type, Value,
 };
@@ -10,9 +10,8 @@ pub fn check_example_input_and_output_types_match_command_signature(
     example: &Example,
     cwd: &std::path::Path,
     engine_state: &mut Box<EngineState>,
-    signature_input_output_types: &Vec<(Type, Type)>,
+    signature_input_output_types: &[(Type, Type)],
     signature_operates_on_cell_paths: bool,
-    signature_vectorizes_over_list: bool,
 ) -> HashSet<(Type, Type)> {
     let mut witnessed_type_transformations = HashSet::<(Type, Type)>::new();
 
@@ -37,40 +36,6 @@ pub fn check_example_input_and_output_types_match_command_signature(
                             }
                     });
 
-            // The example type checks as vectorization over an input list if both:
-            // 1. The command is declared to vectorize over list input.
-            // 2. There exists an entry t -> u in the type map such that the
-            //    example_input_type is a subtype of list<t> and the
-            //    example_output_type is a subtype of list<u>.
-            let example_matches_signature_via_vectorization_over_list =
-                signature_vectorizes_over_list
-                    && match &example_input_type {
-                        Type::List(ex_in_type) => {
-                            match signature_input_output_types.iter().find_map(
-                                |(sig_in_type, sig_out_type)| {
-                                    if ex_in_type.is_subtype(sig_in_type) {
-                                        Some((sig_in_type, sig_out_type))
-                                    } else {
-                                        None
-                                    }
-                                },
-                            ) {
-                                Some((sig_in_type, sig_out_type)) => match &example_output_type {
-                                    Type::List(ex_out_type)
-                                        if ex_out_type.is_subtype(sig_out_type) =>
-                                    {
-                                        witnessed_type_transformations
-                                            .insert((sig_in_type.clone(), sig_out_type.clone()));
-                                        true
-                                    }
-                                    _ => false,
-                                },
-                                None => false,
-                            }
-                        }
-                        _ => false,
-                    };
-
             // The example type checks as a cell path operation if both:
             // 1. The command is declared to operate on cell paths.
             // 2. The example_input_type is list or record or table, and the example
@@ -80,22 +45,22 @@ pub fn check_example_input_and_output_types_match_command_signature(
                        // TODO: This is too permissive; it should make use of the signature.input_output_types at least.
                        && example_output_type.to_shape() == example_input_type.to_shape();
 
-            if !(example_matches_signature
-                || example_matches_signature_via_vectorization_over_list
-                || example_matches_signature_via_cell_path_operation)
-            {
+            if !(example_matches_signature || example_matches_signature_via_cell_path_operation) {
                 panic!(
-                       "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
+                    "The example `{}` demonstrates a transformation of type {:?} -> {:?}. \
                        However, this does not match the declared signature: {:?}.{} \
-                       For this command, `vectorizes_over_list` is {} and `operates_on_cell_paths()` is {}.",
-                       example.example,
-                       example_input_type,
-                       example_output_type,
-                       signature_input_output_types,
-                       if signature_input_output_types.is_empty() { " (Did you forget to declare the input and output types for the command?)" } else { "" },
-                       signature_vectorizes_over_list,
-                       signature_operates_on_cell_paths
-                   );
+                       For this command `operates_on_cell_paths()` is {}.",
+                    example.example,
+                    example_input_type,
+                    example_output_type,
+                    signature_input_output_types,
+                    if signature_input_output_types.is_empty() {
+                        " (Did you forget to declare the input and output types for the command?)"
+                    } else {
+                        ""
+                    },
+                    signature_operates_on_cell_paths
+                );
             };
         };
     }
@@ -178,7 +143,8 @@ pub fn check_example_evaluates_to_expected_output(
     // you need to define its equality in the Value struct
     if let Some(expected) = example.result.as_ref() {
         assert_eq!(
-            &result, expected,
+            DebuggableValue(&result),
+            DebuggableValue(expected),
             "The example result differs from the expected value",
         )
     }
@@ -188,8 +154,7 @@ pub fn check_all_signature_input_output_types_entries_have_examples(
     signature: Signature,
     witnessed_type_transformations: HashSet<(Type, Type)>,
 ) {
-    let declared_type_transformations =
-        HashSet::from_iter(signature.input_output_types.into_iter());
+    let declared_type_transformations = HashSet::from_iter(signature.input_output_types);
     assert!(
         witnessed_type_transformations.is_subset(&declared_type_transformations),
         "This should not be possible (bug in test): the type transformations \
@@ -219,4 +184,103 @@ fn eval(
 ) -> Value {
     let (block, delta) = parse(contents, engine_state);
     eval_block(block, input, cwd, engine_state, delta)
+}
+
+pub struct DebuggableValue<'a>(pub &'a Value);
+
+impl PartialEq for DebuggableValue<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<'a> std::fmt::Debug for DebuggableValue<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Value::Bool { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Int { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Float { val, .. } => {
+                write!(f, "{:?}f", val)
+            }
+            Value::Filesize { val, .. } => {
+                write!(f, "Filesize({:?})", val)
+            }
+            Value::Duration { val, .. } => {
+                let duration = std::time::Duration::from_nanos(*val as u64);
+                write!(f, "Duration({:?})", duration)
+            }
+            Value::Date { val, .. } => {
+                write!(f, "Date({:?})", val)
+            }
+            Value::Range { val, .. } => match val.inclusion {
+                RangeInclusion::Inclusive => write!(
+                    f,
+                    "Range({:?}..{:?}, step: {:?})",
+                    val.from, val.to, val.incr
+                ),
+                RangeInclusion::RightExclusive => write!(
+                    f,
+                    "Range({:?}..<{:?}, step: {:?})",
+                    val.from, val.to, val.incr
+                ),
+            },
+            Value::String { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Record { val, .. } => {
+                write!(f, "{{")?;
+                let mut first = true;
+                for (col, value) in val.into_iter() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    first = false;
+                    write!(f, "{:?}: {:?}", col, DebuggableValue(value))?;
+                }
+                write!(f, "}}")
+            }
+            Value::List { vals, .. } => {
+                write!(f, "[")?;
+                for (i, value) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:?}", DebuggableValue(value))?;
+                }
+                write!(f, "]")
+            }
+            Value::Block { val, .. } => {
+                write!(f, "Block({:?})", val)
+            }
+            Value::Closure { val, .. } => {
+                write!(f, "Closure({:?})", val)
+            }
+            Value::Nothing { .. } => {
+                write!(f, "Nothing")
+            }
+            Value::Error { error, .. } => {
+                write!(f, "Error({:?})", error)
+            }
+            Value::Binary { val, .. } => {
+                write!(f, "Binary({:?})", val)
+            }
+            Value::CellPath { val, .. } => {
+                write!(f, "CellPath({:?})", val.to_string())
+            }
+            Value::CustomValue { val, .. } => {
+                write!(f, "CustomValue({:?})", val)
+            }
+            Value::LazyRecord { val, .. } => {
+                let rec = val.collect().map_err(|_| std::fmt::Error)?;
+                write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
+            }
+            Value::MatchPattern { val, .. } => {
+                write!(f, "MatchPattern({:?})", val)
+            }
+        }
+    }
 }

@@ -1,10 +1,9 @@
+use super::Pipeline;
+use crate::{ast::PipelineElement, Signature, Span, Type, VarId};
+use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
-use crate::{Signature, Span, VarId};
-
-use super::Pipeline;
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Block {
     pub signature: Box<Signature>,
     pub pipelines: Vec<Pipeline>,
@@ -64,6 +63,25 @@ impl Block {
             redirect_env: false,
             span: None,
             recursive: None,
+        }
+    }
+
+    pub fn output_type(&self) -> Type {
+        if let Some(last) = self.pipelines.last() {
+            if let Some(last) = last.elements.last() {
+                match last {
+                    PipelineElement::Expression(_, expr) => expr.ty.clone(),
+                    PipelineElement::Redirection(_, _, _, _) => Type::Any,
+                    PipelineElement::SeparateRedirection { .. } => Type::Any,
+                    PipelineElement::SameTargetRedirection { .. } => Type::Any,
+                    PipelineElement::And(_, expr) => expr.ty.clone(),
+                    PipelineElement::Or(_, expr) => expr.ty.clone(),
+                }
+            } else {
+                Type::Nothing
+            }
+        } else {
+            Type::Nothing
         }
     }
 }

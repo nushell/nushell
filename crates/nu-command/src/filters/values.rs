@@ -36,16 +36,16 @@ impl Command for Values {
             Example {
                 example: "{ mode:normal userid:31415 } | values",
                 description: "Get the values from the record (produce a list)",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("normal"), Value::test_int(31415)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("normal"), Value::test_int(31415)],
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "{ f:250 g:191 c:128 d:1024 e:2000 a:16 b:32 } | values",
                 description: "Values are ordered by the column order of the record",
-                result: Some(Value::List {
-                    vals: vec![
+                result: Some(Value::list(
+                    vec![
                         Value::test_int(250),
                         Value::test_int(191),
                         Value::test_int(128),
@@ -54,33 +54,33 @@ impl Command for Values {
                         Value::test_int(16),
                         Value::test_int(32),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
             Example {
                 example: "[[name meaning]; [ls list] [mv move] [cd 'change directory']] | values",
                 description: "Get the values from the table (produce a list of lists)",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::List {
-                            vals: vec![
+                result: Some(Value::list(
+                    vec![
+                        Value::list(
+                            vec![
                                 Value::test_string("ls"),
                                 Value::test_string("mv"),
                                 Value::test_string("cd"),
                             ],
-                            span: Span::test_data(),
-                        },
-                        Value::List {
-                            vals: vec![
+                            Span::test_data(),
+                        ),
+                        Value::list(
+                            vec![
                                 Value::test_string("list"),
                                 Value::test_string("move"),
                                 Value::test_string("change directory"),
                             ],
-                            span: Span::test_data(),
-                        },
+                            Span::test_data(),
+                        ),
                     ],
-                    span: Span::test_data(),
-                }),
+                    Span::test_data(),
+                )),
             },
         ]
     }
@@ -110,8 +110,8 @@ pub fn get_values<'a>(
 
     for item in input {
         match item {
-            Value::Record { cols, vals, .. } => {
-                for (k, v) in cols.iter().zip(vals.iter()) {
+            Value::Record { val, .. } => {
+                for (k, v) in val {
                     if let Some(vec) = output.get_mut(k) {
                         vec.push(v.clone());
                     } else {
@@ -119,7 +119,7 @@ pub fn get_values<'a>(
                     }
                 }
             }
-            Value::Error { error } => return Err(*error.clone()),
+            Value::Error { error, .. } => return Err(*error.clone()),
             _ => {
                 return Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record or table".into(),
@@ -143,23 +143,48 @@ fn values(
     let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
-        PipelineData::Value(Value::List { vals, span }, ..) => {
-            match get_values(&vals, head, span) {
-                Ok(cols) => Ok(cols
-                    .into_iter()
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
-                Err(err) => Err(err),
-            }
-        }
-        PipelineData::Value(Value::CustomValue { val, span }, ..) => {
-            let input_as_base_value = val.to_base_value(span)?;
-            match get_values(&[input_as_base_value], head, span) {
-                Ok(cols) => Ok(cols
-                    .into_iter()
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
-                Err(err) => Err(err),
+        PipelineData::Value(v, ..) => {
+            let span = v.span();
+            match v {
+                Value::List { vals, .. } => match get_values(&vals, head, span) {
+                    Ok(cols) => Ok(cols
+                        .into_iter()
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                    Err(err) => Err(err),
+                },
+                Value::CustomValue { val, .. } => {
+                    let input_as_base_value = val.to_base_value(span)?;
+                    match get_values(&[input_as_base_value], head, span) {
+                        Ok(cols) => Ok(cols
+                            .into_iter()
+                            .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                        Err(err) => Err(err),
+                    }
+                }
+                Value::Record { val, .. } => Ok(val
+                    .into_values()
+                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
+                Value::LazyRecord { val, .. } => {
+                    let record = match val.collect()? {
+                        Value::Record { val, .. } => val,
+                        _ => Err(ShellError::NushellFailedSpanned {
+                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
+                            label: "Violating lazy record found here".into(),
+                            span,
+                        })?,
+                    };
+                    Ok(record
+                        .into_values()
+                        .into_pipeline_data_with_metadata(metadata, ctrlc))
+                }
+                // Propagate errors
+                Value::Error { error, .. } => Err(*error),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record or table".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: head,
+                    src_span: other.span(),
+                }),
             }
         }
         PipelineData::ListStream(stream, ..) => {
@@ -167,22 +192,10 @@ fn values(
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols
                     .into_iter()
-                    .into_pipeline_data(ctrlc)
-                    .set_metadata(metadata)),
+                    .into_pipeline_data_with_metadata(metadata, ctrlc)),
                 Err(err) => Err(err),
             }
         }
-        PipelineData::Value(Value::Record { vals, .. }, ..) => {
-            Ok(vals.into_pipeline_data(ctrlc).set_metadata(metadata))
-        }
-        // Propagate errors
-        PipelineData::Value(Value::Error { error }, ..) => Err(*error),
-        PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "record or table".into(),
-            wrong_type: other.get_type().to_string(),
-            dst_span: head,
-            src_span: other.expect_span(),
-        }),
         PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),
             wrong_type: "raw data".into(),

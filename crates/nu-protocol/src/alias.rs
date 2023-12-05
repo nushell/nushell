@@ -3,15 +3,16 @@ use crate::PipelineData;
 use crate::{
     ast::{Call, Expression},
     engine::Command,
-    BlockId, Example, ShellError, Signature,
+    ShellError, Signature,
 };
-use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct Alias {
     pub name: String,
     pub command: Option<Box<dyn Command>>, // None if external call
     pub wrapped_call: Expression,
+    pub usage: String,
+    pub extra_usage: String,
 }
 
 impl Command for Alias {
@@ -28,19 +29,11 @@ impl Command for Alias {
     }
 
     fn usage(&self) -> &str {
-        if let Some(cmd) = &self.command {
-            cmd.usage()
-        } else {
-            "This alias wraps an unknown external command."
-        }
+        &self.usage
     }
 
     fn extra_usage(&self) -> &str {
-        if let Some(cmd) = &self.command {
-            cmd.extra_usage()
-        } else {
-            ""
-        }
+        &self.extra_usage
     }
 
     fn run(
@@ -57,85 +50,11 @@ impl Command for Alias {
         })
     }
 
-    fn examples(&self) -> Vec<Example> {
-        if let Some(cmd) = &self.command {
-            cmd.examples()
-        } else {
-            vec![]
-        }
-    }
-
-    fn is_builtin(&self) -> bool {
-        if let Some(cmd) = &self.command {
-            cmd.is_builtin()
-        } else {
-            false
-        }
-    }
-
-    fn is_known_external(&self) -> bool {
-        if let Some(cmd) = &self.command {
-            cmd.is_known_external()
-        } else {
-            false
-        }
-    }
-
     fn is_alias(&self) -> bool {
         true
     }
 
     fn as_alias(&self) -> Option<&Alias> {
         Some(self)
-    }
-
-    fn is_custom_command(&self) -> bool {
-        if let Some(cmd) = &self.command {
-            cmd.is_custom_command()
-        } else if self.get_block_id().is_some() {
-            true
-        } else {
-            self.is_known_external()
-        }
-    }
-
-    fn is_sub(&self) -> bool {
-        if let Some(cmd) = &self.command {
-            cmd.is_sub()
-        } else {
-            self.name().contains(' ')
-        }
-    }
-
-    fn is_parser_keyword(&self) -> bool {
-        if let Some(cmd) = &self.command {
-            cmd.is_parser_keyword()
-        } else {
-            false
-        }
-    }
-
-    fn is_plugin(&self) -> Option<(&PathBuf, &Option<PathBuf>)> {
-        if let Some(cmd) = &self.command {
-            cmd.is_plugin()
-        } else {
-            None
-        }
-    }
-
-    fn get_block_id(&self) -> Option<BlockId> {
-        if let Some(cmd) = &self.command {
-            cmd.get_block_id()
-        } else {
-            None
-        }
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        if let Some(cmd) = &self.command {
-            cmd.search_terms()
-        } else {
-            vec![]
-        }
     }
 }

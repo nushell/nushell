@@ -52,11 +52,11 @@ impl Command for HideEnv {
                     .cloned()
                     .collect();
                 if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
-                    return Err(ShellError::DidYouMeanCustom(
-                        format!("Environment variable '{}' not found", name.item),
-                        closest_match,
-                        name.span,
-                    ));
+                    return Err(ShellError::DidYouMeanCustom {
+                        msg: format!("Environment variable '{}' not found", name.item),
+                        suggestion: closest_match,
+                        span: name.span,
+                    });
                 } else {
                     return Err(ShellError::EnvVarNotFoundAtRuntime {
                         envvar_name: name.item,
@@ -72,7 +72,7 @@ impl Command for HideEnv {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "Hide an environment variable",
-            example: r#"let-env HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
+            example: r#"$env.HZ_ENV_ABC = 1; hide-env HZ_ENV_ABC; 'HZ_ENV_ABC' in (env).name"#,
             result: Some(Value::test_bool(false)),
         }]
     }

@@ -1,4 +1,4 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
@@ -29,7 +29,12 @@ impl Command for BytesStartsWith {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes starts-with")
-            .input_output_types(vec![(Type::Binary, Type::Bool)])
+            .input_output_types(vec![
+                (Type::Binary, Type::Bool),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .required("pattern", SyntaxShape::Binary, "the pattern to match")
             .rest(
                 "rest",
@@ -79,14 +84,15 @@ impl Command for BytesStartsWith {
                         Ok(v @ Value::Error { .. }) => return Ok(v.clone().into_pipeline_data()),
                         // Unsupported data
                         Ok(other) => {
-                            return Ok(Value::Error {
-                                error: Box::new(ShellError::OnlySupportsThisInputType {
+                            return Ok(Value::error(
+                                ShellError::OnlySupportsThisInputType {
                                     exp_input_type: "string and binary".into(),
                                     wrong_type: other.get_type().to_string(),
                                     dst_span: span,
-                                    src_span: other.expect_span(),
-                                }),
-                            }
+                                    src_span: other.span(),
+                                },
+                                span,
+                            )
                             .into_pipeline_data());
                         }
                         Err(err) => return Err(err.to_owned()),
@@ -98,16 +104,16 @@ impl Command for BytesStartsWith {
                         i += max;
 
                         if i >= arg.pattern.len() {
-                            return Ok(Value::boolean(true, span).into_pipeline_data());
+                            return Ok(Value::bool(true, span).into_pipeline_data());
                         }
                     } else {
-                        return Ok(Value::boolean(false, span).into_pipeline_data());
+                        return Ok(Value::bool(false, span).into_pipeline_data());
                     }
                 }
 
                 // We reached the end of the stream and never returned,
                 // the pattern wasn't exhausted so it probably doesn't match
-                Ok(Value::boolean(false, span).into_pipeline_data())
+                Ok(Value::bool(false, span).into_pipeline_data())
             }
             _ => operate(
                 starts_with,
@@ -141,21 +147,20 @@ impl Command for BytesStartsWith {
 }
 
 fn starts_with(val: &Value, args: &Arguments, span: Span) -> Value {
+    let val_span = val.span();
     match val {
-        Value::Binary {
-            val,
-            span: val_span,
-        } => Value::boolean(val.starts_with(&args.pattern), *val_span),
+        Value::Binary { val, .. } => Value::bool(val.starts_with(&args.pattern), val_span),
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => val.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        other => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "binary".into(),
                 wrong_type: other.get_type().to_string(),
                 dst_span: span,
-                src_span: other.expect_span(),
-            }),
-        },
+                src_span: other.span(),
+            },
+            span,
+        ),
     }
 }
 

@@ -3,8 +3,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
-    Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -32,6 +32,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Range, Type::List(Box::new(Type::Any))),
             ])
             .required(
                 "closure",
@@ -57,7 +58,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
@@ -100,9 +101,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.span())),
-                        }),
+                        Err(error) => Some(Value::error(
+                            chain_error_with_input(error, x.is_error(), x.span()),
+                            x.span(),
+                        )),
                     }
                 })
                 .into_pipeline_data(ctrlc)),
@@ -118,11 +120,7 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(err) => {
-                            return Some(Value::Error {
-                                error: Box::new(err),
-                            })
-                        }
+                        Err(err) => return Some(Value::error(err, span)),
                     };
 
                     if let Some(var) = block.signature.get_positional(0) {
@@ -147,9 +145,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                                 None
                             }
                         }
-                        Err(error) => Some(Value::Error {
-                            error: Box::new(chain_error_with_input(error, x.span())),
-                        }),
+                        Err(error) => Some(Value::error(
+                            chain_error_with_input(error, x.is_error(), x.span()),
+                            x.span(),
+                        )),
                     }
                 })
                 .into_pipeline_data(ctrlc)),
@@ -180,9 +179,10 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                             None
                         }
                     }
-                    Err(error) => Some(Value::Error {
-                        error: Box::new(chain_error_with_input(error, x.span())),
-                    }),
+                    Err(error) => Some(Value::error(
+                        chain_error_with_input(error, x.is_error(), x.span()),
+                        x.span(),
+                    )),
                 }
                 .into_pipeline_data(ctrlc))
             }
@@ -195,54 +195,48 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | filter {|x| $x > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::test_int(2)],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_int(2)])),
             },
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | filter {|x| $x.a > 1}",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Filter rows of a table according to a stored condition",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | filter $cond",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(2)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                })])),
             },
-            // TODO: This should work but does not. (Note that `Let` must be present in the working_set in `example_test.rs`).
-            // See https://github.com/nushell/nushell/issues/7034
-            // Example {
-            //     description: "List all numbers above 3, using an existing closure condition",
-            //     example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
-            //     result: Some(Value::List {
-            //         vals: vec![
-            //             Value::Int {
-            //                 val: 5,
-            //                 span: Span::test_data(),
-            //             },
-            //             Value::Int {
-            //                 val: 6,
-            //                 span: Span::test_data(),
-            //             },
-            //         ],
-            //         span: Span::test_data(),
-            //     }),
-            // },
+            Example {
+                description: "Filter items of a range according to a condition",
+                example: "9..13 | filter {|el| $el mod 2 != 0}",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(9),
+                    Value::test_int(11),
+                    Value::test_int(13),
+                ])),
+            },
+            Example {
+                description: "List all numbers above 3, using an existing closure condition",
+                example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
+                result: None, // TODO: This should work
+                              // result: Some(Value::test_list(
+                              //     vec![
+                              //         Value::Int {
+                              //             val: 5,
+                              //             Span::test_data(),
+                              //         },
+                              //         Value::Int {
+                              //             val: 6,
+                              //             span: Span::test_data(),
+                              //         },
+                              //     ],
+                              // }),
+            },
         ]
     }
 }

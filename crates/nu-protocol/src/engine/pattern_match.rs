@@ -1,6 +1,6 @@
 use crate::{
     ast::{Expr, MatchPattern, Pattern, RangeInclusion},
-    Span, Unit, Value, VarId,
+    Span, Value, VarId,
 };
 
 pub trait Matcher {
@@ -21,12 +21,12 @@ impl Matcher for Pattern {
             Pattern::IgnoreRest => false, // `..` and `..$foo` only match in specific contexts
             Pattern::Rest(_) => false,    // so we return false here and handle them elsewhere
             Pattern::Record(field_patterns) => match value {
-                Value::Record { cols, vals, .. } => {
+                Value::Record { val, .. } => {
                     'top: for field_pattern in field_patterns {
-                        for (col_idx, col) in cols.iter().enumerate() {
+                        for (col, val) in val {
                             if col == &field_pattern.0 {
                                 // We have found the field
-                                let result = field_pattern.1.match_value(&vals[col_idx], matches);
+                                let result = field_pattern.1.match_value(val, matches);
                                 if !result {
                                     return false;
                                 } else {
@@ -75,13 +75,7 @@ impl Matcher for Pattern {
                                 }
                                 Pattern::Rest(var_id) => {
                                     let rest_vals = vals[val_idx..].to_vec();
-                                    matches.push((
-                                        *var_id,
-                                        Value::List {
-                                            vals: rest_vals,
-                                            span: pattern.span,
-                                        },
-                                    ));
+                                    matches.push((*var_id, Value::list(rest_vals, pattern.span)));
                                     break;
                                 }
                                 _ => {
@@ -102,6 +96,9 @@ impl Matcher for Pattern {
             Pattern::Value(pattern_value) => {
                 // TODO: Fill this out with the rest of them
                 match &pattern_value.expr {
+                    Expr::Nothing => {
+                        matches!(value, Value::Nothing { .. })
+                    }
                     Expr::Int(x) => {
                         if let Value::Int { val, .. } = &value {
                             x == val
@@ -145,53 +142,11 @@ impl Matcher for Pattern {
                         }
                     }
                     Expr::ValueWithUnit(amount, unit) => {
-                        if let Value::Filesize { val, .. } = &value {
-                            // FIXME: we probably want this math in one place that both the
-                            // pattern matcher and the eval engine can get to it
-                            match &amount.expr {
-                                Expr::Int(amount) => match &unit.item {
-                                    Unit::Byte => amount == val,
-                                    Unit::Kilobyte => *val == amount * 1000,
-                                    Unit::Megabyte => *val == amount * 1000 * 1000,
-                                    Unit::Gigabyte => *val == amount * 1000 * 1000 * 1000,
-                                    Unit::Petabyte => *val == amount * 1000 * 1000 * 1000 * 1000,
-                                    Unit::Exabyte => {
-                                        *val == amount * 1000 * 1000 * 1000 * 1000 * 1000
-                                    }
-                                    Unit::Zettabyte => {
-                                        *val == amount * 1000 * 1000 * 1000 * 1000 * 1000 * 1000
-                                    }
-                                    Unit::Kibibyte => *val == amount * 1024,
-                                    Unit::Mebibyte => *val == amount * 1024 * 1024,
-                                    Unit::Gibibyte => *val == amount * 1024 * 1024 * 1024,
-                                    Unit::Pebibyte => *val == amount * 1024 * 1024 * 1024 * 1024,
-                                    Unit::Exbibyte => {
-                                        *val == amount * 1024 * 1024 * 1024 * 1024 * 1024
-                                    }
-                                    Unit::Zebibyte => {
-                                        *val == amount * 1024 * 1024 * 1024 * 1024 * 1024 * 1024
-                                    }
-                                    _ => false,
-                                },
-                                _ => false,
-                            }
-                        } else if let Value::Duration { val, .. } = &value {
-                            // FIXME: we probably want this math in one place that both the
-                            // pattern matcher and the eval engine can get to it
-                            match &amount.expr {
-                                Expr::Int(amount) => match &unit.item {
-                                    Unit::Nanosecond => val == amount,
-                                    Unit::Microsecond => *val == amount * 1000,
-                                    Unit::Millisecond => *val == amount * 1000 * 1000,
-                                    Unit::Second => *val == amount * 1000 * 1000 * 1000,
-                                    Unit::Minute => *val == amount * 1000 * 1000 * 1000 * 60,
-                                    Unit::Hour => *val == amount * 1000 * 1000 * 1000 * 60 * 60,
-                                    Unit::Day => *val == amount * 1000 * 1000 * 1000 * 60 * 60 * 24,
-                                    Unit::Week => {
-                                        *val == amount * 1000 * 1000 * 1000 * 60 * 60 * 24 * 7
-                                    }
-                                    _ => false,
-                                },
+                        let span = unit.span;
+
+                        if let Expr::Int(size) = amount.expr {
+                            match &unit.item.to_value(size, span) {
+                                Ok(v) => v == value,
                                 _ => false,
                             }
                         } else {

@@ -17,11 +17,11 @@ impl Plugin for GStat {
         input: &Value,
     ) -> Result<Value, LabeledError> {
         if name != "gstat" {
-            return Ok(Value::Nothing { span: call.head });
+            return Ok(Value::nothing(call.head));
         }
 
         let repo_path: Option<Spanned<String>> = call.opt(0)?;
         // eprintln!("input value: {:#?}", &input);
-        self.gstat(input, repo_path, &call.head)
+        self.gstat(input, repo_path, call.head)
     }
 }

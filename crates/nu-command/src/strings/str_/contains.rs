@@ -1,10 +1,13 @@
-use crate::input_handler::{operate, CmdArgument};
+use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
+use nu_protocol::record;
+use nu_protocol::{
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+};
+use nu_utils::IgnoreCaseExt;
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -29,8 +32,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str contains")
-            .input_output_types(vec![(Type::String, Type::Bool)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::Bool),
+                // TODO figure out cell-path type behavior
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
+            ])
             .required("string", SyntaxShape::String, "the substring to find")
             .rest(
                 "rest",
@@ -77,44 +85,32 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Check if input contains string case insensitive",
-                example: "'my_library.rb' | str contains -i '.RB'",
+                example: "'my_library.rb' | str contains --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains 'e' ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Check if input contains string in a record",
+                example: "{ ColA: test, ColB: 100 } | str contains 'e' ColA",
+                result: Some(Value::test_record(record! {
+                    "ColA" => Value::test_bool(true),
+                    "ColB" => Value::test_int(100),
+                })),
             },
             Example {
                 description: "Check if input contains string in a table",
-                example: " [[ColA ColB]; [test 100]] | str contains -i 'E' ColA",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_int(100)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                example: " [[ColA ColB]; [test 100]] | str contains --ignore-case 'E' ColA",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_bool(true),
+                    "ColB" => Value::test_int(100),
+                })])),
             },
             Example {
                 description: "Check if input contains string in a table",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_bool(true), Value::test_bool(true)],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_bool(true),
+                    "ColB" => Value::test_bool(true),
+                })])),
             },
             Example {
                 description: "Check if input string contains 'banana'",
@@ -124,26 +120,20 @@ impl Command for SubCommand {
             Example {
                 description: "Check if list contains string",
                 example: "[one two three] | str contains o",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_bool(true),
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                    ],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(true),
+                    Value::test_bool(true),
+                    Value::test_bool(false),
+                ])),
             },
             Example {
                 description: "Check if list does not contain string",
-                example: "[one two three] | str contains -n o",
-                result: Some(Value::List {
-                    vals: vec![
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                    ],
-                    span: Span::test_data(),
-                }),
+                example: "[one two three] | str contains --not o",
+                result: Some(Value::test_list(vec![
+                    Value::test_bool(false),
+                    Value::test_bool(false),
+                    Value::test_bool(true),
+                ])),
             },
         ]
     }
@@ -160,15 +150,15 @@ fn action(
     head: Span,
 ) -> Value {
     match input {
-        Value::String { val, .. } => Value::boolean(
+        Value::String { val, .. } => Value::bool(
             match case_insensitive {
                 true => {
                     if *not_contain {
-                        !val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
+                        !val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
                     } else {
-                        val.to_lowercase()
-                            .contains(substring.to_lowercase().as_str())
+                        val.to_folded_case()
+                            .contains(substring.to_folded_case().as_str())
                     }
                 }
                 false => {
@@ -182,14 +172,15 @@ fn action(
             head,
         ),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

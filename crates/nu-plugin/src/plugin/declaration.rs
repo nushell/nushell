@@ -10,6 +10,7 @@ use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
 
+#[doc(hidden)] // Note: not for plugin authors / only used in nu-parser
 #[derive(Clone)]
 pub struct PluginDeclaration {
     name: String,
@@ -42,6 +43,19 @@ impl Command for PluginDeclaration {
         self.signature.sig.usage.as_str()
     }
 
+    fn extra_usage(&self) -> &str {
+        self.signature.sig.extra_usage.as_str()
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        self.signature
+            .sig
+            .search_terms
+            .iter()
+            .map(|term| term.as_str())
+            .collect()
+    }
+
     fn examples(&self) -> Vec<Example> {
         let mut res = vec![];
         for e in self.signature.examples.iter() {
@@ -65,7 +79,7 @@ impl Command for PluginDeclaration {
         // Decode information from plugin
         // Create PipelineData
         let source_file = Path::new(&self.filename);
-        let mut plugin_cmd = create_command(source_file, &self.shell);
+        let mut plugin_cmd = create_command(source_file, self.shell.as_deref());
         // We need the current environment variables for `python` based plugins
         // Or we'll likely have a problem when a plugin is implemented in a virtual Python environment.
         let current_envs = nu_engine::env::env_to_strings(engine_state, stack).unwrap_or_default();
@@ -83,8 +97,9 @@ impl Command for PluginDeclaration {
         })?;
 
         let input = input.into_value(call.head);
+        let span = input.span();
         let input = match input {
-            Value::CustomValue { val, span } => {
+            Value::CustomValue { val, .. } => {
                 match val.as_any().downcast_ref::<PluginCustomValue>() {
                     Some(plugin_data) if plugin_data.filename == self.filename => {
                         CallInput::Data(PluginData {
@@ -121,9 +136,9 @@ impl Command for PluginDeclaration {
             let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
-                    return Err(ShellError::PluginFailedToLoad(
-                        "Plugin missing stdout reader".into(),
-                    ))
+                    return Err(ShellError::PluginFailedToLoad {
+                        msg: "Plugin missing stdout reader".into(),
+                    })
                 }
             };
             get_plugin_encoding(stdout_reader)?
@@ -144,16 +159,16 @@ impl Command for PluginDeclaration {
                 Ok(PipelineData::Value(value.as_ref().clone(), None))
             }
             Ok(PluginResponse::PluginData(name, plugin_data)) => Ok(PipelineData::Value(
-                Value::CustomValue {
-                    val: Box::new(PluginCustomValue {
+                Value::custom_value(
+                    Box::new(PluginCustomValue {
                         name,
                         data: plugin_data.data,
                         filename: self.filename.clone(),
                         shell: self.shell.clone(),
                         source: engine_state.get_decl(call.decl_id).name().to_owned(),
                     }),
-                    span: plugin_data.span,
-                },
+                    plugin_data.span,
+                ),
                 None,
             )),
             Ok(PluginResponse::Error(err)) => Err(err.into()),
@@ -173,7 +188,7 @@ impl Command for PluginDeclaration {
         pipeline_data
     }
 
-    fn is_plugin(&self) -> Option<(&PathBuf, &Option<PathBuf>)> {
-        Some((&self.filename, &self.shell))
+    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
+        Some((&self.filename, self.shell.as_deref()))
     }
 }

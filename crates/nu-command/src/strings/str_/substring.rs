@@ -1,9 +1,11 @@
-use crate::input_handler::{operate, CmdArgument};
-use crate::{grapheme_flags, util};
+use crate::grapheme_flags;
+use nu_cmd_base::input_handler::{operate, CmdArgument};
+use nu_cmd_base::util;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{
     Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
@@ -41,8 +43,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str substring")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
                 "count indexes and split using grapheme clusters (all visible chars have length 1)",
@@ -63,6 +70,7 @@ impl Command for SubCommand {
                 SyntaxShape::CellPath,
                 "For a data structure input, turn strings at the given cell paths into substrings",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
@@ -109,7 +117,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Count indexes and split using grapheme clusters",
-                example: " '🇯🇵ほげ ふが ぴよ' | str substring -g 4..6",
+                example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..6",
                 result: Some(Value::test_string("ふが")),
             },
         ]
@@ -136,14 +144,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
             if start < len && end >= 0 {
                 match start.cmp(&end) {
                     Ordering::Equal => Value::string("", head),
-                    Ordering::Greater => Value::Error {
-                        error: Box::new(ShellError::TypeMismatch {
+                    Ordering::Greater => Value::error(
+                        ShellError::TypeMismatch {
                             err_message: "End must be greater than or equal to Start".to_string(),
                             span: head,
-                        }),
-                    },
-                    Ordering::Less => Value::String {
-                        val: {
+                        },
+                        head,
+                    ),
+                    Ordering::Less => Value::string(
+                        {
                             if end == isize::max_value() {
                                 if args.graphemes {
                                     s.graphemes(true)
@@ -172,8 +181,8 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                                 .to_string()
                             }
                         },
-                        span: head,
-                    },
+                        head,
+                    ),
                 }
             } else {
                 Value::string("", head)
@@ -181,15 +190,15 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
-        other => Value::Error {
-            error: Box::new(ShellError::UnsupportedInput(
-                "Only string values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.expect_span(),
-            )),
-        },
+        other => Value::error(
+            ShellError::UnsupportedInput {
+                msg: "Only string values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
+            head,
+        ),
     }
 }
 
@@ -269,10 +278,7 @@ mod tests {
 
     #[test]
     fn use_utf8_bytes() {
-        let word = Value::String {
-            val: String::from("🇯🇵ほげ ふが ぴよ"),
-            span: Span::test_data(),
-        };
+        let word = Value::string(String::from("🇯🇵ほげ ふが ぴよ"), Span::test_data());
 
         let options = Arguments {
             cell_paths: None,

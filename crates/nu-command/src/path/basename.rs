@@ -1,25 +1,19 @@
 use std::path::Path;
 
+use super::PathSubcommandArguments;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
-use super::PathSubcommandArguments;
-
 struct Arguments {
-    columns: Option<Vec<String>>,
     replace: Option<Spanned<String>>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -33,25 +27,26 @@ impl Command for SubCommand {
         Signature::build("path basename")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                // TODO: Why do these commands not use CellPaths in a standard way?
-                (Type::Table(vec![]), Type::Table(vec![])),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
             ])
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "For a record or table input, convert strings in the given columns to their basename",
-                Some('c'),
-            )
             .named(
                 "replace",
                 SyntaxShape::String,
                 "Return original path with basename replaced by this string",
                 Some('r'),
             )
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
         "Get the final component of a path."
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -63,7 +58,6 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             replace: call.get_flag(engine_state, stack, "replace")?,
         };
 
@@ -77,6 +71,27 @@ impl Command for SubCommand {
         )
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            replace: call.get_flag_const(working_set, "replace")?,
+        };
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&get_basename, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
+        )
+    }
+
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![
@@ -86,25 +101,16 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a path in a column",
-                example: "ls .. | path basename -c [ name ]",
-                result: None,
-            },
-            Example {
-                description: "Get basename of a path in a column",
-                example: "[[name];[C:\\Users\\Joe]] | path basename -c [ name ]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("Joe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Get basename of a list of paths",
+                example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'C:\\Users\\joe\\test.txt' | path basename -r 'spam.png'",
+                example: "'C:\\Users\\joe\\test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
             },
         ]
@@ -119,20 +125,16 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a path by column",
-                example: "[[name];[/home/joe]] | path basename -c [ name ]",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("joe")],
-                        span: Span::test_data(),
-                    }],
-                    span: Span::test_data(),
-                }),
+                description: "Get basename of a list of paths",
+                example: "[ /home/joe, /home/doe ] | path basename",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("joe"),
+                    Value::test_string("doe"),
+                ])),
             },
             Example {
                 description: "Replace basename of a path",
-                example: "'/home/joe/test.txt' | path basename -r 'spam.png'",
+                example: "'/home/joe/test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("/home/joe/spam.png")),
             },
         ]

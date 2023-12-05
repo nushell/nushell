@@ -16,12 +16,16 @@ impl Command for StrJoin {
 
     fn signature(&self) -> Signature {
         Signature::build("str join")
-            .input_output_types(vec![(Type::List(Box::new(Type::String)), Type::String)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Any)), Type::String),
+                (Type::String, Type::String),
+            ])
             .optional(
                 "separator",
                 SyntaxShape::String,
                 "optional separator to use when creating string",
             )
+            .allow_variants_without_examples(true)
             .category(Category::Strings)
     }
 
@@ -51,7 +55,7 @@ impl Command for StrJoin {
 
         for value in input {
             match value {
-                Value::Error { error } => {
+                Value::Error { error, .. } => {
                     return Err(*error);
                 }
                 value => {
@@ -66,11 +70,7 @@ impl Command for StrJoin {
             strings.join("")
         };
 
-        Ok(Value::String {
-            val: output,
-            span: call.head,
-        }
-        .into_pipeline_data())
+        Ok(Value::string(output, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {

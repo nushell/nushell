@@ -35,18 +35,14 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let dt = Local::now();
-        Ok(Value::Date {
-            val: dt.with_timezone(dt.offset()),
-            span: head,
-        }
-        .into_pipeline_data())
+        Ok(Value::date(dt.with_timezone(dt.offset()), head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
                 description: "Get the current date and display it in a given format string.",
-                example: r#"date now | date format "%Y-%m-%d %H:%M:%S""#,
+                example: r#"date now | format date "%Y-%m-%d %H:%M:%S""#,
                 result: None,
             },
             Example {

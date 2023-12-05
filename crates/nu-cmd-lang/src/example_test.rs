@@ -13,11 +13,12 @@ mod test_examples {
         check_example_evaluates_to_expected_output,
         check_example_input_and_output_types_match_command_signature,
     };
-    use crate::{Break, Collect, Describe, Mut};
-    use crate::{Echo, If, Let};
+    use crate::{
+        Break, Collect, Def, Describe, Echo, ExportCommand, ExportDef, If, Let, Module, Mut, Use,
+    };
     use nu_protocol::{
         engine::{Command, EngineState, StateWorkingSet},
-        Type,
+        Type, Value,
     };
     use std::collections::HashSet;
 
@@ -41,7 +42,6 @@ mod test_examples {
                     &mut make_engine_state(cmd.clone_box()),
                     &signature.input_output_types,
                     signature.operates_on_cell_paths(),
-                    signature.vectorizes_over_list,
                 ),
             );
             check_example_evaluates_to_expected_output(&example, cwd.as_path(), &mut engine_state);
@@ -55,24 +55,36 @@ mod test_examples {
 
     fn make_engine_state(cmd: Box<dyn Command>) -> Box<EngineState> {
         let mut engine_state = Box::new(EngineState::new());
+        let cwd = std::env::current_dir()
+            .expect("Could not get current working directory.")
+            .to_string_lossy()
+            .to_string();
+        engine_state.add_env_var("PWD".to_string(), Value::test_string(cwd));
 
         let delta = {
             // Base functions that are needed for testing
             // Try to keep this working set small to keep tests running as fast as possible
             let mut working_set = StateWorkingSet::new(&engine_state);
             working_set.add_decl(Box::new(Break));
+            working_set.add_decl(Box::new(Collect));
+            working_set.add_decl(Box::new(Def));
             working_set.add_decl(Box::new(Describe));
             working_set.add_decl(Box::new(Echo));
+            working_set.add_decl(Box::new(ExportCommand));
+            working_set.add_decl(Box::new(ExportDef));
             working_set.add_decl(Box::new(If));
             working_set.add_decl(Box::new(Let));
+            working_set.add_decl(Box::new(Module));
             working_set.add_decl(Box::new(Mut));
-            working_set.add_decl(Box::new(Collect));
+            working_set.add_decl(Box::new(Use));
 
             // Adding the command that is being tested to the working set
             working_set.add_decl(cmd);
 
             working_set.render()
         };
+
+        engine_state.add_env_var("PWD".to_string(), Value::test_string("."));
 
         engine_state
             .merge_delta(delta)

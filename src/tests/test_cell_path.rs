@@ -1,14 +1,14 @@
 use crate::tests::{fail_test, run_test, TestResult};
 
-// Tests for $nothing / null / Value::Nothing
+// Tests for null / null / Value::Nothing
 #[test]
 fn nothing_fails_string() -> TestResult {
-    fail_test("$nothing.foo", "doesn't support cell paths")
+    fail_test("let nil = null; $nil.foo", "doesn't support cell paths")
 }
 
 #[test]
 fn nothing_fails_int() -> TestResult {
-    fail_test("$nothing.3", "doesn't support cell paths")
+    fail_test("let nil = null; $nil.3", "doesn't support cell paths")
 }
 
 // Tests for records
@@ -148,4 +148,9 @@ fn deeply_nested_cell_path_short_circuits() -> TestResult {
         "{foo: [{bar: 'baz'}]}.foo.3?.bar.asdfdafg.234.foobar  | to nuon",
         "null",
     )
+}
+
+#[test]
+fn cell_path_type() -> TestResult {
+    run_test("$.a.b | describe", "cell-path")
 }

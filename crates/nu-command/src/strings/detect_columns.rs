@@ -1,12 +1,13 @@
 use std::iter::Peekable;
 use std::str::CharIndices;
 
+use itertools::Itertools;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, Range, Record,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 type Input<'t> = Peekable<CharIndices<'t>>;
@@ -29,6 +30,12 @@ impl Command for DetectColumns {
             )
             .input_output_types(vec![(Type::String, Type::Table(vec![]))])
             .switch("no-headers", "don't detect headers", Some('n'))
+            .named(
+                "combine-columns",
+                SyntaxShape::Range,
+                "columns to be combined; listed as a range",
+                Some('c'),
+            )
             .category(Category::Strings)
     }
 
@@ -37,7 +44,7 @@ impl Command for DetectColumns {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["split"]
+        vec!["split", "tabular"]
     }
 
     fn run(
@@ -51,31 +58,37 @@ impl Command for DetectColumns {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Splits string across multiple columns",
-                example: "'a b c' | detect columns -n",
-                result: Some(Value::List {
-                    vals: vec![Value::Record {
-                        cols: vec![
-                            "column0".to_string(),
-                            "column1".to_string(),
-                            "column2".to_string(),
-                        ],
-                        vals: vec![
-                            Value::test_string("a"),
-                            Value::test_string("b"),
-                            Value::test_string("c"),
-                        ],
-                        span,
-                    }],
-                    span,
-                }),
+                example: "'a b c' | detect columns --no-headers",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("c"),
+                })])),
+            },
+            Example {
+                description: "",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 0..1",
+                result: None,
             },
             Example {
                 description: "Splits a multi-line string into columns with headers detected",
-                example: "$'c1 c2 c3(char nl)a b c' | detect columns",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns -2..-1",
+                result: None,
+            },
+            Example {
+                description: "Splits a multi-line string into columns with headers detected",
+                example:
+                    "$'c1 c2 c3 c4 c5(char nl)a b c d e' | detect columns --combine-columns 2..",
+                result: None,
+            },
+            Example {
+                description: "Parse external ls command and combine columns for datetime",
+                example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7",
                 result: None,
             },
         ]
@@ -91,6 +104,7 @@ fn detect_columns(
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
     let noheader = call.has_flag("no-headers");
+    let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
     let input = input.collect_string("", config)?;
@@ -128,10 +142,7 @@ fn detect_columns(
             if headers.len() == row.len() {
                 for (header, val) in headers.iter().zip(row.iter()) {
                     cols.push(header.item.clone());
-                    vals.push(Value::String {
-                        val: val.item.clone(),
-                        span: name_span,
-                    });
+                    vals.push(Value::string(val.item.clone(), name_span));
                 }
             } else {
                 let mut pre_output = vec![];
@@ -172,11 +183,56 @@ fn detect_columns(
                 }
             }
 
-            Value::Record {
-                cols,
-                vals,
-                span: name_span,
-            }
+            let (start_index, end_index) = if let Some(range) = &range {
+                match nu_cmd_base::util::process_range(range) {
+                    Ok((l_idx, r_idx)) => {
+                        let l_idx = if l_idx < 0 {
+                            cols.len() as isize + l_idx
+                        } else {
+                            l_idx
+                        };
+
+                        let r_idx = if r_idx < 0 {
+                            cols.len() as isize + r_idx
+                        } else {
+                            r_idx
+                        };
+
+                        if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
+                            return Value::record(Record { cols, vals }, name_span);
+                        }
+
+                        (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
+                    }
+                    Err(processing_error) => {
+                        let err = processing_error("could not find range index", name_span);
+                        return Value::error(err, name_span);
+                    }
+                }
+            } else {
+                return Value::record(Record { cols, vals }, name_span);
+            };
+
+            // Merge Columns
+            ((start_index + 1)..(cols.len() - end_index + start_index + 1)).for_each(|idx| {
+                cols.swap(idx, end_index - start_index - 1 + idx);
+            });
+            cols.truncate(cols.len() - end_index + start_index + 1);
+
+            // Merge Values
+            let combined = vals
+                .iter()
+                .take(end_index)
+                .skip(start_index)
+                .map(|v| v.as_string().unwrap_or_default())
+                .join(" ");
+            let binding = Value::string(combined, Span::unknown());
+            let last_seg = vals.split_off(end_index);
+            vals.truncate(start_index);
+            vals.push(binding);
+            last_seg.into_iter().for_each(|v| vals.push(v));
+
+            Value::record(Record { cols, vals }, name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {
@@ -207,9 +263,9 @@ pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
 
 #[derive(Clone, Copy)]
 enum BlockKind {
-    Paren,
-    CurlyBracket,
-    SquareBracket,
+    Parenthesis,
+    Brace,
+    Bracket,
 }
 
 fn baseline(src: &mut Input) -> Spanned<String> {
@@ -265,27 +321,27 @@ fn baseline(src: &mut Input) -> Spanned<String> {
             quote_start = Some(c);
         } else if c == '[' {
             // We encountered an opening `[` delimiter.
-            block_level.push(BlockKind::SquareBracket);
+            block_level.push(BlockKind::Bracket);
         } else if c == ']' {
             // We encountered a closing `]` delimiter. Pop off the opening `[`
             // delimiter.
-            if let Some(BlockKind::SquareBracket) = block_level.last() {
+            if let Some(BlockKind::Bracket) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '{' {
             // We encountered an opening `{` delimiter.
-            block_level.push(BlockKind::CurlyBracket);
+            block_level.push(BlockKind::Brace);
         } else if c == '}' {
             // We encountered a closing `}` delimiter. Pop off the opening `{`.
-            if let Some(BlockKind::CurlyBracket) = block_level.last() {
+            if let Some(BlockKind::Brace) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if c == '(' {
             // We enceountered an opening `(` delimiter.
-            block_level.push(BlockKind::Paren);
+            block_level.push(BlockKind::Parenthesis);
         } else if c == ')' {
             // We encountered a closing `)` delimiter. Pop off the opening `(`.
-            if let Some(BlockKind::Paren) = block_level.last() {
+            if let Some(BlockKind::Parenthesis) = block_level.last() {
                 let _ = block_level.pop();
             }
         } else if is_termination(&block_level, c) {

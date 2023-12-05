@@ -1,11 +1,13 @@
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
 use strum_macros::EnumIter;
 
 use std::fmt::Display;
 
 use crate::SyntaxShape;
 
-#[derive(Clone, Debug, Default, EnumIter, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     Any,
     Binary,
@@ -35,25 +37,32 @@ pub enum Type {
 
 impl Type {
     pub fn is_subtype(&self, other: &Type) -> bool {
+        // Structural subtyping
+        let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
+            if this.is_empty() || that.is_empty() {
+                true
+            } else if this.len() > that.len() {
+                false
+            } else {
+                this.iter().all(|(col_x, ty_x)| {
+                    if let Some((_, ty_y)) = that.iter().find(|(col_y, _)| col_x == col_y) {
+                        ty_x.is_subtype(ty_y)
+                    } else {
+                        false
+                    }
+                })
+            }
+        };
+
         match (self, other) {
             (t, u) if t == u => true,
             (Type::Float, Type::Number) => true,
             (Type::Int, Type::Number) => true,
             (_, Type::Any) => true,
             (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
-
-            // TODO: Currently Record types specify their field types. If we are
-            // going to continue to do that, then it might make sense to define
-            // a "structural subtyping" whereby r1 is a subtype of r2 is the
-            // fields of r1 are a "subset" of the fields of r2 (names are a
-            // subset and agree on types). However, if we do that, then we need
-            // a way to specify the supertype of all Records. For now, we define
-            // any Record to be a subtype of any other Record. This allows
-            // Record(vec![]) to be used as an ad-hoc supertype of all Records
-            // in command signatures. This comment applies to Tables also, with
-            // "columns" in place of "fields".
-            (Type::Record(_), Type::Record(_)) => true,
-            (Type::Table(_), Type::Table(_)) => true,
+            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
+                is_subtype_collection(this, that)
+            }
             _ => false,
         }
     }
@@ -72,9 +81,15 @@ impl Type {
     }
 
     pub fn to_shape(&self) -> SyntaxShape {
+        let mk_shape = |tys: &[(String, Type)]| {
+            tys.iter()
+                .map(|(key, val)| (key.clone(), val.to_shape()))
+                .collect()
+        };
+
         match self {
             Type::Int => SyntaxShape::Int,
-            Type::Float => SyntaxShape::Number,
+            Type::Float => SyntaxShape::Float,
             Type::Range => SyntaxShape::Range,
             Type::Bool => SyntaxShape::Boolean,
             Type::String => SyntaxShape::String,
@@ -87,8 +102,8 @@ impl Type {
             Type::List(x) => SyntaxShape::List(Box::new(x.to_shape())),
             Type::Number => SyntaxShape::Number,
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(_) => SyntaxShape::Record,
-            Type::Table(_) => SyntaxShape::Table,
+            Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
+            Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
             Type::ListStream => SyntaxShape::List(Box::new(SyntaxShape::Any)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
@@ -106,7 +121,7 @@ impl Type {
             Type::Block => String::from("block"),
             Type::Closure => String::from("closure"),
             Type::Bool => String::from("bool"),
-            Type::CellPath => String::from("cell path"),
+            Type::CellPath => String::from("cell-path"),
             Type::Date => String::from("date"),
             Type::Duration => String::from("duration"),
             Type::Filesize => String::from("filesize"),
@@ -116,11 +131,11 @@ impl Type {
             Type::Record(_) => String::from("record"),
             Type::Table(_) => String::from("table"),
             Type::List(_) => String::from("list"),
-            Type::MatchPattern => String::from("match pattern"),
+            Type::MatchPattern => String::from("match-pattern"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
-            Type::ListStream => String::from("list stream"),
+            Type::ListStream => String::from("list-stream"),
             Type::Any => String::from("any"),
             Type::Error => String::from("error"),
             Type::Binary => String::from("binary"),
@@ -136,7 +151,7 @@ impl Display for Type {
             Type::Block => write!(f, "block"),
             Type::Closure => write!(f, "closure"),
             Type::Bool => write!(f, "bool"),
-            Type::CellPath => write!(f, "cell path"),
+            Type::CellPath => write!(f, "cell-path"),
             Type::Date => write!(f, "date"),
             Type::Duration => write!(f, "duration"),
             Type::Filesize => write!(f, "filesize"),
@@ -177,13 +192,13 @@ impl Display for Type {
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
             Type::String => write!(f, "string"),
-            Type::ListStream => write!(f, "list stream"),
+            Type::ListStream => write!(f, "list-stream"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
-            Type::MatchPattern => write!(f, "match pattern"),
+            Type::MatchPattern => write!(f, "match-pattern"),
         }
     }
 }

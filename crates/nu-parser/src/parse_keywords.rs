@@ -1,3 +1,9 @@
+use crate::{
+    parse_block,
+    parser_path::ParserPath,
+    type_check::{check_block_input_output, type_compatible},
+};
+use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
 use nu_protocol::{
@@ -6,10 +12,12 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    span, Alias, BlockId, Exportable, Module, ParseError, PositionalArg, Span, Spanned,
-    SyntaxShape, Type, VarId,
+    eval_const::eval_constant,
+    span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
+    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
@@ -17,14 +25,13 @@ pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
 pub const PLUGIN_DIRS_VAR: &str = "NU_PLUGIN_DIRS";
 
 use crate::{
-    eval::{eval_constant, value_as_string},
     is_math_expression_like,
     known_external::KnownExternal,
     lex,
     lite_parser::{lite_parse, LiteCommand, LiteElement},
     parser::{
         check_call, check_name, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_import_pattern, parse_internal_call, parse_multispan_value, parse_signature,
+        parse_full_signature, parse_import_pattern, parse_internal_call, parse_multispan_value,
         parse_string, parse_value, parse_var_with_opt_type, trim_quotes, ParsedInternalCall,
     },
     unescape_unquote_string, Token, TokenContents,
@@ -32,6 +39,8 @@ use crate::{
 
 /// These parser keywords can be aliased
 pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[b"overlay hide", b"overlay new", b"overlay use"];
+
+pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
@@ -63,13 +72,13 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 /// Check whether spans start with a parser keyword that can be aliased
 pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Span]) -> bool {
     // try two words
-    if let (Some(span1), Some(span2)) = (spans.get(0), spans.get(1)) {
+    if let (Some(span1), Some(span2)) = (spans.first(), spans.get(1)) {
         let cmd_name = working_set.get_span_contents(span(&[*span1, *span2]));
         return UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name);
     }
 
     // try one word
-    if let Some(span1) = spans.get(0) {
+    if let Some(span1) = spans.first() {
         let cmd_name = working_set.get_span_contents(*span1);
         UNALIASABLE_PARSER_KEYWORDS.contains(&cmd_name)
     } else {
@@ -102,6 +111,16 @@ pub fn parse_keyword(
     {
         // Apply parse keyword side effects
         let cmd = working_set.get_decl(call.decl_id);
+        // check help flag first.
+        if call.named_iter().any(|(flag, _, _)| flag.item == "help") {
+            let call_span = call.span();
+            return Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: call_span,
+                ty: Type::Any,
+                custom_completion: None,
+            }]);
+        }
 
         match cmd.name() {
             "overlay hide" => parse_overlay_hide(working_set, call),
@@ -115,87 +134,115 @@ pub fn parse_keyword(
 }
 
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
-    let name = working_set.get_span_contents(spans[0]);
+    let mut pos = 0;
 
-    // handle "export def" same as "def"
-    let (name, spans) = if name == b"export" && spans.len() >= 2 {
-        (working_set.get_span_contents(spans[1]), &spans[1..])
+    let def_type_name = if spans.len() >= 3 {
+        // definition can't have only two spans, minimum is 3, e.g., 'extern spam []'
+        let first_word = working_set.get_span_contents(spans[0]);
+
+        if first_word == b"export" {
+            pos += 2;
+        } else {
+            pos += 1;
+        }
+
+        working_set.get_span_contents(spans[pos - 1]).to_vec()
     } else {
-        (name, spans)
+        return;
     };
 
-    if (name == b"def" || name == b"def-env") && spans.len() >= 4 {
-        let starting_error_count = working_set.parse_errors.len();
-        let name = working_set.get_span_contents(spans[1]);
-        let name = trim_quotes(name);
-        let name = String::from_utf8_lossy(name).to_string();
+    if def_type_name != b"def" && def_type_name != b"extern" {
+        return;
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        working_set.parse_errors.truncate(starting_error_count);
+    // Now, pos should point at the next span after the def-like call.
+    // Skip all potential flags, like --env, --wrapped or --help:
+    while pos < spans.len()
+        && working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'-'])
+    {
+        pos += 1;
+    }
 
-        let signature = sig.as_signature();
-        working_set.exit_scope();
-        if name.contains('#')
-            || name.contains('^')
-            || name.parse::<bytesize::ByteSize>().is_ok()
-            || name.parse::<f64>().is_ok()
+    if pos >= spans.len() {
+        // This can happen if the call ends with a flag, e.g., 'def --help'
+        return;
+    }
+
+    // Now, pos should point at the command name.
+    let name_pos = pos;
+
+    let Some(name) = parse_string(working_set, spans[name_pos]).as_string() else {
+        return;
+    };
+
+    if name.contains('#')
+        || name.contains('^')
+        || name.parse::<bytesize::ByteSize>().is_ok()
+        || name.parse::<f64>().is_ok()
+    {
+        working_set.error(ParseError::CommandDefNotValid(spans[name_pos]));
+        return;
+    }
+
+    // Find signature
+    let mut signature_pos = None;
+
+    while pos < spans.len() {
+        if working_set
+            .get_span_contents(spans[pos])
+            .starts_with(&[b'['])
+            || working_set
+                .get_span_contents(spans[pos])
+                .starts_with(&[b'('])
         {
-            working_set.error(ParseError::CommandDefNotValid(spans[1]));
-            return;
+            signature_pos = Some(pos);
+            break;
         }
 
-        if let Some(mut signature) = signature {
-            signature.name = name;
-            let decl = signature.predeclare();
+        pos += 1;
+    }
 
-            if working_set.add_predecl(decl).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-            }
+    let Some(signature_pos) = signature_pos else {
+        return;
+    };
+
+    let mut allow_unknown_args = false;
+
+    for span in spans {
+        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
+            allow_unknown_args = true;
         }
-    } else if name == b"extern" && spans.len() == 3 {
-        let name_expr = parse_string(working_set, spans[1]);
-        let name = name_expr.as_string();
+    }
 
-        working_set.enter_scope();
-        // FIXME: because parse_signature will update the scope with the variables it sees
-        // we end up parsing the signature twice per def. The first time is during the predecl
-        // so that we can see the types that are part of the signature, which we need for parsing.
-        // The second time is when we actually parse the body itworking_set.
-        // We can't reuse the first time because the variables that are created during parse_signature
-        // are lost when we exit the scope below.
-        let sig = parse_signature(working_set, spans[2]);
-        let signature = sig.as_signature();
-        working_set.exit_scope();
+    let starting_error_count = working_set.parse_errors.len();
 
-        if let (Some(name), Some(mut signature)) = (name, signature) {
-            if name.contains('#')
-                || name.parse::<bytesize::ByteSize>().is_ok()
-                || name.parse::<f64>().is_ok()
-            {
-                working_set.error(ParseError::CommandDefNotValid(spans[1]));
-                return;
-            }
+    working_set.enter_scope();
+    // FIXME: because parse_signature will update the scope with the variables it sees
+    // we end up parsing the signature twice per def. The first time is during the predecl
+    // so that we can see the types that are part of the signature, which we need for parsing.
+    // The second time is when we actually parse the body itworking_set.
+    // We can't reuse the first time because the variables that are created during parse_signature
+    // are lost when we exit the scope below.
+    let sig = parse_full_signature(working_set, &spans[signature_pos..]);
+    working_set.parse_errors.truncate(starting_error_count);
+    working_set.exit_scope();
 
-            signature.name = name.clone();
-            //let decl = signature.predeclare();
-            let decl = KnownExternal {
-                name,
-                usage: "run external command".into(),
-                signature,
-            };
+    let Some(mut signature) = sig.as_signature() else {
+        return;
+    };
 
-            if working_set.add_predecl(Box::new(decl)).is_some() {
-                working_set.error(ParseError::DuplicateCommandDef(spans[1]));
-                return;
-            }
-        }
+    signature.name = name;
+
+    if allow_unknown_args {
+        signature.allows_unknown_args = true;
+    }
+
+    let decl = signature.predeclare();
+
+    if working_set.add_predecl(decl).is_some() {
+        working_set.error(ParseError::DuplicateCommandDef(spans[name_pos]));
     }
 }
 
@@ -213,7 +260,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"for", &Type::Any) {
+    let (call, call_span) = match working_set.find_decl(b"for") {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: for declaration not found".into(),
@@ -268,9 +315,21 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
 
     // All positional arguments must be in the call positional vector by this point
     let var_decl = call.positional_nth(0).expect("for call already checked");
+    let iteration_expr = call.positional_nth(1).expect("for call already checked");
     let block = call.positional_nth(2).expect("for call already checked");
 
+    let iteration_expr_ty = iteration_expr.ty.clone();
+
+    // Figure out the type of the variable the `for` uses for iteration
+    let var_type = match iteration_expr_ty {
+        Type::List(x) => *x,
+        Type::Table(x) => Type::Record(x),
+        x => x,
+    };
+
     if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
+        working_set.set_variable_type(*var_id, var_type.clone());
+
         let block = working_set.get_block_mut(block_id);
 
         block.signature.required_positional.insert(
@@ -278,7 +337,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
             PositionalArg {
                 name: String::new(),
                 desc: String::new(),
-                shape: SyntaxShape::Any,
+                shape: var_type.to_shape(),
                 var_id: Some(*var_id),
                 default_value: None,
             },
@@ -288,16 +347,24 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
     Expression {
         expr: Expr::Call(call),
         span: call_span,
-        ty: Type::Any,
+        ty: Type::Nothing,
         custom_completion: None,
     }
 }
 
+/// If `name` is a keyword, emit an error.
+fn verify_not_reserved_variable_name(working_set: &mut StateWorkingSet, name: &str, span: Span) {
+    if RESERVED_VARIABLE_NAMES.contains(&name) {
+        working_set.error(ParseError::NameIsBuiltinVar(name.to_string(), span))
+    }
+}
+
+// Returns also the parsed command name and ID
 pub fn parse_def(
     working_set: &mut StateWorkingSet,
     lite_command: &LiteCommand,
     module_name: Option<&[u8]>,
-) -> Pipeline {
+) -> (Pipeline, Option<(Vec<u8>, DeclId)>) {
     let spans = &lite_command.parts[..];
 
     let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
@@ -314,28 +381,51 @@ pub fn parse_def(
         };
 
     let def_call = working_set.get_span_contents(name_span).to_vec();
-    if def_call != b"def" && def_call != b"def-env" {
+    if def_call != b"def" {
         working_set.error(ParseError::UnknownState(
             "internal error: Wrong call name for def function".into(),
             span(spans),
         ));
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     }
 
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&def_call, &Type::Any) {
+    let (call, call_span) = match working_set.find_decl(&def_call) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
                 span(spans),
             ));
-            return garbage_pipeline(spans);
+            return (garbage_pipeline(spans), None);
         }
         Some(decl_id) => {
             working_set.enter_scope();
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            // Find the first span that is not a flag
+            let mut decl_name_span = None;
+
+            for span in rest_spans {
+                if !working_set.get_span_contents(*span).starts_with(&[b'-']) {
+                    decl_name_span = Some(*span);
+                    break;
+                }
+            }
+
+            if let Some(name_span) = decl_name_span {
+                // Check whether name contains [] or () -- possible missing space error
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    name_span,
+                    String::from_utf8_lossy(&def_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return (garbage_pipeline(spans), None);
+                }
+            }
+
             let starting_error_count = working_set.parse_errors.len();
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -358,11 +448,14 @@ pub fn parse_def(
                         ..
                     }
                     | Expression {
+                        expr: Expr::Closure(block_id),
+                        ..
+                    }
+                    | Expression {
                         expr: Expr::RowCondition(block_id),
                         ..
                     } => {
                         let block = working_set.get_block_mut(*block_id);
-
                         block.signature = Box::new(sig.clone());
                     }
                     _ => {}
@@ -373,17 +466,23 @@ pub fn parse_def(
             check_call(working_set, call_span, &sig, &call);
             working_set.parse_errors.append(&mut new_errors);
             if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
-                return Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: output,
-                    custom_completion: None,
-                }]);
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
             }
 
             (call, call_span)
         }
     };
+
+    let has_env = call.has_flag("env");
+    let has_wrapped = call.has_flag("wrapped");
 
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
@@ -398,14 +497,18 @@ pub fn parse_def(
                 working_set.error(ParseError::NamedAsModule(
                     "command".to_string(),
                     name,
+                    "main".to_string(),
                     name_expr_span,
                 ));
-                return Pipeline::from_vec(vec![Expression {
-                    expr: Expr::Call(call),
-                    span: call_span,
-                    ty: Type::Any,
-                    custom_completion: None,
-                }]);
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
             }
         }
 
@@ -415,10 +518,64 @@ pub fn parse_def(
             "Could not get string from string expression".into(),
             name_expr.span,
         ));
-        return garbage_pipeline(spans);
+        return (garbage_pipeline(spans), None);
     };
 
+    let mut result = None;
+
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
+        for arg_name in &signature.required_positional {
+            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
+        }
+        for arg_name in &signature.optional_positional {
+            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
+        }
+        for arg_name in &signature.rest_positional {
+            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
+        }
+        for flag_name in &signature.get_names() {
+            verify_not_reserved_variable_name(working_set, flag_name, sig.span);
+        }
+
+        if has_wrapped {
+            if let Some(rest) = &signature.rest_positional {
+                if let Some(var_id) = rest.var_id {
+                    let rest_var = &working_set.get_variable(var_id);
+
+                    if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String))
+                    {
+                        working_set.error(ParseError::TypeMismatchHelp(
+                            Type::List(Box::new(Type::String)),
+                            rest_var.ty.clone(),
+                            rest_var.declaration_span,
+                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            result,
+                        );
+                    }
+                }
+            } else {
+                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]),
+                    result,
+                );
+            }
+        }
+
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             let declaration = working_set.get_decl_mut(decl_id);
 
@@ -426,47 +583,32 @@ pub fn parse_def(
             *signature = signature.add_help();
             signature.usage = usage;
             signature.extra_usage = extra_usage;
+            signature.allows_unknown_args = has_wrapped;
 
             *declaration = signature.clone().into_block_command(block_id);
 
-            let mut block = working_set.get_block_mut(block_id);
-            let calls_itself = block.pipelines.iter().any(|pipeline| {
-                pipeline
-                    .elements
-                    .iter()
-                    .any(|pipe_element| match pipe_element {
-                        PipelineElement::Expression(
-                            _,
-                            Expression {
-                                expr: Expr::Call(call_expr),
-                                ..
-                            },
-                        ) => {
-                            if call_expr.decl_id == decl_id {
-                                return true;
-                            }
-                            call_expr.arguments.iter().any(|arg| match arg {
-                                Argument::Positional(Expression { expr, .. }) => match expr {
-                                    Expr::Keyword(.., expr) => {
-                                        let expr = expr.as_ref();
-                                        let Expression { expr, .. } = expr;
-                                        match expr {
-                                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                            _ => false,
-                                        }
-                                    }
-                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
-                                    _ => false,
-                                },
-                                _ => false,
-                            })
-                        }
-                        _ => false,
-                    })
-            });
+            let block = working_set.get_block_mut(block_id);
+            let calls_itself = block_calls_itself(block, decl_id);
             block.recursive = Some(calls_itself);
             block.signature = signature;
-            block.redirect_env = def_call == b"def-env";
+            block.redirect_env = has_env;
+
+            if block.signature.input_output_types.is_empty() {
+                block
+                    .signature
+                    .input_output_types
+                    .push((Type::Any, Type::Any));
+            }
+
+            let block = working_set.get_block(block_id);
+
+            let typecheck_errors = check_block_input_output(working_set, block);
+
+            working_set
+                .parse_errors
+                .extend_from_slice(&typecheck_errors);
+
+            result = Some((name.as_bytes().to_vec(), decl_id));
         } else {
             working_set.error(ParseError::InternalError(
                 "Predeclaration failed to add declaration".into(),
@@ -478,12 +620,15 @@ pub fn parse_def(
     // It's OK if it returns None: The decl was already merged in previous parse pass.
     working_set.merge_predecl(name.as_bytes());
 
-    Pipeline::from_vec(vec![Expression {
-        expr: Expr::Call(call),
-        span: call_span,
-        ty: Type::Any,
-        custom_completion: None,
-    }])
+    (
+        Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: call_span,
+            ty: Type::Any,
+            custom_completion: None,
+        }]),
+        result,
+    )
 }
 
 pub fn parse_extern(
@@ -499,7 +644,7 @@ pub fn parse_extern(
     // Maybe this is not necessary but it is a sanity check
 
     let (name_span, split_id) =
-        if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+        if spans.len() > 1 && (working_set.get_span_contents(spans[0]) == b"export") {
             (spans[1], 2)
         } else {
             (spans[0], 1)
@@ -508,7 +653,7 @@ pub fn parse_extern(
     let extern_call = working_set.get_span_contents(name_span).to_vec();
     if extern_call != b"extern" {
         working_set.error(ParseError::UnknownState(
-            "internal error: Wrong call name for extern function".into(),
+            "internal error: Wrong call name for extern command".into(),
             span(spans),
         ));
         return garbage_pipeline(spans);
@@ -517,7 +662,7 @@ pub fn parse_extern(
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(&extern_call, &Type::Any) {
+    let (call, call_span) = match working_set.find_decl(&extern_call) {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: def declaration not found".into(),
@@ -529,6 +674,17 @@ pub fn parse_extern(
             working_set.enter_scope();
 
             let (command_spans, rest_spans) = spans.split_at(split_id);
+
+            if let Some(name_span) = rest_spans.first() {
+                if let Some(err) = detect_params_in_name(
+                    working_set,
+                    *name_span,
+                    String::from_utf8_lossy(&extern_call).as_ref(),
+                ) {
+                    working_set.error(err);
+                    return garbage_pipeline(spans);
+                }
+            }
 
             let ParsedInternalCall { call, .. } =
                 parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
@@ -543,6 +699,7 @@ pub fn parse_extern(
     };
     let name_expr = call.positional_nth(0);
     let sig = call.positional_nth(1);
+    let body = call.positional_nth(2);
 
     if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
@@ -552,6 +709,7 @@ pub fn parse_extern(
                     working_set.error(ParseError::NamedAsModule(
                         "known external".to_string(),
                         name.clone(),
+                        "main".to_string(),
                         name_expr_span,
                     ));
                     return Pipeline::from_vec(vec![Expression {
@@ -581,13 +739,30 @@ pub fn parse_extern(
                 signature.extra_usage = extra_usage.clone();
                 signature.allows_unknown_args = true;
 
-                let decl = KnownExternal {
-                    name: external_name,
-                    usage: [usage, extra_usage].join("\n"),
-                    signature,
-                };
+                if let Some(block_id) = body.and_then(|x| x.as_block()) {
+                    if signature.rest_positional.is_none() {
+                        working_set.error(ParseError::InternalError(
+                            "Extern block must have a rest positional argument".into(),
+                            name_expr.span,
+                        ));
+                    } else {
+                        *declaration = signature.clone().into_block_command(block_id);
 
-                *declaration = Box::new(decl);
+                        let block = working_set.get_block_mut(block_id);
+                        let calls_itself = block_calls_itself(block, decl_id);
+                        block.recursive = Some(calls_itself);
+                        block.signature = signature;
+                    }
+                } else {
+                    let decl = KnownExternal {
+                        name: external_name,
+                        usage,
+                        extra_usage,
+                        signature,
+                    };
+
+                    *declaration = Box::new(decl);
+                }
             } else {
                 working_set.error(ParseError::InternalError(
                     "Predeclaration failed to add declaration".into(),
@@ -612,6 +787,43 @@ pub fn parse_extern(
         ty: Type::Any,
         custom_completion: None,
     }])
+}
+
+fn block_calls_itself(block: &Block, decl_id: usize) -> bool {
+    block.pipelines.iter().any(|pipeline| {
+        pipeline
+            .elements
+            .iter()
+            .any(|pipe_element| match pipe_element {
+                PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(call_expr),
+                        ..
+                    },
+                ) => {
+                    if call_expr.decl_id == decl_id {
+                        return true;
+                    }
+                    call_expr.arguments.iter().any(|arg| match arg {
+                        Argument::Positional(Expression { expr, .. }) => match expr {
+                            Expr::Keyword(.., expr) => {
+                                let expr = expr.as_ref();
+                                let Expression { expr, .. } = expr;
+                                match expr {
+                                    Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                                    _ => false,
+                                }
+                            }
+                            Expr::Call(call_expr2) => call_expr2.decl_id == decl_id,
+                            _ => false,
+                        },
+                        _ => false,
+                    })
+                }
+                _ => false,
+            })
+    })
 }
 
 pub fn parse_alias(
@@ -642,7 +854,7 @@ pub fn parse_alias(
         return Pipeline::from_vec(vec![garbage(*span)]);
     }
 
-    if let Some(decl_id) = working_set.find_decl(b"alias", &Type::Any) {
+    if let Some(decl_id) = working_set.find_decl(b"alias") {
         let (command_spans, rest_spans) = spans.split_at(split_id);
 
         let original_starting_error_count = working_set.parse_errors.len();
@@ -652,6 +864,7 @@ pub fn parse_alias(
             output,
             ..
         } = parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+
         working_set
             .parse_errors
             .truncate(original_starting_error_count);
@@ -699,6 +912,7 @@ pub fn parse_alias(
                     working_set.error(ParseError::NamedAsModule(
                         "alias".to_string(),
                         alias_name,
+                        "main".to_string(),
                         spans[split_id],
                     ));
 
@@ -736,12 +950,16 @@ pub fn parse_alias(
             }
 
             let starting_error_count = working_set.parse_errors.len();
+            working_set.search_predecls = false;
+
             let expr = parse_call(
                 working_set,
                 replacement_spans,
                 replacement_spans[0],
                 false, // TODO: Should this be set properly???
             );
+
+            working_set.search_predecls = true;
 
             if starting_error_count != working_set.parse_errors.len() {
                 if let Some(e) = working_set.parse_errors.get(starting_error_count) {
@@ -792,16 +1010,60 @@ pub fn parse_alias(
                 }
             };
 
+            // Tries to build a useful usage string
+            let (usage, extra_usage) = match lite_command.comments.is_empty() {
+                // First from comments, if any are present
+                false => working_set.build_usage(&lite_command.comments),
+                // Then from the command itself
+                true => match alias_call.arguments.get(1) {
+                    Some(Argument::Positional(Expression {
+                        expr: Expr::Keyword(.., expr),
+                        ..
+                    })) => {
+                        let aliased = working_set.get_span_contents(expr.span);
+                        (
+                            format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
+                            String::new(),
+                        )
+                    }
+                    // Then with a default.
+                    _ => ("User declared alias".into(), String::new()),
+                },
+            };
+
             let decl = Alias {
                 name: alias_name,
                 command,
                 wrapped_call,
+                usage,
+                extra_usage,
             };
 
             working_set.add_decl(Box::new(decl));
         }
 
-        if spans.len() < 4 {
+        // special case for `alias foo=bar`
+        if spans.len() == 2 && working_set.get_span_contents(spans[1]).contains(&b'=') {
+            let arg = String::from_utf8_lossy(working_set.get_span_contents(spans[1]));
+
+            // split at '='.  Note that the output must never be None, the
+            // `unwrap` is just to avoid the possibility of panic, if the
+            // invariant is broken.
+            let (name, initial_value) = arg.split_once('=').unwrap_or((&arg, ""));
+
+            let name = if name.is_empty() { "{name}" } else { name };
+            let initial_value = if initial_value.is_empty() {
+                "{initial_value}"
+            } else {
+                initial_value
+            };
+
+            working_set.error(ParseError::IncorrectValue(
+                "alias argument".into(),
+                spans[1],
+                format!("Make sure to put spaces around '=': alias {name} = {initial_value}"),
+            ))
+        } else if spans.len() < 4 {
             working_set.error(ParseError::IncorrectValue(
                 "Incomplete alias".into(),
                 span(&spans[..split_id]),
@@ -830,14 +1092,16 @@ pub fn parse_export_in_block(
     let full_name = if lite_command.parts.len() > 1 {
         let sub = working_set.get_span_contents(lite_command.parts[1]);
         match sub {
-            b"alias" | b"def" | b"def-env" | b"extern" | b"use" => [b"export ", sub].concat(),
+            b"alias" | b"def" | b"extern" | b"use" | b"module" | b"const" => {
+                [b"export ", sub].concat()
+            }
             _ => b"export".to_vec(),
         }
     } else {
         b"export".to_vec()
     };
 
-    if let Some(decl_id) = working_set.find_decl(&full_name, &Type::Any) {
+    if let Some(decl_id) = working_set.find_decl(&full_name) {
         let ParsedInternalCall { call, output, .. } = parse_internal_call(
             working_set,
             if full_name == b"export" {
@@ -887,11 +1151,13 @@ pub fn parse_export_in_block(
 
     match full_name.as_slice() {
         b"export alias" => parse_alias(working_set, lite_command, None),
-        b"export def" | b"export def-env" => parse_def(working_set, lite_command, None),
+        b"export def" => parse_def(working_set, lite_command, None).0,
+        b"export const" => parse_const(working_set, &lite_command.parts[1..]),
         b"export use" => {
             let (pipeline, _) = parse_use(working_set, &lite_command.parts);
             pipeline
         }
+        b"export module" => parse_module(working_set, lite_command, None).0,
         b"export extern" => parse_extern(working_set, lite_command, None),
         _ => {
             working_set.error(ParseError::UnexpectedKeyword(
@@ -912,7 +1178,7 @@ pub fn parse_export_in_module(
 ) -> (Pipeline, Vec<Exportable>) {
     let spans = &lite_command.parts[..];
 
-    let export_span = if let Some(sp) = spans.get(0) {
+    let export_span = if let Some(sp) = spans.first() {
         if working_set.get_span_contents(*sp) != b"export" {
             working_set.error(ParseError::UnknownState(
                 "expected export statement".into(),
@@ -930,7 +1196,9 @@ pub fn parse_export_in_module(
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let Some(export_decl_id) = working_set.find_decl(b"export", &Type::Any) else {
+    let export_decl_id = if let Some(id) = working_set.find_decl(b"export") {
+        id
+    } else {
         working_set.error(ParseError::InternalError(
             "missing export command".into(),
             export_span,
@@ -955,117 +1223,47 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
-                let pipeline = parse_def(working_set, &lite_command, Some(module_name));
-
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export def", &Type::Any) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export def' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
-
-                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.get(0)
-                {
-                    call = def_call.clone();
-
-                    call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
-                    ));
-                };
+                let (pipeline, cmd_result) =
+                    parse_def(working_set, &lite_command, Some(module_name));
 
                 let mut result = vec![];
 
-                if let Some(decl_name_span) = spans.get(2) {
-                    let decl_name = working_set.get_span_contents(*decl_name_span);
-                    let decl_name = trim_quotes(decl_name);
-
-                    if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
-                        result.push(Exportable::Decl {
-                            name: decl_name.to_vec(),
-                            id: decl_id,
-                        });
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "failed to find added declaration".into(),
-                            span(&spans[1..]),
-                        ));
-                    }
-                }
-
-                result
-            }
-            b"def-env" => {
-                let lite_command = LiteCommand {
-                    comments: lite_command.comments.clone(),
-                    parts: spans[1..].to_vec(),
-                };
-                let pipeline = parse_def(working_set, &lite_command, Some(module_name));
-
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export def-env", &Type::Any) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export def-env' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
-
-                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
-                if let Some(PipelineElement::Expression(
-                    _,
-                    Expression {
-                        expr: Expr::Call(ref def_call),
-                        ..
-                    },
-                )) = pipeline.elements.get(0)
-                {
-                    call = def_call.clone();
-
-                    call.head = span(&spans[0..=1]);
-                    call.decl_id = export_def_decl_id;
-                } else {
-                    working_set.error(ParseError::InternalError(
-                        "unexpected output from parsing a definition".into(),
-                        span(&spans[1..]),
-                    ));
-                };
-
-                let mut result = vec![];
-
-                let decl_name = match spans.get(2) {
-                    Some(span) => working_set.get_span_contents(*span),
-                    None => &[],
-                };
-                let decl_name = trim_quotes(decl_name);
-
-                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                if let Some((decl_name, decl_id)) = cmd_result {
                     result.push(Exportable::Decl {
                         name: decl_name.to_vec(),
                         id: decl_id,
                     });
+                }
+
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(b"export def") {
+                    id
                 } else {
                     working_set.error(ParseError::InternalError(
-                        "failed to find added declaration".into(),
+                        "missing 'export def' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
+
+                // Trying to warp the 'def' call into the 'export def' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.first()
+                {
+                    call = def_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_def_decl_id;
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
                         span(&spans[1..]),
                     ));
-                }
+                };
 
                 result
             }
@@ -1074,18 +1272,19 @@ pub fn parse_export_in_module(
                     comments: lite_command.comments.clone(),
                     parts: spans[1..].to_vec(),
                 };
+                let extern_name = [b"export ", kw_name].concat();
+
                 let pipeline = parse_extern(working_set, &lite_command, Some(module_name));
 
-                let export_def_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export extern", &Type::Any) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export extern' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_def_decl_id = if let Some(id) = working_set.find_decl(&extern_name) {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export extern' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'def' call into the 'export def' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1094,7 +1293,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref def_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = def_call.clone();
 
@@ -1115,7 +1314,7 @@ pub fn parse_export_in_module(
                 };
                 let decl_name = trim_quotes(decl_name);
 
-                if let Some(decl_id) = working_set.find_decl(decl_name, &Type::Any) {
+                if let Some(decl_id) = working_set.find_decl(decl_name) {
                     result.push(Exportable::Decl {
                         name: decl_name.to_vec(),
                         id: decl_id,
@@ -1136,16 +1335,16 @@ pub fn parse_export_in_module(
                 };
                 let pipeline = parse_alias(working_set, &lite_command, Some(module_name));
 
-                let export_alias_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export alias", &Type::Any) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export alias' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_alias_decl_id = if let Some(id) = working_set.find_decl(b"export alias")
+                {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export alias' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'alias' call into the 'export alias' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1154,7 +1353,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref alias_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = alias_call.clone();
 
@@ -1175,7 +1374,7 @@ pub fn parse_export_in_module(
                 };
                 let alias_name = trim_quotes(alias_name);
 
-                if let Some(alias_id) = working_set.find_decl(alias_name, &Type::Any) {
+                if let Some(alias_id) = working_set.find_decl(alias_name) {
                     result.push(Exportable::Decl {
                         name: alias_name.to_vec(),
                         id: alias_id,
@@ -1196,16 +1395,15 @@ pub fn parse_export_in_module(
                 };
                 let (pipeline, exportables) = parse_use(working_set, &lite_command.parts);
 
-                let export_use_decl_id =
-                    if let Some(id) = working_set.find_decl(b"export use", &Type::Any) {
-                        id
-                    } else {
-                        working_set.error(ParseError::InternalError(
-                            "missing 'export use' command".into(),
-                            export_span,
-                        ));
-                        return (garbage_pipeline(spans), vec![]);
-                    };
+                let export_use_decl_id = if let Some(id) = working_set.find_decl(b"export use") {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export use' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
 
                 // Trying to warp the 'use' call into the 'export use' in a very clumsy way
                 if let Some(PipelineElement::Expression(
@@ -1214,7 +1412,7 @@ pub fn parse_export_in_module(
                         expr: Expr::Call(ref use_call),
                         ..
                     },
-                )) = pipeline.elements.get(0)
+                )) = pipeline.elements.first()
                 {
                     call = use_call.clone();
 
@@ -1229,10 +1427,126 @@ pub fn parse_export_in_module(
 
                 exportables
             }
+            b"module" => {
+                let (pipeline, maybe_module_id) =
+                    parse_module(working_set, lite_command, Some(module_name));
+
+                let export_module_decl_id =
+                    if let Some(id) = working_set.find_decl(b"export module") {
+                        id
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            "missing 'export module' command".into(),
+                            export_span,
+                        ));
+                        return (garbage_pipeline(spans), vec![]);
+                    };
+
+                // Trying to warp the 'module' call into the 'export module' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref module_call),
+                        ..
+                    },
+                )) = pipeline.elements.first()
+                {
+                    call = module_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_module_decl_id;
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
+                        span(&spans[1..]),
+                    ));
+                };
+
+                let mut result = vec![];
+
+                if let Some(module_name_span) = spans.get(2) {
+                    let module_name = working_set.get_span_contents(*module_name_span);
+                    let module_name = trim_quotes(module_name);
+
+                    if let Some(module_id) = maybe_module_id {
+                        result.push(Exportable::Module {
+                            name: working_set.get_module(module_id).name(),
+                            id: module_id,
+                        });
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            format!(
+                                "failed to find added module '{}'",
+                                String::from_utf8_lossy(module_name)
+                            ),
+                            span(&spans[1..]),
+                        ));
+                    }
+                }
+
+                result
+            }
+            b"const" => {
+                let pipeline = parse_const(working_set, &spans[1..]);
+                let export_const_decl_id = if let Some(id) = working_set.find_decl(b"export const")
+                {
+                    id
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "missing 'export const' command".into(),
+                        export_span,
+                    ));
+                    return (garbage_pipeline(spans), vec![]);
+                };
+
+                // Trying to warp the 'const' call into the 'export const' in a very clumsy way
+                if let Some(PipelineElement::Expression(
+                    _,
+                    Expression {
+                        expr: Expr::Call(ref def_call),
+                        ..
+                    },
+                )) = pipeline.elements.first()
+                {
+                    call = def_call.clone();
+
+                    call.head = span(&spans[0..=1]);
+                    call.decl_id = export_const_decl_id;
+                } else {
+                    working_set.error(ParseError::InternalError(
+                        "unexpected output from parsing a definition".into(),
+                        span(&spans[1..]),
+                    ));
+                };
+
+                let mut result = vec![];
+
+                if let Some(var_name_span) = spans.get(2) {
+                    let var_name = working_set.get_span_contents(*var_name_span);
+                    let var_name = trim_quotes(var_name);
+
+                    if let Some(var_id) = working_set.find_variable(var_name) {
+                        if let Err(err) = working_set.get_constant(var_id) {
+                            working_set.error(err);
+                        } else {
+                            result.push(Exportable::VarDecl {
+                                name: var_name.to_vec(),
+                                id: var_id,
+                            });
+                        }
+                    } else {
+                        working_set.error(ParseError::InternalError(
+                            "failed to find added variable".into(),
+                            span(&spans[1..]),
+                        ));
+                    }
+                }
+
+                result
+            }
             _ => {
                 working_set.error(ParseError::Expected(
-                    // TODO: Fill in more keywords as they come
-                    "def, def-env, alias, use, or extern keyword".into(),
+                    "def, alias, use, module, const or extern keyword",
                     spans[1],
                 ));
 
@@ -1241,9 +1555,9 @@ pub fn parse_export_in_module(
         }
     } else {
         working_set.error(ParseError::MissingPositional(
-            "def, def-env, alias, use, or extern keyword".into(), // TODO: keep filling more keywords as they come
+            "def, alias, use, module, const or extern keyword".to_string(),
             Span::new(export_span.end, export_span.end),
-            "`def`, `def-env`, `alias`, use, or `extern` keyword.".to_string(),
+            "def, alias, use, module, const or extern keyword".to_string(),
         ));
 
         vec![]
@@ -1281,7 +1595,7 @@ pub fn parse_export_env(
         return (garbage_pipeline(spans), None);
     }
 
-    let call = match working_set.find_decl(b"export-env", &Type::Any) {
+    let call = match working_set.find_decl(b"export-env") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &[spans[1]], decl_id);
@@ -1412,13 +1726,19 @@ pub fn parse_module_block(
                     let name = working_set.get_span_contents(command.parts[0]);
 
                     match name {
-                        b"def" | b"def-env" => {
-                            block.pipelines.push(parse_def(
-                                working_set,
-                                command,
-                                None, // using commands named as the module locally is OK
-                            ))
+                        b"def" => {
+                            block.pipelines.push(
+                                parse_def(
+                                    working_set,
+                                    command,
+                                    None, // using commands named as the module locally is OK
+                                )
+                                .0,
+                            )
                         }
+                        b"const" => block
+                            .pipelines
+                            .push(parse_const(working_set, &command.parts)),
                         b"extern" => block
                             .pipelines
                             .push(parse_extern(working_set, command, None)),
@@ -1434,6 +1754,15 @@ pub fn parse_module_block(
 
                             block.pipelines.push(pipeline)
                         }
+                        b"module" => {
+                            let (pipeline, _) = parse_module(
+                                working_set,
+                                command,
+                                None, // using modules named as the module locally is OK
+                            );
+
+                            block.pipelines.push(pipeline)
+                        }
                         b"export" => {
                             let (pipe, exportables) =
                                 parse_export_in_module(working_set, command, module_name);
@@ -1442,10 +1771,98 @@ pub fn parse_module_block(
                                 match exportable {
                                     Exportable::Decl { name, id } => {
                                         if &name == b"main" {
-                                            module.main = Some(id);
+                                            if module.main.is_some() {
+                                                let err_span = if !pipe.elements.is_empty() {
+                                                    if let PipelineElement::Expression(
+                                                        _,
+                                                        Expression {
+                                                            expr: Expr::Call(call),
+                                                            ..
+                                                        },
+                                                    ) = &pipe.elements[0]
+                                                    {
+                                                        call.head
+                                                    } else {
+                                                        pipe.elements[0].span()
+                                                    }
+                                                } else {
+                                                    span
+                                                };
+                                                working_set.error(ParseError::ModuleDoubleMain(
+                                                    String::from_utf8_lossy(module_name)
+                                                        .to_string(),
+                                                    err_span,
+                                                ));
+                                            } else {
+                                                module.main = Some(id);
+                                            }
                                         } else {
                                             module.add_decl(name, id);
                                         }
+                                    }
+                                    Exportable::Module { name, id } => {
+                                        if &name == b"mod" {
+                                            let (
+                                                submodule_main,
+                                                submodule_decls,
+                                                submodule_submodules,
+                                            ) = {
+                                                let submodule = working_set.get_module(id);
+                                                (
+                                                    submodule.main,
+                                                    submodule.decls(),
+                                                    submodule.submodules(),
+                                                )
+                                            };
+
+                                            // Add submodule's decls to the parent module
+                                            for (decl_name, decl_id) in submodule_decls {
+                                                module.add_decl(decl_name, decl_id);
+                                            }
+
+                                            // Add submodule's main command to the parent module
+                                            if let Some(main_decl_id) = submodule_main {
+                                                if module.main.is_some() {
+                                                    let err_span = if !pipe.elements.is_empty() {
+                                                        if let PipelineElement::Expression(
+                                                            _,
+                                                            Expression {
+                                                                expr: Expr::Call(call),
+                                                                ..
+                                                            },
+                                                        ) = &pipe.elements[0]
+                                                        {
+                                                            call.head
+                                                        } else {
+                                                            pipe.elements[0].span()
+                                                        }
+                                                    } else {
+                                                        span
+                                                    };
+                                                    working_set.error(
+                                                        ParseError::ModuleDoubleMain(
+                                                            String::from_utf8_lossy(module_name)
+                                                                .to_string(),
+                                                            err_span,
+                                                        ),
+                                                    );
+                                                } else {
+                                                    module.main = Some(main_decl_id);
+                                                }
+                                            }
+
+                                            // Add submodule's submodules to the parent module
+                                            for (submodule_name, submodule_id) in
+                                                submodule_submodules
+                                            {
+                                                module.add_submodule(submodule_name, submodule_id);
+                                            }
+                                        } else {
+                                            module.add_submodule(name, id);
+                                        }
+                                    }
+                                    Exportable::VarDecl { name, id } => {
+                                        module.add_variable(name, id);
                                     }
                                 }
                             }
@@ -1464,7 +1881,7 @@ pub fn parse_module_block(
                         }
                         _ => {
                             working_set.error(ParseError::ExpectedKeyword(
-                                "def or export keyword".into(),
+                                "def, const, extern, alias, use, module, export or export-env keyword".into(),
                                 command.parts[0],
                             ));
 
@@ -1472,15 +1889,19 @@ pub fn parse_module_block(
                         }
                     }
                 }
-                LiteElement::Redirection(_, _, command) => {
+                LiteElement::Redirection(_, _, command, _) => {
                     block.pipelines.push(garbage_pipeline(&command.parts))
                 }
                 LiteElement::SeparateRedirection {
-                    out: (_, command), ..
+                    out: (_, command, _),
+                    ..
+                } => block.pipelines.push(garbage_pipeline(&command.parts)),
+                LiteElement::SameTargetRedirection {
+                    cmd: (_, command), ..
                 } => block.pipelines.push(garbage_pipeline(&command.parts)),
             }
         } else {
-            working_set.error(ParseError::Expected("not a pipeline".into(), span));
+            working_set.error(ParseError::Expected("not a pipeline", span));
             block.pipelines.push(garbage_pipeline(&[span]))
         }
     }
@@ -1490,87 +1911,380 @@ pub fn parse_module_block(
     (block, module, module_comments)
 }
 
-pub fn parse_module(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+fn parse_module_file(
+    working_set: &mut StateWorkingSet,
+    path: ParserPath,
+    path_span: Span,
+    name_override: Option<String>,
+) -> Option<ModuleId> {
+    if let Some(i) = working_set
+        .parsed_module_files
+        .iter()
+        .rposition(|p| p == path.path())
+    {
+        let mut files: Vec<String> = working_set
+            .parsed_module_files
+            .split_off(i)
+            .iter()
+            .map(|p| p.to_string_lossy().to_string())
+            .collect();
+
+        files.push(path.path().to_string_lossy().to_string());
+
+        let msg = files.join("\nuses ");
+
+        working_set.error(ParseError::CyclicalModuleImport(msg, path_span));
+        return None;
+    }
+
+    let module_name = if let Some(name) = name_override {
+        name
+    } else if let Some(stem) = path.file_stem() {
+        stem.to_string_lossy().to_string()
+    } else {
+        working_set.error(ParseError::ModuleNotFound(path_span));
+        return None;
+    };
+
+    let contents = if let Some(contents) = path.read(working_set) {
+        contents
+    } else {
+        working_set.error(ParseError::ModuleNotFound(path_span));
+        return None;
+    };
+
+    let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
+    let new_span = working_set.get_span_for_file(file_id);
+
+    if let Some(module_id) = working_set.find_module_by_span(new_span) {
+        return Some(module_id);
+    }
+
+    // Change the currently parsed directory
+    let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
+        working_set.currently_parsed_cwd.replace(parent.into())
+    } else {
+        working_set.currently_parsed_cwd.clone()
+    };
+
+    // Add the file to the stack of parsed module files
+    working_set.parsed_module_files.push(path.path_buf());
+
+    // Parse the module
+    let (block, module, module_comments) =
+        parse_module_block(working_set, new_span, module_name.as_bytes());
+
+    // Remove the file from the stack of parsed module files
+    working_set.parsed_module_files.pop();
+
+    // Restore the currently parsed directory back
+    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
+
+    let _ = working_set.add_block(block);
+    let module_id = working_set.add_module(&module_name, module, module_comments);
+
+    Some(module_id)
+}
+
+pub fn parse_module_file_or_dir(
+    working_set: &mut StateWorkingSet,
+    path: &[u8],
+    path_span: Span,
+    name_override: Option<String>,
+) -> Option<ModuleId> {
+    let (module_path_str, err) = unescape_unquote_string(path, path_span);
+    if let Some(err) = err {
+        working_set.error(err);
+        return None;
+    }
+
+    let cwd = working_set.get_cwd();
+
+    let module_path =
+        if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, LIB_DIRS_VAR) {
+            path
+        } else {
+            working_set.error(ParseError::ModuleNotFound(path_span));
+            return None;
+        };
+
+    if module_path.is_dir() {
+        let Some(dir_contents) = module_path.read_dir() else {
+            working_set.error(ParseError::ModuleNotFound(path_span));
+            return None;
+        };
+
+        let module_name = if let Some(stem) = module_path.file_stem() {
+            stem.to_string_lossy().to_string()
+        } else {
+            working_set.error(ParseError::ModuleNotFound(path_span));
+            return None;
+        };
+
+        let mod_nu_path = module_path.clone().join("mod.nu");
+
+        if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
+            working_set.error(ParseError::ModuleMissingModNuFile(
+                module_path.path().to_string_lossy().to_string(),
+                path_span,
+            ));
+            return None;
+        }
+
+        let mut paths = vec![];
+
+        for entry_path in dir_contents {
+            if (entry_path.is_file()
+                && entry_path.extension() == Some(OsStr::new("nu"))
+                && entry_path.file_stem() != Some(OsStr::new("mod")))
+                || (entry_path.is_dir() && entry_path.clone().join("mod.nu").exists())
+            {
+                if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
+                    working_set.error(ParseError::InvalidModuleFileName(
+                        module_path.path().to_string_lossy().to_string(),
+                        module_name,
+                        path_span,
+                    ));
+                    return None;
+                }
+
+                paths.push(entry_path);
+            }
+        }
+
+        paths.sort();
+
+        let mut submodules = vec![];
+
+        for p in paths {
+            if let Some(submodule_id) = parse_module_file_or_dir(
+                working_set,
+                p.path().to_string_lossy().as_bytes(),
+                path_span,
+                None,
+            ) {
+                let submodule_name = working_set.get_module(submodule_id).name();
+                submodules.push((submodule_name, submodule_id));
+            }
+        }
+
+        if let Some(module_id) = parse_module_file(
+            working_set,
+            mod_nu_path,
+            path_span,
+            name_override.or(Some(module_name)),
+        ) {
+            let mut module = working_set.get_module(module_id).clone();
+
+            for (submodule_name, submodule_id) in submodules {
+                module.add_submodule(submodule_name, submodule_id);
+            }
+
+            let module_name = String::from_utf8_lossy(&module.name).to_string();
+
+            let module_comments = if let Some(comments) = working_set.get_module_comments(module_id)
+            {
+                comments.to_vec()
+            } else {
+                vec![]
+            };
+
+            let new_module_id = working_set.add_module(&module_name, module, module_comments);
+
+            Some(new_module_id)
+        } else {
+            None
+        }
+    } else if module_path.is_file() {
+        parse_module_file(working_set, module_path, path_span, name_override)
+    } else {
+        working_set.error(ParseError::ModuleNotFound(path_span));
+        None
+    }
+}
+
+pub fn parse_module(
+    working_set: &mut StateWorkingSet,
+    lite_command: &LiteCommand,
+    module_name: Option<&[u8]>,
+) -> (Pipeline, Option<ModuleId>) {
     // TODO: Currently, module is closing over its parent scope (i.e., defs in the parent scope are
     // visible and usable in this module's scope). We want to disable that for files.
 
     let spans = &lite_command.parts;
     let mut module_comments = lite_command.comments.clone();
 
-    let bytes = working_set.get_span_contents(spans[0]);
+    let split_id = if spans.len() > 1 && working_set.get_span_contents(spans[0]) == b"export" {
+        2
+    } else {
+        1
+    };
 
-    if bytes == b"module" && spans.len() >= 3 {
-        let module_name_expr = parse_string(working_set, spans[1]);
+    let (call, call_span) = match working_set.find_decl(b"module") {
+        Some(decl_id) => {
+            let (command_spans, rest_spans) = spans.split_at(split_id);
 
-        let module_name = module_name_expr
-            .as_string()
-            .expect("internal error: module name is not a string");
+            let ParsedInternalCall { call, output } =
+                parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+            let decl = working_set.get_decl(decl_id);
 
-        let block_span = spans[2];
-        let block_bytes = working_set.get_span_contents(block_span);
-        let mut start = block_span.start;
-        let mut end = block_span.end;
+            let call_span = span(spans);
 
-        if block_bytes.starts_with(b"{") {
-            start += 1;
-        } else {
-            working_set.error(ParseError::Expected("block".into(), block_span));
-            return garbage_pipeline(spans);
+            let starting_error_count = working_set.parse_errors.len();
+            check_call(working_set, call_span, &decl.signature(), &call);
+            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+                return (
+                    Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: call_span,
+                        ty: output,
+                        custom_completion: None,
+                    }]),
+                    None,
+                );
+            }
+
+            (call, call_span)
         }
-
-        if block_bytes.ends_with(b"}") {
-            end -= 1;
-        } else {
-            working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        None => {
+            working_set.error(ParseError::UnknownState(
+                "internal error: 'module' or 'export module' declaration not found".into(),
+                span(spans),
+            ));
+            return (garbage_pipeline(spans), None);
         }
+    };
 
-        let block_span = Span::new(start, end);
-
-        let (block, module, inner_comments) =
-            parse_module_block(working_set, block_span, module_name.as_bytes());
-
-        let block_id = working_set.add_block(block);
-
-        module_comments.extend(inner_comments);
-        let _ = working_set.add_module(&module_name, module, module_comments);
-
-        let block_expr = Expression {
-            expr: Expr::Block(block_id),
-            span: block_span,
-            ty: Type::Block,
-            custom_completion: None,
+    let (module_name_or_path, module_name_or_path_span, module_name_or_path_expr) =
+        if let Some(name) = call.positional_nth(0) {
+            if let Some(s) = name.as_string() {
+                if let Some(mod_name) = module_name {
+                    if s.as_bytes() == mod_name {
+                        working_set.error(ParseError::NamedAsModule(
+                            "module".to_string(),
+                            s,
+                            "mod".to_string(),
+                            name.span,
+                        ));
+                        return (
+                            Pipeline::from_vec(vec![Expression {
+                                expr: Expr::Call(call),
+                                span: call_span,
+                                ty: Type::Any,
+                                custom_completion: None,
+                            }]),
+                            None,
+                        );
+                    }
+                }
+                (s, name.span, name.clone())
+            } else {
+                working_set.error(ParseError::UnknownState(
+                    "internal error: name not a string".into(),
+                    span(spans),
+                ));
+                return (garbage_pipeline(spans), None);
+            }
+        } else {
+            working_set.error(ParseError::UnknownState(
+                "internal error: missing positional".into(),
+                span(spans),
+            ));
+            return (garbage_pipeline(spans), None);
         };
 
-        let module_decl_id = working_set
-            .find_decl(b"module", &Type::Any)
-            .expect("internal error: missing module command");
+    let pipeline = Pipeline::from_vec(vec![Expression {
+        expr: Expr::Call(call),
+        span: call_span,
+        ty: Type::Any,
+        custom_completion: None,
+    }]);
 
-        let call = Box::new(Call {
-            head: spans[0],
-            decl_id: module_decl_id,
-            arguments: vec![
-                Argument::Positional(module_name_expr),
-                Argument::Positional(block_expr),
-            ],
-            redirect_stdout: true,
-            redirect_stderr: false,
-            parser_info: HashMap::new(),
-        });
+    if spans.len() == split_id + 1 {
+        if let Some(module_id) = parse_module_file_or_dir(
+            working_set,
+            module_name_or_path.as_bytes(),
+            module_name_or_path_span,
+            None,
+        ) {
+            return (pipeline, Some(module_id));
+        } else {
+            working_set.error(ParseError::ModuleNotFound(module_name_or_path_span));
+            return (pipeline, None);
+        }
+    }
 
+    if spans.len() < split_id + 2 {
+        working_set.error(ParseError::UnknownState(
+            "Expected structure: module <name> or module <name> <block>".into(),
+            span(spans),
+        ));
+
+        return (garbage_pipeline(spans), None);
+    }
+
+    let module_name = module_name_or_path;
+
+    let block_span = spans[split_id + 1];
+    let block_bytes = working_set.get_span_contents(block_span);
+    let mut start = block_span.start;
+    let mut end = block_span.end;
+
+    if block_bytes.starts_with(b"{") {
+        start += 1;
+    } else {
+        working_set.error(ParseError::Expected("block", block_span));
+        return (garbage_pipeline(spans), None);
+    }
+
+    if block_bytes.ends_with(b"}") {
+        end -= 1;
+    } else {
+        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+    }
+
+    let block_span = Span::new(start, end);
+
+    let (block, module, inner_comments) =
+        parse_module_block(working_set, block_span, module_name.as_bytes());
+
+    let block_id = working_set.add_block(block);
+
+    module_comments.extend(inner_comments);
+    let module_id = working_set.add_module(&module_name, module, module_comments);
+
+    let block_expr = Expression {
+        expr: Expr::Block(block_id),
+        span: block_span,
+        ty: Type::Block,
+        custom_completion: None,
+    };
+
+    let module_decl_id = working_set
+        .find_decl(b"module")
+        .expect("internal error: missing module command");
+
+    let call = Box::new(Call {
+        head: span(&spans[..split_id]),
+        decl_id: module_decl_id,
+        arguments: vec![
+            Argument::Positional(module_name_or_path_expr),
+            Argument::Positional(block_expr),
+        ],
+        redirect_stdout: true,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    });
+
+    (
         Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(call),
             span: span(spans),
             ty: Type::Any,
             custom_completion: None,
-        }])
-    } else {
-        working_set.error(ParseError::UnknownState(
-            "Expected structure: module <name> {}".into(),
-            span(spans),
-        ));
-
-        garbage_pipeline(spans)
-    }
+        }]),
+        Some(module_id),
+    )
 }
 
 pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline, Vec<Exportable>) {
@@ -1598,7 +2312,7 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     }
 
-    let (call, call_span, args_spans) = match working_set.find_decl(b"use", &Type::Any) {
+    let (call, call_span, args_spans) = match working_set.find_decl(b"use") {
         Some(decl_id) => {
             let (command_spans, rest_spans) = spans.split_at(split_id);
 
@@ -1649,205 +2363,109 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
         return (garbage_pipeline(spans), vec![]);
     };
 
-    let cwd = working_set.get_cwd();
-
-    // TODO: Add checking for importing too long import patterns, e.g.:
-    // > use spam foo non existent names here do not throw error
-    let (import_pattern, module) = if let Some(module_id) = import_pattern.head.id {
-        (import_pattern, working_set.get_module(module_id).clone())
+    let (mut import_pattern, module, module_id) = if let Some(module_id) = import_pattern.head.id {
+        let module = working_set.get_module(module_id).clone();
+        (
+            ImportPattern {
+                head: ImportPatternHead {
+                    name: module.name.clone(),
+                    id: Some(module_id),
+                    span: import_pattern.head.span,
+                },
+                members: import_pattern.members,
+                hidden: HashSet::new(),
+                constants: vec![],
+            },
+            module,
+            module_id,
+        )
+    } else if let Some(module_id) = parse_module_file_or_dir(
+        working_set,
+        &import_pattern.head.name,
+        import_pattern.head.span,
+        None,
+    ) {
+        let module = working_set.get_module(module_id).clone();
+        (
+            ImportPattern {
+                head: ImportPatternHead {
+                    name: module.name.clone(),
+                    id: Some(module_id),
+                    span: import_pattern.head.span,
+                },
+                members: import_pattern.members,
+                hidden: HashSet::new(),
+                constants: vec![],
+            },
+            module,
+            module_id,
+        )
     } else {
-        // It could be a file
-        // TODO: Do not close over when loading module from file?
-
-        let starting_error_count = working_set.parse_errors.len();
-        let (module_filename, err) =
-            unescape_unquote_string(&import_pattern.head.name, import_pattern.head.span);
-        if let Some(err) = err {
-            working_set.error(err);
-        }
-
-        if starting_error_count == working_set.parse_errors.len() {
-            if let Some(module_path) =
-                find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_VAR)
-            {
-                if let Some(i) = working_set
-                    .parsed_module_files
-                    .iter()
-                    .rposition(|p| p == &module_path)
-                {
-                    let mut files: Vec<String> = working_set
-                        .parsed_module_files
-                        .split_off(i)
-                        .iter()
-                        .map(|p| p.to_string_lossy().to_string())
-                        .collect();
-
-                    files.push(module_path.to_string_lossy().to_string());
-
-                    let msg = files.join("\nuses ");
-
-                    working_set.error(ParseError::CyclicalModuleImport(
-                        msg,
-                        import_pattern.head.span,
-                    ));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                }
-
-                let module_name = if let Some(stem) = module_path.file_stem() {
-                    stem.to_string_lossy().to_string()
-                } else {
-                    working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                };
-
-                if let Ok(contents) = std::fs::read(&module_path) {
-                    let file_id =
-                        working_set.add_file(module_path.to_string_lossy().to_string(), &contents);
-                    let new_span = working_set.get_span_for_file(file_id);
-
-                    // Change the currently parsed directory
-                    let prev_currently_parsed_cwd = if let Some(parent) = module_path.parent() {
-                        let prev = working_set.currently_parsed_cwd.clone();
-
-                        working_set.currently_parsed_cwd = Some(parent.into());
-
-                        prev
-                    } else {
-                        working_set.currently_parsed_cwd.clone()
-                    };
-
-                    // Add the file to the stack of parsed module files
-                    working_set.parsed_module_files.push(module_path);
-
-                    // Parse the module
-                    let (block, module, module_comments) =
-                        parse_module_block(working_set, new_span, module_name.as_bytes());
-
-                    // Remove the file from the stack of parsed module files
-                    working_set.parsed_module_files.pop();
-
-                    // Restore the currently parsed directory back
-                    working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
-
-                    let _ = working_set.add_block(block);
-                    let module_id =
-                        working_set.add_module(&module_name, module.clone(), module_comments);
-
-                    (
-                        ImportPattern {
-                            head: ImportPatternHead {
-                                name: module_name.into(),
-                                id: Some(module_id),
-                                span: import_pattern.head.span,
-                            },
-                            members: import_pattern.members,
-                            hidden: HashSet::new(),
-                        },
-                        module,
-                    )
-                } else {
-                    working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                    return (
-                        Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: call_span,
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]),
-                        vec![],
-                    );
-                }
-            } else {
-                working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
-                return (
-                    Pipeline::from_vec(vec![Expression {
-                        expr: Expr::Call(call),
-                        span: span(spans),
-                        ty: Type::Any,
-                        custom_completion: None,
-                    }]),
-                    vec![],
-                );
-            }
-        } else {
-            working_set.error(ParseError::NonUtf8(import_pattern.head.span));
-            return (garbage_pipeline(spans), vec![]);
-        }
+        working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
+        return (
+            Pipeline::from_vec(vec![Expression {
+                expr: Expr::Call(call),
+                span: call_span,
+                ty: Type::Any,
+                custom_completion: None,
+            }]),
+            vec![],
+        );
     };
 
-    let decls_to_use = if import_pattern.members.is_empty() {
-        module.decls_with_head(&import_pattern.head.name)
-    } else {
-        match &import_pattern.members[0] {
-            ImportPatternMember::Glob { .. } => module.decls(),
-            ImportPatternMember::Name { name, span } => {
-                let mut decl_output = vec![];
+    let (definitions, errors) = module.resolve_import_pattern(
+        working_set,
+        module_id,
+        &import_pattern.members,
+        None,
+        name_span,
+    );
 
-                if name == b"main" {
-                    if let Some(id) = &module.main {
-                        decl_output.push((import_pattern.head.name.clone(), *id));
-                    } else {
-                        working_set.error(ParseError::ExportNotFound(*span));
-                    }
-                } else if let Some(id) = module.get_decl_id(name) {
-                    decl_output.push((name.clone(), id));
-                } else {
-                    working_set.error(ParseError::ExportNotFound(*span));
-                }
+    working_set.parse_errors.extend(errors);
 
-                decl_output
-            }
-            ImportPatternMember::List { names } => {
-                let mut decl_output = vec![];
+    let mut constants = vec![];
 
-                for (name, span) in names {
-                    if name == b"main" {
-                        if let Some(id) = &module.main {
-                            decl_output.push((import_pattern.head.name.clone(), *id));
-                        } else {
-                            working_set.error(ParseError::ExportNotFound(*span));
-                        }
-                    } else if let Some(id) = module.get_decl_id(name) {
-                        decl_output.push((name.clone(), id));
-                    } else {
-                        working_set.error(ParseError::ExportNotFound(*span));
-                        break;
-                    }
-                }
+    for (name, const_val) in definitions.constants {
+        let const_var_id =
+            working_set.add_variable(name.clone(), name_span, const_val.get_type(), false);
+        working_set.set_variable_const_val(const_var_id, const_val);
+        constants.push((name, const_var_id));
+    }
 
-                decl_output
-            }
-        }
-    };
-
-    let exportables = decls_to_use
+    let exportables = definitions
+        .decls
         .iter()
         .map(|(name, decl_id)| Exportable::Decl {
             name: name.clone(),
             id: *decl_id,
         })
+        .chain(
+            definitions
+                .modules
+                .iter()
+                .map(|(name, module_id)| Exportable::Module {
+                    name: name.clone(),
+                    id: *module_id,
+                }),
+        )
+        .chain(
+            constants
+                .iter()
+                .map(|(name, variable_id)| Exportable::VarDecl {
+                    name: name.clone(),
+                    id: *variable_id,
+                }),
+        )
         .collect();
 
-    // Extend the current scope with the module's exportables
-    working_set.use_decls(decls_to_use);
+    import_pattern.constants = constants.iter().map(|(_, id)| *id).collect();
 
-    // Create a new Use command call to pass the new import pattern
+    // Extend the current scope with the module's exportables
+    working_set.use_decls(definitions.decls);
+    working_set.use_modules(definitions.modules);
+    working_set.use_variables(constants);
+
+    // Create a new Use command call to pass the import pattern as parser info
     let import_pattern_expr = Expression {
         expr: Expr::ImportPattern(import_pattern),
         span: span(args_spans),
@@ -1878,7 +2496,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
         return garbage_pipeline(spans);
     }
 
-    let (call, args_spans) = match working_set.find_decl(b"hide", &Type::Any) {
+    let (call, args_spans) = match working_set.find_decl(b"hide") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -1937,7 +2555,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
                 (true, working_set.get_module(module_id).clone())
             } else if import_pattern.members.is_empty() {
                 // The pattern head can be:
-                if let Some(id) = working_set.find_decl(&import_pattern.head.name, &Type::Any) {
+                if let Some(id) = working_set.find_decl(&import_pattern.head.name) {
                     // a custom command,
                     let mut module = Module::new(b"tmp".to_vec());
                     module.add_decl(import_pattern.head.name.clone(), id);
@@ -2048,15 +2666,15 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2081,7 +2699,13 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         vec![],
     );
 
-    working_set.add_overlay(overlay_name.as_bytes().to_vec(), module_id, vec![], false);
+    working_set.add_overlay(
+        overlay_name.as_bytes().to_vec(),
+        module_id,
+        vec![],
+        vec![],
+        false,
+    );
 
     pipeline
 }
@@ -2091,15 +2715,15 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2114,18 +2738,18 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
             match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match value_as_string(val, new_name_expression.span) {
+                Ok(val) => match val.as_string() {
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.span,
                     }),
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, call_span));
                         return garbage_pipeline(&[call_span]);
                     }
                 },
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             }
@@ -2149,8 +2773,6 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         ty: Type::Any,
         custom_completion: None,
     }]);
-
-    let cwd = working_set.get_cwd();
 
     let (final_overlay_name, origin_module, origin_module_id, is_module_updated) =
         if let Some(overlay_frame) = working_set.find_overlay(overlay_name.as_bytes()) {
@@ -2212,7 +2834,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                 (overlay_name, Module::new(module_name), module_id, true)
             }
         } else {
-            // Create a new overlay from a module
+            // Create a new overlay
             if let Some(module_id) =
                 // the name is a module
                 working_set.find_module(overlay_name.as_bytes())
@@ -2223,89 +2845,63 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
                     module_id,
                     true,
                 )
+            } else if let Some(module_id) = parse_module_file_or_dir(
+                working_set,
+                overlay_name.as_bytes(),
+                overlay_name_span,
+                new_name.as_ref().map(|spanned| spanned.item.clone()),
+            ) {
+                // try file or directory
+                let new_module = working_set.get_module(module_id).clone();
+                (
+                    new_name
+                        .map(|spanned| spanned.item)
+                        .unwrap_or_else(|| String::from_utf8_lossy(&new_module.name).to_string()),
+                    new_module,
+                    module_id,
+                    true,
+                )
             } else {
-                // try if the name is a file
-                if let Ok(module_filename) =
-                    String::from_utf8(trim_quotes(overlay_name.as_bytes()).to_vec())
-                {
-                    if let Some(module_path) =
-                        find_in_dirs(&module_filename, working_set, &cwd, LIB_DIRS_VAR)
-                    {
-                        let overlay_name = if let Some(stem) = module_path.file_stem() {
-                            stem.to_string_lossy().to_string()
-                        } else {
-                            working_set
-                                .error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                            return pipeline;
-                        };
-
-                        if let Ok(contents) = std::fs::read(&module_path) {
-                            let file_id = working_set.add_file(module_filename, &contents);
-                            let new_span = working_set.get_span_for_file(file_id);
-
-                            // Change currently parsed directory
-                            let prev_currently_parsed_cwd =
-                                if let Some(parent) = module_path.parent() {
-                                    let prev = working_set.currently_parsed_cwd.clone();
-
-                                    working_set.currently_parsed_cwd = Some(parent.into());
-
-                                    prev
-                                } else {
-                                    working_set.currently_parsed_cwd.clone()
-                                };
-
-                            let (block, module, module_comments) =
-                                parse_module_block(working_set, new_span, overlay_name.as_bytes());
-
-                            // Restore the currently parsed directory back
-                            working_set.currently_parsed_cwd = prev_currently_parsed_cwd;
-
-                            let _ = working_set.add_block(block);
-                            let module_id = working_set.add_module(
-                                &overlay_name,
-                                module.clone(),
-                                module_comments,
-                            );
-
-                            (
-                                new_name.map(|spanned| spanned.item).unwrap_or(overlay_name),
-                                module,
-                                module_id,
-                                true,
-                            )
-                        } else {
-                            working_set
-                                .error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                            return pipeline;
-                        }
-                    } else {
-                        working_set.error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
-                        return pipeline;
-                    }
-                } else {
-                    working_set.error(ParseError::NonUtf8(overlay_name_span));
-                    return garbage_pipeline(&[call_span]);
-                }
+                working_set.error(ParseError::ModuleOrOverlayNotFound(overlay_name_span));
+                return pipeline;
             }
         };
 
-    let decls_to_lay = if is_module_updated {
+    let (definitions, errors) = if is_module_updated {
         if has_prefix {
-            origin_module.decls_with_head(final_overlay_name.as_bytes())
+            origin_module.resolve_import_pattern(
+                working_set,
+                origin_module_id,
+                &[],
+                Some(final_overlay_name.as_bytes()),
+                call.head,
+            )
         } else {
-            origin_module.decls()
+            origin_module.resolve_import_pattern(
+                working_set,
+                origin_module_id,
+                &[ImportPatternMember::Glob {
+                    span: overlay_name_span,
+                }],
+                Some(final_overlay_name.as_bytes()),
+                call.head,
+            )
         }
     } else {
-        vec![]
+        (ResolvedImportPattern::new(vec![], vec![], vec![]), vec![])
     };
 
-    working_set.add_overlay(
-        final_overlay_name.as_bytes().to_vec(),
-        origin_module_id,
-        decls_to_lay,
-        has_prefix,
-    );
+    if errors.is_empty() {
+        working_set.add_overlay(
+            final_overlay_name.as_bytes().to_vec(),
+            origin_module_id,
+            definitions.decls,
+            definitions.modules,
+            has_prefix,
+        );
+    } else {
+        working_set.parse_errors.extend(errors);
+    }
 
     // Change the call argument to include the Overlay expression with the module ID
     let mut call = call;
@@ -2336,15 +2932,15 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
-                    working_set.error(err);
+                    working_set.error(err.wrap(working_set, call_span));
                     return garbage_pipeline(&[call_span]);
                 }
             },
             Err(err) => {
-                working_set.error(err);
+                working_set.error(err.wrap(working_set, call_span));
                 return garbage_pipeline(&[call_span]);
             }
         }
@@ -2375,7 +2971,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     if !working_set
         .unique_overlay_names()
-        .contains(&overlay_name.as_bytes().to_vec())
+        .contains(&overlay_name.as_bytes())
     {
         working_set.error(ParseError::ActiveOverlayNotFound(overlay_name_span));
         return pipeline;
@@ -2391,108 +2987,245 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
     pipeline
 }
 
-pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    let name = working_set.get_span_contents(spans[0]);
+pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+    trace!("parsing: let");
 
-    if name == b"let" || name == b"const" {
-        let is_const = &name == b"const";
+    // JT: Disabling check_name because it doesn't work with optional types in the declaration
+    // if let Some(span) = check_name(working_set, spans) {
+    //     return Pipeline::from_vec(vec![garbage(*span)]);
+    // }
 
-        if let Some(span) = check_name(working_set, spans) {
-            return Pipeline::from_vec(vec![garbage(*span)]);
-        }
+    if let Some(decl_id) = working_set.find_decl(b"let") {
+        if spans.len() >= 4 {
+            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
+            // so that the var-id created by the variable isn't visible in the expression that init it
+            for span in spans.iter().enumerate() {
+                let item = working_set.get_span_contents(*span.1);
+                // https://github.com/nushell/nushell/issues/9596, let = if $
+                // let x = 'f', = at least start from index 2
+                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
+                    let (tokens, parse_error) = lex(
+                        working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
+                        spans[span.0 + 1].start,
+                        &[],
+                        &[],
+                        true,
+                    );
 
-        if let Some(decl_id) =
-            working_set.find_decl(if is_const { b"const" } else { b"let" }, &Type::Any)
-        {
-            let cmd = working_set.get_decl(decl_id);
-            let call_signature = cmd.signature().call_signature();
-
-            if spans.len() >= 4 {
-                // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-                // so that the var-id created by the variable isn't visible in the expression that init it
-                for span in spans.iter().enumerate() {
-                    let item = working_set.get_span_contents(*span.1);
-                    if item == b"=" && spans.len() > (span.0 + 1) {
-                        let mut idx = span.0;
-                        let rvalue = parse_multispan_value(
-                            working_set,
-                            spans,
-                            &mut idx,
-                            &SyntaxShape::Keyword(
-                                b"=".to_vec(),
-                                Box::new(SyntaxShape::MathExpression),
-                            ),
-                        );
-
-                        if idx < (spans.len() - 1) {
-                            working_set
-                                .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
-                        }
-
-                        let mut idx = 0;
-                        let lvalue = parse_var_with_opt_type(
-                            working_set,
-                            &spans[1..(span.0)],
-                            &mut idx,
-                            false,
-                        );
-
-                        let var_name =
-                            String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                                .trim_start_matches('$')
-                                .to_string();
-
-                        if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                        }
-
-                        let var_id = lvalue.as_var();
-                        let rhs_type = rvalue.ty.clone();
-
-                        if let Some(var_id) = var_id {
-                            working_set.set_variable_type(var_id, rhs_type);
-
-                            if is_const {
-                                match eval_constant(working_set, &rvalue) {
-                                    Ok(val) => {
-                                        working_set.add_constant(var_id, val);
-                                    }
-                                    Err(err) => working_set.error(err),
-                                }
-                            }
-                        }
-
-                        let call = Box::new(Call {
-                            decl_id,
-                            head: spans[0],
-                            arguments: vec![
-                                Argument::Positional(lvalue),
-                                Argument::Positional(rvalue),
-                            ],
-                            redirect_stdout: true,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        });
-
-                        return Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: nu_protocol::span(spans),
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]);
+                    if let Some(parse_error) = parse_error {
+                        working_set.parse_errors.push(parse_error)
                     }
+
+                    let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
+                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+
+                    let output_type = rvalue_block.output_type();
+
+                    let block_id = working_set.add_block(rvalue_block);
+
+                    let rvalue = Expression {
+                        expr: Expr::Block(block_id),
+                        span: rvalue_span,
+                        ty: output_type,
+                        custom_completion: None,
+                    };
+
+                    let mut idx = 0;
+
+                    let (lvalue, explicit_type) =
+                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+
+                    let var_name =
+                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                            .trim_start_matches('$')
+                            .to_string();
+
+                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
+                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
+                    }
+
+                    let var_id = lvalue.as_var();
+                    let rhs_type = rvalue.ty.clone();
+
+                    if let Some(explicit_type) = &explicit_type {
+                        if !type_compatible(explicit_type, &rhs_type) {
+                            working_set.error(ParseError::TypeMismatch(
+                                explicit_type.clone(),
+                                rhs_type.clone(),
+                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                            ));
+                        }
+                    }
+
+                    if let Some(var_id) = var_id {
+                        if explicit_type.is_none() {
+                            working_set.set_variable_type(var_id, rhs_type);
+                        }
+                    }
+
+                    let call = Box::new(Call {
+                        decl_id,
+                        head: spans[0],
+                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        redirect_stdout: true,
+                        redirect_stderr: false,
+                        parser_info: HashMap::new(),
+                    });
+
+                    return Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: nu_protocol::span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]);
                 }
             }
-            let ParsedInternalCall { call, output } =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
-
-            return Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: nu_protocol::span(spans),
-                ty: output,
-                custom_completion: None,
-            }]);
         }
+        let ParsedInternalCall { call, output } =
+            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+
+        return Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: nu_protocol::span(spans),
+            ty: output,
+            custom_completion: None,
+        }]);
+    } else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: let or const statements not found in core language".into(),
+            span(spans),
+        ))
+    }
+
+    working_set.error(ParseError::UnknownState(
+        "internal error: let or const statement unparsable".into(),
+        span(spans),
+    ));
+
+    garbage_pipeline(spans)
+}
+
+pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+    trace!("parsing: const");
+
+    // JT: Disabling check_name because it doesn't work with optional types in the declaration
+    // if let Some(span) = check_name(working_set, spans) {
+    //     return Pipeline::from_vec(vec![garbage(*span)]);
+    // }
+
+    if let Some(decl_id) = working_set.find_decl(b"const") {
+        let cmd = working_set.get_decl(decl_id);
+        let call_signature = cmd.signature().call_signature();
+
+        if spans.len() >= 4 {
+            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
+            // so that the var-id created by the variable isn't visible in the expression that init it
+            for span in spans.iter().enumerate() {
+                let item = working_set.get_span_contents(*span.1);
+                // const x = 'f', = at least start from index 2
+                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
+                    let mut idx = span.0;
+
+                    let rvalue = parse_multispan_value(
+                        working_set,
+                        spans,
+                        &mut idx,
+                        &SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
+                    );
+                    if idx < (spans.len() - 1) {
+                        working_set
+                            .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
+                    }
+
+                    let mut idx = 0;
+
+                    let (lvalue, explicit_type) =
+                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+
+                    let var_name =
+                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                            .trim_start_matches('$')
+                            .to_string();
+
+                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
+                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
+                    }
+
+                    let var_id = lvalue.as_var();
+                    let rhs_type = rvalue.ty.clone();
+
+                    if let Some(explicit_type) = &explicit_type {
+                        if !type_compatible(explicit_type, &rhs_type) {
+                            working_set.error(ParseError::TypeMismatch(
+                                explicit_type.clone(),
+                                rhs_type.clone(),
+                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                            ));
+                        }
+                    }
+
+                    if let Some(var_id) = var_id {
+                        if explicit_type.is_none() {
+                            working_set.set_variable_type(var_id, rhs_type);
+                        }
+
+                        match eval_constant(working_set, &rvalue) {
+                            Ok(val) => {
+                                // In case rhs is parsed as 'any' but is evaluated to a concrete
+                                // type:
+                                let const_type = val.get_type();
+
+                                if let Some(explicit_type) = &explicit_type {
+                                    if !type_compatible(explicit_type, &const_type) {
+                                        working_set.error(ParseError::TypeMismatch(
+                                            explicit_type.clone(),
+                                            const_type.clone(),
+                                            nu_protocol::span(&spans[(span.0 + 1)..]),
+                                        ));
+                                    }
+                                }
+
+                                working_set.set_variable_type(var_id, const_type);
+
+                                // Assign the constant value to the variable
+                                working_set.set_variable_const_val(var_id, val);
+                            }
+                            Err(err) => working_set.error(err.wrap(working_set, rvalue.span)),
+                        }
+                    }
+
+                    let call = Box::new(Call {
+                        decl_id,
+                        head: spans[0],
+                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        redirect_stdout: true,
+                        redirect_stderr: false,
+                        parser_info: HashMap::new(),
+                    });
+
+                    return Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: nu_protocol::span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]);
+                }
+            }
+        }
+        let ParsedInternalCall { call, output } =
+            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+
+        return Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: nu_protocol::span(spans),
+            ty: output,
+            custom_completion: None,
+        }]);
+    } else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: let or const statements not found in core language".into(),
+            span(spans),
+        ))
     }
 
     working_set.error(ParseError::UnknownState(
@@ -2504,97 +3237,116 @@ pub fn parse_let_or_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> 
 }
 
 pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
-    let name = working_set.get_span_contents(spans[0]);
+    trace!("parsing: mut");
 
-    if name == b"mut" {
-        if let Some(span) = check_name(working_set, spans) {
-            return Pipeline::from_vec(vec![garbage(*span)]);
-        }
+    // JT: Disabling check_name because it doesn't work with optional types in the declaration
+    // if let Some(span) = check_name(working_set, spans) {
+    //     return Pipeline::from_vec(vec![garbage(*span)]);
+    // }
 
-        if let Some(decl_id) = working_set.find_decl(b"mut", &Type::Any) {
-            let cmd = working_set.get_decl(decl_id);
-            let call_signature = cmd.signature().call_signature();
+    if let Some(decl_id) = working_set.find_decl(b"mut") {
+        if spans.len() >= 4 {
+            // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
+            // so that the var-id created by the variable isn't visible in the expression that init it
+            for span in spans.iter().enumerate() {
+                let item = working_set.get_span_contents(*span.1);
+                // mut x = 'f', = at least start from index 2
+                if item == b"=" && spans.len() > (span.0 + 1) && span.0 > 1 {
+                    let (tokens, parse_error) = lex(
+                        working_set.get_span_contents(nu_protocol::span(&spans[(span.0 + 1)..])),
+                        spans[span.0 + 1].start,
+                        &[],
+                        &[],
+                        true,
+                    );
 
-            if spans.len() >= 4 {
-                // This is a bit of by-hand parsing to get around the issue where we want to parse in the reverse order
-                // so that the var-id created by the variable isn't visible in the expression that init it
-                for span in spans.iter().enumerate() {
-                    let item = working_set.get_span_contents(*span.1);
-                    if item == b"=" && spans.len() > (span.0 + 1) {
-                        let mut idx = span.0;
-                        let rvalue = parse_multispan_value(
-                            working_set,
-                            spans,
-                            &mut idx,
-                            &SyntaxShape::Keyword(
-                                b"=".to_vec(),
-                                Box::new(SyntaxShape::MathExpression),
-                            ),
-                        );
+                    if let Some(parse_error) = parse_error {
+                        working_set.parse_errors.push(parse_error)
+                    }
 
-                        if idx < (spans.len() - 1) {
-                            working_set
-                                .error(ParseError::ExtraPositional(call_signature, spans[idx + 1]));
+                    let rvalue_span = nu_protocol::span(&spans[(span.0 + 1)..]);
+                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+
+                    let output_type = rvalue_block.output_type();
+
+                    let block_id = working_set.add_block(rvalue_block);
+
+                    let rvalue = Expression {
+                        expr: Expr::Block(block_id),
+                        span: rvalue_span,
+                        ty: output_type,
+                        custom_completion: None,
+                    };
+
+                    let mut idx = 0;
+
+                    let (lvalue, explicit_type) =
+                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
+
+                    let var_name =
+                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+                            .trim_start_matches('$')
+                            .to_string();
+
+                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
+                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
+                    }
+
+                    let var_id = lvalue.as_var();
+                    let rhs_type = rvalue.ty.clone();
+
+                    if let Some(explicit_type) = &explicit_type {
+                        if !type_compatible(explicit_type, &rhs_type) {
+                            working_set.error(ParseError::TypeMismatch(
+                                explicit_type.clone(),
+                                rhs_type.clone(),
+                                nu_protocol::span(&spans[(span.0 + 1)..]),
+                            ));
                         }
+                    }
 
-                        let mut idx = 0;
-                        let lvalue = parse_var_with_opt_type(
-                            working_set,
-                            &spans[1..(span.0)],
-                            &mut idx,
-                            true,
-                        );
-
-                        let var_name =
-                            String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                                .trim_start_matches('$')
-                                .to_string();
-
-                        if ["in", "nu", "env", "nothing"].contains(&var_name.as_str()) {
-                            working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                        }
-
-                        let var_id = lvalue.as_var();
-                        let rhs_type = rvalue.ty.clone();
-
-                        if let Some(var_id) = var_id {
+                    if let Some(var_id) = var_id {
+                        if explicit_type.is_none() {
                             working_set.set_variable_type(var_id, rhs_type);
                         }
-
-                        let call = Box::new(Call {
-                            decl_id,
-                            head: spans[0],
-                            arguments: vec![
-                                Argument::Positional(lvalue),
-                                Argument::Positional(rvalue),
-                            ],
-                            redirect_stdout: true,
-                            redirect_stderr: false,
-                            parser_info: HashMap::new(),
-                        });
-
-                        return Pipeline::from_vec(vec![Expression {
-                            expr: Expr::Call(call),
-                            span: nu_protocol::span(spans),
-                            ty: Type::Any,
-                            custom_completion: None,
-                        }]);
                     }
+
+                    let call = Box::new(Call {
+                        decl_id,
+                        head: spans[0],
+                        arguments: vec![Argument::Positional(lvalue), Argument::Positional(rvalue)],
+                        redirect_stdout: true,
+                        redirect_stderr: false,
+                        parser_info: HashMap::new(),
+                    });
+
+                    return Pipeline::from_vec(vec![Expression {
+                        expr: Expr::Call(call),
+                        span: nu_protocol::span(spans),
+                        ty: Type::Any,
+                        custom_completion: None,
+                    }]);
                 }
             }
-            let ParsedInternalCall { call, output } =
-                parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
-
-            return Pipeline::from_vec(vec![Expression {
-                expr: Expr::Call(call),
-                span: nu_protocol::span(spans),
-                ty: output,
-                custom_completion: None,
-            }]);
         }
+        let ParsedInternalCall { call, output } =
+            parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
+
+        return Pipeline::from_vec(vec![Expression {
+            expr: Expr::Call(call),
+            span: nu_protocol::span(spans),
+            ty: output,
+            custom_completion: None,
+        }]);
+    } else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: let or const statements not found in core language".into(),
+            span(spans),
+        ))
     }
+
     working_set.error(ParseError::UnknownState(
-        "internal error: mut statement unparsable".into(),
+        "internal error: let or const statement unparsable".into(),
         span(spans),
     ));
 
@@ -2607,7 +3359,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
     if name == b"source" || name == b"source-env" {
         let scoped = name == b"source-env";
 
-        if let Some(decl_id) = working_set.find_decl(name, &Type::Any) {
+        if let Some(decl_id) = working_set.find_decl(name) {
             let cwd = working_set.get_cwd();
 
             // Is this the right call to be using here?
@@ -2631,7 +3383,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 let val = match eval_constant(working_set, &expr) {
                     Ok(val) => val,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -2641,10 +3393,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                     }
                 };
 
-                let filename = match value_as_string(val, spans[1]) {
+                let filename = match val.as_string() {
                     Ok(s) => s,
                     Err(err) => {
-                        working_set.error(err);
+                        working_set.error(err.wrap(working_set, span(&spans[1..])));
                         return Pipeline::from_vec(vec![Expression {
                             expr: Expr::Call(call),
                             span: span(&spans[1..]),
@@ -2655,14 +3407,10 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, LIB_DIRS_VAR) {
-                    if let Ok(contents) = std::fs::read(&path) {
+                    if let Some(contents) = path.read(working_set) {
                         // Change currently parsed directory
                         let prev_currently_parsed_cwd = if let Some(parent) = path.parent() {
-                            let prev = working_set.currently_parsed_cwd.clone();
-
-                            working_set.currently_parsed_cwd = Some(parent.into());
-
-                            prev
+                            working_set.currently_parsed_cwd.replace(parent.into())
                         } else {
                             working_set.currently_parsed_cwd.clone()
                         };
@@ -2671,7 +3419,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                         // working set, if it was a successful parse.
                         let block = parse(
                             working_set,
-                            Some(&path.to_string_lossy()),
+                            Some(&path.path().to_string_lossy()),
                             &contents,
                             scoped,
                         );
@@ -2742,7 +3490,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         return garbage(span(spans));
     }
 
-    let call = match working_set.find_decl(b"where", &Type::Any) {
+    let call = match working_set.find_decl(b"where") {
         Some(decl_id) => {
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
@@ -2805,7 +3553,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"register", &Type::Any) {
+    let (call, call_span) = match working_set.find_decl(b"register") {
         None => {
             working_set.error(ParseError::UnknownState(
                 "internal error: Register declaration not found".into(),
@@ -2839,11 +3587,14 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let arguments = call
         .positional_nth(0)
         .map(|expr| {
-            let val = eval_constant(working_set, expr)?;
-            let filename = value_as_string(val, expr.span)?;
+            let val =
+                eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
+            let filename = val
+                .as_string()
+                .map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
-                return Err(ParseError::RegisteredFileNotFound(filename, expr.span))
+                return Err(ParseError::RegisteredFileNotFound(filename, expr.span));
             };
 
             if path.exists() && path.is_file() {
@@ -2910,66 +3661,56 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
     let stack = Stack::new();
     let current_envs =
         nu_engine::env::env_to_strings(working_set.permanent_state, &stack).unwrap_or_default();
-    let error = match signature {
-        Some(signature) => arguments.and_then(|(path, path_span)| {
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = valid_plugin_name {
-                signature.map(|signature| {
-                    let plugin_decl = PluginDeclaration::new(path, signature, shell);
-                    working_set.add_decl(Box::new(plugin_decl));
-                    working_set.mark_plugins_file_dirty();
-                })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-        None => arguments.and_then(|(path, path_span)| {
-            // restrict plugin file name starts with `nu_plugin_`
-            let valid_plugin_name = path
-                .file_name()
-                .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
+    let error = arguments.and_then(|(path, path_span)| {
+        let path = path.path_buf();
+        // restrict plugin file name starts with `nu_plugin_`
+        let valid_plugin_name = path
+            .file_name()
+            .map(|s| s.to_string_lossy().starts_with("nu_plugin_"));
 
-            if let Some(true) = valid_plugin_name {
-                get_signature(path.as_path(), &shell, &current_envs)
-                    .map_err(|err| {
+        let Some(true) = valid_plugin_name else {
+            return Err(ParseError::LabeledError(
+                "Register plugin failed".into(),
+                "plugin name must start with nu_plugin_".into(),
+                path_span,
+            ));
+        };
+
+        let signatures = signature.map_or_else(
+            || {
+                let signatures =
+                    get_signature(&path, shell.as_deref(), &current_envs).map_err(|err| {
                         ParseError::LabeledError(
                             "Error getting signatures".into(),
                             err.to_string(),
                             spans[0],
                         )
-                    })
-                    .map(|signatures| {
-                        for signature in signatures {
-                            // create plugin command declaration (need struct impl Command)
-                            // store declaration in working set
-                            let plugin_decl =
-                                PluginDeclaration::new(path.clone(), signature, shell.clone());
+                    });
 
-                            working_set.add_decl(Box::new(plugin_decl));
-                        }
+                if signatures.is_ok() {
+                    // mark plugins file as dirty only when the user is registering plugins
+                    // and not when we evaluate plugin.nu on shell startup
+                    working_set.mark_plugins_file_dirty();
+                }
 
-                        working_set.mark_plugins_file_dirty();
-                    })
-            } else {
-                Err(ParseError::LabeledError(
-                    "Register plugin failed".into(),
-                    "plugin name must start with nu_plugin_".into(),
-                    path_span,
-                ))
-            }
-        }),
-    }
-    .err();
+                signatures
+            },
+            |sig| sig.map(|sig| vec![sig]),
+        )?;
 
-    if let Some(err) = error {
+        for signature in signatures {
+            // create plugin command declaration (need struct impl Command)
+            // store declaration in working set
+            let plugin_decl = PluginDeclaration::new(path.clone(), signature, shell.clone());
+
+            working_set.add_decl(Box::new(plugin_decl));
+        }
+
+        Ok(())
+    });
+
+    if let Err(err) = error {
         working_set.error(err);
     }
 
@@ -2984,7 +3725,7 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 pub fn find_dirs_var(working_set: &StateWorkingSet, var_name: &str) -> Option<VarId> {
     working_set
         .find_variable(format!("${}", var_name).as_bytes())
-        .filter(|var_id| working_set.find_constant(*var_id).is_some())
+        .filter(|var_id| working_set.get_variable(*var_id).const_val.is_some())
 }
 
 /// This helper function is used to find files during parsing
@@ -3005,30 +3746,56 @@ pub fn find_in_dirs(
     working_set: &StateWorkingSet,
     cwd: &str,
     dirs_var_name: &str,
-) -> Option<PathBuf> {
+) -> Option<ParserPath> {
     pub fn find_in_dirs_with_id(
         filename: &str,
         working_set: &StateWorkingSet,
         cwd: &str,
         dirs_var_name: &str,
-    ) -> Option<PathBuf> {
+    ) -> Option<ParserPath> {
         // Choose whether to use file-relative or PWD-relative path
         let actual_cwd = if let Some(currently_parsed_cwd) = &working_set.currently_parsed_cwd {
             currently_parsed_cwd.as_path()
         } else {
             Path::new(cwd)
         };
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
-            return Some(p);
+
+        // Try if we have an existing virtual path
+        if let Some(virtual_path) = working_set.find_virtual_path(filename) {
+            return Some(ParserPath::from_virtual_path(
+                working_set,
+                filename,
+                virtual_path,
+            ));
+        } else {
+            let abs_virtual_filename = actual_cwd.join(filename);
+            let abs_virtual_filename = abs_virtual_filename.to_string_lossy();
+
+            if let Some(virtual_path) = working_set.find_virtual_path(&abs_virtual_filename) {
+                return Some(ParserPath::from_virtual_path(
+                    working_set,
+                    &abs_virtual_filename,
+                    virtual_path,
+                ));
+            }
         }
 
+        // Try if we have an existing physical path
+        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+            return Some(ParserPath::RealPath(p));
+        }
+
+        // Early-exit if path is non-existent absolute path
         let path = Path::new(filename);
         if !path.is_relative() {
             return None;
         }
 
+        // Look up relative path from NU_LIB_DIRS
         working_set
-            .find_constant(find_dirs_var(working_set, dirs_var_name)?)?
+            .get_variable(find_dirs_var(working_set, dirs_var_name)?)
+            .const_val
+            .as_ref()?
             .as_list()
             .ok()?
             .iter()
@@ -3039,9 +3806,11 @@ pub fn find_in_dirs(
             })
             .find(Option::is_some)
             .flatten()
+            .map(ParserPath::RealPath)
     }
 
     // TODO: remove (see #8310)
+    // Same as find_in_dirs_with_id but using $env.NU_LIB_DIRS instead of constant
     pub fn find_in_dirs_old(
         filename: &str,
         working_set: &StateWorkingSet,
@@ -3087,6 +3856,39 @@ pub fn find_in_dirs(
         }
     }
 
-    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name)
-        .or_else(|| find_in_dirs_old(filename, working_set, cwd, dirs_var_name))
+    find_in_dirs_with_id(filename, working_set, cwd, dirs_var_name).or_else(|| {
+        find_in_dirs_old(filename, working_set, cwd, dirs_var_name).map(ParserPath::RealPath)
+    })
+}
+
+fn detect_params_in_name(
+    working_set: &StateWorkingSet,
+    name_span: Span,
+    decl_name: &str,
+) -> Option<ParseError> {
+    let name = working_set.get_span_contents(name_span);
+
+    let extract_span = |delim: u8| {
+        // it is okay to unwrap because we know the slice contains the byte
+        let (idx, _) = name
+            .iter()
+            .find_position(|c| **c == delim)
+            .unwrap_or((name.len(), &b' '));
+        let param_span = Span::new(name_span.start + idx - 1, name_span.start + idx - 1);
+        let error = ParseError::LabeledErrorWithHelp{
+            error: "no space between name and parameters".into(),
+            label: "expected space".into(),
+            help: format!("consider adding a space between the `{decl_name}` command's name and its parameters"),
+            span: param_span,
+            };
+        Some(error)
+    };
+
+    if name.contains(&b'[') {
+        extract_span(b'[')
+    } else if name.contains(&b'(') {
+        extract_span(b'(')
+    } else {
+        None
+    }
 }

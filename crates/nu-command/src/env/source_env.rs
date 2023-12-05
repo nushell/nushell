@@ -55,7 +55,9 @@ impl Command for SourceEnv {
         )? {
             PathBuf::from(&path)
         } else {
-            return Err(ShellError::FileNotFound(source_filename.span));
+            return Err(ShellError::FileNotFound {
+                span: source_filename.span,
+            });
         };
 
         if let Some(parent) = file_path.parent() {
@@ -71,7 +73,7 @@ impl Command for SourceEnv {
 
         // Evaluate the block
         let block = engine_state.get_block(block_id as usize).clone();
-        let mut callee_stack = caller_stack.gather_captures(&block.captures);
+        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
         let result = eval_block_with_early_return(
             engine_state,

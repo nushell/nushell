@@ -7,6 +7,8 @@ use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::{ShellError, Span, Spanned};
 
+const GLOB_CHARS: &[char] = &['*', '?', '['];
+
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
@@ -27,39 +29,60 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let path = PathBuf::from(&pattern.item);
-    let path = expand_path_with(path, cwd);
-    let is_symlink = match fs::symlink_metadata(&path) {
-        Ok(attr) => attr.file_type().is_symlink(),
-        Err(_) => false,
-    };
-
-    let (prefix, pattern) = if path.to_string_lossy().contains('*') {
-        // Path is a glob pattern => do not check for existence
-        // Select the longest prefix until the first '*'
+    let (prefix, pattern) = if pattern.item.contains(GLOB_CHARS) {
+        // Pattern contains glob, split it
         let mut p = PathBuf::new();
-        for c in path.components() {
+        let path = PathBuf::from(&pattern.item);
+        let components = path.components();
+        let mut counter = 0;
+
+        for c in components {
             if let Component::Normal(os) = c {
-                if os.to_string_lossy().contains('*') {
+                if os.to_string_lossy().contains(GLOB_CHARS) {
                     break;
                 }
             }
             p.push(c);
+            counter += 1;
         }
-        (Some(p), path)
-    } else if is_symlink {
-        (path.parent().map(|parent| parent.to_path_buf()), path)
+
+        let mut just_pattern = PathBuf::new();
+        for c in counter..path.components().count() {
+            if let Some(comp) = path.components().nth(c) {
+                just_pattern.push(comp);
+            }
+        }
+
+        // Now expand `p` to get full prefix
+        let path = expand_path_with(p, cwd);
+        let escaped_prefix = PathBuf::from(nu_glob::Pattern::escape(&path.to_string_lossy()));
+
+        (Some(path), escaped_prefix.join(just_pattern))
     } else {
-        let path = if let Ok(p) = canonicalize_with(path, cwd) {
-            p
-        } else {
-            return Err(ShellError::DirectoryNotFound(pattern.span, None));
+        let path = PathBuf::from(&pattern.item);
+        let path = expand_path_with(path, cwd);
+        let is_symlink = match fs::symlink_metadata(&path) {
+            Ok(attr) => attr.file_type().is_symlink(),
+            Err(_) => false,
         };
-        (path.parent().map(|parent| parent.to_path_buf()), path)
+
+        if is_symlink {
+            (path.parent().map(|parent| parent.to_path_buf()), path)
+        } else {
+            let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
+                p
+            } else {
+                return Err(ShellError::DirectoryNotFound {
+                    dir: path.to_string_lossy().to_string(),
+                    span: pattern.span,
+                });
+            };
+            (path.parent().map(|parent| parent.to_path_buf()), path)
+        }
     };
 
     let pattern = pattern.to_string_lossy().to_string();
-    let glob_options = options.unwrap_or_else(MatchOptions::new);
+    let glob_options = options.unwrap_or_default();
 
     let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|err| {
         nu_protocol::ShellError::GenericError(

@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct ViewSource;
@@ -33,20 +34,9 @@ impl Command for ViewSource {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let arg: Value = call.req(engine_state, stack, 0)?;
-        let arg_span = arg.span()?;
+        let arg_span = arg.span();
 
         match arg {
-            Value::Block { val: block_id, .. } | Value::Closure { val: block_id, .. } => {
-                let block = engine_state.get_block(block_id);
-
-                if let Some(span) = block.span {
-                    let contents = engine_state.get_span_contents(&span);
-                    Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                        .into_pipeline_data())
-                } else {
-                    Ok(Value::string("<internal command>", call.head).into_pipeline_data())
-                }
-            }
             Value::String { val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     // arg is a command
@@ -54,46 +44,42 @@ impl Command for ViewSource {
                     let sig = decl.signature();
                     let vec_of_required = &sig.required_positional;
                     let vec_of_optional = &sig.optional_positional;
+                    let rest = &sig.rest_positional;
                     let vec_of_flags = &sig.named;
                     // gets vector of positionals.
                     if let Some(block_id) = decl.get_block_id() {
                         let block = engine_state.get_block(block_id);
                         if let Some(block_span) = block.span {
-                            let contents = engine_state.get_span_contents(&block_span);
-                            let mut final_contents = String::from("def ");
-                            final_contents.push_str(&val);
-                            // The name of the function...
-                            final_contents.push_str(" [ ");
+                            let contents = engine_state.get_span_contents(block_span);
+                            // name of function
+                            let mut final_contents = format!("def {val} [ ");
                             for n in vec_of_required {
-                                final_contents.push_str(&n.name);
-                                // name of positional arg
-                                final_contents.push(':');
-                                final_contents.push_str(&n.shape.to_string());
-                                final_contents.push(' ');
+                                let _ = write!(&mut final_contents, "{}: {} ", n.name, n.shape);
+                                // positional argu,emts
                             }
                             for n in vec_of_optional {
-                                final_contents.push_str(&n.name);
-                                // name of positional arg
-                                final_contents.push_str("?:");
-                                final_contents.push_str(&n.shape.to_string());
-                                final_contents.push(' ');
+                                let _ = write!(&mut final_contents, "{}?: {} ", n.name, n.shape);
                             }
                             for n in vec_of_flags {
-                                final_contents.push_str("--");
-                                final_contents.push_str(&n.long);
-                                final_contents.push(' ');
-                                if n.short.is_some() {
-                                    final_contents.push_str("(-");
-                                    final_contents.push(n.short.expect("this cannot trigger."));
-                                    final_contents.push(')');
+                                // skip adding the help flag
+                                if n.long == "help" {
+                                    continue;
                                 }
-                                if n.arg.is_some() {
-                                    final_contents.push_str(": ");
-                                    final_contents.push_str(
-                                        &n.arg.as_ref().expect("this cannot trigger.").to_string(),
-                                    );
+                                let _ = write!(&mut final_contents, "--{}", n.long);
+                                if let Some(short) = n.short {
+                                    let _ = write!(&mut final_contents, "(-{})", short);
+                                }
+                                if let Some(arg) = &n.arg {
+                                    let _ = write!(&mut final_contents, ": {}", arg);
                                 }
                                 final_contents.push(' ');
+                            }
+                            if let Some(rest_arg) = rest {
+                                let _ = write!(
+                                    &mut final_contents,
+                                    "...{}:{}",
+                                    rest_arg.name, rest_arg.shape
+                                );
                             }
                             final_contents.push_str("] ");
                             final_contents.push_str(&String::from_utf8_lossy(contents));
@@ -120,7 +106,7 @@ impl Command for ViewSource {
                     // arg is a module
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
-                        let contents = engine_state.get_span_contents(&module_span);
+                        let contents = engine_state.get_span_contents(module_span);
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {
@@ -142,13 +128,27 @@ impl Command for ViewSource {
                     ))
                 }
             }
-            _ => Err(ShellError::GenericError(
-                "Cannot view value".to_string(),
-                "this value cannot be viewed".to_string(),
-                Some(arg_span),
-                None,
-                Vec::new(),
-            )),
+            value => {
+                if let Ok(block_id) = value.as_block() {
+                    let block = engine_state.get_block(block_id);
+
+                    if let Some(span) = block.span {
+                        let contents = engine_state.get_span_contents(span);
+                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
+                            .into_pipeline_data())
+                    } else {
+                        Ok(Value::string("<internal command>", call.head).into_pipeline_data())
+                    }
+                } else {
+                    Err(ShellError::GenericError(
+                        "Cannot view value".to_string(),
+                        "this value cannot be viewed".to_string(),
+                        Some(arg_span),
+                        None,
+                        Vec::new(),
+                    ))
+                }
+            }
         }
     }
 
@@ -157,22 +157,27 @@ impl Command for ViewSource {
             Example {
                 description: "View the source of a code block",
                 example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
-                result: Some(Value::test_string("{ echo 'hi' }")),
+                result: Some(Value::test_string("{|| echo 'hi' }")),
             },
             Example {
                 description: "View the source of a custom command",
                 example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
-                result: Some(Value::test_string("{ echo 'Hi!' }")),
+                result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment",
-                example: r#"def-env foo [] { let-env BAR = 'BAZ' }; view source foo"#,
-                result: Some(Value::test_string("{ let-env BAR = 'BAZ' }")),
+                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
+            },
+            Example {
+                description: "View the source of a custom command with flags and arguments",
+                example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
+                result: Some(Value::test_string("def test [ a?: any --b: int ...rest: string] { echo 'test' }")),
             },
             Example {
                 description: "View the source of a module",
-                example: r#"module mod-foo { export-env { let-env FOO_ENV = 'BAZ' } }; view source mod-foo"#,
-                result: Some(Value::test_string(" export-env { let-env FOO_ENV = 'BAZ' }")),
+                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
+                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias",

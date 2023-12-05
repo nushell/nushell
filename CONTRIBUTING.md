@@ -2,7 +2,25 @@
 
 Welcome to Nushell and thank you for considering contributing!
 
-## Review Process
+## Table of contents
+- [Proposing design changes](#proposing-design-changes)
+- [Developing](#developing)
+  - [Setup](#setup)
+  - [Tests](#tests)
+  - [Useful commands](#useful-commands)
+  - [Debugging tips](#debugging-tips)
+- [Git etiquette](#git-etiquette)
+- [License](#license)
+
+## Other helpful resources
+
+More resources can be found in the nascent [developer documentation](devdocs/README.md) in this repo.
+
+- [Developer FAQ](FAQ.md)
+- [Platform support policy](PLATFORM_SUPPORT.md)
+- [Our Rust style](devdocs/rust_style.md)
+
+## Proposing design changes
 
 First of all, before diving into the code, if you want to create a new feature, change something significantly, and especially if the change is user-facing, it is a good practice to first get an approval from the core team before starting to work on it.
 This saves both your and our time if we realize the change needs to go another direction before spending time on it.
@@ -33,7 +51,7 @@ cargo build
 
 ### Tests
 
-It is a good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
+It is good practice to cover your changes with a test. Also, try to think about corner cases and various ways how your changes could break. Cover those in the tests as well.
 
 Tests can be found in different places:
 * `/tests`
@@ -41,74 +59,83 @@ Tests can be found in different places:
 * command examples
 * crate-specific tests
 
-The most comprehensive test suite we have is the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
+Most of the tests are built upon the `nu-test-support` crate. For testing specific features, such as running Nushell in a REPL mode, we have so called "testbins". For simple tests, you can find `run_test()` and `fail_test()` functions.
 
 ### Useful Commands
 
+As Nushell is built using a cargo workspace consisting of multiple crates keep in mind that you may need to pass additional flags compared to how you may be used to it from a single crate project.
+Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/reference/workspaces.html
+
 - Build and run Nushell:
 
-  ```shell
+  ```nushell
   cargo run
   ```
 
 - Build and run with dataframe support.
-  ```shell
+  ```nushell
   cargo run --features=dataframe
   ```
 
 - Run Clippy on Nushell:
 
-  ```shell
-  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used -A clippy::needless_collect
+  ```nushell
+  cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu clippy
   clippy
   ```
 
 - Run all tests:
 
-  ```shell
+  ```nushell
   cargo test --workspace
   ```
+
+  along with dataframe tests
+
+  ```nushell
+  cargo test --workspace --features=dataframe
+  ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu test
   test
   ```
 
 - Run all tests for a specific command
 
-  ```shell
+  ```nushell
   cargo test --package nu-cli --test main -- commands::<command_name_here>
   ```
 
 - Check to see if there are code formatting issues
 
-  ```shell
+  ```nushell
   cargo fmt --all -- --check
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu fmt
   fmt --check
   ```
 
 - Format the code in the project
 
-  ```shell
+  ```nushell
   cargo fmt --all
   ```
   or via the `toolkit.nu` command:
-  ```shell
+  ```nushell
   use toolkit.nu fmt
   fmt
   ```
 
 - Set up `git` hooks to check formatting and run `clippy` before committing and pushing:
 
-  ```shell
+  ```nushell
   use toolkit.nu setup-git-hooks
   setup-git-hooks
   ```
@@ -118,12 +145,12 @@ The most comprehensive test suite we have is the `nu-test-support` crate. For te
 
 - To view verbose logs when developing, enable the `trace` log level.
 
-  ```shell
+  ```nushell
   cargo run --release -- --log-level trace
   ```
 
 - To redirect trace logs to a file, enable the `--log-target file` switch.
-  ```shell
+  ```nushell
   cargo run --release -- --log-level trace --log-target file
   open $"($nu.temp-path)/nu-($nu.pid).log"
   ```
@@ -139,7 +166,7 @@ This includes discarded approaches. Also we want to quickly identify regressions
 
 ### How we merge PRs
 
-In general the maintainers **squash** all changes of your PR into a single commit when merging. 
+In general the maintainers **squash** all changes of your PR into a single commit when merging.
 
 This keeps a clean enough linear history, while not forcing you to conform to a too strict style while iterating in your PR or fixing small problems. As an added benefit the commits on the `main` branch are tied to the discussion that happened in the PR through their `#1234` issue number.
 
@@ -201,16 +228,20 @@ You can help us to make the review process a smooth experience:
   - In general, added tests help us to understand which assumptions go into a particular addition/change.
   - Try to also test corner cases where those assumptions might break. This can be more valuable than simply adding many similar tests.
 - Commit history inside a PR during code review:
-  - Good **atomic commits** can help follow larger changes, but we are not pedantic. 
+  - Good **atomic commits** can help follow larger changes, but we are not pedantic.
   - We don't shame fixup commits while you try to figure out a problem. They can help others see what you tried and what didn't work. (see our [squash policy](#how-we-merge-prs))
   - During active review constant **force pushing** just to amend changes can be confusing!
     - GitHub's UI presents reviewers with less options to compare diffs
     - fetched branches for experimentation become invalid!
     - the notification a maintainer receives has a low signal-to-noise ratio
-  - Git pros *can* use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review 
+  - Git pros *can* use their judgement to rebase/squash to clean up the history *if it aids the understanding* of a larger change during review
 - Merge conflicts:
   - In general you should take care of resolving merge conflicts.
     - Use your judgement whether to `git merge main` or to `git rebase main`
     - Choose what simplifies having confidence in the conflict resolution and the review. **Merge commits in your branch are OK** in the squash model.
   - Feel free to notify your reviewers or affected PR authors if your change might cause larger conflicts with another change.
   - During the rollup of multiple PRs, we may choose to resolve merge conflicts and CI failures ourselves. (Allow maintainers to push to your branch to enable us to do this quickly.)
+ 
+## License
+
+We use the [MIT License](https://github.com/nushell/nushell/blob/main/LICENSE) in all of our Nushell projects. If you are including or referencing a crate that uses the [GPL License](https://www.gnu.org/licenses/gpl-3.0.en.html#license-text) unfortunately we will not be able to accept your PR.

@@ -2,25 +2,20 @@ use std::path::Path;
 
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
-    engine::Command, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    engine::Command, Category, Example, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type, Value,
 };
 
 use super::PathSubcommandArguments;
 
 struct Arguments {
-    columns: Option<Vec<String>>,
     replace: Option<Spanned<String>>,
     num_levels: Option<i64>,
 }
 
-impl PathSubcommandArguments for Arguments {
-    fn get_columns(&self) -> Option<Vec<String>> {
-        self.columns.clone()
-    }
-}
+impl PathSubcommandArguments for Arguments {}
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -32,13 +27,13 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("path dirname")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .named(
-                "columns",
-                SyntaxShape::Table,
-                "For a record or table input, convert strings at the given columns to their dirname",
-                Some('c'),
-            )
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+            ])
             .named(
                 "replace",
                 SyntaxShape::String,
@@ -51,10 +46,15 @@ impl Command for SubCommand {
                 "Number of directories to walk up",
                 Some('n'),
             )
+            .category(Category::Path)
     }
 
     fn usage(&self) -> &str {
         "Get the parent directory of a path."
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn run(
@@ -66,7 +66,6 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            columns: call.get_flag(engine_state, stack, "columns")?,
             replace: call.get_flag(engine_state, stack, "replace")?,
             num_levels: call.get_flag(engine_state, stack, "num-levels")?,
         };
@@ -81,6 +80,28 @@ impl Command for SubCommand {
         )
     }
 
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let args = Arguments {
+            replace: call.get_flag_const(working_set, "replace")?,
+            num_levels: call.get_flag_const(working_set, "num-levels")?,
+        };
+
+        // This doesn't match explicit nulls
+        if matches!(input, PipelineData::Empty) {
+            return Err(ShellError::PipelineEmpty { dst_span: head });
+        }
+        input.map(
+            move |value| super::operate(&get_dirname, &args, value, head),
+            working_set.permanent().ctrlc.clone(),
+        )
+    }
+
     #[cfg(windows)]
     fn examples(&self) -> Vec<Example> {
         vec![
@@ -90,19 +111,22 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("C:\\Users\\joe\\code")),
             },
             Example {
-                description: "Get dirname of a path in a column",
-                example: "ls ('.' | path expand) | path dirname -c [ name ]",
-                result: None,
+                description: "Get dirname of a list of paths",
+                example: r"[ C:\Users\joe\test.txt, C:\Users\doe\test.txt ] | path dirname",
+                result: Some(Value::test_list(vec![
+                    Value::test_string(r"C:\Users\joe"),
+                    Value::test_string(r"C:\Users\doe"),
+                ])),
             },
             Example {
                 description: "Walk up two levels",
-                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2",
+                example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2",
                 result: Some(Value::test_string("C:\\Users\\joe")),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
                 example:
-                    "'C:\\Users\\joe\\code\\test.txt' | path dirname -n 2 -r C:\\Users\\viking",
+                    "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 --replace C:\\Users\\viking",
                 result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
             },
         ]
@@ -117,18 +141,22 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("/home/joe/code")),
             },
             Example {
-                description: "Get dirname of a path in a column",
-                example: "ls ('.' | path expand) | path dirname -c [ name ]",
-                result: None,
+                description: "Get dirname of a list of paths",
+                example: "[ /home/joe/test.txt, /home/doe/test.txt ] | path dirname",
+                result: Some(Value::test_list(vec![
+                    Value::test_string("/home/joe"),
+                    Value::test_string("/home/doe"),
+                ])),
             },
             Example {
                 description: "Walk up two levels",
-                example: "'/home/joe/code/test.txt' | path dirname -n 2",
+                example: "'/home/joe/code/test.txt' | path dirname --num-levels 2",
                 result: Some(Value::test_string("/home/joe")),
             },
             Example {
                 description: "Replace the part that would be returned with a custom path",
-                example: "'/home/joe/code/test.txt' | path dirname -n 2 -r /home/viking",
+                example:
+                    "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace /home/viking",
                 result: Some(Value::test_string("/home/viking/code/test.txt")),
             },
         ]

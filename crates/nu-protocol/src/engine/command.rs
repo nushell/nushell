@@ -1,8 +1,8 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
-use super::{EngineState, Stack};
+use super::{EngineState, Stack, StateWorkingSet};
 
 #[derive(Debug)]
 pub enum CommandType {
@@ -33,6 +33,19 @@ pub trait Command: Send + Sync + CommandClone {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError>;
+
+    /// Used by the parser to run command at parse time
+    ///
+    /// If a command has `is_const()` set to true, it must also implement this method.
+    #[allow(unused_variables)]
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        Err(ShellError::MissingConstEvalImpl { span: call.head })
+    }
 
     fn examples(&self) -> Vec<Example> {
         Vec::new()
@@ -79,8 +92,13 @@ pub trait Command: Send + Sync + CommandClone {
     }
 
     // Is a plugin command (returns plugin's path, type of shell if the declaration is a plugin)
-    fn is_plugin(&self) -> Option<(&PathBuf, &Option<PathBuf>)> {
+    fn is_plugin(&self) -> Option<(&Path, Option<&Path>)> {
         None
+    }
+
+    // Whether can run in const evaluation in the parser
+    fn is_const(&self) -> bool {
+        false
     }
 
     // If command is a block i.e. def blah [] { }, get the block id

@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
+use nu_cmd_base::arg_glob;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
@@ -19,23 +20,16 @@ use super::util::try_interaction;
 use crate::filesystem::util::FileStructure;
 use crate::progress_bar;
 
-const GLOB_PARAMS: nu_glob::MatchOptions = nu_glob::MatchOptions {
-    case_sensitive: true,
-    require_literal_separator: false,
-    require_literal_leading_dot: false,
-    recursive_match_hidden_dir: true,
-};
-
 #[derive(Clone)]
 pub struct Cp;
 
 impl Command for Cp {
     fn name(&self) -> &str {
-        "cp"
+        "cp-old"
     }
 
     fn usage(&self) -> &str {
-        "Copy files."
+        "Old nushell version of Copy files."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -43,7 +37,7 @@ impl Command for Cp {
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("cp")
+        Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("source", SyntaxShape::GlobPattern, "the place to copy from")
             .required("destination", SyntaxShape::Filepath, "the place to copy to")
@@ -56,6 +50,10 @@ impl Command for Cp {
                 "verbose",
                 "show successful copies in addition to failed copies (default:false)",
                 Some('v'),
+            )
+            .switch("update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
             )
             // TODO: add back in additional features
             // .switch("force", "suppress error when no file", Some('f'))
@@ -77,35 +75,29 @@ impl Command for Cp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let src = {
-            Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(src.item),
-                span: src.span,
-            }
-        };
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
         let interactive = call.has_flag("interactive");
         let progress = call.has_flag("progress");
+        let update_mode = call.has_flag("update");
 
         let current_dir_path = current_dir(engine_state, stack)?;
-        let source = current_dir_path.join(src.item.as_str());
         let destination = current_dir_path.join(dst.item.as_str());
 
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
-            return Err(ShellError::DirectoryNotFound(
-                dst.span,
-                Some("destination directory does not exist".to_string()),
-            ));
+            return Err(ShellError::DirectoryNotFound {
+                dir: destination.to_string_lossy().to_string(),
+                span: dst.span,
+            });
         }
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
 
         // Get an iterator with all the source files.
-        let sources: Vec<_> = match nu_glob::glob_with(&source.to_string_lossy(), GLOB_PARAMS) {
+        let sources: Vec<_> = match arg_glob(&src, &current_dir_path) {
             Ok(files) => files.collect(),
             Err(e) => {
                 return Err(ShellError::GenericError(
@@ -119,13 +111,7 @@ impl Command for Cp {
         };
 
         if sources.is_empty() {
-            return Err(ShellError::GenericError(
-                "No matches found".into(),
-                "no matches found".into(),
-                Some(src.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::FileNotFound { span: src.span });
         }
 
         if sources.len() > 1 && !destination.is_dir() {
@@ -177,10 +163,14 @@ impl Command for Cp {
                     if src.is_file() {
                         let dst =
                             canonicalize_with(dst.as_path(), &current_dir_path).unwrap_or(dst);
+
+                        // ignore when source file is not newer than target file
+                        if update_mode && super::util::is_older(&src, &dst).unwrap_or(false) {
+                            continue;
+                        }
+
                         let res = if src == dst {
-                            let message = format!(
-                                "src {source:?} and dst {destination:?} are identical(not copied)"
-                            );
+                            let message = format!("src and dst identical: {:?} (not copied)", src);
 
                             return Err(ShellError::GenericError(
                                 "Copy aborted".into(),
@@ -361,6 +351,11 @@ impl Command for Cp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
+                result: None,
+            },
         ]
     }
 }
@@ -378,18 +373,13 @@ fn interactive_copy(
         format!("cp: overwrite '{}'? ", dst.to_string_lossy()),
     );
     if let Err(e) = interaction {
-        Value::Error {
-            error: Box::new(ShellError::GenericError(
-                e.to_string(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
-        }
+        Value::error(
+            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, Vec::new()),
+            span,
+        )
     } else if !confirmed {
         let msg = format!("{:} not copied to {:}", src.display(), dst.display());
-        Value::String { val: msg, span }
+        Value::string(msg, span)
     } else {
         copy_impl(src, dst, span, &None)
     }
@@ -408,7 +398,7 @@ fn copy_file(
     match std::fs::copy(&src, &dst) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::String { val: msg, span }
+            Value::string(msg, span)
         }
         Err(e) => convert_io_error(e, src, dst, span),
     }
@@ -504,7 +494,7 @@ fn copy_file_with_progressbar(
     let msg = format!("copied {:} to {:}", src.display(), dst.display());
     bar.finished_msg(format!(" {} copied!", &file_name));
 
-    Value::String { val: msg, span }
+    Value::string(msg, span)
 }
 
 fn copy_symlink(
@@ -517,15 +507,16 @@ fn copy_symlink(
     let target_path = match target_path {
         Ok(p) => p,
         Err(err) => {
-            return Value::Error {
-                error: Box::new(ShellError::GenericError(
+            return Value::error(
+                ShellError::GenericError(
                     err.to_string(),
                     err.to_string(),
                     Some(span),
                     None,
                     vec![],
-                )),
-            }
+                ),
+                span,
+            )
         }
     };
 
@@ -548,17 +539,12 @@ fn copy_symlink(
     match create_symlink(target_path.as_path(), dst.as_path()) {
         Ok(_) => {
             let msg = format!("copied {:} to {:}", src.display(), dst.display());
-            Value::String { val: msg, span }
+            Value::string(msg, span)
         }
-        Err(e) => Value::Error {
-            error: Box::new(ShellError::GenericError(
-                e.to_string(),
-                e.to_string(),
-                Some(span),
-                None,
-                vec![],
-            )),
-        },
+        Err(e) => Value::error(
+            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
+            span,
+        ),
     }
 }
 
@@ -577,29 +563,51 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
     let shell_error = match error.kind() {
         ErrorKind::NotFound => {
             if std::path::Path::new(&dst).exists() {
-                ShellError::FileNotFoundCustom(message_src, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_src,
+                    span,
+                }
             } else {
-                ShellError::FileNotFoundCustom(message_dst, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_dst,
+                    span,
+                }
             }
         }
         ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
             Ok(meta) => {
                 if meta.permissions().readonly() {
-                    ShellError::PermissionDeniedError(message_dst, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_dst,
+                        span,
+                    }
                 } else {
-                    ShellError::PermissionDeniedError(message_src, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_src,
+                        span,
+                    }
                 }
             }
-            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+            Err(_) => ShellError::PermissionDeniedError {
+                msg: message_dst,
+                span,
+            },
         },
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
+        ErrorKind::Interrupted => ShellError::IOInterrupted {
+            msg: message_src,
+            span,
+        },
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError {
+            msg: message_src,
+            span,
+        },
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
-        _ => ShellError::IOErrorSpanned(message_src, span),
+        _ => ShellError::IOErrorSpanned {
+            msg: message_src,
+            span,
+        },
     };
 
-    Value::Error {
-        error: Box::new(shell_error),
-    }
+    Value::error(shell_error, span)
 }

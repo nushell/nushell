@@ -1,14 +1,9 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 use std::str::FromStr;
 
 #[test]
 fn all() {
-    Playground::setup("sum_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "meals.json",
-            r#"
+    let sample = r#"
                 {
                     meals: [
                         {description: "1 large egg", calories: 90},
@@ -16,21 +11,18 @@ fn all() {
                         {description: "1 tablespoon fish oil", calories: 108}
                     ]
                 }
-            "#,
-        )]);
+            "#;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open meals.json
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {sample}
                 | get meals
                 | get calories
                 | math sum
             "#
-        ));
+    )));
 
-        assert_eq!(actual.out, "448");
-    })
+    assert_eq!(actual.out, "448");
 }
 
 #[test]

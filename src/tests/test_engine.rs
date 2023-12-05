@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, TestResult};
+use rstest::rstest;
 
 #[test]
 fn concrete_variable_assignment() -> TestResult {
@@ -53,14 +54,32 @@ fn in_and_if_else() -> TestResult {
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    run_test(r#"each --help | lines | length"#, "65")
+    // `each while` is part of the *extra* feature and adds 3 lines
+    let expected_length = if cfg!(feature = "extra") { "70" } else { "67" };
+    run_test(r#"each --help | lines | length"#, expected_length)
 }
 
 #[test]
 fn scope_variable() -> TestResult {
     run_test(
-        r#"let x = 3; $nu.scope.vars | where name == "$x" | get type.0"#,
+        r#"let x = 3; scope variables | where name == "$x" | get type.0"#,
         "int",
+    )
+}
+#[rstest]
+#[case("a", "<> nothing")]
+#[case("b", "<1.23> float")]
+#[case("flag1", "<> nothing")]
+#[case("flag2", "<4.56> float")]
+
+fn scope_command_defaults(#[case] var: &str, #[case] exp_result: &str) -> TestResult {
+    run_test(
+        &format!(
+            r#"def t1 [a:int b?:float=1.23 --flag1:string --flag2:float=4.56] {{ true }};
+            let rslt = (scope commands | where name == 't1' | get signatures.0.any | where parameter_name == '{var}' | get parameter_default.0);
+            $"<($rslt)> ($rslt | describe)""#
+        ),
+        exp_result,
     )
 }
 
@@ -170,20 +189,20 @@ fn let_sees_in_variable2() -> TestResult {
 #[test]
 fn def_env() -> TestResult {
     run_test(
-        r#"def-env bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#,
+        r#"def --env bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#,
         "BAZ",
     )
 }
 
 #[test]
 fn not_def_env() -> TestResult {
-    fail_test(r#"def bob [] { let-env BAR = "BAZ" }; bob; $env.BAR"#, "")
+    fail_test(r#"def bob [] { $env.BAR = "BAZ" }; bob; $env.BAR"#, "")
 }
 
 #[test]
 fn def_env_hiding_something() -> TestResult {
     fail_test(
-        r#"let-env FOO = "foo"; def-env bob [] { hide-env FOO }; bob; $env.FOO"#,
+        r#"$env.FOO = "foo"; def --env bob [] { hide-env FOO }; bob; $env.FOO"#,
         "",
     )
 }
@@ -191,7 +210,7 @@ fn def_env_hiding_something() -> TestResult {
 #[test]
 fn def_env_then_hide() -> TestResult {
     fail_test(
-        r#"def-env bob [] { let-env BOB = "bob" }; def-env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
+        r#"def --env bob [] { $env.BOB = "bob" }; def --env un-bob [] { hide-env BOB }; bob; un-bob; $env.BOB"#,
         "",
     )
 }
@@ -199,20 +218,20 @@ fn def_env_then_hide() -> TestResult {
 #[test]
 fn export_def_env() -> TestResult {
     run_test(
-        r#"module foo { export def-env bob [] { let-env BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
+        r#"module foo { export def --env bob [] { $env.BAR = "BAZ" } }; use foo bob; bob; $env.BAR"#,
         "BAZ",
     )
 }
 
 #[test]
-fn dynamic_let_env() -> TestResult {
-    run_test(r#"let x = "FOO"; let-env $x = "BAZ"; $env.FOO"#, "BAZ")
+fn dynamic_load_env() -> TestResult {
+    run_test(r#"let x = "FOO"; load-env {$x: "BAZ"}; $env.FOO"#, "BAZ")
 }
 
 #[test]
 fn reduce_spans() -> TestResult {
     fail_test(
-        r#"let x = ([1, 2, 3] | reduce -f 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
+        r#"let x = ([1, 2, 3] | reduce --fold 0 { $it.item + 2 * $it.acc }); error make {msg: "oh that hurts", label: {text: "right here", start: (metadata $x).span.start, end: (metadata $x).span.end } }"#,
         "right here",
     )
 }
@@ -318,13 +337,31 @@ fn default_value11() -> TestResult {
 fn default_value12() -> TestResult {
     fail_test(
         r#"def foo [--x:int = "a"] { $x }"#,
-        "default value should be int",
+        "expected default value to be `int`",
     )
 }
 
 #[test]
-fn default_value_expression() -> TestResult {
+fn default_value_constant1() -> TestResult {
+    run_test(r#"def foo [x = "foo"] { $x }; foo"#, "foo")
+}
+
+#[test]
+fn default_value_constant2() -> TestResult {
+    run_test(r#"def foo [secs = 1sec] { $secs }; foo"#, "1sec")
+}
+
+#[test]
+fn default_value_constant3() -> TestResult {
     run_test(r#"def foo [x = ("foo" | str length)] { $x }; foo"#, "3")
+}
+
+#[test]
+fn default_value_not_constant2() -> TestResult {
+    fail_test(
+        r#"def foo [x = (loop { break })] { $x }; foo"#,
+        "expected a constant",
+    )
 }
 
 #[test]
@@ -349,7 +386,7 @@ fn in_iteration() -> TestResult {
 }
 
 #[test]
-fn reuseable_in() -> TestResult {
+fn reusable_in() -> TestResult {
     run_test(
         r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
         "6",
@@ -378,4 +415,28 @@ fn assignment_to_in_var_no_panic() -> TestResult {
 #[test]
 fn assignment_to_env_no_panic() -> TestResult {
     fail_test(r#"$env = 3"#, "cannot_replace_env")
+}
+
+#[test]
+fn short_flags() -> TestResult {
+    run_test(
+        r#"def foobar [-a: int, -b: string, -c: string] { echo $'($a) ($c) ($b)' }; foobar -b "balh balh" -a 1543  -c "FALSE123""#,
+        "1543 FALSE123 balh balh",
+    )
+}
+
+#[test]
+fn short_flags_1() -> TestResult {
+    run_test(
+        r#"def foobar [-a: string, -b: string, -s: int] { if ( $s == 0 ) { echo $'($b)($a)' }}; foobar -a test -b case -s 0  "#,
+        "casetest",
+    )
+}
+
+#[test]
+fn short_flags_2() -> TestResult {
+    run_test(
+        r#"def foobar [-a: int, -b: string, -c: int] { $a + $c };foobar -b "balh balh" -a 10  -c 1 "#,
+        "11",
+    )
 }

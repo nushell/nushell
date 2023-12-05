@@ -1,6 +1,6 @@
 name: Feature Request
 description: "When you want a new feature for something that doesn't already exist"
-labels: "enhancement"
+labels: ["needs-triage", "enhancement"]
 body:
   - type: textarea
     id: problem

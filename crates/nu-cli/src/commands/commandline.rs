@@ -1,9 +1,9 @@
 use nu_engine::CallExt;
-use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::Category;
-use nu_protocol::IntoPipelineData;
-use nu_protocol::{PipelineData, ShellError, Signature, SyntaxShape, Type, Value};
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -16,11 +16,19 @@ impl Command for Commandline {
 
     fn signature(&self) -> Signature {
         Signature::build("commandline")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::String, Type::String),
+            ])
             .switch(
                 "cursor",
                 "Set or get the current cursor position",
                 Some('c'),
+            )
+            .switch(
+                "cursor-end",
+                "Set the current cursor position to the end of the buffer",
+                Some('e'),
             )
             .switch(
                 "append",
@@ -61,76 +69,60 @@ impl Command for Commandline {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         if let Some(cmd) = call.opt::<Value>(engine_state, stack, 0)? {
-            let mut buffer = engine_state
-                .repl_buffer_state
-                .lock()
-                .expect("repl buffer state mutex");
-            let mut cursor_pos = engine_state
-                .repl_cursor_pos
-                .lock()
-                .expect("repl cursor pos mutex");
+            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
 
             if call.has_flag("cursor") {
                 let cmd_str = cmd.as_string()?;
                 match cmd_str.parse::<i64>() {
                     Ok(n) => {
-                        *cursor_pos = if n <= 0 {
+                        repl.cursor_pos = if n <= 0 {
                             0usize
                         } else {
-                            buffer
+                            repl.buffer
                                 .grapheme_indices(true)
                                 .map(|(i, _c)| i)
                                 .nth(n as usize)
-                                .unwrap_or(buffer.len())
+                                .unwrap_or(repl.buffer.len())
                         }
                     }
                     Err(_) => {
                         return Err(ShellError::CantConvert {
                             to_type: "int".to_string(),
                             from_type: "string".to_string(),
-                            span: cmd.span()?,
+                            span: cmd.span(),
                             help: Some(format!(
-                                r#"string "{cmd_str}" does not represent a valid integer"#
+                                r#"string "{cmd_str}" does not represent a valid int"#
                             )),
                         })
                     }
                 }
             } else if call.has_flag("append") {
-                buffer.push_str(&cmd.as_string()?);
+                repl.buffer.push_str(&cmd.as_string()?);
             } else if call.has_flag("insert") {
                 let cmd_str = cmd.as_string()?;
-                buffer.insert_str(*cursor_pos, &cmd_str);
-                *cursor_pos += cmd_str.len();
+                let cursor_pos = repl.cursor_pos;
+                repl.buffer.insert_str(cursor_pos, &cmd_str);
+                repl.cursor_pos += cmd_str.len();
             } else {
-                *buffer = cmd.as_string()?;
-                *cursor_pos = buffer.len();
+                repl.buffer = cmd.as_string()?;
+                repl.cursor_pos = repl.buffer.len();
             }
-            Ok(Value::Nothing { span: call.head }.into_pipeline_data())
+            Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            let buffer = engine_state
-                .repl_buffer_state
-                .lock()
-                .expect("repl buffer state mutex");
-            if call.has_flag("cursor") {
-                let cursor_pos = engine_state
-                    .repl_cursor_pos
-                    .lock()
-                    .expect("repl cursor pos mutex");
-                let char_pos = buffer
+            let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+            if call.has_flag("cursor-end") {
+                repl.cursor_pos = repl.buffer.graphemes(true).count();
+                Ok(Value::nothing(call.head).into_pipeline_data())
+            } else if call.has_flag("cursor") {
+                let char_pos = repl
+                    .buffer
                     .grapheme_indices(true)
-                    .position(|(i, _c)| i == *cursor_pos)
-                    .unwrap_or(buffer.len());
-                Ok(Value::String {
-                    val: char_pos.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                    .chain(std::iter::once((repl.buffer.len(), "")))
+                    .position(|(i, _c)| i == repl.cursor_pos)
+                    .expect("Cursor position isn't on a grapheme boundary");
+                Ok(Value::string(char_pos.to_string(), call.head).into_pipeline_data())
             } else {
-                Ok(Value::String {
-                    val: buffer.to_string(),
-                    span: call.head,
-                }
-                .into_pipeline_data())
+                Ok(Value::string(repl.buffer.to_string(), call.head).into_pipeline_data())
             }
         }
     }

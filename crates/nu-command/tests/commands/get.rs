@@ -176,23 +176,20 @@ fn errors_fetching_by_index_out_of_bounds() {
 
 #[test]
 fn errors_fetching_by_accessing_empty_list() {
-    let actual = nu!(cwd: ".", pipeline(r#"[] | get 3"#));
+    let actual = nu!("[] | get 3");
     assert!(actual.err.contains("Row number too large (empty content)"),);
 }
 
 #[test]
 fn quoted_column_access() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#
-    );
+    let actual = nu!(r#"'[{"foo bar": {"baz": 4}}]' | from json | get "foo bar".baz.0 "#);
 
     assert_eq!(actual.out, "4");
 }
 
 #[test]
 fn get_does_not_delve_too_deep_in_nested_lists() {
-    let actual = nu!(r#"[[{foo: bar}]] | get foo"#);
+    let actual = nu!("[[{foo: bar}]] | get foo");
 
     assert!(actual.err.contains("cannot find column"));
 }
@@ -202,4 +199,11 @@ fn ignore_errors_works() {
     let actual = nu!(r#" let path = "foo"; {} | get -i $path | to nuon "#);
 
     assert_eq!(actual.out, "null");
+}
+
+#[test]
+fn ignore_multiple() {
+    let actual = nu!(r#"[[a];[b]] | get -i c d | to nuon"#);
+
+    assert_eq!(actual.out, "[[null], [null]]");
 }

@@ -34,6 +34,7 @@ If multiple cell paths are given, this will produce a list of values."#
                     Type::Any,
                 ),
                 (Type::Table(vec![]), Type::Any),
+                (Type::Record(vec![]), Type::Any),
             ])
             .required(
                 "cell_path",
@@ -51,6 +52,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 "get path in a case sensitive manner",
                 Some('s'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 
@@ -63,7 +65,7 @@ If multiple cell paths are given, this will produce a list of values."#
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
-        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let mut rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
         let sensitive = call.has_flag("sensitive");
         let ctrlc = engine_state.ctrlc.clone();
@@ -71,6 +73,9 @@ If multiple cell paths are given, this will produce a list of values."#
 
         if ignore_errors {
             cell_path.make_optional();
+            for path in &mut rest {
+                path.make_optional();
+            }
         }
 
         if rest.is_empty() {
@@ -104,10 +109,10 @@ If multiple cell paths are given, this will produce a list of values."#
             Example {
                 description: "Get a column from a table",
                 example: "[{A: A0}] | get A",
-                result: Some(Value::List {
-                    vals: vec![Value::test_string("A0")],
-                    span: Span::test_data(),
-                }),
+                result: Some(Value::list(
+                    vec![Value::test_string("A0")],
+                    Span::test_data(),
+                )),
             },
             Example {
                 description: "Get a cell from a table",
@@ -137,7 +142,7 @@ If multiple cell paths are given, this will produce a list of values."#
             },
             Example {
                 description: "Getting Path in a case sensitive way, won't work for 'PATH'",
-                example: "$env | get -s Path",
+                example: "$env | get --sensitive Path",
                 result: None,
             },
         ]

@@ -13,7 +13,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
     Value,
 };
-use tui::layout::Rect;
+use ratatui::layout::Rect;
 
 use crate::{nu_common::NuConfig, pager::ConfigMap};
 
@@ -22,9 +22,6 @@ use super::{
     pager::{Frame, Transition, ViewInfo},
 };
 
-pub mod configuration;
-
-pub use configuration::ConfigurationView;
 pub use information::InformationView;
 pub use interactive::InteractiveView;
 pub use preview::Preview;

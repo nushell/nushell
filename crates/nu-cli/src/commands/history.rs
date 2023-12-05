@@ -1,8 +1,8 @@
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData, ShellError,
-    Signature, Span, Type, Value,
+    record, Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData,
+    ShellError, Signature, Span, Type, Value,
 };
 use reedline::{
     FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
@@ -70,12 +70,14 @@ impl Command for History {
             } else {
                 let history_reader: Option<Box<dyn ReedlineHistory>> =
                     match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => SqliteBackedHistory::with_file(history_path)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok(),
+                        HistoryFileFormat::Sqlite => {
+                            SqliteBackedHistory::with_file(history_path, None, None)
+                                .map(|inner| {
+                                    let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                                    boxed
+                                })
+                                .ok()
+                        }
 
                         HistoryFileFormat::PlainText => FileBackedHistory::with_file(
                             engine_state.config.max_history_size as usize,
@@ -95,22 +97,17 @@ impl Command for History {
                                 .ok()
                         })
                         .map(move |entries| {
-                            entries
-                                .into_iter()
-                                .enumerate()
-                                .map(move |(idx, entry)| Value::Record {
-                                    cols: vec!["command".to_string(), "index".to_string()],
-                                    vals: vec![
-                                        Value::String {
-                                            val: entry.command_line,
-                                            span: head,
-                                        },
-                                        Value::int(idx as i64, head),
-                                    ],
-                                    span: head,
-                                })
+                            entries.into_iter().enumerate().map(move |(idx, entry)| {
+                                Value::record(
+                                    record! {
+                                        "command" => Value::string(entry.command_line, head),
+                                        "index" => Value::int(idx as i64, head),
+                                    },
+                                    head,
+                                )
+                            })
                         })
-                        .ok_or(ShellError::FileNotFound(head))?
+                        .ok_or(ShellError::FileNotFound { span: head })?
                         .into_pipeline_data(ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
@@ -122,12 +119,12 @@ impl Command for History {
                                 create_history_record(idx, entry, long, head)
                             })
                         })
-                        .ok_or(ShellError::FileNotFound(head))?
+                        .ok_or(ShellError::FileNotFound { span: head })?
                         .into_pipeline_data(ctrlc)),
                 }
             }
         } else {
-            Err(ShellError::FileNotFound(head))
+            Err(ShellError::FileNotFound { span: head })
         }
     }
 
@@ -144,7 +141,7 @@ impl Command for History {
                 result: None,
             },
             Example {
-                example: "history | wrap cmd | where cmd =~ cargo",
+                example: "history | where command =~ cargo | get command",
                 description: "Search all the commands from history that contains 'cargo'",
                 result: None,
             },
@@ -156,8 +153,8 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     //1. Format all the values
     //2. Create a record of either short or long columns and values
 
-    let item_id_value = Value::Int {
-        val: match entry.id {
+    let item_id_value = Value::int(
+        match entry.id {
             Some(id) => {
                 let ids = id.to_string();
                 match ids.parse::<i64>() {
@@ -167,21 +164,18 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
             }
             None => 0i64,
         },
-        span: head,
-    };
-    let start_timestamp_value = Value::String {
-        val: match entry.start_timestamp {
+        head,
+    );
+    let start_timestamp_value = Value::string(
+        match entry.start_timestamp {
             Some(time) => time.to_string(),
             None => "".into(),
         },
-        span: head,
-    };
-    let command_value = Value::String {
-        val: entry.command_line,
-        span: head,
-    };
-    let session_id_value = Value::Int {
-        val: match entry.session_id {
+        head,
+    );
+    let command_value = Value::string(entry.command_line, head);
+    let session_id_value = Value::int(
+        match entry.session_id {
             Some(sid) => {
                 let sids = sid.to_string();
                 match sids.parse::<i64>() {
@@ -191,74 +185,56 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
             }
             None => 0i64,
         },
-        span: head,
-    };
-    let hostname_value = Value::String {
-        val: match entry.hostname {
+        head,
+    );
+    let hostname_value = Value::string(
+        match entry.hostname {
             Some(host) => host,
             None => "".into(),
         },
-        span: head,
-    };
-    let cwd_value = Value::String {
-        val: match entry.cwd {
+        head,
+    );
+    let cwd_value = Value::string(
+        match entry.cwd {
             Some(cwd) => cwd,
             None => "".into(),
         },
-        span: head,
-    };
-    let duration_value = Value::Duration {
-        val: match entry.duration {
+        head,
+    );
+    let duration_value = Value::duration(
+        match entry.duration {
             Some(d) => d.as_nanos().try_into().unwrap_or(0),
             None => 0,
         },
-        span: head,
-    };
+        head,
+    );
     let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);
     let index_value = Value::int(idx as i64, head);
     if long {
-        Value::Record {
-            cols: vec![
-                "item_id".into(),
-                "start_timestamp".into(),
-                "command".to_string(),
-                "session_id".into(),
-                "hostname".into(),
-                "cwd".into(),
-                "duration".into(),
-                "exit_status".into(),
-                "idx".to_string(),
-            ],
-            vals: vec![
-                item_id_value,
-                start_timestamp_value,
-                command_value,
-                session_id_value,
-                hostname_value,
-                cwd_value,
-                duration_value,
-                exit_status_value,
-                index_value,
-            ],
-            span: head,
-        }
+        Value::record(
+            record! {
+                "item_id" => item_id_value,
+                "start_timestamp" => start_timestamp_value,
+                "command" => command_value,
+                "session_id" => session_id_value,
+                "hostname" => hostname_value,
+                "cwd" => cwd_value,
+                "duration" => duration_value,
+                "exit_status" => exit_status_value,
+                "idx" => index_value,
+            },
+            head,
+        )
     } else {
-        Value::Record {
-            cols: vec![
-                "start_timestamp".into(),
-                "command".to_string(),
-                "cwd".into(),
-                "duration".into(),
-                "exit_status".into(),
-            ],
-            vals: vec![
-                start_timestamp_value,
-                command_value,
-                cwd_value,
-                duration_value,
-                exit_status_value,
-            ],
-            span: head,
-        }
+        Value::record(
+            record! {
+                "start_timestamp" => start_timestamp_value,
+                "command" => command_value,
+                "cwd" => cwd_value,
+                "duration" => duration_value,
+                "exit_status" => exit_status_value,
+            },
+            head,
+        )
     }
 }

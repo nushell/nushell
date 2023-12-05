@@ -1,9 +1,13 @@
+use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
-    Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
+    Value,
 };
-use std::fmt::Write;
+use std::{collections::HashMap, fmt::Write};
+
+use crate::eval_call;
 
 pub fn get_full_help(
     sig: &Signature,
@@ -35,6 +39,26 @@ struct DocumentationConfig {
     brief: bool,
 }
 
+// Utility returns nu-highlighted string
+fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mut Stack) -> String {
+    if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
+        let decl = engine_state.get_decl(highlighter);
+
+        if let Ok(output) = decl.run(
+            engine_state,
+            stack,
+            &Call::new(Span::unknown()),
+            Value::string(code_string, Span::unknown()).into_pipeline_data(),
+        ) {
+            let result = output.into_value(Span::unknown());
+            if let Ok(s) = result.as_string() {
+                return s; // successfully highlighted string
+            }
+        }
+    }
+    code_string.to_string()
+}
+
 #[allow(clippy::cognitive_complexity)]
 fn get_documentation(
     sig: &Signature,
@@ -45,9 +69,16 @@ fn get_documentation(
     is_parser_keyword: bool,
 ) -> String {
     // Create ansi colors
-    const G: &str = "\x1b[32m"; // green
-    const C: &str = "\x1b[36m"; // cyan
-    const BB: &str = "\x1b[1;34m"; // bold blue
+    //todo make these configurable -- pull from enginestate.config
+    let help_section_name: String =
+        get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
+
+    let help_subcolor_one: String =
+        get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
+                                                                                             // was const bb: &str = "\x1b[1;34m"; // bold blue
+    let help_subcolor_two: String =
+        get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m"); // default: light blue (nobold, should be bolding the *names*)
+
     const RESET: &str = "\x1b[0m"; // reset
 
     let cmd_name = &sig.name;
@@ -70,58 +101,61 @@ fn get_documentation(
         let signatures = engine_state.get_signatures(true);
         for sig in signatures {
             if sig.name.starts_with(&format!("{cmd_name} "))
-                // Don't display deprecated commands in the Subcommands list
-                    && !sig.usage.starts_with("Deprecated command")
+                // Don't display removed/deprecated commands in the Subcommands list
+                    && !matches!(sig.category, Category::Removed)
             {
-                subcommands.push(format!("  {C}{}{RESET} - {}", sig.name, sig.usage));
+                subcommands.push(format!(
+                    "  {help_subcolor_one}{}{RESET} - {}",
+                    sig.name, sig.usage
+                ));
             }
         }
     }
 
     if !sig.search_terms.is_empty() {
         let text = format!(
-            "{G}Search terms{RESET}: {C}{}{}\n\n",
+            "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{}\n\n",
             sig.search_terms.join(", "),
             RESET
         );
         let _ = write!(long_desc, "{text}");
     }
 
-    let text = format!("{}Usage{}:\n  > {}\n", G, RESET, sig.call_signature());
+    let text = format!(
+        "{}Usage{}:\n  > {}\n",
+        help_section_name,
+        RESET,
+        sig.call_signature()
+    );
     let _ = write!(long_desc, "{text}");
 
     if !subcommands.is_empty() {
-        let _ = write!(long_desc, "\n{G}Subcommands{RESET}:\n");
+        let _ = write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n");
         subcommands.sort();
         long_desc.push_str(&subcommands.join("\n"));
         long_desc.push('\n');
     }
 
     if !sig.named.is_empty() {
-        long_desc.push_str(&get_flags_section(sig))
-    }
-
-    if !is_parser_keyword && !sig.input_output_types.is_empty() {
-        if sig.operates_on_cell_paths() {
-            let _ = writeln!(
-                long_desc,
-                "\n{G}Signatures(Cell paths are supported){RESET}:\n{sig}"
-            );
-        } else {
-            let _ = writeln!(long_desc, "\n{G}Signatures{RESET}:\n{sig}");
-        }
+        long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
+            nu_highlight_string(
+                &v.into_string_parsable(", ", &engine_state.config),
+                engine_state,
+                stack,
+            )
+        }))
     }
 
     if !sig.required_positional.is_empty()
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
     {
-        let _ = write!(long_desc, "\n{G}Parameters{RESET}:\n");
+        let _ = write!(long_desc, "\n{help_section_name}Parameters{RESET}:\n");
         for positional in &sig.required_positional {
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {}",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
@@ -129,7 +163,7 @@ fn get_documentation(
                 }
                 _ => {
                     format!(
-                        "  {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
                         positional.name,
                         document_shape(positional.shape.clone()),
                         positional.desc
@@ -142,18 +176,32 @@ fn get_documentation(
             let text = match &positional.shape {
                 SyntaxShape::Keyword(kw, shape) => {
                     format!(
-                        "  (optional) {C}\"{}\" + {RESET}<{BB}{}{RESET}>: {}",
+                        "  {help_subcolor_one}\"{}\" + {RESET}<{help_subcolor_two}{}{RESET}>: {} (optional)",
                         String::from_utf8_lossy(kw),
                         document_shape(*shape.clone()),
                         positional.desc
                     )
                 }
                 _ => {
+                    let opt_suffix = if let Some(value) = &positional.default_value {
+                        format!(
+                            " (optional, default: {})",
+                            nu_highlight_string(
+                                &value.into_string_parsable(", ", &engine_state.config),
+                                engine_state,
+                                stack
+                            )
+                        )
+                    } else {
+                        (" (optional)").to_string()
+                    };
+
                     format!(
-                        "  (optional) {C}{}{RESET} <{BB}{}{RESET}>: {}",
+                        "  {help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}{}",
                         positional.name,
                         document_shape(positional.shape.clone()),
-                        positional.desc
+                        positional.desc,
+                        opt_suffix,
                     )
                 }
             };
@@ -162,7 +210,7 @@ fn get_documentation(
 
         if let Some(rest_positional) = &sig.rest_positional {
             let text = format!(
-                "  ...{C}{}{RESET} <{BB}{}{RESET}>: {}",
+                "  ...{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>: {}",
                 rest_positional.name,
                 document_shape(rest_positional.shape.clone()),
                 rest_positional.desc
@@ -171,8 +219,47 @@ fn get_documentation(
         }
     }
 
+    if !is_parser_keyword && !sig.input_output_types.is_empty() {
+        if let Some(decl_id) = engine_state.find_decl(b"table", &[]) {
+            // FIXME: we may want to make this the span of the help command in the future
+            let span = Span::unknown();
+            let mut vals = vec![];
+            for (input, output) in &sig.input_output_types {
+                vals.push(Value::record(
+                    record! {
+                        "input" => Value::string(input.to_string(), span),
+                        "output" => Value::string(output.to_string(), span),
+                    },
+                    span,
+                ));
+            }
+
+            let mut caller_stack = Stack::new();
+            if let Ok(result) = eval_call(
+                engine_state,
+                &mut caller_stack,
+                &Call {
+                    decl_id,
+                    head: span,
+                    arguments: vec![],
+                    redirect_stdout: true,
+                    redirect_stderr: true,
+                    parser_info: HashMap::new(),
+                },
+                PipelineData::Value(Value::list(vals, span), None),
+            ) {
+                if let Ok((str, ..)) = result.collect_string_strict(span) {
+                    let _ = writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:");
+                    for line in str.lines() {
+                        let _ = writeln!(long_desc, "  {line}");
+                    }
+                }
+            }
+        }
+    }
+
     if !examples.is_empty() {
-        let _ = write!(long_desc, "\n{G}Examples{RESET}:");
+        let _ = write!(long_desc, "\n{help_section_name}Examples{RESET}:");
     }
 
     for example in examples {
@@ -246,93 +333,222 @@ fn get_documentation(
     }
 }
 
+fn get_ansi_color_for_component_or_default(
+    engine_state: &EngineState,
+    theme_component: &str,
+    default: &str,
+) -> String {
+    if let Some(color) = &engine_state.get_config().color_config.get(theme_component) {
+        let mut caller_stack = Stack::new();
+        let span = Span::unknown();
+
+        let argument_opt = get_argument_for_color_value(engine_state, color, span);
+
+        // Call ansi command using argument
+        if let Some(argument) = argument_opt {
+            if let Some(decl_id) = engine_state.find_decl(b"ansi", &[]) {
+                if let Ok(result) = eval_call(
+                    engine_state,
+                    &mut caller_stack,
+                    &Call {
+                        decl_id,
+                        head: span,
+                        arguments: vec![argument],
+                        redirect_stdout: true,
+                        redirect_stderr: true,
+                        parser_info: HashMap::new(),
+                    },
+                    PipelineData::Empty,
+                ) {
+                    if let Ok((str, ..)) = result.collect_string_strict(span) {
+                        return str;
+                    }
+                }
+            }
+        }
+    }
+
+    default.to_string()
+}
+
+fn get_argument_for_color_value(
+    engine_state: &EngineState,
+    color: &&Value,
+    span: Span,
+) -> Option<Argument> {
+    match color {
+        Value::Record { val, .. } => {
+            let record_exp: Vec<RecordItem> = val
+                .into_iter()
+                .map(|(k, v)| {
+                    RecordItem::Pair(
+                        Expression {
+                            expr: Expr::String(k.clone()),
+                            span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        },
+                        Expression {
+                            expr: Expr::String(
+                                v.clone().into_string("", engine_state.get_config()),
+                            ),
+                            span,
+                            ty: Type::String,
+                            custom_completion: None,
+                        },
+                    )
+                })
+                .collect();
+
+            Some(Argument::Positional(Expression {
+                span: Span::unknown(),
+                ty: Type::Record(vec![
+                    ("fg".to_string(), Type::String),
+                    ("attr".to_string(), Type::String),
+                ]),
+                expr: Expr::Record(record_exp),
+                custom_completion: None,
+            }))
+        }
+        Value::String { val, .. } => Some(Argument::Positional(Expression {
+            span: Span::unknown(),
+            ty: Type::String,
+            expr: Expr::String(val.clone()),
+            custom_completion: None,
+        })),
+        _ => None,
+    }
+}
+
 // document shape helps showing more useful information
 pub fn document_shape(shape: SyntaxShape) -> SyntaxShape {
     match shape {
-        SyntaxShape::Custom(inner_shape, _) => *inner_shape,
+        SyntaxShape::CompleterWrapper(inner_shape, _) => *inner_shape,
         _ => shape,
     }
 }
 
-pub fn get_flags_section(signature: &Signature) -> String {
-    const G: &str = "\x1b[32m"; // green
-    const C: &str = "\x1b[36m"; // cyan
-    const BB: &str = "\x1b[1;34m"; // bold blue
+pub fn get_flags_section<F>(
+    engine_state_opt: Option<&EngineState>,
+    signature: &Signature,
+    mut value_formatter: F, // format default Value (because some calls cant access config or nu-highlight)
+) -> String
+where
+    F: FnMut(&nu_protocol::Value) -> String,
+{
+    //todo make these configurable -- pull from enginestate.config
+    let help_section_name: String;
+    let help_subcolor_one: String;
+    let help_subcolor_two: String;
+
+    // Sometimes we want to get the flags without engine_state
+    // For example, in nu-plugin. In that case, we fall back on default values
+    if let Some(engine_state) = engine_state_opt {
+        help_section_name =
+            get_ansi_color_for_component_or_default(engine_state, "shape_string", "\x1b[32m"); // default: green
+        help_subcolor_one =
+            get_ansi_color_for_component_or_default(engine_state, "shape_external", "\x1b[36m"); // default: cyan
+                                                                                                 // was const bb: &str = "\x1b[1;34m"; // bold blue
+        help_subcolor_two =
+            get_ansi_color_for_component_or_default(engine_state, "shape_block", "\x1b[94m");
+    // default: light blue (nobold, should be bolding the *names*)
+    } else {
+        help_section_name = "\x1b[32m".to_string();
+        help_subcolor_one = "\x1b[36m".to_string();
+        help_subcolor_two = "\x1b[94m".to_string();
+    }
+
     const RESET: &str = "\x1b[0m"; // reset
     const D: &str = "\x1b[39m"; // default
 
     let mut long_desc = String::new();
-    let _ = write!(long_desc, "\n{G}Flags{RESET}:\n");
+    let _ = write!(long_desc, "\n{help_section_name}Flags{RESET}:\n");
     for flag in &signature.named {
+        let default_str = if let Some(value) = &flag.default_value {
+            format!(
+                " (default: {help_subcolor_two}{}{RESET})",
+                &value_formatter(value)
+            )
+        } else {
+            "".to_string()
+        };
+
         let msg = if let Some(arg) = &flag.arg {
             if let Some(short) = flag.short {
                 if flag.required {
                     format!(
-                        "  {C}-{}{}{RESET} (required parameter) {:?} - {}\n",
+                        "  {help_subcolor_one}-{}{}{RESET} (required parameter) {:?} - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
+                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
                         } else {
                             "".into()
                         },
                         arg,
-                        flag.desc
+                        flag.desc,
+                        default_str,
                     )
                 } else {
                     format!(
-                        "  {C}-{}{}{RESET} <{BB}{:?}{RESET}> - {}\n",
+                        "  {help_subcolor_one}-{}{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
                         short,
                         if !flag.long.is_empty() {
-                            format!("{D},{RESET} {C}--{}", flag.long)
+                            format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
                         } else {
                             "".into()
                         },
                         arg,
-                        flag.desc
+                        flag.desc,
+                        default_str,
                     )
                 }
             } else if flag.required {
                 format!(
-                    "  {C}--{}{RESET} (required parameter) <{BB}{:?}{RESET}> - {}\n",
-                    flag.long, arg, flag.desc
+                    "  {help_subcolor_one}--{}{RESET} (required parameter) <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
+                    flag.long, arg, flag.desc, default_str,
                 )
             } else {
                 format!(
-                    "  {C}--{}{RESET} <{BB}{:?}{RESET}> - {}\n",
-                    flag.long, arg, flag.desc
+                    "  {help_subcolor_one}--{}{RESET} <{help_subcolor_two}{:?}{RESET}> - {}{}\n",
+                    flag.long, arg, flag.desc, default_str,
                 )
             }
         } else if let Some(short) = flag.short {
             if flag.required {
                 format!(
-                    "  {C}-{}{}{RESET} (required parameter) - {}\n",
+                    "  {help_subcolor_one}-{}{}{RESET} (required parameter) - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
+                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
                     } else {
                         "".into()
                     },
-                    flag.desc
+                    flag.desc,
+                    default_str,
                 )
             } else {
                 format!(
-                    "  {C}-{}{}{RESET} - {}\n",
+                    "  {help_subcolor_one}-{}{}{RESET} - {}{}\n",
                     short,
                     if !flag.long.is_empty() {
-                        format!("{D},{RESET} {C}--{}", flag.long)
+                        format!("{D},{RESET} {help_subcolor_one}--{}", flag.long)
                     } else {
                         "".into()
                     },
-                    flag.desc
+                    flag.desc,
+                    default_str
                 )
             }
         } else if flag.required {
             format!(
-                "  {C}--{}{RESET} (required parameter) - {}\n",
-                flag.long, flag.desc
+                "  {help_subcolor_one}--{}{RESET} (required parameter) - {}{}\n",
+                flag.long, flag.desc, default_str,
             )
         } else {
-            format!("  {C}--{}{RESET} - {}\n", flag.long, flag.desc)
+            format!(
+                "  {help_subcolor_one}--{}{RESET} - {}\n",
+                flag.long, flag.desc
+            )
         };
         long_desc.push_str(&msg);
     }

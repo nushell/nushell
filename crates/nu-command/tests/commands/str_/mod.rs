@@ -27,13 +27,11 @@ fn trims() {
 
 #[test]
 fn error_trim_multiple_chars() {
-    let actual = nu!(
-        cwd: ".", pipeline(
+    let actual = nu!(pipeline(
         r#"
-        echo "does it work now?!" | str trim -c "?!"
+        echo "does it work now?!" | str trim --char "?!"
         "#
-        )
-    );
+    ));
 
     assert!(actual.err.contains("char"));
 }
@@ -79,6 +77,13 @@ fn downcases() {
 }
 
 #[test]
+fn non_ascii_downcase() {
+    let actual = nu!("'ὈΔΥΣΣΕΎΣ' | str downcase");
+
+    assert_eq!(actual.out, "ὀδυσσεύς");
+}
+
+#[test]
 fn upcases() {
     Playground::setup("str_test_4", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -99,6 +104,14 @@ fn upcases() {
 }
 
 #[test]
+fn non_ascii_upcase() {
+    let actual = nu!("'ὀδυσσεύς' | str upcase");
+
+    assert_eq!(actual.out, "ὈΔΥΣΣΕΎΣ");
+}
+
+#[test]
+#[ignore = "Playgrounds are not supported in nu-cmd-extra"]
 fn camelcases() {
     Playground::setup("str_test_3", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -120,8 +133,7 @@ fn camelcases() {
 
 #[test]
 fn converts_to_int() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+    let actual = nu!(pipeline(
         r#"
             echo '[{number_as_string: "1"}]'
             | from json
@@ -137,13 +149,12 @@ fn converts_to_int() {
 }
 
 #[test]
-fn converts_to_decimal() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats", pipeline(
+fn converts_to_float() {
+    let actual = nu!(pipeline(
         r#"
             echo "3.1, 0.0415"
             | split row ","
-            | into decimal
+            | into float
             | math sum
         "#
     ));
@@ -206,7 +217,7 @@ fn regex_error_in_pattern() {
             cwd: dirs.test(), pipeline(
             r#"
                  'source string'
-                 | str replace 'source \Ufoo' "destination"
+                 | str replace -r 'source \Ufoo' "destination"
              "#
         ));
 
@@ -366,24 +377,18 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
 
 #[test]
 fn str_reverse() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         echo "nushell" | str reverse
-        "#
-    ));
+        "#);
 
     assert!(actual.out.contains("llehsun"));
 }
 
 #[test]
 fn test_redirection_trim() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-        r#"
+    let actual = nu!(r#"
         let x = (nu --testbin cococo niceone); $x | str trim | str length
-        "#
-    ));
+        "#);
 
     assert_eq!(actual.out, "7");
 }

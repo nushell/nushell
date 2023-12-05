@@ -18,9 +18,9 @@ fn parse_script_success() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check script.nu
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -43,9 +43,9 @@ fn parse_script_with_wrong_type() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                nu-check -d --as-module script.nu
-            "#
+            "
+                nu-check --debug --as-module script.nu
+            "
         ));
 
         assert!(actual.err.contains("Failed to parse content"));
@@ -67,9 +67,9 @@ fn parse_script_failure() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                nu-check -d script.nu
-            "#
+            "
+                nu-check --debug script.nu
+            "
         ));
 
         assert!(actual.err.contains("Unexpected end of code"));
@@ -96,9 +96,9 @@ fn parse_module_success() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check --as-module foo.nu
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -125,9 +125,9 @@ fn parse_module_with_wrong_type() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                nu-check -d foo.nu
-            "#
+            "
+                nu-check --debug foo.nu
+            "
         ));
 
         assert!(actual.err.contains("Failed to parse content"));
@@ -153,9 +153,9 @@ fn parse_module_failure() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                nu-check -d --as-module foo.nu
-            "#
+            "
+                nu-check --debug --as-module foo.nu
+            "
         ));
 
         assert!(actual.err.contains("Unexpected end of code"));
@@ -167,9 +167,9 @@ fn file_not_exist() {
     Playground::setup("nu_check_test_7", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check --as-module foo.nu
-            "#
+            "
         ));
 
         assert!(actual.err.contains("file not found"));
@@ -196,9 +196,9 @@ fn parse_unsupported_file() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check --as-module foo.txt
-            "#
+            "
         ));
 
         assert!(actual
@@ -211,9 +211,9 @@ fn parse_dir_failure() {
     Playground::setup("nu_check_test_9", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check --as-module ~
-            "#
+            "
         ));
 
         assert!(actual
@@ -230,15 +230,15 @@ fn parse_module_success_2() {
             r#"
                 # foo.nu
 
-                export-env { let-env MYNAME = "Arthur, King of the Britons" }
+                export-env { $env.MYNAME = "Arthur, King of the Britons" }
             "#,
         )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check --as-module foo.nu
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -261,9 +261,9 @@ fn parse_script_success_with_raw_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open script.nu | nu-check
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -290,9 +290,9 @@ fn parse_module_success_with_raw_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open foo.nu | nu-check --as-module
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -319,7 +319,7 @@ fn parse_string_as_script() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                echo $'two(char nl)lines' | nu-check -d --as-module
+                echo $'two(char nl)lines' | nu-check --debug --as-module
             "#
         ));
 
@@ -348,9 +348,9 @@ fn parse_module_success_with_internal_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open foo.nu | lines | nu-check --as-module
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -397,9 +397,9 @@ fn parse_script_success_with_complex_internal_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open grep.nu | lines | nu-check
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -446,9 +446,9 @@ fn parse_script_failure_with_complex_internal_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open grep.nu | lines | nu-check
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "false".to_string());
@@ -495,9 +495,9 @@ fn parse_script_success_with_complex_external_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 open grep.nu | nu-check
-            "#
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -544,9 +544,9 @@ fn parse_module_success_with_complex_external_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                open grep.nu | nu-check -d --as-module
-            "#
+            "
+                open grep.nu | nu-check --debug --as-module
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -593,9 +593,9 @@ fn parse_with_flag_all_success_for_complex_external_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                open grep.nu | nu-check -ad
-            "#
+            "
+                open grep.nu | nu-check --all --debug
+            "
         ));
 
         assert!(actual.err.is_empty());
@@ -642,9 +642,9 @@ fn parse_with_flag_all_failure_for_complex_external_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                open grep.nu | nu-check -ad
-            "#
+            "
+                open grep.nu | nu-check --all --debug
+            "
         ));
 
         assert!(actual.err.contains("syntax error"));
@@ -691,9 +691,9 @@ fn parse_with_flag_all_failure_for_complex_list_stream() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
-                open grep.nu | lines | nu-check -ad
-            "#
+            "
+                open grep.nu | lines | nu-check --all --debug
+            "
         ));
 
         assert!(actual.err.contains("syntax error"));
@@ -716,9 +716,9 @@ fn parse_failure_due_conflicted_flags() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check -a --as-module script.nu
-            "#
+            "
         ));
 
         assert!(actual
@@ -749,15 +749,15 @@ fn parse_script_with_nested_scripts_success() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "foo.nu",
                 r#"
-                    let-env FOO = 'foo'
+                    $env.FOO = 'foo'
                 "#,
             )]);
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 nu-check lol/lol.nu
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "true");
@@ -772,7 +772,7 @@ fn nu_check_respects_file_pwd() {
             .with_files(vec![FileWithContentToBeTrimmed(
                 "lol/lol.nu",
                 r#"
-                    let-env RETURN = (nu-check ../foo.nu)
+                    $env.RETURN = (nu-check ../foo.nu)
                 "#,
             )])
             .with_files(vec![FileWithContentToBeTrimmed(
@@ -784,10 +784,10 @@ fn nu_check_respects_file_pwd() {
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
-            r#"
+            "
                 source-env lol/lol.nu;
                 $env.RETURN
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "true");

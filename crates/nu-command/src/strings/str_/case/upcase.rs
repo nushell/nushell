@@ -2,6 +2,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::Category;
 use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
@@ -14,13 +15,22 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("str upcase")
-            .input_output_types(vec![(Type::String, Type::String)])
-            .vectorizes_over_list(true)
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::Table(vec![]), Type::Table(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
+            .allow_variants_without_examples(true)
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
                 "For a data structure input, convert strings at the given cell paths",
             )
+            .category(Category::Strings)
     }
 
     fn usage(&self) -> &str {
@@ -68,9 +78,7 @@ fn operate(
                     let r =
                         ret.update_cell_path(&path.members, Box::new(move |old| action(old, head)));
                     if let Err(error) = r {
-                        return Value::Error {
-                            error: Box::new(error),
-                        };
+                        return Value::error(error, head);
                     }
                 }
                 ret
@@ -82,19 +90,17 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val: s, .. } => Value::String {
-            val: s.to_uppercase(),
-            span: head,
-        },
+        Value::String { val: s, .. } => Value::string(s.to_uppercase(), head),
         Value::Error { .. } => input.clone(),
-        _ => Value::Error {
-            error: Box::new(ShellError::OnlySupportsThisInputType {
+        _ => Value::error(
+            ShellError::OnlySupportsThisInputType {
                 exp_input_type: "string".into(),
                 wrong_type: input.get_type().to_string(),
                 dst_span: head,
-                src_span: input.expect_span(),
-            }),
-        },
+                src_span: input.span(),
+            },
+            head,
+        ),
     }
 }
 

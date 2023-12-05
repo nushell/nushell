@@ -1,10 +1,10 @@
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
-use crate::*;
-
-pub fn create_default_context() -> EngineState {
-    let mut engine_state = nu_cmd_lang::create_default_context();
-
+use crate::{
+    help::{HelpAliases, HelpCommands, HelpEscapes, HelpExterns, HelpModules, HelpOperators},
+    *,
+};
+pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
     let delta = {
         let mut working_set = StateWorkingSet::new(&engine_state);
 
@@ -18,8 +18,6 @@ pub fn create_default_context() -> EngineState {
         // they have to be registered before the main declarations. This helps to make
         // them only accessible if the correct input value category is used with the
         // declaration
-        #[cfg(feature = "dataframe")]
-        add_dataframe_decls(&mut working_set);
 
         // Database-related
         // Adds all related commands to query databases
@@ -43,7 +41,6 @@ pub fn create_default_context() -> EngineState {
             DropColumn,
             DropNth,
             Each,
-            EachWhile,
             Empty,
             Enumerate,
             Every,
@@ -74,12 +71,6 @@ pub fn create_default_context() -> EngineState {
             Reject,
             Rename,
             Reverse,
-            Roll,
-            RollDown,
-            RollUp,
-            RollLeft,
-            RollRight,
-            Rotate,
             Select,
             Shuffle,
             Skip,
@@ -93,7 +84,6 @@ pub fn create_default_context() -> EngineState {
             UniqBy,
             Upsert,
             Update,
-            UpdateCells,
             Values,
             Where,
             Window,
@@ -103,6 +93,7 @@ pub fn create_default_context() -> EngineState {
 
         // Misc
         bind_command! {
+            Source,
             Tutor,
         };
 
@@ -124,27 +115,36 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Complete,
             External,
+            Exec,
             NuCheck,
             Sys,
+        };
+
+        // Help
+        bind_command! {
+            Help,
+            HelpAliases,
+            HelpExterns,
+            HelpCommands,
+            HelpModules,
+            HelpOperators,
+            HelpEscapes,
         };
 
         // Debug
         bind_command! {
             Ast,
             Debug,
+            DebugInfo,
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,
             ViewSource,
             ViewSpan,
         };
-
-        #[cfg(unix)]
-        bind_command! { Exec }
 
         #[cfg(windows)]
         bind_command! { RegistryQuery }
@@ -167,77 +167,45 @@ pub fn create_default_context() -> EngineState {
             Encode,
             DecodeBase64,
             EncodeBase64,
-            DecodeHex,
-            EncodeHex,
             DetectColumns,
-            Format,
-            FileSize,
             Parse,
-            Size,
             Split,
             SplitChars,
             SplitColumn,
             SplitRow,
             SplitWords,
             Str,
-            StrCamelCase,
             StrCapitalize,
             StrContains,
             StrDistance,
             StrDowncase,
             StrEndswith,
+            StrExpand,
             StrJoin,
             StrReplace,
             StrIndexOf,
-            StrKebabCase,
             StrLength,
-            StrPascalCase,
             StrReverse,
-            StrScreamingSnakeCase,
-            StrSnakeCase,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
-            StrTitleCase,
-            StrUpcase
+            StrUpcase,
+            FormatDate,
+            FormatDuration,
+            FormatFilesize,
         };
-
-        // Bits
-        bind_command! {
-            Bits,
-            BitsAnd,
-            BitsNot,
-            BitsOr,
-            BitsXor,
-            BitsRotateLeft,
-            BitsRotateRight,
-            BitsShiftLeft,
-            BitsShiftRight,
-        }
-
-        // Bytes
-        bind_command! {
-            Bytes,
-            BytesLen,
-            BytesStartsWith,
-            BytesEndsWith,
-            BytesReverse,
-            BytesReplace,
-            BytesAdd,
-            BytesAt,
-            BytesIndexOf,
-            BytesCollect,
-            BytesRemove,
-            BytesBuild,
-        }
 
         // FileSystem
         bind_command! {
             Cd,
-            Cp,
             Ls,
             Mkdir,
+            UMkdir,
+            Mktemp,
             Mv,
+            Cp,
+            UCp,
             Open,
             Start,
             Rm,
@@ -250,21 +218,23 @@ pub fn create_default_context() -> EngineState {
         // Platform
         bind_command! {
             Ansi,
-            AnsiGradient,
-            AnsiStrip,
             AnsiLink,
+            AnsiStrip,
             Clear,
             Du,
             Input,
+            InputList,
+            InputListen,
+            IsTerminal,
             Kill,
             Sleep,
             TermSize,
+            Whoami,
         };
 
         // Date
         bind_command! {
             Date,
-            DateFormat,
             DateHumanize,
             DateListTimezones,
             DateNow,
@@ -275,12 +245,7 @@ pub fn create_default_context() -> EngineState {
 
         // Shells
         bind_command! {
-            Enter,
             Exit,
-            GotoShell,
-            NextShell,
-            PrevShell,
-            Shells,
         };
 
         // Formats
@@ -293,14 +258,12 @@ pub fn create_default_context() -> EngineState {
             FromSsv,
             FromToml,
             FromTsv,
-            FromUrl,
             FromXlsx,
             FromXml,
             FromYaml,
             FromYml,
             To,
             ToCsv,
-            ToHtml,
             ToJson,
             ToMd,
             ToNuon,
@@ -318,29 +281,27 @@ pub fn create_default_context() -> EngineState {
         bind_command! {
             Griddle,
             Table,
-            Explore,
         };
 
         // Conversions
         bind_command! {
             Fill,
-            Fmt,
             Into,
             IntoBool,
             IntoBinary,
             IntoDatetime,
-            IntoDecimal,
             IntoDuration,
+            IntoFloat,
             IntoFilesize,
             IntoInt,
             IntoRecord,
             IntoString,
+            IntoValue,
         };
 
         // Env
         bind_command! {
             ExportEnv,
-            LetEnv,
             LoadEnv,
             SourceEnv,
             WithEnv,
@@ -367,25 +328,24 @@ pub fn create_default_context() -> EngineState {
             MathStddev,
             MathSum,
             MathVariance,
-            MathSin,
-            MathCos,
-            MathTan,
-            MathSinH,
-            MathCosH,
-            MathTanH,
-            MathArcSin,
-            MathArcCos,
-            MathArcTan,
-            MathArcSinH,
-            MathArcCosH,
-            MathArcTanH,
-            MathPi,
-            MathTau,
-            MathEuler,
-            MathExp,
-            MathLn,
             MathLog,
         };
+
+        // Bytes
+        bind_command! {
+            Bytes,
+            BytesLen,
+            BytesStartsWith,
+            BytesEndsWith,
+            BytesReverse,
+            BytesReplace,
+            BytesAdd,
+            BytesAt,
+            BytesIndexOf,
+            BytesCollect,
+            BytesRemove,
+            BytesBuild
+        }
 
         // Network
         bind_command! {
@@ -396,8 +356,10 @@ pub fn create_default_context() -> EngineState {
             HttpPatch,
             HttpPost,
             HttpPut,
+            HttpOptions,
             Url,
             UrlBuildQuery,
+            UrlDecode,
             UrlEncode,
             UrlJoin,
             UrlParse,
@@ -409,9 +371,9 @@ pub fn create_default_context() -> EngineState {
             Random,
             RandomBool,
             RandomChars,
-            RandomDecimal,
             RandomDice,
-            RandomInteger,
+            RandomFloat,
+            RandomInt,
             RandomUuid,
         };
 
@@ -421,6 +383,7 @@ pub fn create_default_context() -> EngineState {
             Seq,
             SeqDate,
             SeqChar,
+            Generate,
         };
 
         // Hash
@@ -435,20 +398,24 @@ pub fn create_default_context() -> EngineState {
             IsAdmin,
         };
 
-        // Deprecated
+        // Removed
         bind_command! {
-            ExportOldAlias,
-            HashBase64,
-            LPadDeprecated,
-            MathEvalDeprecated,
-            OldAlias,
-            RPadDeprecated,
-            Source,
-            StrCollectDeprecated,
-            StrDatetimeDeprecated,
-            StrDecimalDeprecated,
-            StrFindReplaceDeprecated,
-            StrIntDeprecated,
+            LetEnv,
+            DateFormat,
+        };
+
+        // Stor
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            Stor,
+            StorCreate,
+            StorDelete,
+            StorExport,
+            StorImport,
+            StorInsert,
+            StorOpen,
+            StorReset,
+            StorUpdate,
         };
 
         working_set.render()

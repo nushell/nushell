@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::Expr;
+use super::{Expr, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -134,8 +134,8 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    match pipeline.elements.first() {
                         Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
@@ -150,8 +150,8 @@ impl Expression {
                     return true;
                 }
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    match pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    match pipeline.elements.first() {
                         Some(element) => element.has_in_variable(working_set),
                         None => false,
                     }
@@ -242,13 +242,22 @@ impl Expression {
                 }
                 false
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    if field_name.has_in_variable(working_set) {
-                        return true;
-                    }
-                    if field_value.has_in_variable(working_set) {
-                        return true;
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            if field_name.has_in_variable(working_set) {
+                                return true;
+                            }
+                            if field_value.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
+                        RecordItem::Spread(_, record) => {
+                            if record.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
                     }
                 }
                 false
@@ -258,8 +267,8 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(expr) = pipeline.elements.get(0) {
+                if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(expr) = pipeline.elements.first() {
                         expr.has_in_variable(working_set)
                     } else {
                         false
@@ -289,6 +298,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.has_in_variable(working_set),
             Expr::Var(var_id) => *var_id == IN_VARIABLE_ID,
             Expr::VarDecl(_) => false,
+            Expr::Spread(expr) => expr.has_in_variable(working_set),
         }
     }
 
@@ -304,8 +314,8 @@ impl Expression {
             Expr::Block(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_expr = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_expr = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)
@@ -335,8 +345,8 @@ impl Expression {
             Expr::Closure(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_element = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)
@@ -417,10 +427,17 @@ impl Expression {
                     right.replace_in_variable(working_set, new_var_id)
                 }
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    field_name.replace_in_variable(working_set, new_var_id);
-                    field_value.replace_in_variable(working_set, new_var_id);
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            field_name.replace_in_variable(working_set, new_var_id);
+                            field_value.replace_in_variable(working_set, new_var_id);
+                        }
+                        RecordItem::Spread(_, record) => {
+                            record.replace_in_variable(working_set, new_var_id);
+                        }
+                    }
                 }
             }
             Expr::Signature(_) => {}
@@ -433,8 +450,8 @@ impl Expression {
             Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
                 let block = working_set.get_block(*block_id);
 
-                let new_element = if let Some(pipeline) = block.pipelines.get(0) {
-                    if let Some(element) = pipeline.elements.get(0) {
+                let new_element = if let Some(pipeline) = block.pipelines.first() {
+                    if let Some(element) = pipeline.elements.first() {
                         let mut new_element = element.clone();
                         new_element.replace_in_variable(working_set, new_var_id);
                         Some(new_element)
@@ -480,6 +497,7 @@ impl Expression {
                 }
             }
             Expr::VarDecl(_) => {}
+            Expr::Spread(expr) => expr.replace_in_variable(working_set, new_var_id),
         }
     }
 
@@ -579,10 +597,17 @@ impl Expression {
                     right.replace_span(working_set, replaced, new_span)
                 }
             }
-            Expr::Record(fields) => {
-                for (field_name, field_value) in fields {
-                    field_name.replace_span(working_set, replaced, new_span);
-                    field_value.replace_span(working_set, replaced, new_span);
+            Expr::Record(items) => {
+                for item in items {
+                    match item {
+                        RecordItem::Pair(field_name, field_value) => {
+                            field_name.replace_span(working_set, replaced, new_span);
+                            field_value.replace_span(working_set, replaced, new_span);
+                        }
+                        RecordItem::Spread(_, record) => {
+                            record.replace_span(working_set, replaced, new_span);
+                        }
+                    }
                 }
             }
             Expr::Signature(_) => {}
@@ -618,6 +643,7 @@ impl Expression {
             Expr::ValueWithUnit(expr, _) => expr.replace_span(working_set, replaced, new_span),
             Expr::Var(_) => {}
             Expr::VarDecl(_) => {}
+            Expr::Spread(expr) => expr.replace_span(working_set, replaced, new_span),
         }
     }
 }

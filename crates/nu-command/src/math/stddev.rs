@@ -58,28 +58,22 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Compute the sample standard deviation of a list of numbers",
-                example: "[1 2 3 4 5] | math stddev -s",
+                example: "[1 2 3 4 5] | math stddev --sample",
                 result: Some(Value::test_float(1.5811388300841898)),
             },
         ]
     }
 }
 
-pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, &Span) -> Result<Value, ShellError> {
-    move |values: &[Value], span: Span, head: &Span| {
-        let variance = variance(sample)(values, span, head);
+pub fn compute_stddev(sample: bool) -> impl Fn(&[Value], Span, Span) -> Result<Value, ShellError> {
+    move |values: &[Value], span: Span, head: Span| {
+        // variance() produces its own usable error, so we can use `?` to propagated the error.
+        let variance = variance(sample)(values, span, head)?;
+        let val_span = variance.span();
         match variance {
-            Ok(Value::Float { val, span }) => Ok(Value::Float {
-                val: val.sqrt(),
-                span,
-            }),
-            Ok(Value::Int { val, span }) => Ok(Value::Float {
-                val: (val as f64).sqrt(),
-                span,
-            }),
-            // variance() produces its own usable error, which can simply be propagated.
-            Err(e) => Err(e),
-            other => other,
+            Value::Float { val, .. } => Ok(Value::float(val.sqrt(), val_span)),
+            Value::Int { val, .. } => Ok(Value::float((val as f64).sqrt(), val_span)),
+            other => Ok(other),
         }
     }
 }

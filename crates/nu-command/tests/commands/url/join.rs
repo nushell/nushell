@@ -2,9 +2,8 @@ use nu_test_support::{nu, pipeline};
 
 #[test]
 fn url_join_simple() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "",
@@ -13,17 +12,15 @@ fn url_join_simple() {
                     "port": "",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://localhost");
 }
 
 #[test]
 fn url_join_with_only_user() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -32,17 +29,15 @@ fn url_join_with_only_user() {
                     "port": "",
                 } | url join 
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://localhost");
 }
 
 #[test]
 fn url_join_with_only_pwd() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "",
@@ -51,17 +46,15 @@ fn url_join_with_only_pwd() {
                     "port": "",
                 } | url join 
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://localhost");
 }
 
 #[test]
 fn url_join_with_user_and_pwd() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -70,17 +63,15 @@ fn url_join_with_user_and_pwd() {
                     "port": "",
                 } | url join 
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://usr:pwd@localhost");
 }
 
 #[test]
 fn url_join_with_query() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -90,17 +81,15 @@ fn url_join_with_query() {
                     "port": "",
                 } | url join 
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://usr:pwd@localhost?par_1=aaa&par_2=bbb");
 }
 
 #[test]
 fn url_join_with_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -113,8 +102,7 @@ fn url_join_with_params() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(
         actual.out,
@@ -124,9 +112,8 @@ fn url_join_with_params() {
 
 #[test]
 fn url_join_with_same_query_and_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -140,8 +127,7 @@ fn url_join_with_same_query_and_params() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(
         actual.out,
@@ -151,9 +137,8 @@ fn url_join_with_same_query_and_params() {
 
 #[test]
 fn url_join_with_different_query_and_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -167,8 +152,7 @@ fn url_join_with_different_query_and_params() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual
         .err
@@ -177,9 +161,8 @@ fn url_join_with_different_query_and_params() {
         .err
         .contains("instead query is: ?par_1=aaa&par_2=bbb"));
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -193,8 +176,7 @@ fn url_join_with_different_query_and_params() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual
         .err
@@ -206,9 +188,8 @@ fn url_join_with_different_query_and_params() {
 
 #[test]
 fn url_join_with_invalid_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -218,113 +199,99 @@ fn url_join_with_invalid_params() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual.err.contains("Key params has to be a record"));
 }
 
 #[test]
 fn url_join_with_port() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "host": "localhost",
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://localhost:1234");
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "host": "localhost",
                     "port": 1234,
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://localhost:1234");
 }
 
 #[test]
 fn url_join_with_invalid_port() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "host": "localhost",
                     "port": "aaaa",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual
         .err
-        .contains("Port parameter should represent an unsigned integer"));
+        .contains("Port parameter should represent an unsigned int"));
 
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "host": "localhost",
                     "port": [],
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual
         .err
-        .contains("Port parameter should be an unsigned integer or a string representing it"));
+        .contains("Port parameter should be an unsigned int or a string representing it"));
 }
 
 #[test]
 fn url_join_with_missing_scheme() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "host": "localhost"
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual.err.contains("missing parameter: scheme"));
 }
 
 #[test]
 fn url_join_with_missing_host() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "https"
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert!(actual.err.contains("missing parameter: host"));
 }
 
 #[test]
 fn url_join_with_fragment() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -334,17 +301,15 @@ fn url_join_with_fragment() {
                     "port": "1234",
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(actual.out, "http://usr:pwd@localhost:1234#frag");
 }
 
 #[test]
 fn url_join_with_fragment_and_params() {
-    let actual = nu!(
-        cwd: ".", pipeline(
-            r#"
+    let actual = nu!(pipeline(
+        r#"
                 {
                     "scheme": "http",
                     "username": "usr",
@@ -358,11 +323,26 @@ fn url_join_with_fragment_and_params() {
                     "fragment": "frag"
                 } | url join
             "#
-        )
-    );
+    ));
 
     assert_eq!(
         actual.out,
         "http://usr:pwd@localhost:1234?par_1=aaa&par_2=bbb#frag"
     );
+}
+
+#[test]
+fn url_join_with_empty_params() {
+    let actual = nu!(pipeline(
+        r#"
+            {
+                "scheme": "https",
+                "host": "localhost",
+                "path": "/foo",
+                "params": {}
+            } | url join
+            "#
+    ));
+
+    assert_eq!(actual.out, "https://localhost/foo");
 }
