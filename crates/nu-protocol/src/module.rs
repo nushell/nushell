@@ -157,6 +157,17 @@ impl Module {
 
         match head {
             ImportPatternMember::Name { name, span } => {
+                // raise errors if user wants to do something like this:
+                // `use a b c`: but b is not a sub-module of a.
+                let errors = if !rest.is_empty() && self.submodules.get(name).is_none() {
+                    vec![ParseError::WrongImportPattern(
+                        format!("Trying to import something but the parent `{}` is not a module, maybe you want to try `use <module> [<name1>, <name2>]`", String::from_utf8_lossy(name)),
+                        rest[0].span(),
+                    )]
+                } else {
+                    vec![]
+                };
+
                 if name == b"main" {
                     if let Some(main_decl_id) = self.main {
                         (
@@ -165,7 +176,7 @@ impl Module {
                                 vec![],
                                 vec![],
                             ),
-                            vec![],
+                            errors,
                         )
                     } else {
                         (
@@ -176,7 +187,7 @@ impl Module {
                 } else if let Some(decl_id) = self.decls.get(name) {
                     (
                         ResolvedImportPattern::new(vec![(name.clone(), *decl_id)], vec![], vec![]),
-                        vec![],
+                        errors,
                     )
                 } else if let Some(var_id) = self.constants.get(name) {
                     match working_set.get_constant(*var_id) {
@@ -186,7 +197,7 @@ impl Module {
                                 vec![],
                                 vec![(name.clone(), const_val.clone())],
                             ),
-                            vec![],
+                            errors,
                         ),
                         Err(err) => (
                             ResolvedImportPattern::new(vec![], vec![], vec![]),
