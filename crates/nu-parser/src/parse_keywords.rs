@@ -580,7 +580,9 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
-            *signature = signature.add_help();
+            if !has_wrapped {
+                *signature = signature.add_help();
+            }
             signature.usage = usage;
             signature.extra_usage = extra_usage;
             signature.allows_unknown_args = has_wrapped;
