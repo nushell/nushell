@@ -25,6 +25,7 @@ impl Command for Default {
                 "the value to use as a default",
             )
             .optional("column name", SyntaxShape::String, "the name of the column")
+            .switch("all-columns", "apply the default to all columns", Some('a'))
             .category(Category::Filters)
     }
 
@@ -68,6 +69,28 @@ impl Command for Default {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Replace the `null` value in all columns",
+                example: "[[one two]; [1 2] [null null] [1 2]] | default 0 --all-columns",
+                result: {
+                    let record = nu_protocol::Record::from_raw_cols_vals(
+                        vec!["one".into(), "two".into()],
+                        vec![Value::test_int(1), Value::test_int(2)],
+                    );
+                    let record_default = nu_protocol::Record::from_raw_cols_vals(
+                        vec!["one".into(), "two".into()],
+                        vec![Value::test_int(0), Value::test_int(0)],
+                    );
+                    Some(Value::list(
+                        vec![
+                            Value::record(record.clone(), Span::test_data()),
+                            Value::record(record_default, Span::test_data()),
+                            Value::record(record, Span::test_data()),
+                        ],
+                        Span::test_data(),
+                    ))
+                },
+            },
         ]
     }
 }
@@ -81,10 +104,46 @@ fn default(
     let metadata = input.metadata();
     let value: Value = call.req(engine_state, stack, 0)?;
     let column: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
+    let all_columns = call.has_flag("all-columns");
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    if let Some(column) = column {
+    if let (true, Some(col)) = (all_columns, column.as_ref()) {
+        return Err(ShellError::IncompatibleParameters {
+            left_message: "can't specify column at the same time".into(),
+            left_span: col.span,
+            right_message: "because of --all-columns".into(),
+            right_span: call
+                .get_named_arg("all-columns")
+                .map(|arg| arg.span)
+                .expect("named arg 'all-columns'"),
+        });
+    }
+
+    if all_columns {
+        input
+            .map(
+                move |item| {
+                    let span = item.span();
+                    match item {
+                        Value::Record {
+                            val: mut record, ..
+                        } => {
+                            for (_, val) in record.iter_mut() {
+                                if matches!(val, Value::Nothing { .. }) {
+                                    *val = value.clone();
+                                }
+                            }
+
+                            Value::record(record, span)
+                        }
+                        _ => item,
+                    }
+                },
+                ctrlc,
+            )
+            .map(|x| x.set_metadata(metadata))
+    } else if let Some(column) = column {
         input
             .map(
                 move |item| {
@@ -133,12 +192,20 @@ fn default(
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
     #[test]
     fn test_examples() {
+        use super::*;
         use crate::test_examples;
 
         test_examples(Default {})
+    }
+
+    #[test]
+    fn test_error() {
+        use nu_test_support::nu;
+
+        let actual = nu!("default 'def' column_name --all-columns ; ");
+        assert!(actual.err.contains("Error:"));
     }
 }
