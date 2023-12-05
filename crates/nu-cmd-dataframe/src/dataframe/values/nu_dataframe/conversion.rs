@@ -287,14 +287,12 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
 
     DataFrame::new(df_series)
         .map(|df| NuDataFrame::new(false, df))
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error creating dataframe".into(),
-                "".to_string(),
-                None,
-                Some(e.to_string()),
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error creating dataframe".into(),
+            msg: "".into(),
+            span: None,
+            help: Some(e.into()),
+            inner: vec![],
         })
 }
 
@@ -314,16 +312,14 @@ fn input_type_list_to_series(
     list_type: &InputType,
     values: &[Value],
 ) -> Result<Series, ShellError> {
-    let inconsistent_error = |_| {
-        ShellError::GenericError(
-            format!(
-                "column {name} contains a list with inconsistent types: Expecting: {list_type:?}"
-            ),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        )
+    let inconsistent_error = |_| ShellError::GenericError {
+        error: format!(
+            "column {name} contains a list with inconsistent types: Expecting: {list_type:?}"
+        ),
+        msg: "".into(),
+        span: None,
+        help: None,
+        inner: vec![],
     };
     match *list_type {
         // list of boolean values
@@ -423,14 +419,12 @@ fn input_type_list_to_series(
 
                 builder
                     .append_series(&dt_chunked.into_series())
-                    .map_err(|e| {
-                        ShellError::GenericError(
-                            "Error appending to series".into(),
-                            "".to_string(),
-                            None,
-                            Some(e.to_string()),
-                            Vec::new(),
-                        )
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error appending to series".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: Some(e.into()),
+                        inner: vec![],
                     })?
             }
             let res = builder.finish();
@@ -463,14 +457,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt8 => {
-            let casted = series.u8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u8".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.u8().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to u8".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -488,14 +480,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt16 => {
-            let casted = series.u16().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u16".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.u16().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to u16".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -513,14 +503,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt32 => {
-            let casted = series.u32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.u32().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to u32".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -538,14 +526,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt64 => {
-            let casted = series.u64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to u64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.u64().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to u64".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -563,14 +549,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int8 => {
-            let casted = series.i8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i8".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.i8().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to i8".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -588,14 +572,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int16 => {
-            let casted = series.i16().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i16".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.i16().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to i16".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -613,14 +595,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int32 => {
-            let casted = series.i32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.i32().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to i32".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -638,14 +618,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int64 => {
-            let casted = series.i64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to i64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.i64().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to i64".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -663,14 +641,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Float32 => {
-            let casted = series.f32().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to f32".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.f32().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to f32".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -688,14 +664,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Float64 => {
-            let casted = series.f64().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to f64".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.f64().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to f64".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -713,14 +687,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Boolean => {
-            let casted = series.bool().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to bool".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.bool().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to bool".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -738,14 +710,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Utf8 => {
-            let casted = series.utf8().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to string".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.utf8().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to string".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -768,13 +738,13 @@ fn series_to_values(
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
 
             match casted {
-                None => Err(ShellError::GenericError(
-                    "Error casting object from series".into(),
-                    "".to_string(),
-                    None,
-                    Some(format!("Object not supported for conversion: {x}")),
-                    Vec::new(),
-                )),
+                None => Err(ShellError::GenericError {
+                    error: "Error casting object from series".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!("Object not supported for conversion: {x}")),
+                    inner: vec![],
+                }),
                 Some(ca) => {
                     let it = ca.into_iter();
                     let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row)
@@ -796,13 +766,13 @@ fn series_to_values(
         DataType::List(x) => {
             let casted = series.as_any().downcast_ref::<ChunkedArray<ListType>>();
             match casted {
-                None => Err(ShellError::GenericError(
-                    "Error casting list from series".into(),
-                    "".to_string(),
-                    None,
-                    Some(format!("List not supported for conversion: {x}")),
-                    Vec::new(),
-                )),
+                None => Err(ShellError::GenericError {
+                    error: "Error casting list from series".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!("List not supported for conversion: {x}")),
+                    inner: vec![],
+                }),
                 Some(ca) => {
                     let it = ca.into_iter();
                     let values: Vec<Value> =
@@ -831,14 +801,12 @@ fn series_to_values(
             }
         }
         DataType::Date => {
-            let casted = series.date().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to date".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.date().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to date".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -894,14 +862,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Datetime(time_unit, _) => {
-            let casted = series.datetime().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to datetime".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.datetime().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to datetime".into(),
+                msg: "".into(),
+                span: None,
+                help: Some(e.into()),
+                inner: vec![],
             })?;
 
             let it = casted.into_iter();
@@ -962,15 +928,16 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Time => {
-            let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to time".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
-            })?;
+            let casted =
+                series
+                    .timestamp(TimeUnit::Nanoseconds)
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error casting column to time".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: Some(e.into()),
+                        inner: vec![],
+                    })?;
 
             let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -986,13 +953,13 @@ fn series_to_values(
 
             Ok(values)
         }
-        e => Err(ShellError::GenericError(
-            "Error creating Dataframe".into(),
-            "".to_string(),
-            None,
-            Some(format!("Value not supported in nushell: {e}")),
-            Vec::new(),
-        )),
+        e => Err(ShellError::GenericError {
+            error: "Error creating Dataframe".into(),
+            msg: "".to_string(),
+            span: None,
+            help: Some(format!("Value not supported in nushell: {e}")),
+            inner: vec![],
+        }),
     }
 }
 

@@ -1070,15 +1070,18 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{0}")]
+    #[error("{error}")]
     #[diagnostic()]
-    GenericError(
-        String,
-        String,
-        #[label("{1}")] Option<Span>,
-        #[help] Option<String>,
-        #[related] Vec<ShellError>,
-    ),
+    GenericError {
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Option<Span>,
+        #[help]
+        help: Option<String>,
+        #[related]
+        inner: Vec<ShellError>,
+    },
 
     /// This is a generic error type used for different situations.
     #[error("{1}")]

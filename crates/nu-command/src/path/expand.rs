@@ -157,15 +157,15 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                 }
             }
             Err(_) => Value::error(
-                ShellError::GenericError(
-                    "Could not expand path".into(),
-                    "could not be expanded (path might not exist, non-final \
+                ShellError::GenericError {
+                    error: "Could not expand path".into(),
+                    msg: "could not be expanded (path might not exist, non-final \
                             component is not a directory, or other cause)"
                         .into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                },
                 span,
             ),
         }

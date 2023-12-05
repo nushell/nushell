@@ -207,13 +207,13 @@ pub fn highlight_search_string(
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
-            return Err(ShellError::GenericError(
-                "Could not compile regex".into(),
-                err.to_string(),
-                Some(Span::test_data()),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Could not compile regex".into(),
+                msg: err.to_string(),
+                span: Some(Span::test_data()),
+                help: None,
+                inner: vec![],
+            });
         }
     };
     // strip haystack to remove existing ansi style
@@ -245,13 +245,13 @@ pub fn highlight_search_string(
                 last_match_end = end;
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "Error with regular expression capture".into(),
-                    e.to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Error with regular expression capture".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }

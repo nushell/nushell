@@ -90,14 +90,12 @@ There are 4 `key_type` variants:
         terminal::enable_raw_mode()?;
         let console_state = event_type_filter.enable_events()?;
         loop {
-            let event = crossterm::event::read().map_err(|_| {
-                ShellError::GenericError(
-                    "Error with user input".to_string(),
-                    "".to_string(),
-                    Some(head),
-                    None,
-                    Vec::new(),
-                )
+            let event = crossterm::event::read().map_err(|_| ShellError::GenericError {
+                error: "Error with user input".into(),
+                msg: "".into(),
+                span: Some(head),
+                help: None,
+                inner: vec![],
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {

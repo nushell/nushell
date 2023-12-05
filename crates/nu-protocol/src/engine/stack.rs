@@ -82,13 +82,13 @@ impl Stack {
         }
 
         if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
-            return Err(ShellError::GenericError(
-                "Built-in variables `$env` and `$nu` have no metadata".into(),
-                "no metadata available".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Built-in variables `$env` and `$nu` have no metadata".into(),
+                msg: "no metadata available".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         Err(ShellError::VariableNotFoundAtRuntime { span })

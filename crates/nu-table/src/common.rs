@@ -153,13 +153,13 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::GenericError(
-                format!("error converting string [{}] to f64", &val),
-                "".to_string(),
-                None,
-                Some(e.to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("error converting string [{}] to f64", &val),
+                msg: "".into(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: vec![],
+            });
         }
     };
     Ok(format!("{val_float:.precision$}"))

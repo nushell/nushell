@@ -696,13 +696,13 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        Err(ShellError::GenericError(
-            "Internal error: can't run custom command with 'run', use block_id".to_string(),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Internal error: can't run custom command with 'run', use block_id".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
     }
 
     fn get_block_id(&self) -> Option<BlockId> {

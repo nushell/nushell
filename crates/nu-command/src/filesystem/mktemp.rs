@@ -119,13 +119,13 @@ impl Command for Mktemp {
                     })?
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    format!("{}", e),
-                    format!("{}", e),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: format!("{}", e),
+                    msg: format!("{}", e),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         Ok(PipelineData::Value(Value::string(res, span), None))

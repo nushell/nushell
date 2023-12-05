@@ -85,22 +85,22 @@ impl Command for ViewSource {
                             final_contents.push_str(&String::from_utf8_lossy(contents));
                             Ok(Value::string(final_contents, call.head).into_pipeline_data())
                         } else {
-                            Err(ShellError::GenericError(
-                                "Cannot view value".to_string(),
-                                "the command does not have a viewable block".to_string(),
-                                Some(arg_span),
-                                None,
-                                Vec::new(),
-                            ))
+                            Err(ShellError::GenericError {
+                                error: "Cannot view value".to_string(),
+                                msg: "the command does not have a viewable block".to_string(),
+                                span: Some(arg_span),
+                                help: None,
+                                inner: vec![],
+                            })
                         }
                     } else {
-                        Err(ShellError::GenericError(
-                            "Cannot view value".to_string(),
-                            "the command does not have a viewable block".to_string(),
-                            Some(arg_span),
-                            None,
-                            Vec::new(),
-                        ))
+                        Err(ShellError::GenericError {
+                            error: "Cannot view value".to_string(),
+                            msg: "the command does not have a viewable block".to_string(),
+                            span: Some(arg_span),
+                            help: None,
+                            inner: vec![],
+                        })
                     }
                 } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
                     // arg is a module
@@ -110,22 +110,22 @@ impl Command for ViewSource {
                         Ok(Value::string(String::from_utf8_lossy(contents), call.head)
                             .into_pipeline_data())
                     } else {
-                        Err(ShellError::GenericError(
-                            "Cannot view value".to_string(),
-                            "the module does not have a viewable block".to_string(),
-                            Some(arg_span),
-                            None,
-                            Vec::new(),
-                        ))
+                        Err(ShellError::GenericError {
+                            error: "Cannot view value".to_string(),
+                            msg: "the module does not have a viewable block".to_string(),
+                            span: Some(arg_span),
+                            help: None,
+                            inner: vec![],
+                        })
                     }
                 } else {
-                    Err(ShellError::GenericError(
-                        "Cannot view value".to_string(),
-                        "this name does not correspond to a viewable value".to_string(),
-                        Some(arg_span),
-                        None,
-                        Vec::new(),
-                    ))
+                    Err(ShellError::GenericError {
+                        error: "Cannot view value".to_string(),
+                        msg: "this name does not correspond to a viewable value".to_string(),
+                        span: Some(arg_span),
+                        help: None,
+                        inner: vec![],
+                    })
                 }
             }
             value => {
@@ -140,13 +140,13 @@ impl Command for ViewSource {
                         Ok(Value::string("<internal command>", call.head).into_pipeline_data())
                     }
                 } else {
-                    Err(ShellError::GenericError(
-                        "Cannot view value".to_string(),
-                        "this value cannot be viewed".to_string(),
-                        Some(arg_span),
-                        None,
-                        Vec::new(),
-                    ))
+                    Err(ShellError::GenericError {
+                        error: "Cannot view value".to_string(),
+                        msg: "this value cannot be viewed".to_string(),
+                        span: Some(arg_span),
+                        help: None,
+                        inner: vec![],
+                    })
                 }
             }
         }

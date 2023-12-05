@@ -85,13 +85,13 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
             match val {
                 Ok(val) => Value::string(val, head),
                 Err(e) => Value::error(
-                    ShellError::GenericError(
-                        "Failed to decode string".into(),
-                        e.to_string(),
-                        Some(input_span),
-                        None,
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "Failed to decode string".into(),
+                        msg: e.to_string(),
+                        span: Some(input_span),
+                        help: None,
+                        inner: vec![],
+                    },
                     head,
                 ),
             }

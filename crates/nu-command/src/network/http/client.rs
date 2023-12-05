@@ -403,26 +403,23 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-        ShellError::GenericError(
-            format!("MIME type unknown: {content_type}"),
-            "".to_string(),
-            None,
-            Some("given unknown MIME type".to_string()),
-            Vec::new(),
-        )
-    })?;
+    let content_type =
+        mime::Mime::from_str(content_type).map_err(|_| ShellError::GenericError {
+            error: format!("MIME type unknown: {content_type}"),
+            msg: "".into(),
+            span: None,
+            help: Some("given unknown MIME type".into()),
+            inner: vec![],
+        })?;
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
-                .map_err(|_| {
-                    ShellError::GenericError(
-                        format!("Cannot parse URL: {requested_url}"),
-                        "".to_string(),
-                        None,
-                        Some("cannot parse".to_string()),
-                        Vec::new(),
-                    )
+                .map_err(|_| ShellError::GenericError {
+                    error: format!("Cannot parse URL: {requested_url}"),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("cannot parse".into()),
+                    inner: vec![],
                 })?
                 .path_segments()
                 .and_then(|segments| segments.last())

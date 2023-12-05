@@ -47,15 +47,15 @@ impl Command for SchemaDb {
 
         let sqlite_db = SQLiteDatabase::try_from_pipeline(input, span)?;
         let conn = open_sqlite_db_connection(&sqlite_db, span)?;
-        let tables = sqlite_db.get_tables(&conn).map_err(|e| {
-            ShellError::GenericError(
-                "Error reading tables".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
-        })?;
+        let tables = sqlite_db
+            .get_tables(&conn)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error reading tables".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
 
         let mut tables_record = Record::new();
         for table in tables {
@@ -87,14 +87,12 @@ impl Command for SchemaDb {
 }
 
 fn open_sqlite_db_connection(db: &SQLiteDatabase, span: Span) -> Result<Connection, ShellError> {
-    db.open_connection().map_err(|e| {
-        ShellError::GenericError(
-            "Error opening file".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
+    db.open_connection().map_err(|e| ShellError::GenericError {
+        error: "Error opening file".into(),
+        msg: e.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     })
 }
 
@@ -104,15 +102,15 @@ fn get_table_columns(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let columns = db.get_columns(conn, table).map_err(|e| {
-        ShellError::GenericError(
-            "Error getting database columns".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let columns = db
+        .get_columns(conn, table)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error getting database columns".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })?;
 
     // a record of column name = column value
     let mut column_info = vec![];
@@ -136,15 +134,15 @@ fn get_table_constraints(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let constraints = db.get_constraints(conn, table).map_err(|e| {
-        ShellError::GenericError(
-            "Error getting DB constraints".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let constraints = db
+        .get_constraints(conn, table)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error getting DB constraints".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })?;
     let mut constraint_info = vec![];
     for constraint in constraints {
         constraint_info.push(Value::record(
@@ -167,15 +165,15 @@ fn get_table_foreign_keys(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let foreign_keys = db.get_foreign_keys(conn, table).map_err(|e| {
-        ShellError::GenericError(
-            "Error getting DB Foreign Keys".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let foreign_keys = db
+        .get_foreign_keys(conn, table)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error getting DB Foreign Keys".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })?;
     let mut foreign_key_info = vec![];
     for fk in foreign_keys {
         foreign_key_info.push(Value::record(
@@ -197,15 +195,15 @@ fn get_table_indexes(
     table: &DbTable,
     span: Span,
 ) -> Result<Vec<Value>, ShellError> {
-    let indexes = db.get_indexes(conn, table).map_err(|e| {
-        ShellError::GenericError(
-            "Error getting DB Indexes".into(),
-            e.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let indexes = db
+        .get_indexes(conn, table)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error getting DB Indexes".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })?;
     let mut index_info = vec![];
     for index in indexes {
         index_info.push(Value::record(

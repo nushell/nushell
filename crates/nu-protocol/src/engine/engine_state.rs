@@ -526,14 +526,12 @@ impl EngineState {
                             })
                         })
                         .and_then(|_| {
-                            plugin_file.flush().map_err(|err| {
-                                ShellError::GenericError(
-                                    "Error flushing plugin file".to_string(),
-                                    format! {"{err}"},
-                                    None,
-                                    None,
-                                    Vec::new(),
-                                )
+                            plugin_file.flush().map_err(|err| ShellError::GenericError {
+                                error: "Error flushing plugin file".into(),
+                                msg: format! {"{err}"},
+                                span: None,
+                                help: None,
+                                inner: vec![],
                             })
                         })
                 })

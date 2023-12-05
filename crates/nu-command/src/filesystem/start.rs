@@ -52,14 +52,12 @@ impl Command for Start {
         if file_path.exists() {
             open_path(path_no_whitespace, engine_state, stack, path.span)?;
         } else if file_path.starts_with("https://") || file_path.starts_with("http://") {
-            let url = url::Url::parse(&path.item).map_err(|_| {
-                ShellError::GenericError(
-                    format!("Cannot parse url: {}", &path.item),
-                    "".to_string(),
-                    Some(path.span),
-                    Some("cannot parse".to_string()),
-                    Vec::new(),
-                )
+            let url = url::Url::parse(&path.item).map_err(|_| ShellError::GenericError {
+                error: format!("Cannot parse url: {}", &path.item),
+                msg: "".to_string(),
+                span: Some(path.span),
+                help: Some("cannot parse".to_string()),
+                inner: vec![],
             })?;
             open_path(url.as_str(), engine_state, stack, path.span)?;
         } else {
@@ -73,14 +71,12 @@ impl Command for Start {
                 let path_with_prefix = Path::new("https://").join(&path.item);
                 let common_domains = ["com", "net", "org", "edu", "sh"];
                 if let Some(url) = path_with_prefix.to_str() {
-                    let url = url::Url::parse(url).map_err(|_| {
-                        ShellError::GenericError(
-                            format!("Cannot parse url: {}", &path.item),
-                            "".to_string(),
-                            Some(path.span),
-                            Some("cannot parse".to_string()),
-                            Vec::new(),
-                        )
+                    let url = url::Url::parse(url).map_err(|_| ShellError::GenericError {
+                        error: format!("Cannot parse url: {}", &path.item),
+                        msg: "".into(),
+                        span: Some(path.span),
+                        help: Some("cannot parse".into()),
+                        inner: vec![],
                     })?;
                     if let Some(domain) = url.host() {
                         let domain = domain.to_string();
@@ -91,13 +87,13 @@ impl Command for Start {
                             }
                         }
                     }
-                    return Err(ShellError::GenericError(
-                        format!("Cannot find file or url: {}", &path.item),
-                        "".to_string(),
-                        Some(path.span),
-                        Some("Use prefix https:// to disambiguate URLs from files".to_string()),
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: format!("Cannot find file or url: {}", &path.item),
+                        msg: "".into(),
+                        span: Some(path.span),
+                        help: Some("Use prefix https:// to disambiguate URLs from files".into()),
+                        inner: vec![],
+                    });
                 }
             };
         }
