@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -72,24 +72,17 @@ impl Command for Default {
             Example {
                 description: "Replace the `null` value in all columns",
                 example: "[[one two]; [1 2] [null null] [1 2]] | default 0 --all-columns",
-                result: {
-                    let record = nu_protocol::Record::from_raw_cols_vals(
-                        vec!["one".into(), "two".into()],
-                        vec![Value::test_int(1), Value::test_int(2)],
-                    );
-                    let record_default = nu_protocol::Record::from_raw_cols_vals(
-                        vec!["one".into(), "two".into()],
-                        vec![Value::test_int(0), Value::test_int(0)],
-                    );
-                    Some(Value::list(
-                        vec![
-                            Value::record(record.clone(), Span::test_data()),
-                            Value::record(record_default, Span::test_data()),
-                            Value::record(record, Span::test_data()),
-                        ],
-                        Span::test_data(),
-                    ))
-                },
+                result: Some(Value::test_list(vec![
+                    Value::test_record(
+                        record! { "one" => Value::test_int(1), "two" => Value::test_int(2), },
+                    ),
+                    Value::test_record(
+                        record! { "one" => Value::test_int(0), "two" => Value::test_int(0), },
+                    ),
+                    Value::test_record(
+                        record! { "one" => Value::test_int(1), "two" => Value::test_int(2), },
+                    ),
+                ])),
             },
         ]
     }
@@ -192,20 +185,12 @@ fn default(
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
     #[test]
     fn test_examples() {
-        use super::*;
         use crate::test_examples;
 
         test_examples(Default {})
-    }
-
-    #[test]
-    fn test_error() {
-        use nu_test_support::nu;
-
-        let actual = nu!("default 'def' column_name --all-columns ; ");
-        assert!(actual.err.contains("Error:"));
     }
 }

@@ -32,3 +32,10 @@ fn default_after_empty_filter() {
 
     assert_eq!(actual.out, "d");
 }
+
+#[test]
+fn test_error() {
+    let actual = nu!("default 'def' column_name --all-columns ; ");
+
+    assert!(actual.err.contains("Error:"));
+}
