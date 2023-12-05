@@ -115,7 +115,6 @@ fn update(
 
     // Let's capture the metadata for ls_colors
     let metadata = input.metadata();
-    let mdclone = metadata.clone();
 
     // Replace is a block, so set it up and run it instead of using it as the replacement
     if replacement.as_block().is_ok() {
@@ -149,7 +148,7 @@ fn update(
                         &engine_state,
                         &mut stack,
                         &block,
-                        input_at_path.into_pipeline_data_with_metadata(metadata.clone()),
+                        input_at_path.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
                     );
@@ -169,7 +168,7 @@ fn update(
                 },
                 ctrlc,
             )?
-            .set_metadata(mdclone))
+            .set_metadata(metadata))
     } else {
         if let Some(PathMember::Int { val, span, .. }) = cell_path.members.first() {
             let mut input = input.into_iter();
