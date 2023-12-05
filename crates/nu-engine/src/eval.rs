@@ -611,14 +611,14 @@ pub fn eval_block(
         // picked 50 arbitrarily, should work on all architectures
         const RECURSION_LIMIT: u64 = 50;
         if recursive {
-            if *stack.recursion_count >= RECURSION_LIMIT {
-                stack.recursion_count = Box::new(0);
+            if stack.recursion_count >= RECURSION_LIMIT {
+                stack.recursion_count = 0;
                 return Err(ShellError::RecursionLimitReached {
                     recursion_limit: RECURSION_LIMIT,
                     span: block.span,
                 });
             }
-            *stack.recursion_count += 1;
+            stack.recursion_count += 1;
         }
     }
 
