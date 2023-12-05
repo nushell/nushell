@@ -171,7 +171,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Slice { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
-        | Expr::Take { expr, .. }
+        | Expr::Gather { expr, .. }
         | Expr::SortBy { expr, .. }
         | Expr::Exclude(expr, _)
         | Expr::Alias(expr, _)
@@ -189,6 +189,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::RenameAlias { .. }
         | Expr::Count
         | Expr::Nth(_)
+        | Expr::SubPlan(_, _)
         | Expr::Selector(_) => None,
     }
 }

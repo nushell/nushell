@@ -85,15 +85,7 @@ fn command(
         )
     })?;
 
-    let mut res = chunked.str_slice(start, length).map_err(|e| {
-        ShellError::GenericError(
-            "Error slicing series".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let mut res = chunked.str_slice(start, length);
     res.rename(series.name());
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)

@@ -4,6 +4,8 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
+use polars::prelude::NamedFrom;
+use polars::series::Series;
 
 use super::super::values::NuDataFrame;
 
@@ -81,7 +83,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let rows: Option<Spanned<usize>> = call.get_flag(engine_state, stack, "n-rows")?;
+    let rows: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "n-rows")?;
     let fraction: Option<Spanned<f64>> = call.get_flag(engine_state, stack, "fraction")?;
     let seed: Option<u64> = call
         .get_flag::<i64>(engine_state, stack, "seed")?
@@ -94,7 +96,7 @@ fn command(
     match (rows, fraction) {
         (Some(rows), None) => df
             .as_ref()
-            .sample_n(rows.item, replace, shuffle, seed)
+            .sample_n(&Series::new("s", &[rows.item]), replace, shuffle, seed)
             .map_err(|e| {
                 ShellError::GenericError(
                     "Error creating sample".into(),
@@ -106,7 +108,7 @@ fn command(
             }),
         (None, Some(frac)) => df
             .as_ref()
-            .sample_frac(frac.item, replace, shuffle, seed)
+            .sample_frac(&Series::new("frac", &[frac.item]), replace, shuffle, seed)
             .map_err(|e| {
                 ShellError::GenericError(
                     "Error creating sample".into(),
