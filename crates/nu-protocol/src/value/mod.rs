@@ -1632,7 +1632,11 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(path, new_val, head_span)?;
+                            if path.is_empty() {
+                                vals.insert(*row_num, new_val);
+                            } else {
+                                v.insert_data_at_cell_path(path, new_val, head_span)?;
+                            }
                         } else if vals.len() == *row_num && path.is_empty() {
                             // If the insert is at 1 + the end of the list, it's OK.
                             // Otherwise, it's prohibited.
