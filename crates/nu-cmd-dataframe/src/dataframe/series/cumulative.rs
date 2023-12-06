@@ -124,14 +124,12 @@ fn command(
         CumType::Min => cum_min(&series, reverse),
         CumType::Sum => cum_sum(&series, reverse),
     }
-    .map_err(|e| {
-        ShellError::GenericError(
-            "Error creating cumulative".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    .map_err(|e| ShellError::GenericError {
+        error: "Error creating cumulative".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());
