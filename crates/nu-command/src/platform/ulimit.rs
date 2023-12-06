@@ -396,6 +396,7 @@ impl Command for ULimit {
     ) -> Result<PipelineData, ShellError> {
         let mut soft = call.has_flag("soft");
         let mut hard = call.has_flag("hard");
+        let all = call.has_flag("all");
 
         if let Some(spanned_limit) = call.opt::<Spanned<String>>(engine_state, stack, 0)? {
             if !hard && !soft {
@@ -435,13 +436,7 @@ impl Command for ULimit {
 
             Ok(PipelineData::Empty)
         } else {
-            let sig = self.signature();
-
-            if call.has_flag("all") {
-                show_limits(call, &sig, true, hard)
-            } else {
-                show_limits(call, &sig, false, hard)
-            }
+            show_limits(call, &self.signature(), all, hard)
         }
     }
 
