@@ -9,7 +9,7 @@ provide interactive utilities and building blocks for users writing casual scrip
 To see what's here:
 ```
 > use std
-> help commands | select name usage | where name =~ "std "
+> scope commands | select name usage | where name =~ "std "
 ╭────┬─────────────────────────────┬────────────────────────────────────────────────────────────────╮
 │  # │            name             │                                usage                           │
 ├────┼─────────────────────────────┼────────────────────────────────────────────────────────────────┤
