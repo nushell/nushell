@@ -114,6 +114,13 @@ fn default(
     }
 
     if all_columns {
+        let mut expected_columns = vec![];
+        let all_columns_flag_span = call
+            .get_named_arg("all-columns")
+            .map(|arg| arg.span)
+            .expect("named arg 'all-columns'");
+        let input_span = input.span();
+
         input
             .map(
                 move |item| {
@@ -122,13 +129,31 @@ fn default(
                         Value::Record {
                             val: mut record, ..
                         } => {
+                            if expected_columns.is_empty() {
+                                expected_columns.extend(record.cols.iter().cloned());
+                            }
+
                             for (_, val) in record.iter_mut() {
                                 if matches!(val, Value::Nothing { .. }) {
                                     *val = value.clone();
                                 }
                             }
 
-                            Value::record(record, span)
+                            if expected_columns == record.cols {
+                                Value::record(record, span)
+                            } else {
+                                Value::error(
+                                    ShellError::PipelineMismatch {
+                                        exp_input_type: "complete table, found a not fully defined table made up of records with different fields".into(),
+                                        dst_span: all_columns_flag_span,
+                                        src_span: input_span.unwrap_or(span),
+                                    },
+                                    span,
+                                )
+                            }
+                        }
+                        Value::Nothing { .. } => {
+                                value.clone()
                         }
                         _ => item,
                     }
