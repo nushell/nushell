@@ -115,17 +115,53 @@ fn update(
     match input {
         PipelineData::Value(mut value, metadata) => {
             if replacement.as_block().is_ok() {
-                update_single_value_by_closure(
-                    &mut value,
-                    span,
-                    replacement,
-                    engine_state,
-                    stack,
-                    redirect_stdout,
-                    redirect_stderr,
-                    &cell_path.members,
-                    matches!(cell_path.members.first(), Some(PathMember::Int { .. })),
-                )?;
+                match (cell_path.members.first(), &mut value) {
+                    (Some(PathMember::Int { .. }), _) => {
+                        update_single_value_by_closure(
+                            &mut value,
+                            span,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &cell_path.members,
+                            true,
+                        )?;
+                    }
+                    (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                        let capture_block = Closure::from_value(replacement)?;
+                        let block = engine_state.get_block(capture_block.block_id).clone();
+                        let stack = stack.captures_to_stack(capture_block.captures.clone());
+                        for val in vals {
+                            let mut stack = stack.clone();
+                            update_value_by_closure(
+                                val,
+                                span,
+                                engine_state,
+                                &mut stack,
+                                redirect_stdout,
+                                redirect_stderr,
+                                &block,
+                                &cell_path.members,
+                                false,
+                            )?;
+                        }
+                    }
+                    _ => {
+                        update_single_value_by_closure(
+                            &mut value,
+                            span,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &cell_path.members,
+                            false,
+                        )?;
+                    }
+                }
             } else {
                 value.update_data_at_cell_path(&cell_path.members, replacement)?;
             }
