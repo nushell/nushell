@@ -16,7 +16,7 @@ reedline = { version = "0.26" }
 
 crossbeam-channel = "0.5.8"
 lsp-types = "0.94.1"
-lsp-server = { version = "0.7.4", git = "https://github.com/schrieveslaach/rust-analyzer.git", branch = "cancelable-initialization" }
+lsp-server = "0.7.4"
 miette = "5.10"
 ropey = "1.6.1"
 serde = "1.0"

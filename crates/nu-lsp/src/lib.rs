@@ -76,7 +76,10 @@ impl LanguageServer {
 
         let _initialization_params = self
             .connection
-            .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
+            .initialize(server_capabilities)
+            // TODO: replace initialize(server_capabilities) as soon as a new release of lsp-server
+            // is available with following line.
+            // .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
             .into_diagnostic()?;
 
         while !ctrlc.load(Ordering::SeqCst) {
