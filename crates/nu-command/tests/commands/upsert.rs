@@ -67,6 +67,13 @@ fn upsert_uses_enumerate_index_updating() {
 }
 
 #[test]
+fn upsert_into_list() {
+    let actual = nu!("[1, 2, 3] | upsert 1 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+}
+
+#[test]
 fn upsert_at_list_end() {
     let actual = nu!("[1, 2, 3] | upsert 3 abc | to json -r");
 
@@ -76,6 +83,29 @@ fn upsert_at_list_end() {
 #[test]
 fn upsert_past_list_end() {
     let actual = nu!("[1, 2, 3] | upsert 5 abc");
+
+    assert!(actual
+        .err
+        .contains("can't insert at index (the next available index is 3)"));
+}
+
+#[test]
+fn upsert_into_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | upsert 1 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+}
+
+#[test]
+fn upsert_at_list_stream_end() {
+    let actual = nu!("[1, 2, 3] | every 1 | upsert 3 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
+}
+
+#[test]
+fn upsert_past_list_stream_end() {
+    let actual = nu!("[1, 2, 3] | every 1 | upsert 5 abc");
 
     assert!(actual
         .err
@@ -162,4 +192,33 @@ fn table_replacement_closure() {
 
     let actual = nu!("[[b]; [1]] | wrap a | upsert a.c { default 0 } | to nuon");
     assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+}
+
+#[test]
+fn list_stream_replacement_closure() {
+    let actual = nu!("[1, 2] | every 1 | upsert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | every 1 | upsert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | upsert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | upsert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | upsert a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | upsert a { str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | upsert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | upsert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }

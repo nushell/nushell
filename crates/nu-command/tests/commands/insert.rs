@@ -67,6 +67,29 @@ fn insert_past_list_end() {
 }
 
 #[test]
+fn insert_into_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 1 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,"abc",2,3]"#);
+}
+
+#[test]
+fn insert_at_list_stream_end() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 3 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
+}
+
+#[test]
+fn insert_past_list_stream_end() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 5 abc");
+
+    assert!(actual
+        .err
+        .contains("can't insert at index (the next available index is 3)"));
+}
+
+#[test]
 fn insert_uses_enumerate_index() {
     let actual = nu!(
         "[[a]; [7] [6]] | enumerate | insert b {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
@@ -147,4 +170,27 @@ fn table_replacement_closure() {
 
     let actual = nu!("[[b]; [1]] | wrap a | insert a.c { default 0 } | to nuon");
     assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+}
+
+#[test]
+fn list_stream_replacement_closure() {
+    let actual = nu!("[1, 2] | every 1 | insert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | every 1 | insert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | insert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | insert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }
