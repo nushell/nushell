@@ -317,7 +317,7 @@ fn update_single_value_by_closure(
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let capture_block = Closure::from_value(replacement)?;
-    let block = engine_state.get_block(capture_block.block_id).clone();
+    let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack(capture_block.captures);
 
     update_value_by_closure(
@@ -327,7 +327,7 @@ fn update_single_value_by_closure(
         &mut stack,
         redirect_stdout,
         redirect_stderr,
-        &block,
+        block,
         cell_path,
         first_path_member_int,
     )

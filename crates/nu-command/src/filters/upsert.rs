@@ -199,36 +199,61 @@ fn upsert(
             {
                 let mut pre_elems = vec![];
 
-                for idx in 0..=val {
+                for idx in 0..val {
                     if let Some(v) = stream.next() {
                         pre_elems.push(v);
-                    } else if idx == 0 {
-                        return Err(ShellError::AccessEmptyContent { span });
                     } else {
-                        return Err(ShellError::AccessBeyondEnd {
-                            max_idx: idx - 1,
+                        return Err(ShellError::InsertAfterNextFreeIndex {
+                            available_idx: idx,
                             span,
                         });
                     }
                 }
 
-                // cannot fail since loop above does at least one iteration or returns an error
-                let value = pre_elems.last_mut().unwrap();
+                if path.is_empty() {
+                    let value = stream.next().unwrap_or(Value::nothing(span));
+                    if replacement.as_block().is_ok() {
+                        let capture_block = Closure::from_value(replacement)?;
+                        let block = engine_state.get_block(capture_block.block_id);
+                        let mut stack = stack.captures_to_stack(capture_block.captures);
 
-                if replacement.as_block().is_ok() {
-                    upsert_single_value_by_closure(
-                        value,
-                        span,
-                        replacement,
-                        engine_state,
-                        stack,
-                        redirect_stdout,
-                        redirect_stderr,
-                        path,
-                        true,
-                    )?;
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone())
+                            }
+                        }
+
+                        let output = eval_block(
+                            engine_state,
+                            &mut stack,
+                            block,
+                            value.clone().into_pipeline_data(),
+                            redirect_stdout,
+                            redirect_stderr,
+                        )?;
+
+                        pre_elems.push(output.into_value(span));
+                    } else {
+                        pre_elems.push(replacement);
+                    }
                 } else {
-                    value.upsert_data_at_cell_path(path, replacement)?;
+                    let mut value = stream.next().unwrap_or(Value::nothing(span));
+                    if replacement.as_block().is_ok() {
+                        upsert_single_value_by_closure(
+                            &mut value,
+                            span,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            path,
+                            true,
+                        )?;
+                    } else {
+                        value.upsert_data_at_cell_path(path, replacement)?;
+                    }
+                    pre_elems.push(value)
                 }
 
                 Ok(pre_elems
@@ -347,7 +372,7 @@ fn upsert_single_value_by_closure(
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let capture_block = Closure::from_value(replacement)?;
-    let block = engine_state.get_block(capture_block.block_id).clone();
+    let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack(capture_block.captures);
 
     upsert_value_by_closure(
@@ -357,7 +382,7 @@ fn upsert_single_value_by_closure(
         &mut stack,
         redirect_stdout,
         redirect_stderr,
-        &block,
+        block,
         cell_path,
         first_path_member_int,
     )
