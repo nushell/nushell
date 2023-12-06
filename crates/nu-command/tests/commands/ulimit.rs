@@ -1,5 +1,5 @@
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::{nu, pipeline};
 
 #[cfg(any(target_os = "android", target_os = "linux"))]
 #[test]
@@ -19,20 +19,21 @@ fn limit_set_and_get() {
     Playground::setup("limit_core_size", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(),
-            "ulimit -s 102400"
+            "ulimit -s 100"
         );
 
         assert!(actual.out.is_empty());
 
         let actual = nu!(
-            cwd: dirs.test(),
+            cwd: dirs.test(), pipeline(
             "
-                ulimit -s 102400;
+                ulimit -s 100;
                 ulimit -s
-            "
+                | values
+            ")
         );
 
-        assert!(actual.out.contains("100.0 KiB"));
+        assert!(actual.out.contains("100"));
     });
 }
 
