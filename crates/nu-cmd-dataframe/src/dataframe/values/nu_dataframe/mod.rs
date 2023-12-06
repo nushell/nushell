@@ -9,6 +9,7 @@ pub use operations::Axis;
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
+use polars_arrow::util::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
@@ -58,6 +59,12 @@ impl std::hash::Hash for DataFrameValue {
             // TODO. Define hash for the rest of types
             _ => {}
         }
+    }
+}
+
+impl TotalEq for DataFrameValue {
+    fn tot_eq(&self, other: &Self) -> bool {
+        self == other
     }
 }
 

@@ -87,9 +87,9 @@ fn command(
     let writer = CsvWriter::new(&mut file);
 
     let writer = if no_header {
-        writer.has_header(false)
+        writer.include_header(false)
     } else {
-        writer.has_header(true)
+        writer.include_header(true)
     };
 
     let mut writer = match delimiter {
@@ -109,7 +109,7 @@ fn command(
                     None => unreachable!(),
                 };
 
-                writer.with_delimiter(delimiter)
+                writer.with_separator(delimiter)
             }
         }
     };
