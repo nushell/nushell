@@ -71,7 +71,7 @@ fn update_list() {
 }
 
 #[test]
-fn update_past_end_list() {
+fn update_past_list_end() {
     let actual = nu!("[1, 2, 3] | update 5 abc | to json -r");
     assert!(actual.err.contains("too large"));
 }
@@ -85,7 +85,7 @@ fn update_nonexistent_column() {
 #[test]
 fn update_uses_enumerate_index() {
     let actual = nu!(
-        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        "[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
     );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
