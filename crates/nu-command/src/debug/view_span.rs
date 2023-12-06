@@ -48,13 +48,13 @@ impl Command for ViewSpan {
                     .into_pipeline_data(),
             )
         } else {
-            Err(ShellError::GenericError(
-                "Cannot view span".to_string(),
-                "this start and end does not correspond to a viewable value".to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            ))
+            Err(ShellError::GenericError {
+                error: "Cannot view span".to_string(),
+                msg: "this start and end does not correspond to a viewable value".to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })
         }
     }
 

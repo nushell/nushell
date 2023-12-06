@@ -68,14 +68,12 @@ impl Command for StorImport {
 
         if let Ok(mut conn) = db.open_connection() {
             db.restore_database_from_file(&mut conn, file_name)
-                .map_err(|err| {
-                    ShellError::GenericError(
-                        "Failed to open SQLite connection in memory from import".into(),
-                        err.to_string(),
-                        Some(Span::test_data()),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to open SQLite connection in memory from import".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
                 })?;
         }
         // dbg!(db.clone());

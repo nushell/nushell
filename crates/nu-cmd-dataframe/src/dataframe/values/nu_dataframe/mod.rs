@@ -131,13 +131,13 @@ impl NuDataFrame {
     pub fn series_to_value(series: Series, span: Span) -> Result<Value, ShellError> {
         match DataFrame::new(vec![series]) {
             Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe, span)),
-            Err(e) => Err(ShellError::GenericError(
-                "Error creating dataframe".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+            Err(e) => Err(ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
         }
     }
 
@@ -174,14 +174,12 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
-        let dataframe = DataFrame::new(columns).map_err(|e| {
-            ShellError::GenericError(
-                "Error creating dataframe".into(),
-                format!("Unable to create DataFrame: {e}"),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let dataframe = DataFrame::new(columns).map_err(|e| ShellError::GenericError {
+            error: "Error creating dataframe".into(),
+            msg: format!("Unable to create DataFrame: {e}"),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
 
         Ok(Self::new(false, dataframe))
@@ -301,14 +299,12 @@ impl NuDataFrame {
             }
         })?;
 
-        let df = DataFrame::new(vec![s.clone()]).map_err(|e| {
-            ShellError::GenericError(
-                "Error creating dataframe".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
+            error: "Error creating dataframe".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
 
         Ok(Self {
@@ -323,13 +319,13 @@ impl NuDataFrame {
 
     pub fn as_series(&self, span: Span) -> Result<Series, ShellError> {
         if !self.is_series() {
-            return Err(ShellError::GenericError(
-                "Error using as series".into(),
-                "dataframe has more than one column".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Error using as series".into(),
+                msg: "dataframe has more than one column".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         let series = self

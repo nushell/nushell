@@ -194,26 +194,26 @@ pub fn run_seq_dates(
     let mut step_size: i64 = increment.as_i64()?;
 
     if step_size == 0 {
-        return Err(ShellError::GenericError(
-            "increment cannot be 0".to_string(),
-            "increment cannot be 0".to_string(),
-            Some(increment.span()),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "increment cannot be 0".into(),
+            msg: "increment cannot be 0".into(),
+            span: Some(increment.span()),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let in_format = match input_format {
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with input_format as_string".to_string()),
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("error with input_format as_string".into()),
+                    inner: vec![],
+                });
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -223,13 +223,13 @@ pub fn run_seq_dates(
         Some(i) => match i.as_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "".to_string(),
-                    None,
-                    Some("error with output_format as_string".to_string()),
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("error with output_format as_string".into()),
+                    inner: vec![],
+                });
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -239,13 +239,13 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "Failed to parse date".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "Failed to parse date".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         },
         _ => today,
@@ -255,13 +255,13 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "Failed to parse date".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "Failed to parse date".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         },
         _ => today,
@@ -282,13 +282,13 @@ pub fn run_seq_dates(
         end_date = match start_date.checked_add_signed(Duration::days(days_to_output)) {
             Some(date) => date,
             None => {
-                return Err(ShellError::GenericError(
-                    "int value too large".to_string(),
-                    "int value too large".to_string(),
-                    Some(call_span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "int value too large".into(),
+                    msg: "int value too large".into(),
+                    span: Some(call_span),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }
@@ -304,13 +304,13 @@ pub fn run_seq_dates(
 
     let mut next = start_date;
     if is_out_of_range(next) {
-        return Err(ShellError::GenericError(
-            "date is out of range".to_string(),
-            "date is out of range".to_string(),
-            Some(call_span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "date is out of range".into(),
+            msg: "date is out of range".into(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let mut ret = vec![];

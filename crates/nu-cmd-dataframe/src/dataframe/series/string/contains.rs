@@ -74,25 +74,23 @@ fn command(
     let pattern: String = call.req(engine_state, stack, 0)?;
 
     let series = df.as_series(call.head)?;
-    let chunked = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "The contains command only with string columns".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+        error: "The contains command only with string columns".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
-    let res = chunked.contains(&pattern, false).map_err(|e| {
-        ShellError::GenericError(
-            "Error searching in series".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let res = chunked
+        .contains(&pattern, false)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error searching in series".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
