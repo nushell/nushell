@@ -97,3 +97,30 @@ fn update_support_lazy_record() {
         nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | update h 10 | get h"#);
     assert_eq!(actual.out, "10");
 }
+
+#[test]
+fn list_replacement_closure() {
+    let actual = nu!("[1, 2] | update 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | update 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+}
+
+#[test]
+fn record_replacement_closure() {
+    let actual = nu!("{ a: text } | update a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+
+    let actual = nu!("{ a: text } | update a { str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+}
+
+#[test]
+fn table_replacement_closure() {
+    let actual = nu!("[[a]; [text]] | update a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | update a { str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+}

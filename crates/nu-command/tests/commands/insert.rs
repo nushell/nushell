@@ -103,3 +103,48 @@ fn inserts_all_rows_in_table_in_record() {
     );
     assert_eq!(actual.out, "[2, 2]");
 }
+
+#[test]
+fn list_replacement_closure() {
+    let actual = nu!("[1, 2] | insert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | insert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | insert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[1, 2] | insert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+}
+
+#[test]
+fn record_replacement_closure() {
+    let actual = nu!("{ a: text } | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: text } | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: { b: 1 } } | insert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
+
+    let actual = nu!("{ a: { b: 1 } } | insert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 0}}");
+}
+
+#[test]
+fn table_replacement_closure() {
+    let actual = nu!("[[a]; [text]] | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+}

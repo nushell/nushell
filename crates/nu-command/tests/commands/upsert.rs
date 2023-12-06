@@ -106,3 +106,60 @@ fn upserts_all_rows_in_table_in_record() {
     );
     assert_eq!(actual.out, "[2, 2]");
 }
+
+#[test]
+fn list_replacement_closure() {
+    let actual = nu!("[1, 2] | upsert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | upsert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | upsert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[1, 2] | upsert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+}
+
+#[test]
+fn record_replacement_closure() {
+    let actual = nu!("{ a: text } | upsert a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+
+    let actual = nu!("{ a: text } | upsert a { str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+
+    let actual = nu!("{ a: text } | upsert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: text } | upsert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: { b: 1 } } | upsert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
+
+    let actual = nu!("{ a: { b: 1 } } | upsert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 0}}");
+}
+
+#[test]
+fn table_replacement_closure() {
+    let actual = nu!("[[a]; [text]] | upsert a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | upsert a { str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | upsert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | upsert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | upsert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | upsert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+}
