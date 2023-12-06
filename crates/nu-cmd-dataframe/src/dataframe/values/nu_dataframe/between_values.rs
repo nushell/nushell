@@ -70,7 +70,7 @@ pub(super) fn compute_between_series(
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Division error".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(right.span()),
                     help: None,
                     inner: vec![],
@@ -188,7 +188,7 @@ where
     let mut res = f(lhs, rhs)
         .map_err(|e| ShellError::GenericError {
             error: "Equality error".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -458,7 +458,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to i64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -499,7 +499,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -522,7 +522,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -563,7 +563,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -586,7 +586,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -607,7 +607,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to f64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -648,7 +648,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to i64".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -671,7 +671,7 @@ where
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Unable to cast to i64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -712,7 +712,7 @@ where
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to f64".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -733,7 +733,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
                 }
                 Err(e) => Err(ShellError::GenericError {
                     error: "Error using contains".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -742,7 +742,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to string".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],
@@ -761,7 +761,7 @@ fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<Value,
         }
         Err(e) => Err(ShellError::GenericError {
             error: "Unable to cast to string".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],

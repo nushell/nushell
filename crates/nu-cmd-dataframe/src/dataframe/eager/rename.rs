@@ -134,7 +134,7 @@ fn command_eager(
             .rename(from, to)
             .map_err(|e| ShellError::GenericError {
                 error: "Error renaming".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

@@ -81,7 +81,7 @@ fn command(
     let mut res = is_in(&df, &other)
         .map_err(|e| ShellError::GenericError {
             error: "Error finding in other".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],

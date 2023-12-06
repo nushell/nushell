@@ -72,7 +72,7 @@ fn command(
         .select(col_string)
         .map_err(|e| ShellError::GenericError {
             error: "Error selecting columns".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(col_span),
             help: None,
             inner: vec![],

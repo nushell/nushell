@@ -126,7 +126,7 @@ impl NuDataFrame {
             Ok(dataframe) => Ok(NuDataFrame::dataframe_into_value(dataframe, span)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -294,7 +294,7 @@ impl NuDataFrame {
 
         let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(span),
             help: None,
             inner: vec![],

@@ -160,7 +160,7 @@ fn command(
 
     let mut res = res.map_err(|e| ShellError::GenericError {
         error: "Error calculating rolling values".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: None,
         inner: vec![],

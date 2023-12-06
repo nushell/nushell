@@ -98,7 +98,7 @@ fn command_eager(
 
     let res = series.unique().map_err(|e| ShellError::GenericError {
         error: "Error calculating unique values".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: Some("The str-slice command can only be used with string columns".into()),
         inner: vec![],

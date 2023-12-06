@@ -67,7 +67,7 @@ fn command(
 
     let casted = series.datetime().map_err(|e| ShellError::GenericError {
         error: "Error casting to datetime type".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: None,
         inner: vec![],

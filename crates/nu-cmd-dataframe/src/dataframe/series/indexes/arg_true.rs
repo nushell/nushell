@@ -87,7 +87,7 @@ fn command(
                 .collect()
                 .map_err(|err| ShellError::GenericError {
                     error: "Error creating index column".into(),
-                    msg: err.into(),
+                    msg: err.to_string(),
                     span: Some(call.head),
                     help: None,
                     inner: vec![],

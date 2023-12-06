@@ -106,7 +106,7 @@ impl NuLazyFrame {
             .collect()
             .map_err(|e| ShellError::GenericError {
                 error: "Error collecting lazy frame".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],

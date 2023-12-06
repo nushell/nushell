@@ -74,7 +74,7 @@ fn command(
         .value_counts(false, false)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating value counts values".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: Some("The str-slice command can only be used with string columns".into()),
             inner: vec![],

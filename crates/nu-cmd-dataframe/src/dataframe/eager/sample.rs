@@ -97,7 +97,7 @@ fn command(
             .sample_n(rows.item, replace, shuffle, seed)
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(rows.span),
                 help: None,
                 inner: vec![],
@@ -107,7 +107,7 @@ fn command(
             .sample_frac(frac.item, replace, shuffle, seed)
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating sample".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(frac.span),
                 help: None,
                 inner: vec![],

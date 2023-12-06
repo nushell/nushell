@@ -154,7 +154,7 @@ fn command(
         .melt(&id_col_string, &val_col_string)
         .map_err(|e| ShellError::GenericError {
             error: "Error calculating melt".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],
@@ -164,7 +164,7 @@ fn command(
         res.rename("variable", &name.item)
             .map_err(|e| ShellError::GenericError {
                 error: "Error renaming column".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(name.span),
                 help: None,
                 inner: vec![],
@@ -175,7 +175,7 @@ fn command(
         res.rename("value", &name.item)
             .map_err(|e| ShellError::GenericError {
                 error: "Error renaming column".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(name.span),
                 help: None,
                 inner: vec![],
@@ -210,7 +210,7 @@ fn check_column_datatypes<T: AsRef<str>>(
                 .column(w[0].as_ref())
                 .map_err(|e| ShellError::GenericError {
                     error: "Error selecting columns".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(col_span),
                     help: None,
                     inner: vec![],
@@ -220,7 +220,7 @@ fn check_column_datatypes<T: AsRef<str>>(
                 .column(w[1].as_ref())
                 .map_err(|e| ShellError::GenericError {
                     error: "Error selecting columns".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(col_span),
                     help: None,
                     inner: vec![],

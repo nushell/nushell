@@ -101,7 +101,7 @@ fn command(
             .cast(&DataType::UInt32)
             .map_err(|e| ShellError::GenericError {
                 error: "Error casting index list".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(index_span),
                 help: None,
                 inner: vec![],
@@ -117,7 +117,7 @@ fn command(
 
     let indices = casted.u32().map_err(|e| ShellError::GenericError {
         error: "Error casting index list".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(index_span),
         help: None,
         inner: vec![],
@@ -128,7 +128,7 @@ fn command(
             .take(indices)
             .map_err(|e| ShellError::GenericError {
                 error: "Error taking values".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],

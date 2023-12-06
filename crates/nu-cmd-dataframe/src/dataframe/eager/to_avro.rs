@@ -87,7 +87,7 @@ fn command(
 
     let file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
         error: "Error with file name".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(file_name.span),
         help: None,
         inner: vec![],
@@ -98,7 +98,7 @@ fn command(
         .finish(df.as_mut())
         .map_err(|e| ShellError::GenericError {
             error: "Error saving file".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(file_name.span),
             help: None,
             inner: vec![],

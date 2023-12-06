@@ -155,7 +155,7 @@ fn from_parquet(
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
             .map_err(|e| ShellError::GenericError {
                 error: "Parquet reader error".into(),
-                mesg: format!("{e:?}"),
+                msg: format!("{e:?}"),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -169,7 +169,7 @@ fn from_parquet(
 
         let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(file.span),
             help: None,
             inner: vec![],
@@ -206,7 +206,7 @@ fn from_avro(
 
     let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(file.span),
         help: None,
         inner: vec![],
@@ -264,7 +264,7 @@ fn from_ipc(
 
         let r = File::open(&file.item).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(file.span),
             help: None,
             inner: vec![],
@@ -299,7 +299,7 @@ fn from_json(
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(file.span),
         help: None,
         inner: vec![],
@@ -331,7 +331,7 @@ fn from_jsonl(
     let file: Spanned<PathBuf> = call.req(engine_state, stack, 0)?;
     let file = File::open(&file.item).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(file.span),
         help: None,
         inner: vec![],
@@ -421,7 +421,7 @@ fn from_csv(
         let csv_reader = CsvReader::from_path(&file.item)
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(file.span),
                 help: None,
                 inner: vec![],

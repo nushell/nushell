@@ -87,7 +87,7 @@ fn command(
     let bool_mask = match mask.dtype() {
         DataType::Boolean => mask.bool().map_err(|e| ShellError::GenericError {
             error: "Error casting to bool".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(mask_span),
             help: None,
             inner: vec![],
@@ -108,7 +108,7 @@ fn command(
         Value::Int { val, .. } => {
             let chunked = series.i64().map_err(|e| ShellError::GenericError {
                 error: "Error casting to i64".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -118,7 +118,7 @@ fn command(
                 .set(bool_mask, Some(val))
                 .map_err(|e| ShellError::GenericError {
                     error: "Error setting value".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -129,7 +129,7 @@ fn command(
         Value::Float { val, .. } => {
             let chunked = series.f64().map_err(|e| ShellError::GenericError {
                 error: "Error casting to f64".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -139,7 +139,7 @@ fn command(
                 .set(bool_mask, Some(val))
                 .map_err(|e| ShellError::GenericError {
                     error: "Error setting value".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -150,7 +150,7 @@ fn command(
         Value::String { val, .. } => {
             let chunked = series.utf8().map_err(|e| ShellError::GenericError {
                 error: "Error casting to string".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
@@ -159,7 +159,7 @@ fn command(
             let res = chunked.set(bool_mask, Some(val.as_ref())).map_err(|e| {
                 ShellError::GenericError {
                     error: "Error setting value".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],

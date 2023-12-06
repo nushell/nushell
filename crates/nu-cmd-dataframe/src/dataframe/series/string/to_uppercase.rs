@@ -73,7 +73,7 @@ fn command(
 
     let casted = series.utf8().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: Some("The str-slice command can only be used with string columns".into()),
         inner: vec![],

@@ -291,7 +291,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
             error: "Error creating dataframe".into(),
             msg: "".into(),
             span: None,
-            help: Some(e.into()),
+            help: Some(e.to_string()),
             inner: vec![],
         })
 }
@@ -423,7 +423,7 @@ fn input_type_list_to_series(
                         error: "Error appending to series".into(),
                         msg: "".into(),
                         span: None,
-                        help: Some(e.into()),
+                        help: Some(e.to_string()),
                         inner: vec![],
                     })?
             }
@@ -461,7 +461,7 @@ fn series_to_values(
                 error: "Error casting column to u8".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -484,7 +484,7 @@ fn series_to_values(
                 error: "Error casting column to u16".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -507,7 +507,7 @@ fn series_to_values(
                 error: "Error casting column to u32".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -530,7 +530,7 @@ fn series_to_values(
                 error: "Error casting column to u64".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -553,7 +553,7 @@ fn series_to_values(
                 error: "Error casting column to i8".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -576,7 +576,7 @@ fn series_to_values(
                 error: "Error casting column to i16".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -599,7 +599,7 @@ fn series_to_values(
                 error: "Error casting column to i32".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -622,7 +622,7 @@ fn series_to_values(
                 error: "Error casting column to i64".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -645,7 +645,7 @@ fn series_to_values(
                 error: "Error casting column to f32".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -668,7 +668,7 @@ fn series_to_values(
                 error: "Error casting column to f64".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -691,7 +691,7 @@ fn series_to_values(
                 error: "Error casting column to bool".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -714,7 +714,7 @@ fn series_to_values(
                 error: "Error casting column to string".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -805,7 +805,7 @@ fn series_to_values(
                 error: "Error casting column to date".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -866,7 +866,7 @@ fn series_to_values(
                 error: "Error casting column to datetime".into(),
                 msg: "".into(),
                 span: None,
-                help: Some(e.into()),
+                help: Some(e.to_string()),
                 inner: vec![],
             })?;
 
@@ -935,7 +935,7 @@ fn series_to_values(
                         error: "Error casting column to time".into(),
                         msg: "".into(),
                         span: None,
-                        help: Some(e.into()),
+                        help: Some(e.to_string()),
                         inner: vec![],
                     })?;
 

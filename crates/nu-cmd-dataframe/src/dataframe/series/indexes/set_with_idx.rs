@@ -91,7 +91,7 @@ fn command(
             .cast(&DataType::UInt32)
             .map_err(|e| ShellError::GenericError {
                 error: "Error casting indices".into(),
-                msg: e.into(),
+                msg: e.to_string(),
                 span: Some(indices_span),
                 help: None,
                 inner: vec![],
@@ -109,7 +109,7 @@ fn command(
         .u32()
         .map_err(|e| ShellError::GenericError {
             error: "Error casting indices".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(indices_span),
             help: None,
             inner: vec![],
@@ -126,7 +126,7 @@ fn command(
             Value::Int { val, .. } => {
                 let chunked = series.i64().map_err(|e| ShellError::GenericError {
                     error: "Error casting to i64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -135,7 +135,7 @@ fn command(
                 let res = chunked.set_at_idx(indices, Some(val)).map_err(|e| {
                     ShellError::GenericError {
                         error: "Error setting value".into(),
-                        msg: e.into(),
+                        msg: e.to_string(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -147,7 +147,7 @@ fn command(
             Value::Float { val, .. } => {
                 let chunked = series.f64().map_err(|e| ShellError::GenericError {
                     error: "Error casting to f64".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -156,7 +156,7 @@ fn command(
                 let res = chunked.set_at_idx(indices, Some(val)).map_err(|e| {
                     ShellError::GenericError {
                         error: "Error setting value".into(),
-                        msg: e.into(),
+                        msg: e.to_string(),
                         span: Some(span),
                         help: None,
                         inner: vec![],
@@ -168,7 +168,7 @@ fn command(
             Value::String { val, .. } => {
                 let chunked = series.utf8().map_err(|e| ShellError::GenericError {
                     error: "Error casting to string".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -178,7 +178,7 @@ fn command(
                     .set_at_idx(indices, Some(val.as_ref()))
                     .map_err(|e| ShellError::GenericError {
                         error: "Error setting value".into(),
-                        msg: e.into(),
+                        msg: e.to_string(),
                         span: Some(span),
                         help: None,
                         inner: vec![],

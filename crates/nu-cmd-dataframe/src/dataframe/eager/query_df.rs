@@ -80,7 +80,7 @@ fn command(
         .execute(&sql_query)
         .map_err(|e| ShellError::GenericError {
             error: "Dataframe Error".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],

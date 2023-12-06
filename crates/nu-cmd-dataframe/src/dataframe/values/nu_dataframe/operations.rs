@@ -137,7 +137,7 @@ impl NuDataFrame {
 
                 let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
                     error: "Error creating dataframe".into(),
-                    msg: e.into(),
+                    msg: e.to_string(),
                     span: Some(span),
                     help: None,
                     inner: vec![],

@@ -70,7 +70,7 @@ fn command(
 
     let bool = series.bool().map_err(|e| ShellError::GenericError {
         error: "Error inverting mask".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: None,
         inner: vec![],

@@ -88,7 +88,7 @@ fn command(
         .n_unique()
         .map_err(|e| ShellError::GenericError {
             error: "Error counting unique values".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],

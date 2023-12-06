@@ -70,7 +70,7 @@ fn command(
     let series = df.as_series(call.head)?;
     let casted = series.utf8().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: None,
         inner: vec![],
@@ -85,7 +85,7 @@ fn command(
     let mut res = res
         .map_err(|e| ShellError::GenericError {
             error: "Error creating datetime".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],

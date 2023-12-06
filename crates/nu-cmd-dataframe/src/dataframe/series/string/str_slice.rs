@@ -77,7 +77,7 @@ fn command(
 
     let chunked = series.utf8().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
-        msg: e.into(),
+        msg: e.to_string(),
         span: Some(call.head),
         help: Some("The str-slice command can only be used with string columns".into()),
         inner: vec![],
@@ -87,7 +87,7 @@ fn command(
         .str_slice(start, length)
         .map_err(|e| ShellError::GenericError {
             error: "Error slicing series".into(),
-            msg: e.into(),
+            msg: e.to_string(),
             span: Some(call.head),
             help: None,
             inner: vec![],
