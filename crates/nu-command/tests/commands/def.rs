@@ -299,3 +299,9 @@ fn def_env_wrapped() {
     );
     assert_eq!(actual.out, "bacon");
 }
+
+#[test]
+fn def_env_wrapped_no_help() {
+    let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
+    assert_eq!(actual.out, r#"["-h"]"#);
+}

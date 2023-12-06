@@ -8,6 +8,7 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{DataType, IntoSeries};
+use polars_ops::prelude::{cum_max, cum_min, cum_sum};
 
 enum CumType {
     Min,
@@ -119,10 +120,19 @@ fn command(
 
     let cum_type = CumType::from_str(&cum_type.item, cum_type.span)?;
     let mut res = match cum_type {
-        CumType::Max => series.cummax(reverse),
-        CumType::Min => series.cummin(reverse),
-        CumType::Sum => series.cumsum(reverse),
-    };
+        CumType::Max => cum_max(&series, reverse),
+        CumType::Min => cum_min(&series, reverse),
+        CumType::Sum => cum_sum(&series, reverse),
+    }
+    .map_err(|e| {
+        ShellError::GenericError(
+            "Error creating cumulative".into(),
+            e.to_string(),
+            Some(call.head),
+            None,
+            Vec::new(),
+        )
+    })?;
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());
     res.rename(&name);

@@ -425,7 +425,7 @@ pub enum ParseError {
     MissingImportPattern(#[label = "needs an import pattern"] Span),
 
     #[error("Wrong import pattern structure.")]
-    #[diagnostic(code(nu::parser::missing_import_pattern))]
+    #[diagnostic(code(nu::parser::wrong_import_pattern))]
     WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]

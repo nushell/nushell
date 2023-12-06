@@ -150,6 +150,7 @@ fn from_parquet(
             low_memory: false,
             cloud_options: None,
             use_statistics: false,
+            hive_partitioning: false,
         };
 
         let df: NuLazyFrame = LazyFrame::scan_parquet(file, args)
@@ -387,7 +388,7 @@ fn from_csv(
                         Some(d) => d as u8,
                         None => unreachable!(),
                     };
-                    csv_reader.with_delimiter(delimiter)
+                    csv_reader.with_separator(delimiter)
                 }
             }
         };
@@ -444,7 +445,7 @@ fn from_csv(
                         Some(d) => d as u8,
                         None => unreachable!(),
                     };
-                    csv_reader.with_delimiter(delimiter)
+                    csv_reader.with_separator(delimiter)
                 }
             }
         };

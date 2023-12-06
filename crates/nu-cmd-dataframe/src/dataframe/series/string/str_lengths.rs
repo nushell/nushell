@@ -71,7 +71,7 @@ fn command(
         inner: vec![],
     })?;
 
-    let res = chunked.as_ref().str_lengths().into_series();
+    let res = chunked.as_ref().str_len_bytes().into_series();
 
     NuDataFrame::try_from_series(vec![res], call.head)
         .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
