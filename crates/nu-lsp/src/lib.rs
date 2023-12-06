@@ -347,7 +347,7 @@ impl LanguageServer {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
 
-                let mut description = "```\n### Signature\n```\n".to_string();
+                let mut description = "\n### Signature\n```\n".to_string();
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -450,7 +450,7 @@ impl LanguageServer {
                     description.push_str("\n```\n");
                     for input_output in &signature.input_output_types {
                         description
-                            .push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
+                            .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
                     }
                     description.push_str("\n```\n");
                 }
@@ -463,10 +463,10 @@ impl LanguageServer {
                         .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
                 }
                 if !decl.examples().is_empty() {
-                    description.push_str("### Example(s)\n```\n");
+                    description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "```\n  {}\n```\n  {}\n\n",
+                            "  {}\n```\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
