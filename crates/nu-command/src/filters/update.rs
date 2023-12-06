@@ -124,6 +124,7 @@ fn update(
                     redirect_stdout,
                     redirect_stderr,
                     &cell_path.members,
+                    matches!(cell_path.members.first(), Some(PathMember::Int { .. })),
                 )?;
             } else {
                 value.update_data_at_cell_path(&cell_path.members, replacement)?;
@@ -162,6 +163,7 @@ fn update(
                         redirect_stdout,
                         redirect_stderr,
                         path,
+                        true,
                     )?;
                 } else {
                     value.update_data_at_cell_path(path, replacement)?;
@@ -192,6 +194,7 @@ fn update(
                             redirect_stderr,
                             &block,
                             &cell_path.members,
+                            false,
                         );
 
                         if let Err(e) = err {
@@ -236,14 +239,22 @@ fn update_value_by_closure(
     redirect_stderr: bool,
     block: &Block,
     cell_path: &[PathMember],
+    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
+    let input_at_path = value.clone().follow_cell_path(cell_path, false)?;
+
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
-            stack.add_var(*var_id, value.clone())
+            stack.add_var(
+                *var_id,
+                if first_path_member_int {
+                    input_at_path.clone()
+                } else {
+                    value.clone()
+                },
+            )
         }
     }
-
-    let input_at_path = value.clone().follow_cell_path(cell_path, false)?;
 
     let output = eval_block(
         engine_state,
@@ -267,6 +278,7 @@ fn update_single_value_by_closure(
     redirect_stdout: bool,
     redirect_stderr: bool,
     cell_path: &[PathMember],
+    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let capture_block = Closure::from_value(replacement)?;
     let block = engine_state.get_block(capture_block.block_id).clone();
@@ -281,6 +293,7 @@ fn update_single_value_by_closure(
         redirect_stderr,
         &block,
         cell_path,
+        first_path_member_int,
     )
 }
 

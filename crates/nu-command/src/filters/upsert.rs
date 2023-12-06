@@ -150,6 +150,7 @@ fn upsert(
                     redirect_stdout,
                     redirect_stderr,
                     &cell_path.members,
+                    matches!(cell_path.members.first(), Some(PathMember::Int { .. })),
                 )?;
             } else {
                 value.upsert_data_at_cell_path(&cell_path.members, replacement)?;
@@ -188,6 +189,7 @@ fn upsert(
                         redirect_stdout,
                         redirect_stderr,
                         path,
+                        true,
                     )?;
                 } else {
                     value.upsert_data_at_cell_path(path, replacement)?;
@@ -218,6 +220,7 @@ fn upsert(
                             redirect_stderr,
                             &block,
                             &cell_path.members,
+                            false,
                         );
 
                         if let Err(e) = err {
@@ -262,16 +265,24 @@ fn upsert_value_by_closure(
     redirect_stderr: bool,
     block: &Block,
     cell_path: &[PathMember],
+    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
+    let input_at_path = value.clone().follow_cell_path(cell_path, false);
+
     if let Some(var) = block.signature.get_positional(0) {
         if let Some(var_id) = &var.var_id {
-            stack.add_var(*var_id, value.clone())
+            stack.add_var(
+                *var_id,
+                if first_path_member_int {
+                    input_at_path.clone().unwrap_or(Value::nothing(span))
+                } else {
+                    value.clone()
+                },
+            )
         }
     }
 
-    let input_at_path = value
-        .clone()
-        .follow_cell_path(cell_path, false)
+    let input_at_path = input_at_path
         .map(IntoPipelineData::into_pipeline_data)
         .unwrap_or(PipelineData::Empty);
 
@@ -297,6 +308,7 @@ fn upsert_single_value_by_closure(
     redirect_stdout: bool,
     redirect_stderr: bool,
     cell_path: &[PathMember],
+    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let capture_block = Closure::from_value(replacement)?;
     let block = engine_state.get_block(capture_block.block_id).clone();
@@ -311,6 +323,7 @@ fn upsert_single_value_by_closure(
         redirect_stderr,
         &block,
         cell_path,
+        first_path_member_int,
     )
 }
 
