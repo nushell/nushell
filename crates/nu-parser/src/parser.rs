@@ -273,6 +273,21 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         parse_dollar_expr(working_set, span)
     } else if contents.starts_with(b"[") {
         parse_list_expression(working_set, span, &SyntaxShape::Any)
+    } else if contents.len() > 3
+        && contents.starts_with(b"...")
+        && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+    {
+        let args = parse_value(
+            working_set,
+            Span::new(span.start + 3, span.end),
+            &SyntaxShape::Any,
+        );
+        Expression {
+            expr: Expr::Spread(Box::new(args)),
+            span,
+            ty: Type::Any,
+            custom_completion: None,
+        }
     } else {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
         let contents = if contents.starts_with(b"\"") {
