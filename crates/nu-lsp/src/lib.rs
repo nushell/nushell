@@ -371,7 +371,7 @@ impl LanguageServer {
                     let mut first = true;
                     for required_arg in &signature.required_positional {
                         if !first {
-                            description.push_str("\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
