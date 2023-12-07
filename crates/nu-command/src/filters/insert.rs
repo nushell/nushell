@@ -126,7 +126,6 @@ fn insert(
                     (Some(PathMember::Int { .. }), _) => {
                         insert_single_value_by_closure(
                             &mut value,
-                            span,
                             replacement,
                             engine_state,
                             stack,
@@ -137,6 +136,7 @@ fn insert(
                         )?;
                     }
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                        let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
                         let block = engine_state.get_block(capture_block.block_id).clone();
                         let stack = stack.captures_to_stack(capture_block.captures.clone());
@@ -158,7 +158,6 @@ fn insert(
                     _ => {
                         insert_single_value_by_closure(
                             &mut value,
-                            span,
                             replacement,
                             engine_state,
                             stack,
@@ -175,8 +174,14 @@ fn insert(
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
         PipelineData::ListStream(mut stream, metadata) => {
-            if let Some((&PathMember::Int { val, span, .. }, path)) =
-                cell_path.members.split_first()
+            if let Some((
+                &PathMember::Int {
+                    val,
+                    span: path_span,
+                    ..
+                },
+                path,
+            )) = cell_path.members.split_first()
             {
                 let mut pre_elems = vec![];
 
@@ -186,7 +191,7 @@ fn insert(
                     } else {
                         return Err(ShellError::InsertAfterNextFreeIndex {
                             available_idx: idx,
-                            span,
+                            span: path_span,
                         });
                     }
                 }
@@ -195,8 +200,9 @@ fn insert(
                     if replacement.as_block().is_ok() {
                         let value = stream.next();
                         let end_of_stream = value.is_none();
-                        let value = value.unwrap_or(Value::nothing(span));
+                        let value = value.unwrap_or(Value::nothing(path_span));
 
+                        let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
                         let block = engine_state.get_block(capture_block.block_id);
                         let mut stack = stack.captures_to_stack(capture_block.captures);
@@ -224,11 +230,10 @@ fn insert(
                         pre_elems.push(replacement);
                     }
                 } else {
-                    let mut value = stream.next().unwrap_or(Value::nothing(span));
+                    let mut value = stream.next().unwrap_or(Value::nothing(path_span));
                     if replacement.as_block().is_ok() {
                         insert_single_value_by_closure(
                             &mut value,
-                            span,
                             replacement,
                             engine_state,
                             stack,
@@ -249,6 +254,7 @@ fn insert(
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
             } else if replacement.as_block().is_ok() {
                 let engine_state = engine_state.clone();
+                let replacement_span = replacement.span();
                 let capture_block = Closure::from_value(replacement)?;
                 let block = engine_state.get_block(capture_block.block_id).clone();
                 let stack = stack.captures_to_stack(capture_block.captures.clone());
@@ -261,7 +267,7 @@ fn insert(
 
                         let err = insert_value_by_closure(
                             &mut input,
-                            span,
+                            replacement_span,
                             &engine_state,
                             &mut stack,
                             redirect_stdout,
@@ -351,7 +357,6 @@ fn insert_value_by_closure(
 #[allow(clippy::too_many_arguments)]
 fn insert_single_value_by_closure(
     value: &mut Value,
-    span: Span,
     replacement: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -360,6 +365,7 @@ fn insert_single_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
+    let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;
     let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack(capture_block.captures);

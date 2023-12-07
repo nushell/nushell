@@ -1143,6 +1143,7 @@ impl Value {
         cell_path: &[PathMember],
         new_val: Value,
     ) -> Result<(), ShellError> {
+        let v_span = self.span();
         if let Some((member, path)) = cell_path.split_first() {
             match member {
                 PathMember::String {
@@ -1215,22 +1216,26 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(path, new_val)?;
-                        } else if vals.len() == *row_num && path.is_empty() {
-                            // If the upsert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::NotAList {
+                                dst_span: *span,
+                                src_span: v_span,
+                            });
+                        } else {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
-                    v => {
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
+                            src_span: v_span,
                         });
                     }
                 },
@@ -1637,21 +1642,25 @@ impl Value {
                             } else {
                                 v.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
-                        } else if vals.len() == *row_num && path.is_empty() {
-                            // If the insert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::NotAList {
+                                dst_span: *span,
+                                src_span: v_span,
+                            });
+                        } else {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
-                    v => {
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
+                            src_span: v_span,
                         });
                     }
                 },

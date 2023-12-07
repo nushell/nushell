@@ -119,7 +119,6 @@ fn update(
                     (Some(PathMember::Int { .. }), _) => {
                         update_single_value_by_closure(
                             &mut value,
-                            span,
                             replacement,
                             engine_state,
                             stack,
@@ -130,6 +129,7 @@ fn update(
                         )?;
                     }
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                        let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
                         let block = engine_state.get_block(capture_block.block_id).clone();
                         let stack = stack.captures_to_stack(capture_block.captures.clone());
@@ -151,7 +151,6 @@ fn update(
                     _ => {
                         update_single_value_by_closure(
                             &mut value,
-                            span,
                             replacement,
                             engine_state,
                             stack,
@@ -168,8 +167,14 @@ fn update(
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
         PipelineData::ListStream(mut stream, metadata) => {
-            if let Some((&PathMember::Int { val, span, .. }, path)) =
-                cell_path.members.split_first()
+            if let Some((
+                &PathMember::Int {
+                    val,
+                    span: path_span,
+                    ..
+                },
+                path,
+            )) = cell_path.members.split_first()
             {
                 let mut pre_elems = vec![];
 
@@ -177,11 +182,11 @@ fn update(
                     if let Some(v) = stream.next() {
                         pre_elems.push(v);
                     } else if idx == 0 {
-                        return Err(ShellError::AccessEmptyContent { span });
+                        return Err(ShellError::AccessEmptyContent { span: path_span });
                     } else {
                         return Err(ShellError::AccessBeyondEnd {
                             max_idx: idx - 1,
-                            span,
+                            span: path_span,
                         });
                     }
                 }
@@ -192,7 +197,6 @@ fn update(
                 if replacement.as_block().is_ok() {
                     update_single_value_by_closure(
                         value,
-                        span,
                         replacement,
                         engine_state,
                         stack,
@@ -210,6 +214,7 @@ fn update(
                     .chain(stream)
                     .into_pipeline_data_with_metadata(metadata, ctrlc))
             } else if replacement.as_block().is_ok() {
+                let replacement_span = replacement.span();
                 let engine_state = engine_state.clone();
                 let capture_block = Closure::from_value(replacement)?;
                 let block = engine_state.get_block(capture_block.block_id).clone();
@@ -223,7 +228,7 @@ fn update(
 
                         let err = update_value_by_closure(
                             &mut input,
-                            span,
+                            replacement_span,
                             &engine_state,
                             &mut stack,
                             redirect_stdout,
@@ -307,7 +312,6 @@ fn update_value_by_closure(
 #[allow(clippy::too_many_arguments)]
 fn update_single_value_by_closure(
     value: &mut Value,
-    span: Span,
     replacement: Value,
     engine_state: &EngineState,
     stack: &mut Stack,
@@ -316,6 +320,7 @@ fn update_single_value_by_closure(
     cell_path: &[PathMember],
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
+    let span = replacement.span();
     let capture_block = Closure::from_value(replacement)?;
     let block = engine_state.get_block(capture_block.block_id);
     let mut stack = stack.captures_to_stack(capture_block.captures);
