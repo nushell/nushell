@@ -1,8 +1,4 @@
-use crate::{
-    parse_block,
-    parser_path::ParserPath,
-    type_check::{check_block_input_output, type_compatible},
-};
+use crate::{parse_block, parser_path::ParserPath, type_check::check_block_input_output};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -3050,7 +3046,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        if !explicit_type.is_compatible_with(&rhs_type) {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
@@ -3157,7 +3153,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        if !explicit_type.is_compatible_with(&rhs_type) {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),
@@ -3178,7 +3174,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipelin
                                 let const_type = val.get_type();
 
                                 if let Some(explicit_type) = &explicit_type {
-                                    if !type_compatible(explicit_type, &const_type) {
+                                    if !explicit_type.is_compatible_with(&const_type) {
                                         working_set.error(ParseError::TypeMismatch(
                                             explicit_type.clone(),
                                             const_type.clone(),
@@ -3298,7 +3294,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     let rhs_type = rvalue.ty.clone();
 
                     if let Some(explicit_type) = &explicit_type {
-                        if !type_compatible(explicit_type, &rhs_type) {
+                        if !explicit_type.is_compatible_with(&rhs_type) {
                             working_set.error(ParseError::TypeMismatch(
                                 explicit_type.clone(),
                                 rhs_type.clone(),

@@ -4,7 +4,7 @@ use crate::{
     parse_mut,
     parse_patterns::{parse_match_pattern, parse_pattern},
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
-    type_check::{self, math_result_type, type_compatible},
+    type_check::{self, math_result_type},
     Token, TokenContents,
 };
 
@@ -977,7 +977,7 @@ pub fn parse_internal_call(
                 &positional.shape,
             );
 
-            let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
+            let arg = if !positional.shape.to_type().is_compatible_with(&arg.ty) {
                 working_set.error(ParseError::TypeMismatch(
                     positional.shape.to_type(),
                     arg.ty,
@@ -3519,27 +3519,22 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    working_set.set_variable_type(
-                                                        var_id,
-                                                        expression.ty.clone(),
-                                                    );
-                                                }
+                                            Type::Any if !*type_annotated => {
+                                                working_set.set_variable_type(
+                                                    var_id,
+                                                    expression.ty.clone(),
+                                                );
                                             }
-                                            _ => {
-                                                if !type_compatible(var_type, &expression.ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value wrong type".into(),
-                                                            format!(
-                                                            "expected default value to be `{var_type}`"
-                                                        ),
-                                                            expression.span,
-                                                        ),
-                                                    )
-                                                }
+                                            _ if !var_type.is_compatible_with(&expression.ty) => {
+                                                working_set.error(ParseError::AssignmentMismatch(
+                                                    "Default value wrong type".into(),
+                                                    format!(
+                                                        "expected default value to be `{var_type}`"
+                                                    ),
+                                                    expression.span,
+                                                ))
                                             }
+                                            _ => {}
                                         }
 
                                         *default_value = if let Ok(constant) =
@@ -3595,27 +3590,19 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         // Flags with no TypeMode are just present/not-present switches
                                         // in the case, `var_type` is any.
                                         match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
-                                                }
+                                            Type::Any if !*type_annotated => {
+                                                *arg = Some(expression_ty.to_shape());
+                                                working_set
+                                                    .set_variable_type(var_id, expression_ty);
                                             }
-                                            t => {
-                                                if !type_compatible(t, &expression_ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value is the wrong type"
-                                                                .into(),
-                                                            format!(
-                                                            "expected default value to be `{t}`"
-                                                                ),
-                                                            expression_span,
-                                                        ),
-                                                    )
-                                                }
+                                            t if !t.is_compatible_with(&expression_ty) => {
+                                                working_set.error(ParseError::AssignmentMismatch(
+                                                    "Default value is the wrong type".into(),
+                                                    format!("expected default value to be `{t}`"),
+                                                    expression_span,
+                                                ))
                                             }
+                                            _ => {}
                                         }
                                     }
                                 }
@@ -3938,7 +3925,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         rows.iter_mut()
             .map(|row| row.pop().map(|x| x.ty).unwrap_or_default())
             .reduce(|acc, ty| -> Type {
-                if type_compatible(&acc, &ty) {
+                if acc.is_compatible_with(&ty) {
                     ty
                 } else {
                     Type::Any
