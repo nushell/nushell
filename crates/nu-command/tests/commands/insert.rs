@@ -44,21 +44,21 @@ fn insert_into_list() {
 }
 
 #[test]
-fn insert_at_list_start() {
+fn insert_at_start_of_list() {
     let actual = nu!("[1, 2, 3] | insert 0 abc | to json -r");
 
     assert_eq!(actual.out, r#"["abc",1,2,3]"#);
 }
 
 #[test]
-fn insert_at_list_end() {
+fn insert_at_end_of_list() {
     let actual = nu!("[1, 2, 3] | insert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
-fn insert_past_list_end() {
+fn insert_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | insert 5 abc");
 
     assert!(actual
@@ -74,14 +74,14 @@ fn insert_into_list_stream() {
 }
 
 #[test]
-fn insert_at_list_stream_end() {
+fn insert_at_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | insert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
-fn insert_past_list_stream_end() {
+fn insert_past_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | insert 5 abc");
 
     assert!(actual

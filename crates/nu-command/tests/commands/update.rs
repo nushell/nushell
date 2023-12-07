@@ -71,7 +71,7 @@ fn update_list() {
 }
 
 #[test]
-fn update_past_list_end() {
+fn update_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | update 5 abc | to json -r");
     assert!(actual.err.contains("too large"));
 }
@@ -83,7 +83,7 @@ fn update_list_stream() {
 }
 
 #[test]
-fn update_past_list_stream_end() {
+fn update_past_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | update 5 abc | to json -r");
     assert!(actual.err.contains("too large"));
 }

@@ -74,14 +74,14 @@ fn upsert_into_list() {
 }
 
 #[test]
-fn upsert_at_list_end() {
+fn upsert_at_end_of_list() {
     let actual = nu!("[1, 2, 3] | upsert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
-fn upsert_past_list_end() {
+fn upsert_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | upsert 5 abc");
 
     assert!(actual
@@ -97,14 +97,14 @@ fn upsert_into_list_stream() {
 }
 
 #[test]
-fn upsert_at_list_stream_end() {
+fn upsert_at_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | upsert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
-fn upsert_past_list_stream_end() {
+fn upsert_past_end_of_list_stream() {
     let actual = nu!("[1, 2, 3] | every 1 | upsert 5 abc");
 
     assert!(actual
