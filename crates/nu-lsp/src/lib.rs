@@ -387,7 +387,7 @@ impl LanguageServer {
                     }
                     for optional_arg in &signature.optional_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
@@ -403,7 +403,7 @@ impl LanguageServer {
                     }
                     if let Some(arg) = &signature.rest_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             " `...{}: {}`",
@@ -422,7 +422,7 @@ impl LanguageServer {
                     let mut first = true;
                     for named in &signature.named {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
