@@ -227,21 +227,21 @@ mod tests {
         #[test]
         fn test_reflexivity() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&ty));
+                assert!(ty.is_compatible_with(&ty));
             }
         }
 
         #[test]
         fn test_any_is_top_type() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&Type::Any));
+                assert!(ty.is_compatible_with(&Type::Any));
             }
         }
 
         #[test]
         fn test_number_supertype() {
-            assert!(Type::Int.is_subtype(&Type::Number));
-            assert!(Type::Float.is_subtype(&Type::Number));
+            assert!(Type::Int.is_compatible_with(&Type::Number));
+            assert!(Type::Float.is_compatible_with(&Type::Number));
         }
 
         #[test]
@@ -250,7 +250,7 @@ mod tests {
                 for ty2 in Type::iter() {
                     let list_ty1 = Type::List(Box::new(ty1.clone()));
                     let list_ty2 = Type::List(Box::new(ty2.clone()));
-                    assert_eq!(list_ty1.is_subtype(&list_ty2), ty1.is_subtype(&ty2));
+                    assert_eq!(list_ty1.is_compatible_with(&list_ty2), ty1.is_compatible_with(&ty2));
                 }
             }
         }
