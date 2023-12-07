@@ -250,7 +250,10 @@ mod tests {
                 for ty2 in Type::iter() {
                     let list_ty1 = Type::List(Box::new(ty1.clone()));
                     let list_ty2 = Type::List(Box::new(ty2.clone()));
-                    assert_eq!(list_ty1.is_compatible_with(&list_ty2), ty1.is_compatible_with(&ty2));
+                    assert_eq!(
+                        list_ty1.is_compatible_with(&list_ty2),
+                        ty1.is_compatible_with(&ty2)
+                    );
                 }
             }
         }
