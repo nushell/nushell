@@ -131,7 +131,7 @@ fn update(
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
-                        let block = engine_state.get_block(capture_block.block_id).clone();
+                        let block = engine_state.get_block(capture_block.block_id);
                         let stack = stack.captures_to_stack(capture_block.captures.clone());
                         for val in vals {
                             let mut stack = stack.clone();
@@ -142,7 +142,7 @@ fn update(
                                 &mut stack,
                                 redirect_stdout,
                                 redirect_stderr,
-                                &block,
+                                block,
                                 &cell_path.members,
                                 false,
                             )?;
