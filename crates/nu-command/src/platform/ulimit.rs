@@ -267,11 +267,22 @@ fn limit_to_value(limit: rlim_t, multiplier: rlim_t, span: Span) -> Result<Value
 }
 
 /// Get maximum length of all flag descriptions
-fn max_desc_len() -> usize {
+fn max_desc_len(call: &Call, print_all: bool) -> usize {
     let mut desc_len = 0;
     let mut unit_len = 0;
 
     for res in RESOURCE_ARRAY.iter() {
+        if !print_all && !call.has_flag(res.name) {
+            continue;
+        }
+
+        desc_len = res.desc.len().max(desc_len);
+        unit_len = res.get_unit().len().max(unit_len);
+    }
+
+    // Use `RLIMIT_FSIZE` limit if no resource flag provided.
+    if desc_len == 0 {
+        let res = ResourceInfo::default();
         desc_len = res.desc.len().max(desc_len);
         unit_len = res.get_unit().len().max(unit_len);
     }
@@ -341,7 +352,7 @@ fn set_limits(
 fn print_limits(call: &Call, print_all: bool, hard: bool) -> Result<PipelineData, ShellError> {
     let mut record = Record::new();
     let mut print_default_limit = true;
-    let max_len = max_desc_len();
+    let max_len = max_desc_len(call, print_all);
 
     for res in RESOURCE_ARRAY.iter() {
         if !print_all {
