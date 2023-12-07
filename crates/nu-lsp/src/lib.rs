@@ -371,7 +371,7 @@ impl LanguageServer {
                     let mut first = true;
                     for required_arg in &signature.required_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push_str("\n");
                         } else {
                             first = false;
                         }
@@ -957,7 +957,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "```\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
+                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
                 }
             })
         );
