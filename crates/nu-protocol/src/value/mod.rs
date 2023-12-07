@@ -1222,9 +1222,9 @@ impl Value {
                                 span: *span,
                             });
                         } else if !path.is_empty() {
-                            return Err(ShellError::NotAList {
-                                dst_span: *span,
-                                src_span: v_span,
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
                             });
                         } else {
                             // If the upsert is at 1 + the end of the list, it's OK.
@@ -1648,9 +1648,9 @@ impl Value {
                                 span: *span,
                             });
                         } else if !path.is_empty() {
-                            return Err(ShellError::NotAList {
-                                dst_span: *span,
-                                src_span: v_span,
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
                             });
                         } else {
                             // If the insert is at 1 + the end of the list, it's OK.

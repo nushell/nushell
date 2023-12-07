@@ -242,8 +242,7 @@ fn upsert(
                     } else {
                         pre_elems.push(replacement);
                     }
-                } else {
-                    let mut value = stream.next().unwrap_or(Value::nothing(path_span));
+                } else if let Some(mut value) = stream.next() {
                     if replacement.as_block().is_ok() {
                         upsert_single_value_by_closure(
                             &mut value,
@@ -259,6 +258,11 @@ fn upsert(
                         value.upsert_data_at_cell_path(path, replacement)?;
                     }
                     pre_elems.push(value)
+                } else {
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: pre_elems.len() - 1,
+                        span: path_span,
+                    });
                 }
 
                 Ok(pre_elems

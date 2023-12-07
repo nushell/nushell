@@ -229,8 +229,7 @@ fn insert(
                     } else {
                         pre_elems.push(replacement);
                     }
-                } else {
-                    let mut value = stream.next().unwrap_or(Value::nothing(path_span));
+                } else if let Some(mut value) = stream.next() {
                     if replacement.as_block().is_ok() {
                         insert_single_value_by_closure(
                             &mut value,
@@ -246,6 +245,11 @@ fn insert(
                         value.insert_data_at_cell_path(path, replacement, span)?;
                     }
                     pre_elems.push(value)
+                } else {
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: pre_elems.len() - 1,
+                        span: path_span,
+                    });
                 }
 
                 Ok(pre_elems
