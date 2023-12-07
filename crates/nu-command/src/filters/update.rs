@@ -187,7 +187,7 @@ fn update(
                 }
 
                 // cannot fail since loop above does at least one iteration or returns an error
-                let value = pre_elems.last_mut().unwrap();
+                let value = pre_elems.last_mut().expect("one element");
 
                 if replacement.as_block().is_ok() {
                     update_single_value_by_closure(
