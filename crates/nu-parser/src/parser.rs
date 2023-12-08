@@ -34,6 +34,11 @@ use log::trace;
 use std::collections::{HashMap, HashSet};
 use std::{num::ParseIntError, str};
 
+#[cfg(windows)]
+const ENV_PATH_NAME: &str = "Path";
+#[cfg(not(windows))]
+const ENV_PATH_NAME: &str = "PATH";
+
 #[cfg(feature = "plugin")]
 use crate::parse_keywords::parse_register;
 
@@ -1861,7 +1866,10 @@ pub fn parse_cell_path(
     working_set: &mut StateWorkingSet,
     tokens: impl Iterator<Item = Token>,
     expect_dot: bool,
+    full_cell_path: String,
 ) -> Vec<PathMember> {
+    trace!("parsing: cell path");
+
     enum TokenType {
         Dot,           // .
         QuestionOrDot, // ? or .
@@ -1932,11 +1940,25 @@ pub fn parse_cell_path(
                                 span,
                                 ..
                             } => {
-                                tail.push(PathMember::String {
-                                    val: string,
-                                    span,
-                                    optional: false,
-                                });
+                                // This is what allows you to use any case for $env.PaTh
+                                // We want to make sure we found "path", but not just any
+                                // old path, it has to be part of the full_cell_path like
+                                // $env.PATH, or $env.Path, or $env.path or any string case
+                                if string.to_ascii_lowercase() == "path"
+                                    && full_cell_path.contains("$env")
+                                {
+                                    tail.push(PathMember::String {
+                                        val: ENV_PATH_NAME.to_string(),
+                                        span,
+                                        optional: false,
+                                    });
+                                } else {
+                                    tail.push(PathMember::String {
+                                        val: string,
+                                        span,
+                                        optional: false,
+                                    });
+                                }
                             }
                             _ => {
                                 working_set
@@ -1955,7 +1977,10 @@ pub fn parse_cell_path(
 }
 
 pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    trace!("parsing: simple cell path");
+
     let source = working_set.get_span_contents(span);
+    let full_cell_path_string = String::from_utf8_lossy(source).to_string();
 
     let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     if let Some(err) = err {
@@ -1964,7 +1989,7 @@ pub fn parse_simple_cell_path(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let tokens = tokens.into_iter().peekable();
 
-    let cell_path = parse_cell_path(working_set, tokens, false);
+    let cell_path = parse_cell_path(working_set, tokens, false, full_cell_path_string);
 
     Expression {
         expr: Expr::CellPath(CellPath { members: cell_path }),
@@ -1982,6 +2007,7 @@ pub fn parse_full_cell_path(
     trace!("parsing: full cell path");
     let full_cell_span = span;
     let source = working_set.get_span_contents(span);
+    let full_cell_path_string = String::from_utf8_lossy(source).to_string();
 
     let (tokens, err) = lex(source, span.start, &[b'\n', b'\r'], &[b'.', b'?'], true);
     if let Some(err) = err {
@@ -2077,7 +2103,7 @@ pub fn parse_full_cell_path(
             return garbage(span);
         };
 
-        let tail = parse_cell_path(working_set, tokens, expect_dot);
+        let tail = parse_cell_path(working_set, tokens, expect_dot, full_cell_path_string);
 
         Expression {
             // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)

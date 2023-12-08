@@ -13,6 +13,11 @@ use nu_protocol::{
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
 
+#[cfg(windows)]
+const ENV_PATH_NAME: &str = "Path";
+#[cfg(not(windows))]
+const ENV_PATH_NAME: &str = "PATH";
+
 pub fn eval_call(
     engine_state: &EngineState,
     caller_stack: &mut Stack,
@@ -774,7 +779,13 @@ pub fn eval_variable(
             let env_values = env_vars.values();
 
             let mut pairs = env_columns
-                .map(|x| x.to_string())
+                .map(|x| {
+                    if x.to_ascii_lowercase() == "path" {
+                        ENV_PATH_NAME.to_string()
+                    } else {
+                        x.to_string()
+                    }
+                })
                 .zip(env_values.cloned())
                 .collect::<Vec<(String, Value)>>();
 
