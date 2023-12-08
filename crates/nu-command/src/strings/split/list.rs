@@ -161,17 +161,15 @@ impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
-                |err| {
-                    ShellError::GenericError(
-                        "Error with regular expression".into(),
-                        err.to_string(),
-                        match lhs {
-                            Value::Error { .. } => None,
-                            _ => Some(lhs.span()),
-                        },
-                        None,
-                        Vec::new(),
-                    )
+                |e| ShellError::GenericError {
+                    error: "Error with regular expression".into(),
+                    msg: e.to_string(),
+                    span: match lhs {
+                        Value::Error { .. } => None,
+                        _ => Some(lhs.span()),
+                    },
+                    help: None,
+                    inner: vec![],
                 },
             )?))
         } else {

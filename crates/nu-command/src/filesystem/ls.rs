@@ -120,13 +120,13 @@ impl Command for Ls {
                         );
                         #[cfg(not(unix))]
                         let error_msg = String::from("Permission denied");
-                        return Err(ShellError::GenericError(
-                            "Permission denied".to_string(),
-                            error_msg,
-                            Some(p_tag),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Permission denied".into(),
+                            msg: error_msg,
+                            span: Some(p_tag),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                     if is_empty_dir(&expanded) {
                         return Ok(Value::list(vec![], call_span).into_pipeline_data());
@@ -168,13 +168,13 @@ impl Command for Ls {
 
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
-            return Err(ShellError::GenericError(
-                format!("No matches found for {}", &path.display().to_string()),
-                "Pattern, file or folder not found".to_string(),
-                Some(p_tag),
-                Some("no matches found".to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("No matches found for {}", &path.display().to_string()),
+                msg: "Pattern, file or folder not found".into(),
+                span: Some(p_tag),
+                help: Some("no matches found".into()),
+                inner: vec![],
+            });
         }
 
         let mut hidden_dirs = vec![];
@@ -233,14 +233,12 @@ impl Command for Ls {
                     } else {
                         Some(path.to_string_lossy().to_string())
                     }
-                    .ok_or_else(|| {
-                        ShellError::GenericError(
-                            format!("Invalid file name: {:}", path.to_string_lossy()),
-                            "invalid file name".into(),
-                            Some(call_span),
-                            None,
-                            Vec::new(),
-                        )
+                    .ok_or_else(|| ShellError::GenericError {
+                        error: format!("Invalid file name: {:}", path.to_string_lossy()),
+                        msg: "invalid file name".into(),
+                        span: Some(call_span),
+                        help: None,
+                        inner: vec![],
                     });
 
                     match display_name {
@@ -746,14 +744,14 @@ mod windows_helper {
                 &mut find_data,
             ) {
                 Ok(_) => Ok(find_data),
-                Err(e) => Err(ShellError::ReadingFile(
-                    format!(
+                Err(e) => Err(ShellError::ReadingFile {
+                    msg: format!(
                         "Could not read metadata for '{}':\n  '{}'",
                         filename.to_string_lossy(),
                         e
                     ),
                     span,
-                )),
+                }),
             }
         }
     }

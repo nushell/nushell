@@ -234,7 +234,7 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                         },
                         Err(e) => match e {
                             bracoxide::ExpansionError::NumConversionFailed(s) => Value::error(
-                                ShellError::GenericError("Number Conversion Failed".to_owned(), format!("Number conversion failed at {s}."), Some(value_span), Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".to_owned()), vec![]),
+                                ShellError::GenericError{error: "Number Conversion Failed".into(), msg: format!("Number conversion failed at {s}."), span: Some(value_span), help: Some("Expected number, found text. Range format is `{M..N}`, where M and N are numeric values representing the starting and ending limits.".into()), inner: vec![]},
                             span,
                         ),
                         },
@@ -243,17 +243,17 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
                 Err(e) => Value::error(
                     match e {
                         ParsingError::NoTokens => ShellError::PipelineEmpty { dst_span: value_span },
-                        ParsingError::OBraExpected(s) => ShellError::GenericError("Opening Brace Expected".to_owned(), format!("Opening brace is expected at {s}."), Some(value_span), Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, take a look at the examples.".to_owned()), vec![]),
-                        ParsingError::CBraExpected(s) => ShellError::GenericError("Closing Brace Expected".to_owned(), format!("Closing brace is expected at {s}."), Some(value_span), Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, see the examples.".to_owned()), vec![]),
-                        ParsingError::RangeStartLimitExpected(s) => ShellError::GenericError("Range Start Expected".to_owned(), format!("Range start limit is missing, expected at {s}."), Some(value_span), Some("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please, inspect the examples for more information.".to_owned()), vec![]),
-                        ParsingError::RangeEndLimitExpected(s) => ShellError::GenericError("Range Start Expected".to_owned(), format!("Range start limit is missing, expected at {s}."), Some(value_span), Some("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please see the examples, for more information.".to_owned()), vec![]),
-                        ParsingError::ExpectedText(s) => ShellError::GenericError("Expected Text".to_owned(), format!("Expected text at {s}."), Some(value_span), Some("Texts are only allowed before opening brace (`{`), after closing brace (`}`), or inside `{}`. Please take a look at the examples.".to_owned()), vec![]),
-                        ParsingError::InvalidCommaUsage(s) => ShellError::GenericError("Invalid Comma Usage".to_owned(), format!("Found comma at {s}. Commas are only valid inside collection (`{{X,Y}}`)."), Some(value_span), Some("To escape comma use backslash `\\,`.".to_owned()), vec![]),
-                        ParsingError::RangeCantHaveText(s) => ShellError::GenericError("Range Can not Have Text".to_owned(), format!("Expecting, brace, number, or range operator, but found text at {s}."), Some(value_span), Some("Please use the format {M..N} for ranges in brace expansion, where M and N are numeric values representing the starting and ending limits of the sequence, respectively.".to_owned()), vec![]),
-                        ParsingError::ExtraRangeOperator(s) => ShellError::GenericError("Extra Range Operator".to_owned(), format!("Found additional, range operator at {s}."), Some(value_span), Some("Please, use the format `{M..N}` where M and N are numeric values representing the starting and ending limits of the range.".to_owned()), vec![]),
-                        ParsingError::ExtraCBra(s) => ShellError::GenericError("Extra Closing Brace".to_owned(), format!("Used extra closing brace at {s}."), Some(value_span), Some("To escape closing brace use backslash, e.g. `\\}`".to_owned()), vec![]),
-                        ParsingError::ExtraOBra(s) => ShellError::GenericError("Extra Opening Brace".to_owned(), format!("Used extra opening brace at {s}."), Some(value_span), Some("To escape opening brace use backslash, e.g. `\\{`".to_owned()), vec![]),
-                        ParsingError::NothingInBraces(s) => ShellError::GenericError("Nothing In Braces".to_owned(), format!("Nothing found inside braces at {s}."), Some(value_span), Some("Please provide valid content within the braces. Additionally, you can safely remove it, not needed.".to_owned()), vec![]),
+                        ParsingError::OBraExpected(s) => ShellError::GenericError{ error: "Opening Brace Expected".into(), msg: format!("Opening brace is expected at {s}."), span: Some(value_span), help: Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, take a look at the examples.".into()), inner: vec![]},
+                        ParsingError::CBraExpected(s) => ShellError::GenericError{ error: "Closing Brace Expected".into(), msg: format!("Closing brace is expected at {s}."), span: Some(value_span), help: Some("In brace syntax, we use equal amount of opening (`{`) and closing (`}`). Please, see the examples.".into()), inner: vec![]},
+                        ParsingError::RangeStartLimitExpected(s) => ShellError::GenericError{error: "Range Start Expected".into(), msg: format!("Range start limit is missing, expected at {s}."), span: Some(value_span), help: Some("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please, inspect the examples for more information.".into()), inner: vec![]},
+                        ParsingError::RangeEndLimitExpected(s) => ShellError::GenericError{ error: "Range Start Expected".into(), msg: format!("Range start limit is missing, expected at {s}."),span:  Some(value_span), help: Some("In brace syntax, Range is defined like `{X..Y}`, where X and Y are a number. X is the start, Y is the end. Please see the examples, for more information.".into()), inner: vec![]},
+                        ParsingError::ExpectedText(s) => ShellError::GenericError { error: "Expected Text".into(), msg: format!("Expected text at {s}."), span: Some(value_span), help: Some("Texts are only allowed before opening brace (`{`), after closing brace (`}`), or inside `{}`. Please take a look at the examples.".into()), inner: vec![] },
+                        ParsingError::InvalidCommaUsage(s) => ShellError::GenericError { error: "Invalid Comma Usage".into(), msg: format!("Found comma at {s}. Commas are only valid inside collection (`{{X,Y}}`)."),span:  Some(value_span), help: Some("To escape comma use backslash `\\,`.".into()), inner: vec![] },
+                        ParsingError::RangeCantHaveText(s) => ShellError::GenericError { error: "Range Can not Have Text".into(), msg: format!("Expecting, brace, number, or range operator, but found text at {s}."), span: Some(value_span), help: Some("Please use the format {M..N} for ranges in brace expansion, where M and N are numeric values representing the starting and ending limits of the sequence, respectively.".into()), inner: vec![]},
+                        ParsingError::ExtraRangeOperator(s) => ShellError::GenericError { error: "Extra Range Operator".into(), msg: format!("Found additional, range operator at {s}."), span: Some(value_span), help: Some("Please, use the format `{M..N}` where M and N are numeric values representing the starting and ending limits of the range.".into()), inner: vec![] },
+                        ParsingError::ExtraCBra(s) => ShellError::GenericError { error: "Extra Closing Brace".into(), msg: format!("Used extra closing brace at {s}."), span: Some(value_span), help: Some("To escape closing brace use backslash, e.g. `\\}`".into()), inner: vec![] },
+                        ParsingError::ExtraOBra(s) => ShellError::GenericError { error: "Extra Opening Brace".into(), msg: format!("Used extra opening brace at {s}."), span: Some(value_span), help: Some("To escape opening brace use backslash, e.g. `\\{`".into()), inner: vec![] },
+                        ParsingError::NothingInBraces(s) => ShellError::GenericError { error: "Nothing In Braces".into(), msg: format!("Nothing found inside braces at {s}."), span: Some(value_span), help: Some("Please provide valid content within the braces. Additionally, you can safely remove it, not needed.".into()), inner: vec![] },
                     }
                 ,
                 span,
@@ -267,17 +267,17 @@ fn str_expand(contents: &str, span: Span, value_span: Span) -> Value {
             ),
             TokenizationError::FormatNotSupported => Value::error(
 
-                    ShellError::GenericError(
-                        "Format Not Supported".to_owned(),
-                        "Usage of only `{` or `}`. Brace Expansion syntax, needs to have equal amount of opening (`{`) and closing (`}`)".to_owned(),
-                        Some(value_span),
-                        Some("In brace expansion syntax, it is important to have an equal number of opening (`{`) and closing (`}`) braces. Please ensure that you provide a balanced pair of braces in your brace expansion pattern.".to_owned()),
-                        vec![]
-                ),
+                    ShellError::GenericError {
+                        error: "Format Not Supported".into(),
+                        msg: "Usage of only `{` or `}`. Brace Expansion syntax, needs to have equal amount of opening (`{`) and closing (`}`)".into(),
+                        span: Some(value_span),
+                        help: Some("In brace expansion syntax, it is important to have an equal number of opening (`{`) and closing (`}`) braces. Please ensure that you provide a balanced pair of braces in your brace expansion pattern.".into()),
+                        inner: vec![]
+                },
                  value_span,
             ),
             TokenizationError::NoBraces => Value::error(
-                ShellError::GenericError("No Braces".to_owned(), "At least one `{}` brace expansion expected.".to_owned(), Some(value_span), Some("Please, examine the examples.".to_owned()), vec![]),
+                ShellError::GenericError { error: "No Braces".into(), msg: "At least one `{}` brace expansion expected.".into(), span: Some(value_span), help: Some("Please, examine the examples.".into()), inner: vec![] },
                 value_span,
             )
         },

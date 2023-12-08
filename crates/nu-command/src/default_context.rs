@@ -404,6 +404,20 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             DateFormat,
         };
 
+        // Stor
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            Stor,
+            StorCreate,
+            StorDelete,
+            StorExport,
+            StorImport,
+            StorInsert,
+            StorOpen,
+            StorReset,
+            StorUpdate,
+        };
+
         working_set.render()
     };
 

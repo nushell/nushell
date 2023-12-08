@@ -91,7 +91,7 @@ impl FromValue for Spanned<usize> {
         match v {
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -101,7 +101,7 @@ impl FromValue for Spanned<usize> {
             }
             Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -111,7 +111,7 @@ impl FromValue for Spanned<usize> {
             }
             Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -136,21 +136,21 @@ impl FromValue for usize {
         match v {
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
             }
             Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
             }
             Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
@@ -300,7 +300,7 @@ impl FromValue for CellPath {
             }),
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {

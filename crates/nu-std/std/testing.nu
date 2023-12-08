@@ -287,6 +287,15 @@ export def run-tests [
     --list,                               # list the selected tests without running them.
     --threads: int@"nu-complete threads", # Amount of threads to use for parallel execution. Default: All threads are utilized
 ] {
+    print $"Warning:   (char -u 26a0) (ansi yellow_bold)deprecated_module(ansi reset)"
+    print "| the `std testing run-tests` command is deprecated and will be removed in Nushell 0.90"
+    print ""
+    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`nushell/nupm`]\(https://github.com/nushell/nupm\)(ansi reset)"
+    print ""
+    print $"(ansi default_dimmed)|(ansi reset) (ansi {fg: 'cyan', attr: 'b'})Note(ansi reset)"
+    print $"(ansi default_dimmed)| Nupm is still a work in progress and is NOT production-ready, just as `run-tests` is.(ansi reset)"
+    print $"(ansi default_dimmed)| Please keep in mind that Nupm will change a lot in the near future and we can't recommend it for now.(ansi reset)"
+    print $"(ansi default_dimmed)| However, if you like bleeding edge software and want to give it a spin, we would welcome feedbacks and ideas :pray:(ansi reset)"
 
     let available_threads = (sys | get cpu | length)
 

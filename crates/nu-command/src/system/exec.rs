@@ -81,13 +81,13 @@ fn exec_impl(mut command: std::process::Command, span: Span) -> Result<PipelineD
 
     let error = command.exec();
 
-    Err(ShellError::GenericError(
-        "Error on exec".into(),
-        error.to_string(),
-        Some(span),
-        None,
-        Vec::new(),
-    ))
+    Err(ShellError::GenericError {
+        error: "Error on exec".into(),
+        msg: error.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    })
 }
 
 #[cfg(windows)]

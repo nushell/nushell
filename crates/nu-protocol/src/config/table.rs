@@ -206,14 +206,12 @@ pub(super) fn try_parse_trim_strategy(
     value: &Value,
     errors: &mut Vec<ShellError>,
 ) -> Result<TrimStrategy, ShellError> {
-    let map = value.as_record().map_err(|e| {
-        ShellError::GenericError(
-            "Error while applying config changes".into(),
-            "$env.config.table.trim is not a record".into(),
-            Some(value.span()),
-            Some("Please consult the documentation for configuring Nushell.".into()),
-            vec![e],
-        )
+    let map = value.as_record().map_err(|e| ShellError::GenericError {
+        error: "Error while applying config changes".into(),
+        msg: "$env.config.table.trim is not a record".into(),
+        span: Some(value.span()),
+        help: Some("Please consult the documentation for configuring Nushell.".into()),
+        inner: vec![e],
     })?;
 
     let mut methodology = match map.get("methodology") {
@@ -222,13 +220,13 @@ pub(super) fn try_parse_trim_strategy(
             None => return Ok(TrimStrategy::default()),
         },
         None => {
-            errors.push(ShellError::GenericError(
-                "Error while applying config changes".into(),
-                "$env.config.table.trim.methodology was not provided".into(),
-                Some(value.span()),
-                Some("Please consult the documentation for configuring Nushell.".into()),
-                vec![],
-            ));
+            errors.push(ShellError::GenericError {
+                error: "Error while applying config changes".into(),
+                msg: "$env.config.table.trim.methodology was not provided".into(),
+                span: Some(value.span()),
+                help: Some("Please consult the documentation for configuring Nushell.".into()),
+                inner: vec![],
+            });
             return Ok(TrimStrategy::default());
         }
     };
@@ -239,13 +237,15 @@ pub(super) fn try_parse_trim_strategy(
                 if let Ok(b) = value.as_bool() {
                     *try_to_keep_words = b;
                 } else {
-                    errors.push(ShellError::GenericError(
-                        "Error while applying config changes".into(),
-                        "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
-                        Some(value.span()),
-                        Some("Please consult the documentation for configuring Nushell.".into()),
-                        vec![],
-                    ));
+                    errors.push(ShellError::GenericError {
+                        error: "Error while applying config changes".into(),
+                        msg: "$env.config.table.trim.wrapping_try_keep_words is not a bool".into(),
+                        span: Some(value.span()),
+                        help: Some(
+                            "Please consult the documentation for configuring Nushell.".into(),
+                        ),
+                        inner: vec![],
+                    });
                 }
             }
         }
@@ -254,13 +254,15 @@ pub(super) fn try_parse_trim_strategy(
                 if let Ok(v) = value.as_string() {
                     *suffix = Some(v);
                 } else {
-                    errors.push(ShellError::GenericError(
-                        "Error while applying config changes".into(),
-                        "$env.config.table.trim.truncating_suffix is not a string".into(),
-                        Some(value.span()),
-                        Some("Please consult the documentation for configuring Nushell.".into()),
-                        vec![],
-                    ));
+                    errors.push(ShellError::GenericError {
+                        error: "Error while applying config changes".into(),
+                        msg: "$env.config.table.trim.truncating_suffix is not a string".into(),
+                        span: Some(value.span()),
+                        help: Some(
+                            "Please consult the documentation for configuring Nushell.".into(),
+                        ),
+                        inner: vec![],
+                    });
                 }
             }
         }

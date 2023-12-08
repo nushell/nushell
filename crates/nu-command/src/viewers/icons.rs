@@ -143,24 +143,20 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
     } else if file_path.is_dir() {
         let str = file_path
             .file_name()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "File name error".into(),
-                    "Unable to get file name".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "File name error".into(),
+                msg: "Unable to get file name".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?
             .to_str()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "Unable to get str error".into(),
-                    "Unable to convert to str file name".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Unable to get str error".into(),
+                msg: "Unable to convert to str file name".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?;
         Ok(match str {
             "bin" => '\u{e5fc}',   // 
@@ -171,14 +167,12 @@ pub fn icon_for_file(file_path: &Path, span: Span) -> Result<char, ShellError> {
     } else if let Some(icon) = extensions.icon_file(file_path) {
         Ok(icon)
     } else if let Some(ext) = file_path.extension().as_ref() {
-        let str = ext.to_str().ok_or_else(|| {
-            ShellError::GenericError(
-                "Unable to get str error".into(),
-                "Unable to convert to str file name".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let str = ext.to_str().ok_or_else(|| ShellError::GenericError {
+            error: "Unable to get str error".into(),
+            msg: "Unable to convert to str file name".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
         Ok(match str {
             "a" => '\u{f17c}',              // 

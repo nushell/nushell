@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -252,11 +252,11 @@ fn find_matching_block_end_in_block(
         for e in &p.elements {
             match e {
                 PipelineElement::Expression(_, e)
-                | PipelineElement::Redirection(_, _, e)
+                | PipelineElement::Redirection(_, _, e, _)
                 | PipelineElement::And(_, e)
                 | PipelineElement::Or(_, e)
                 | PipelineElement::SameTargetRedirection { cmd: (_, e), .. }
-                | PipelineElement::SeparateRedirection { out: (_, e), .. } => {
+                | PipelineElement::SeparateRedirection { out: (_, e, _), .. } => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,
@@ -365,9 +365,16 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside record
-                    for (k, v) in exprs {
-                        find_in_expr_or_continue!(k);
-                        find_in_expr_or_continue!(v);
+                    for expr in exprs {
+                        match expr {
+                            RecordItem::Pair(k, v) => {
+                                find_in_expr_or_continue!(k);
+                                find_in_expr_or_continue!(v);
+                            }
+                            RecordItem::Spread(_, record) => {
+                                find_in_expr_or_continue!(record);
+                            }
+                        }
                     }
                     None
                 }

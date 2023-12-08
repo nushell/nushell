@@ -130,22 +130,17 @@ impl Command for Skip {
                     }
                 }
 
-                Ok(Value::binary(output, bytes_span)
-                    .into_pipeline_data()
-                    .set_metadata(metadata))
+                Ok(Value::binary(output, bytes_span).into_pipeline_data_with_metadata(metadata))
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
 
-                Ok(Value::binary(bytes, input_span)
-                    .into_pipeline_data()
-                    .set_metadata(metadata))
+                Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
             _ => Ok(input
                 .into_iter_strict(call.head)?
                 .skip(n)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)),
+                .into_pipeline_data_with_metadata(metadata, ctrlc)),
         }
     }
 }

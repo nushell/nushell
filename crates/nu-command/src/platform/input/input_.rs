@@ -110,7 +110,9 @@ impl Command for Input {
                                 {
                                     if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
                                         crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError("SIGINT".to_string()));
+                                        return Err(ShellError::IOError {
+                                            msg: "SIGINT".to_string(),
+                                        });
                                     }
                                     continue;
                                 }

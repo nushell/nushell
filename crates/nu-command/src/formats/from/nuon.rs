@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Call, Expr, Expression, PipelineElement};
+use nu_protocol::ast::{Call, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Range, Record, ShellError,
@@ -60,32 +60,32 @@ impl Command for FromNuon {
 
         if let Some(pipeline) = block.pipelines.get(1) {
             if let Some(element) = pipeline.elements.first() {
-                return Err(ShellError::GenericError(
-                    "error when loading nuon text".into(),
-                    "could not load nuon text".into(),
-                    Some(head),
-                    None,
-                    vec![ShellError::OutsideSpannedLabeledError(
+                return Err(ShellError::GenericError {
+                    error: "error when loading nuon text".into(),
+                    msg: "could not load nuon text".into(),
+                    span: Some(head),
+                    help: None,
+                    inner: vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
                         "error when loading".into(),
                         "excess values when loading".into(),
                         element.span(),
                     )],
-                ));
+                });
             } else {
-                return Err(ShellError::GenericError(
-                    "error when loading nuon text".into(),
-                    "could not load nuon text".into(),
-                    Some(head),
-                    None,
-                    vec![ShellError::GenericError(
-                        "error when loading".into(),
-                        "excess values when loading".into(),
-                        Some(head),
-                        None,
-                        Vec::new(),
-                    )],
-                ));
+                return Err(ShellError::GenericError {
+                    error: "error when loading nuon text".into(),
+                    msg: "could not load nuon text".into(),
+                    span: Some(head),
+                    help: None,
+                    inner: vec![ShellError::GenericError {
+                        error: "error when loading".into(),
+                        msg: "excess values when loading".into(),
+                        span: Some(head),
+                        help: None,
+                        inner: vec![],
+                    }],
+                });
             }
         }
 
@@ -100,18 +100,18 @@ impl Command for FromNuon {
             let mut pipeline = block.pipelines.remove(0);
 
             if let Some(expr) = pipeline.elements.get(1) {
-                return Err(ShellError::GenericError(
-                    "error when loading nuon text".into(),
-                    "could not load nuon text".into(),
-                    Some(head),
-                    None,
-                    vec![ShellError::OutsideSpannedLabeledError(
+                return Err(ShellError::GenericError {
+                    error: "error when loading nuon text".into(),
+                    msg: "could not load nuon text".into(),
+                    span: Some(head),
+                    help: None,
+                    inner: vec![ShellError::OutsideSpannedLabeledError(
                         string_input,
                         "error when loading".into(),
                         "detected a pipeline in nuon file".into(),
                         expr.span(),
                     )],
-                ));
+                });
             }
 
             if pipeline.elements.is_empty() {
@@ -124,7 +124,7 @@ impl Command for FromNuon {
             } else {
                 match pipeline.elements.remove(0) {
                     PipelineElement::Expression(_, expression)
-                    | PipelineElement::Redirection(_, _, expression)
+                    | PipelineElement::Redirection(_, _, expression, _)
                     | PipelineElement::And(_, expression)
                     | PipelineElement::Or(_, expression)
                     | PipelineElement::SameTargetRedirection {
@@ -132,7 +132,7 @@ impl Command for FromNuon {
                         ..
                     }
                     | PipelineElement::SeparateRedirection {
-                        out: (_, expression),
+                        out: (_, expression, _),
                         ..
                     } => expression,
                 }
@@ -140,31 +140,31 @@ impl Command for FromNuon {
         };
 
         if let Some(err) = working_set.parse_errors.first() {
-            return Err(ShellError::GenericError(
-                "error when parsing nuon text".into(),
-                "could not parse nuon text".into(),
-                Some(head),
-                None,
-                vec![ShellError::OutsideSpannedLabeledError(
+            return Err(ShellError::GenericError {
+                error: "error when parsing nuon text".into(),
+                msg: "could not parse nuon text".into(),
+                span: Some(head),
+                help: None,
+                inner: vec![ShellError::OutsideSpannedLabeledError(
                     string_input,
                     "error when parsing".into(),
                     err.to_string(),
                     err.span(),
                 )],
-            ));
+            });
         }
 
         let result = convert_to_value(expr, head, &string_input);
 
         match result {
             Ok(result) => Ok(result.into_pipeline_data_with_metadata(metadata)),
-            Err(err) => Err(ShellError::GenericError(
-                "error when loading nuon text".into(),
-                "could not load nuon text".into(),
-                Some(head),
-                None,
-                vec![err],
-            )),
+            Err(err) => Err(ShellError::GenericError {
+                error: "error when loading nuon text".into(),
+                msg: "could not load nuon text".into(),
+                span: Some(head),
+                help: None,
+                inner: vec![err],
+            }),
         }
     }
 }
@@ -316,22 +316,34 @@ fn convert_to_value(
         Expr::Record(key_vals) => {
             let mut record = Record::new();
 
-            for (key, val) in key_vals {
-                let key_str = match key.expr {
-                    Expr::String(key_str) => key_str,
-                    _ => {
+            for key_val in key_vals {
+                match key_val {
+                    RecordItem::Pair(key, val) => {
+                        let key_str = match key.expr {
+                            Expr::String(key_str) => key_str,
+                            _ => {
+                                return Err(ShellError::OutsideSpannedLabeledError(
+                                    original_text.to_string(),
+                                    "Error when loading".into(),
+                                    "only strings can be keys".into(),
+                                    key.span,
+                                ))
+                            }
+                        };
+
+                        let value = convert_to_value(val, span, original_text)?;
+
+                        record.push(key_str, value);
+                    }
+                    RecordItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError(
                             original_text.to_string(),
                             "Error when loading".into(),
-                            "only strings can be keys".into(),
-                            key.span,
-                        ))
+                            "spread operator not supported in nuon".into(),
+                            inner.span,
+                        ));
                     }
-                };
-
-                let value = convert_to_value(val, span, original_text)?;
-
-                record.push(key_str, value);
+                }
             }
 
             Ok(Value::record(record, span))
@@ -387,6 +399,7 @@ fn convert_to_value(
 
                 if let Some(idx) = cols.iter().position(|existing| existing == key_str) {
                     return Err(ShellError::ColumnDefinedTwice {
+                        col_name: key_str.clone(),
                         second_use: key.span,
                         first_use: headers[idx].span,
                     });

@@ -69,14 +69,12 @@ fn command(
     let mut res = df
         .as_series(call.head)?
         .arg_unique()
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error extracting unique values".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error extracting unique values".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
     res.rename("arg_unique");

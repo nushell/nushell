@@ -65,7 +65,7 @@ If multiple cell paths are given, this will produce a list of values."#
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
-        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let mut rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let ignore_errors = call.has_flag("ignore-errors");
         let sensitive = call.has_flag("sensitive");
         let ctrlc = engine_state.ctrlc.clone();
@@ -73,6 +73,9 @@ If multiple cell paths are given, this will produce a list of values."#
 
         if ignore_errors {
             cell_path.make_optional();
+            for path in &mut rest {
+                path.make_optional();
+            }
         }
 
         if rest.is_empty() {

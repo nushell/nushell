@@ -83,10 +83,10 @@ impl Command for Watch {
         let path = match nu_path::canonicalize_with(path_no_whitespace, cwd) {
             Ok(p) => p,
             Err(_) => {
-                return Err(ShellError::DirectoryNotFound(
-                    path_arg.span,
-                    path_no_whitespace.to_string(),
-                ))
+                return Err(ShellError::DirectoryNotFound {
+                    dir: path_no_whitespace.to_string(),
+                    span: path_arg.span,
+                })
             }
         };
 
@@ -153,15 +153,15 @@ impl Command for Watch {
         let mut debouncer = match new_debouncer(debounce_duration, None, tx) {
             Ok(d) => d,
             Err(e) => {
-                return Err(ShellError::IOError(format!(
-                    "Failed to create watcher: {e}"
-                )))
+                return Err(ShellError::IOError {
+                    msg: format!("Failed to create watcher: {e}"),
+                })
             }
         };
         if let Err(e) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::IOError(format!(
-                "Failed to create watcher: {e}"
-            )));
+            return Err(ShellError::IOError {
+                msg: format!("Failed to create watcher: {e}"),
+            });
         }
         // need to cache to make sure that rename event works.
         debouncer.cache().add_root(&path, recursive_mode);
@@ -275,14 +275,14 @@ impl Command for Watch {
                     }
                 }
                 Ok(Err(_)) => {
-                    return Err(ShellError::IOError(
-                        "Unexpected errors when receiving events".into(),
-                    ))
+                    return Err(ShellError::IOError {
+                        msg: "Unexpected errors when receiving events".into(),
+                    })
                 }
                 Err(RecvTimeoutError::Disconnected) => {
-                    return Err(ShellError::IOError(
-                        "Unexpected disconnect from file watcher".into(),
-                    ));
+                    return Err(ShellError::IOError {
+                        msg: "Unexpected disconnect from file watcher".into(),
+                    });
                 }
                 Err(RecvTimeoutError::Timeout) => {}
             }

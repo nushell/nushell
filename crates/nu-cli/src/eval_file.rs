@@ -47,13 +47,13 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::NonUtf8Custom(
-                format!(
+            &ShellError::NonUtf8Custom {
+                msg: format!(
                     "Input file name '{}' is not valid UTF8",
                     file_path.to_string_lossy()
                 ),
-                Span::unknown(),
-            ),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
@@ -97,6 +97,10 @@ pub fn evaluate_file(
     stack.add_env_var(
         "CURRENT_FILE".to_string(),
         Value::string(file_path.to_string_lossy(), Span::unknown()),
+    );
+    stack.add_env_var(
+        "PROCESS_PATH".to_string(),
+        Value::string(path, Span::unknown()),
     );
 
     let source_filename = file_path

@@ -101,13 +101,13 @@ fn seq(
     let contains_decimals = rest_nums_check.is_err();
 
     if rest_nums.is_empty() {
-        return Err(ShellError::GenericError(
-            "seq requires some parameters".into(),
-            "needs parameter".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq requires some parameters".into(),
+            msg: "needs parameter".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();

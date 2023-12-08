@@ -68,13 +68,13 @@ impl Command for UMkdir {
 
         for dir in directories {
             if let Err(error) = mkdir(&dir, IS_RECURSIVE, DEFAULT_MODE, is_verbose) {
-                return Err(ShellError::GenericError(
-                    format!("{}", error),
-                    format!("{}", error),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: format!("{}", error),
+                    msg: format!("{}", error),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
 

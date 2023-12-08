@@ -96,31 +96,31 @@ impl Command for Mv {
         // it's an error.
 
         if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
-            return Err(ShellError::GenericError(
-                "Destination file already exists".into(),
+            return Err(ShellError::GenericError {
+                error: "Destination file already exists".into(),
                 // These messages all use to_string_lossy() because
                 // showing the full path reduces misinterpretation of the message.
                 // Also, this is preferable to {:?} because that renders Windows paths incorrectly.
-                format!(
+                msg: format!(
                     "Destination file '{}' already exists",
                     destination.to_string_lossy()
                 ),
-                Some(spanned_destination.span),
-                Some("you can use -f, --force to force overwriting the destination".into()),
-                Vec::new(),
-            ));
+                span: Some(spanned_destination.span),
+                help: Some("you can use -f, --force to force overwriting the destination".into()),
+                inner: vec![],
+            });
         }
 
         if (destination.exists() && !destination.is_dir() && sources.len() > 1)
             || (!destination.exists() && sources.len() > 1)
         {
-            return Err(ShellError::GenericError(
-                "Can only move multiple sources if destination is a directory".into(),
-                "destination must be a directory when moving multiple sources".into(),
-                Some(spanned_destination.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Can only move multiple sources if destination is a directory".into(),
+                msg: "destination must be a directory when moving multiple sources".into(),
+                span: Some(spanned_destination.span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         // This is the case where you move a directory A to the interior of directory B, but directory B
@@ -129,17 +129,17 @@ impl Command for Mv {
             if let Some(name) = source.file_name() {
                 let dst = destination.join(name);
                 if dst.is_dir() {
-                    return Err(ShellError::GenericError(
-                        format!(
+                    return Err(ShellError::GenericError {
+                        error: format!(
                             "Can't move '{}' to '{}'",
                             source.to_string_lossy(),
                             dst.to_string_lossy()
                         ),
-                        format!("Directory '{}' is not empty", destination.to_string_lossy()),
-                        Some(spanned_destination.span),
-                        None,
-                        Vec::new(),
-                    ));
+                        msg: format!("Directory '{}' is not empty", destination.to_string_lossy()),
+                        span: Some(spanned_destination.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
             }
         }
@@ -149,16 +149,16 @@ impl Command for Mv {
             .find(|f| matches!(f, Ok(f) if destination.starts_with(f)));
         if destination.exists() && destination.is_dir() && sources.len() == 1 {
             if let Some(Ok(filename)) = some_if_source_is_destination {
-                return Err(ShellError::GenericError(
-                    format!(
+                return Err(ShellError::GenericError {
+                    error: format!(
                         "Not possible to move '{}' to itself",
                         filename.to_string_lossy()
                     ),
-                    "cannot move to itself".into(),
-                    Some(spanned_destination.span),
-                    None,
-                    Vec::new(),
-                ));
+                    msg: "cannot move to itself".into(),
+                    span: Some(spanned_destination.span),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
 
@@ -260,10 +260,10 @@ fn move_file(
     };
 
     if !destination_dir_exists {
-        return Err(ShellError::DirectoryNotFound(
-            to_span,
-            to.to_string_lossy().to_string(),
-        ));
+        return Err(ShellError::DirectoryNotFound {
+            dir: to.to_string_lossy().to_string(),
+            span: to_span,
+        });
     }
 
     // This can happen when changing case on a case-insensitive filesystem (ex: changing foo to Foo on Windows)
@@ -275,10 +275,10 @@ fn move_file(
         let from_file_name = match from.file_name() {
             Some(name) => name,
             None => {
-                return Err(ShellError::DirectoryNotFound(
-                    to_span,
-                    from.to_string_lossy().to_string(),
-                ))
+                return Err(ShellError::DirectoryNotFound {
+                    dir: from.to_string_lossy().to_string(),
+                    span: to_span,
+                })
             }
         };
 
@@ -291,13 +291,13 @@ fn move_file(
             format!("mv: overwrite '{}'? ", to.to_string_lossy()),
         );
         if let Err(e) = interaction {
-            return Err(ShellError::GenericError(
-                format!("Error during interaction: {e:}"),
-                "could not move".into(),
-                None,
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("Error during interaction: {e:}"),
+                msg: "could not move".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            });
         } else if !confirmed {
             return Ok(false);
         }
@@ -341,13 +341,13 @@ fn move_item(from: &Path, from_span: Span, to: &Path) -> Result<(), ShellError> 
                     }
                     _ => e.to_string(),
                 };
-                Err(ShellError::GenericError(
-                    format!("Could not move {from:?} to {to:?}. Error Kind: {error_kind}"),
-                    "could not move".into(),
-                    Some(from_span),
-                    None,
-                    Vec::new(),
-                ))
+                Err(ShellError::GenericError {
+                    error: format!("Could not move {from:?} to {to:?}. Error Kind: {error_kind}"),
+                    msg: "could not move".into(),
+                    span: Some(from_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         }
     })

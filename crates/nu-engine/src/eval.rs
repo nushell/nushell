@@ -2,12 +2,13 @@ use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        eval_operator, Argument, Assignment, Bits, Block, Boolean, Call, Comparison, Expr,
-        Expression, Math, Operator, PathMember, PipelineElement, Redirection,
+        Argument, Assignment, Block, Call, Expr, Expression, PathMember, PipelineElement,
+        Redirection,
     },
     engine::{Closure, EngineState, Stack},
-    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Range, Record,
-    ShellError, Span, Spanned, Unit, Value, VarId, ENV_VARIABLE_ID,
+    eval_base::Eval,
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -253,397 +254,7 @@ pub fn eval_expression(
     stack: &mut Stack,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    match &expr.expr {
-        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-        Expr::ValueWithUnit(e, unit) => match eval_expression(engine_state, stack, e)? {
-            Value::Int { val, .. } => compute(val, unit.item, unit.span),
-            x => Err(ShellError::CantConvert {
-                to_type: "unit value".into(),
-                from_type: x.get_type().to_string(),
-                span: e.span,
-                help: None,
-            }),
-        },
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                eval_expression(engine_state, stack, f)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            let next = if let Some(s) = next {
-                eval_expression(engine_state, stack, s)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            let to = if let Some(t) = to {
-                eval_expression(engine_state, stack, t)?
-            } else {
-                Value::nothing(expr.span)
-            };
-
-            Ok(Value::range(
-                Range::new(expr.span, from, next, to, operator)?,
-                expr.span,
-            ))
-        }
-        Expr::Var(var_id) => eval_variable(engine_state, stack, *var_id, expr.span),
-        Expr::VarDecl(_) => Ok(Value::nothing(expr.span)),
-        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-        Expr::FullCellPath(cell_path) => {
-            let value = eval_expression(engine_state, stack, &cell_path.head)?;
-
-            value.follow_cell_path(&cell_path.tail, false)
-        }
-        Expr::ImportPattern(_) => Ok(Value::nothing(expr.span)),
-        Expr::Overlay(_) => {
-            let name =
-                String::from_utf8_lossy(engine_state.get_span_contents(expr.span)).to_string();
-
-            Ok(Value::string(name, expr.span))
-        }
-        Expr::Call(call) => {
-            // FIXME: protect this collect with ctrl-c
-            Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
-        }
-        Expr::ExternalCall(head, args, is_subexpression) => {
-            let span = head.span;
-            // FIXME: protect this collect with ctrl-c
-            Ok(eval_external(
-                engine_state,
-                stack,
-                head,
-                args,
-                PipelineData::empty(),
-                RedirectTarget::Piped(false, false),
-                *is_subexpression,
-            )?
-            .into_value(span))
-        }
-        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-        Expr::Operator(_) => Ok(Value::nothing(expr.span)),
-        Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
-        Expr::MatchBlock(_) => Ok(Value::nothing(expr.span)), // match blocks are handled by `match`
-        Expr::UnaryNot(expr) => {
-            let lhs = eval_expression(engine_state, stack, expr)?;
-            match lhs {
-                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                other => Err(ShellError::TypeMismatch {
-                    err_message: format!("expected bool, found {}", other.get_type()),
-                    span: expr.span,
-                }),
-            }
-        }
-        Expr::BinaryOp(lhs, op, rhs) => {
-            let op_span = op.span;
-            let op = eval_operator(op)?;
-
-            match op {
-                Operator::Boolean(boolean) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    match boolean {
-                        Boolean::And => {
-                            if lhs.is_false() {
-                                Ok(Value::bool(false, expr.span))
-                            } else {
-                                let rhs = eval_expression(engine_state, stack, rhs)?;
-                                lhs.and(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Or => {
-                            if lhs.is_true() {
-                                Ok(Value::bool(true, expr.span))
-                            } else {
-                                let rhs = eval_expression(engine_state, stack, rhs)?;
-                                lhs.or(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Xor => {
-                            let rhs = eval_expression(engine_state, stack, rhs)?;
-                            lhs.xor(op_span, &rhs, expr.span)
-                        }
-                    }
-                }
-                Operator::Math(math) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-
-                    match math {
-                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
-                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
-                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
-                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
-                        Math::Append => lhs.append(op_span, &rhs, expr.span),
-                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
-                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
-                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Comparison(comparison) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    match comparison {
-                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
-                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
-                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
-                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
-                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
-                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
-                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
-                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
-                        Comparison::RegexMatch => {
-                            lhs.regex_match(engine_state, op_span, &rhs, false, expr.span)
-                        }
-                        Comparison::NotRegexMatch => {
-                            lhs.regex_match(engine_state, op_span, &rhs, true, expr.span)
-                        }
-                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
-                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Bits(bits) => {
-                    let lhs = eval_expression(engine_state, stack, lhs)?;
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-                    match bits {
-                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
-                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
-                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
-                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
-                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Assignment(assignment) => {
-                    let rhs = eval_expression(engine_state, stack, rhs)?;
-
-                    let rhs = match assignment {
-                        Assignment::Assign => rhs,
-                        Assignment::PlusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.add(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MinusAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.sub(op_span, &rhs, op_span)?
-                        }
-                        Assignment::MultiplyAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.mul(op_span, &rhs, op_span)?
-                        }
-                        Assignment::DivideAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.div(op_span, &rhs, op_span)?
-                        }
-                        Assignment::AppendAssign => {
-                            let lhs = eval_expression(engine_state, stack, lhs)?;
-                            lhs.append(op_span, &rhs, op_span)?
-                        }
-                    };
-
-                    match &lhs.expr {
-                        Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                            let var_info = engine_state.get_var(*var_id);
-                            if var_info.mutable {
-                                stack.add_var(*var_id, rhs);
-                                Ok(Value::nothing(lhs.span))
-                            } else {
-                                Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
-                            }
-                        }
-                        Expr::FullCellPath(cell_path) => {
-                            match &cell_path.head.expr {
-                                Expr::Var(var_id) | Expr::VarDecl(var_id) => {
-                                    // The $env variable is considered "mutable" in Nushell.
-                                    // As such, give it special treatment here.
-                                    let is_env = var_id == &ENV_VARIABLE_ID;
-                                    if is_env || engine_state.get_var(*var_id).mutable {
-                                        let mut lhs =
-                                            eval_expression(engine_state, stack, &cell_path.head)?;
-
-                                        lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
-                                        if is_env {
-                                            if cell_path.tail.is_empty() {
-                                                return Err(ShellError::CannotReplaceEnv {
-                                                    span: cell_path.head.span,
-                                                });
-                                            }
-
-                                            // The special $env treatment: for something like $env.config.history.max_size = 2000,
-                                            // get $env.config (or whichever one it is) AFTER the above mutation, and set it
-                                            // as the "config" environment variable.
-                                            let vardata = lhs.follow_cell_path(
-                                                &[cell_path.tail[0].clone()],
-                                                false,
-                                            )?;
-                                            match &cell_path.tail[0] {
-                                                PathMember::String { val, span, .. } => {
-                                                    if val == "FILE_PWD"
-                                                        || val == "CURRENT_FILE"
-                                                        || val == "PWD"
-                                                    {
-                                                        return Err(ShellError::AutomaticEnvVarSetManually {
-                                                    envvar_name: val.to_string(),
-                                                    span: *span,
-                                                });
-                                                    } else {
-                                                        stack.add_env_var(val.to_string(), vardata);
-                                                    }
-                                                }
-                                                // In case someone really wants an integer env-var
-                                                PathMember::Int { val, .. } => {
-                                                    stack.add_env_var(val.to_string(), vardata);
-                                                }
-                                            }
-                                        } else {
-                                            stack.add_var(*var_id, lhs);
-                                        }
-                                        Ok(Value::nothing(cell_path.head.span))
-                                    } else {
-                                        Err(ShellError::AssignmentRequiresMutableVar {
-                                            lhs_span: lhs.span,
-                                        })
-                                    }
-                                }
-                                _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
-                            }
-                        }
-                        _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
-                    }
-                }
-            }
-        }
-        Expr::Subexpression(block_id) => {
-            let block = engine_state.get_block(*block_id);
-
-            // FIXME: protect this collect with ctrl-c
-            Ok(
-                eval_subexpression(engine_state, stack, block, PipelineData::empty())?
-                    .into_value(expr.span),
-            )
-        }
-        Expr::RowCondition(block_id) | Expr::Closure(block_id) => {
-            let block_id = *block_id;
-            let captures = engine_state
-                .get_block(block_id)
-                .captures
-                .iter()
-                .map(|&id| stack.get_var(id, expr.span).map(|var| (id, var)))
-                .collect::<Result<_, _>>()?;
-
-            Ok(Value::closure(Closure { block_id, captures }, expr.span))
-        }
-        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-        Expr::List(x) => {
-            let mut output = vec![];
-            for expr in x {
-                match &expr.expr {
-                    Expr::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
-                        Value::List { mut vals, .. } => output.append(&mut vals),
-                        _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                    },
-                    _ => output.push(eval_expression(engine_state, stack, expr)?),
-                }
-            }
-            Ok(Value::list(output, expr.span))
-        }
-        Expr::Record(fields) => {
-            let mut record = Record::new();
-
-            for (col, val) in fields {
-                // avoid duplicate cols.
-                let col_name = eval_expression(engine_state, stack, col)?.as_string()?;
-                let pos = record.index_of(&col_name);
-                match pos {
-                    Some(index) => {
-                        return Err(ShellError::ColumnDefinedTwice {
-                            second_use: col.span,
-                            first_use: fields[index].0.span,
-                        })
-                    }
-                    None => {
-                        record.push(col_name, eval_expression(engine_state, stack, val)?);
-                    }
-                }
-            }
-
-            Ok(Value::record(record, expr.span))
-        }
-        Expr::Table(headers, vals) => {
-            let mut output_headers = vec![];
-            for expr in headers {
-                let header = eval_expression(engine_state, stack, expr)?.as_string()?;
-                if let Some(idx) = output_headers
-                    .iter()
-                    .position(|existing| existing == &header)
-                {
-                    return Err(ShellError::ColumnDefinedTwice {
-                        second_use: expr.span,
-                        first_use: headers[idx].span,
-                    });
-                } else {
-                    output_headers.push(header);
-                }
-            }
-
-            let mut output_rows = vec![];
-            for val in vals {
-                let mut row = vec![];
-                for expr in val {
-                    row.push(eval_expression(engine_state, stack, expr)?);
-                }
-                output_rows.push(Value::record(
-                    Record::from_raw_cols_vals(output_headers.clone(), row),
-                    expr.span,
-                ));
-            }
-            Ok(Value::list(output_rows, expr.span))
-        }
-        Expr::Keyword(_, _, expr) => eval_expression(engine_state, stack, expr),
-        Expr::StringInterpolation(exprs) => {
-            let mut parts = vec![];
-            for expr in exprs {
-                parts.push(eval_expression(engine_state, stack, expr)?);
-            }
-
-            let config = engine_state.get_config();
-
-            parts
-                .into_iter()
-                .into_pipeline_data(None)
-                .collect_string("", config)
-                .map(|x| Value::string(x, expr.span))
-        }
-        Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
-        Expr::Filepath(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(s, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), expr.span))
-        }
-        Expr::Directory(s) => {
-            if s == "-" {
-                Ok(Value::string("-", expr.span))
-            } else {
-                let cwd = current_dir_str(engine_state, stack)?;
-                let path = expand_path_with(s, cwd);
-
-                Ok(Value::string(path.to_string_lossy(), expr.span))
-            }
-        }
-        Expr::GlobPattern(s) => {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(s, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), expr.span))
-        }
-        Expr::Signature(_) => Ok(Value::nothing(expr.span)),
-        Expr::Garbage => Ok(Value::nothing(expr.span)),
-        Expr::Nothing => Ok(Value::nothing(expr.span)),
-        Expr::Spread(_) => Ok(Value::nothing(expr.span)), // Spread operator only occurs in lists
-    }
+    <EvalRuntime as Eval>::eval(engine_state, stack, expr)
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -754,7 +365,7 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
-        PipelineElement::Redirection(span, redirection, expr) => {
+        PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
             match &expr.expr {
                 Expr::String(_)
                 | Expr::FullCellPath(_)
@@ -793,24 +404,28 @@ fn eval_element_with_input(
                     };
 
                     if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
-                        let save_call = gen_save_call(save_command, (*span, expr.clone()), None);
+                        let save_call = gen_save_call(
+                            save_command,
+                            (*span, expr.clone(), *is_append_mode),
+                            None,
+                        );
                         match out_stream {
                             None => {
                                 eval_call(engine_state, stack, &save_call, input).map(|_| {
                                     // save is internal command, normally it exists with non-ExternalStream
                                     // but here in redirection context, we make it returns ExternalStream
                                     // So nu handles exit_code correctly
-                                    (
-                                        PipelineData::ExternalStream {
-                                            stdout: None,
-                                            stderr: None,
-                                            exit_code,
-                                            span: *span,
-                                            metadata: None,
-                                            trim_end_newline: false,
-                                        },
-                                        false,
-                                    )
+                                    //
+                                    // Also, we don't want to run remaining commands if this command exits with non-zero
+                                    // exit code, so we need to consume and check exit_code too
+                                    might_consume_external_result(PipelineData::ExternalStream {
+                                        stdout: None,
+                                        stderr: None,
+                                        exit_code,
+                                        span: *span,
+                                        metadata: None,
+                                        trim_end_newline: false,
+                                    })
                                 })
                             }
                             Some(out_stream) => {
@@ -826,7 +441,7 @@ fn eval_element_with_input(
                                     input,
                                 ));
 
-                                Ok((
+                                Ok(might_consume_external_result(
                                     PipelineData::ExternalStream {
                                         stdout: out_stream,
                                         stderr: None,
@@ -835,7 +450,6 @@ fn eval_element_with_input(
                                         metadata: None,
                                         trim_end_newline: false,
                                     },
-                                    false,
                                 ))
                             }
                         }
@@ -847,8 +461,8 @@ fn eval_element_with_input(
             }
         }
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_expr),
-            err: (err_span, err_expr),
+            out: (out_span, out_expr, out_append_mode),
+            err: (err_span, err_expr, err_append_mode),
         } => match (&out_expr.expr, &err_expr.expr) {
             (
                 Expr::String(_)
@@ -867,25 +481,22 @@ fn eval_element_with_input(
                     };
                     let save_call = gen_save_call(
                         save_command,
-                        (*out_span, out_expr.clone()),
-                        Some((*err_span, err_expr.clone())),
+                        (*out_span, out_expr.clone(), *out_append_mode),
+                        Some((*err_span, err_expr.clone(), *err_append_mode)),
                     );
 
                     eval_call(engine_state, stack, &save_call, input).map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
-                        (
-                            PipelineData::ExternalStream {
-                                stdout: None,
-                                stderr: None,
-                                exit_code,
-                                span: *out_span,
-                                metadata: None,
-                                trim_end_newline: false,
-                            },
-                            false,
-                        )
+                        might_consume_external_result(PipelineData::ExternalStream {
+                            stdout: None,
+                            stderr: None,
+                            exit_code,
+                            span: *out_span,
+                            metadata: None,
+                            trim_end_newline: false,
+                        })
                     })
                 } else {
                     Err(ShellError::CommandNotFound { span: *out_span })
@@ -901,7 +512,7 @@ fn eval_element_with_input(
         },
         PipelineElement::SameTargetRedirection {
             cmd: (cmd_span, cmd_exp),
-            redirection: (redirect_span, redirect_exp),
+            redirection: (redirect_span, redirect_exp, is_append_mode),
         } => {
             // general idea: eval cmd and call save command to redirect stdout to result.
             input = match &cmd_exp.expr {
@@ -939,6 +550,7 @@ fn eval_element_with_input(
                     *redirect_span,
                     Redirection::Stdout,
                     redirect_exp.clone(),
+                    *is_append_mode,
                 ),
                 input,
                 redirect_stdout,
@@ -999,14 +611,14 @@ pub fn eval_block(
         // picked 50 arbitrarily, should work on all architectures
         const RECURSION_LIMIT: u64 = 50;
         if recursive {
-            if *stack.recursion_count >= RECURSION_LIMIT {
-                stack.recursion_count = Box::new(0);
+            if stack.recursion_count >= RECURSION_LIMIT {
+                stack.recursion_count = 0;
                 return Err(ShellError::RecursionLimitReached {
                     recursion_limit: RECURSION_LIMIT,
                     span: block.span,
                 });
             }
-            *stack.recursion_count += 1;
+            stack.recursion_count += 1;
         }
     }
 
@@ -1021,8 +633,8 @@ pub fn eval_block(
                 let next_element = &elements[idx + 1];
                 if matches!(
                     next_element,
-                    PipelineElement::Redirection(_, Redirection::Stderr, _)
-                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _)
+                        | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                         | PipelineElement::SeparateRedirection { .. }
                 ) {
                     redirect_stderr = true;
@@ -1033,12 +645,12 @@ pub fn eval_block(
                 let next_element = &elements[idx + 1];
                 match next_element {
                     // is next element a stdout relative redirection?
-                    PipelineElement::Redirection(_, Redirection::Stdout, _)
-                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _)
+                    PipelineElement::Redirection(_, Redirection::Stdout, _, _)
+                    | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                     | PipelineElement::SeparateRedirection { .. }
                     | PipelineElement::Expression(..) => redirect_stdout = true,
 
-                    PipelineElement::Redirection(_, Redirection::Stderr, _) => {
+                    PipelineElement::Redirection(_, Redirection::Stderr, _, _) => {
                         // a stderr redirection, but we still need to check for the next 2nd
                         // element, to handle for the following case:
                         // cat a.txt err> /dev/null | lines
@@ -1069,9 +681,6 @@ pub fn eval_block(
             );
 
             match (eval_result, redirect_stderr) {
-                (Ok((pipeline_data, _)), true) => {
-                    input = pipeline_data;
-                }
                 (Err(error), true) => {
                     input = PipelineData::Value(
                         Value::error(
@@ -1081,7 +690,7 @@ pub fn eval_block(
                         None,
                     )
                 }
-                (output, false) => {
+                (output, _) => {
                     let output = output?;
                     input = output.0;
                     // external command may runs to failed
@@ -1114,7 +723,13 @@ pub fn eval_block(
                         let mut v: Vec<_> = exit_code.collect();
 
                         if let Some(v) = v.pop() {
+                            let break_loop = !matches!(v.as_i64(), Ok(0));
+
                             stack.add_env_var("LAST_EXIT_CODE".into(), v);
+                            if break_loop {
+                                input = PipelineData::empty();
+                                break;
+                            }
                         }
                     }
                 }
@@ -1132,31 +747,9 @@ pub fn eval_subexpression(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
-    mut input: PipelineData,
+    input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    for pipeline in block.pipelines.iter() {
-        let mut stderr_writer_jobs = vec![];
-        for expr in pipeline.elements.iter() {
-            input = eval_element_with_input(
-                engine_state,
-                stack,
-                expr,
-                input,
-                true,
-                false,
-                &mut stderr_writer_jobs,
-            )?
-            .0
-        }
-        // `eval_element_with_input` may creates some threads
-        // to write stderr message to a file, here we need to wait and make sure that it's
-        // finished.
-        for h in stderr_writer_jobs {
-            let _ = h.join();
-        }
-    }
-
-    Ok(input)
+    eval_block(engine_state, stack, block, input, true, false)
 }
 
 pub fn eval_variable(
@@ -1193,16 +786,21 @@ pub fn eval_variable(
     }
 }
 
-fn compute(size: i64, unit: Unit, span: Span) -> Result<Value, ShellError> {
-    unit.to_value(size, span)
-}
-
 fn gen_save_call(
     save_decl_id: DeclId,
-    out_info: (Span, Expression),
-    err_info: Option<(Span, Expression)>,
+    out_info: (Span, Expression, bool),
+    err_info: Option<(Span, Expression, bool)>,
 ) -> Call {
-    let (out_span, out_expr) = out_info;
+    let (out_span, out_expr, out_append_mode) = out_info;
+    let mut call = Call {
+        decl_id: save_decl_id,
+        head: out_span,
+        arguments: vec![],
+        redirect_stdout: false,
+        redirect_stderr: false,
+        parser_info: HashMap::new(),
+    };
+
     let mut args = vec![
         Argument::Positional(out_expr),
         Argument::Named((
@@ -1222,7 +820,18 @@ fn gen_save_call(
             None,
         )),
     ];
-    if let Some((err_span, err_expr)) = err_info {
+    if out_append_mode {
+        call.set_parser_info(
+            "out-append".to_string(),
+            Expression {
+                expr: Expr::Bool(true),
+                span: out_span,
+                ty: Type::Bool,
+                custom_completion: None,
+            },
+        );
+    }
+    if let Some((err_span, err_expr, err_append_mode)) = err_info {
         args.push(Argument::Named((
             Spanned {
                 item: "stderr".into(),
@@ -1230,17 +839,22 @@ fn gen_save_call(
             },
             None,
             Some(err_expr),
-        )))
+        )));
+        if err_append_mode {
+            call.set_parser_info(
+                "err-append".to_string(),
+                Expression {
+                    expr: Expr::Bool(true),
+                    span: err_span,
+                    ty: Type::Bool,
+                    custom_completion: None,
+                },
+            );
+        }
     }
 
-    Call {
-        decl_id: save_decl_id,
-        head: out_span,
-        arguments: args,
-        redirect_stdout: false,
-        redirect_stderr: false,
-        parser_info: HashMap::new(),
-    }
+    call.arguments.append(&mut args);
+    call
 }
 
 /// A job which saves `PipelineData` to a file in a child thread.
@@ -1270,5 +884,264 @@ impl DataSaveJob {
 
     pub fn join(self) -> thread::Result<()> {
         self.inner.join()
+    }
+}
+
+struct EvalRuntime;
+
+impl Eval for EvalRuntime {
+    type State<'a> = &'a EngineState;
+
+    type MutState = Stack;
+
+    fn eval_filepath(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let cwd = current_dir_str(engine_state, stack)?;
+        let path = expand_path_with(path, cwd);
+
+        Ok(Value::string(path.to_string_lossy(), span))
+    }
+
+    fn eval_directory(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        if path == "-" {
+            Ok(Value::string("-", span))
+        } else {
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(path, cwd);
+
+            Ok(Value::string(path.to_string_lossy(), span))
+        }
+    }
+
+    fn eval_var(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        var_id: VarId,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        eval_variable(engine_state, stack, var_id, span)
+    }
+
+    fn eval_call(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _: Span,
+    ) -> Result<Value, ShellError> {
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
+    }
+
+    fn eval_external_call(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        head: &Expression,
+        args: &[Expression],
+        is_subexpression: bool,
+        _: Span,
+    ) -> Result<Value, ShellError> {
+        let span = head.span;
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_external(
+            engine_state,
+            stack,
+            head,
+            args,
+            PipelineData::empty(),
+            RedirectTarget::Piped(false, false),
+            is_subexpression,
+        )?
+        .into_value(span))
+    }
+
+    fn eval_subexpression(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let block = engine_state.get_block(block_id);
+
+        // FIXME: protect this collect with ctrl-c
+        Ok(eval_subexpression(engine_state, stack, block, PipelineData::empty())?.into_value(span))
+    }
+
+    fn regex_match(
+        engine_state: &EngineState,
+        op_span: Span,
+        lhs: &Value,
+        rhs: &Value,
+        invert: bool,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        lhs.regex_match(engine_state, op_span, rhs, invert, expr_span)
+    }
+
+    fn eval_assignment(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        lhs: &Expression,
+        rhs: &Expression,
+        assignment: Assignment,
+        op_span: Span,
+        _expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        let rhs = eval_expression(engine_state, stack, rhs)?;
+
+        let rhs = match assignment {
+            Assignment::Assign => rhs,
+            Assignment::PlusAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.add(op_span, &rhs, op_span)?
+            }
+            Assignment::MinusAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.sub(op_span, &rhs, op_span)?
+            }
+            Assignment::MultiplyAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.mul(op_span, &rhs, op_span)?
+            }
+            Assignment::DivideAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.div(op_span, &rhs, op_span)?
+            }
+            Assignment::AppendAssign => {
+                let lhs = eval_expression(engine_state, stack, lhs)?;
+                lhs.append(op_span, &rhs, op_span)?
+            }
+        };
+
+        match &lhs.expr {
+            Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                let var_info = engine_state.get_var(*var_id);
+                if var_info.mutable {
+                    stack.add_var(*var_id, rhs);
+                    Ok(Value::nothing(lhs.span))
+                } else {
+                    Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                }
+            }
+            Expr::FullCellPath(cell_path) => {
+                match &cell_path.head.expr {
+                    Expr::Var(var_id) | Expr::VarDecl(var_id) => {
+                        // The $env variable is considered "mutable" in Nushell.
+                        // As such, give it special treatment here.
+                        let is_env = var_id == &ENV_VARIABLE_ID;
+                        if is_env || engine_state.get_var(*var_id).mutable {
+                            let mut lhs = eval_expression(engine_state, stack, &cell_path.head)?;
+
+                            lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
+                            if is_env {
+                                if cell_path.tail.is_empty() {
+                                    return Err(ShellError::CannotReplaceEnv {
+                                        span: cell_path.head.span,
+                                    });
+                                }
+
+                                // The special $env treatment: for something like $env.config.history.max_size = 2000,
+                                // get $env.config (or whichever one it is) AFTER the above mutation, and set it
+                                // as the "config" environment variable.
+                                let vardata =
+                                    lhs.follow_cell_path(&[cell_path.tail[0].clone()], false)?;
+                                match &cell_path.tail[0] {
+                                    PathMember::String { val, span, .. } => {
+                                        if val == "FILE_PWD"
+                                            || val == "CURRENT_FILE"
+                                            || val == "PWD"
+                                        {
+                                            return Err(ShellError::AutomaticEnvVarSetManually {
+                                                envvar_name: val.to_string(),
+                                                span: *span,
+                                            });
+                                        } else {
+                                            stack.add_env_var(val.to_string(), vardata);
+                                        }
+                                    }
+                                    // In case someone really wants an integer env-var
+                                    PathMember::Int { val, .. } => {
+                                        stack.add_env_var(val.to_string(), vardata);
+                                    }
+                                }
+                            } else {
+                                stack.add_var(*var_id, lhs);
+                            }
+                            Ok(Value::nothing(cell_path.head.span))
+                        } else {
+                            Err(ShellError::AssignmentRequiresMutableVar { lhs_span: lhs.span })
+                        }
+                    }
+                    _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+                }
+            }
+            _ => Err(ShellError::AssignmentRequiresVar { lhs_span: lhs.span }),
+        }
+    }
+
+    fn eval_row_condition_or_closure(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let captures = engine_state
+            .get_block(block_id)
+            .captures
+            .iter()
+            .map(|&id| stack.get_var(id, span).map(|var| (id, var)))
+            .collect::<Result<_, _>>()?;
+
+        Ok(Value::closure(Closure { block_id, captures }, span))
+    }
+
+    fn eval_string_interpolation(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        exprs: &[Expression],
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let mut parts = vec![];
+        for expr in exprs {
+            parts.push(eval_expression(engine_state, stack, expr)?);
+        }
+
+        let config = engine_state.get_config();
+
+        parts
+            .into_iter()
+            .into_pipeline_data(None)
+            .collect_string("", config)
+            .map(|x| Value::string(x, span))
+    }
+
+    fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+        let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
+
+        Ok(Value::string(name, span))
+    }
+
+    fn eval_glob_pattern(
+        engine_state: Self::State<'_>,
+        stack: &mut Self::MutState,
+        pattern: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let cwd = current_dir_str(engine_state, stack)?;
+        let path = expand_path_with(pattern, cwd);
+
+        Ok(Value::string(path.to_string_lossy(), span))
+    }
+
+    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
+        Ok(Value::nothing(expr.span))
     }
 }

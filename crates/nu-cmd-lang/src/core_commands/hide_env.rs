@@ -52,11 +52,11 @@ impl Command for HideEnv {
                     .cloned()
                     .collect();
                 if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
-                    return Err(ShellError::DidYouMeanCustom(
-                        format!("Environment variable '{}' not found", name.item),
-                        closest_match,
-                        name.span,
-                    ));
+                    return Err(ShellError::DidYouMeanCustom {
+                        msg: format!("Environment variable '{}' not found", name.item),
+                        suggestion: closest_match,
+                        span: name.span,
+                    });
                 } else {
                     return Err(ShellError::EnvVarNotFoundAtRuntime {
                         envvar_name: name.item,

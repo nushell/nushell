@@ -145,10 +145,10 @@ fn from_csv(
                 let unicode_sep = u32::from_str_radix(&sep, 16);
                 char::from_u32(unicode_sep.unwrap_or(b'\x1f' as u32)).unwrap_or(',')
             } else {
-                return Err(ShellError::NonUtf8Custom(
-                    "separator should be a single char or a 4-byte unicode".to_string(),
-                    call.span(),
-                ));
+                return Err(ShellError::NonUtf8Custom {
+                    msg: "separator should be a single char or a 4-byte unicode".into(),
+                    span: call.span(),
+                });
             }
         }
         None => ',',

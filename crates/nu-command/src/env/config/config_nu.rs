@@ -72,13 +72,13 @@ impl Command for ConfigNu {
         let nu_config = match engine_state.get_config_path("config-path") {
             Some(path) => path.clone(),
             None => {
-                return Err(ShellError::GenericError(
-                    "Could not find $nu.config-path".to_string(),
-                    "Could not find $nu.config-path".to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Could not find $nu.config-path".into(),
+                    msg: "Could not find $nu.config-path".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
 

@@ -71,14 +71,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let casted = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to string".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-slice command can only be used with string columns".into()),
-            Vec::new(),
-        )
+    let casted = series.utf8().map_err(|e| ShellError::GenericError {
+        error: "Error casting to string".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-slice command can only be used with string columns".into()),
+        inner: vec![],
     })?;
 
     let mut res = casted.to_uppercase();

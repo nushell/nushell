@@ -50,7 +50,7 @@ impl Command for DropColumn {
 
         let columns = if let Some(columns) = columns {
             if columns.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(columns.span));
+                return Err(ShellError::NeedsPositiveValue { span: columns.span });
             } else {
                 columns.item as usize
             }
@@ -94,6 +94,7 @@ fn drop_cols(
     // `[{a: 1}, {b: 2}] | drop column`
     // This will drop the column "a" instead of "b" even though column "b"
     // is displayed farther to the right.
+    let metadata = input.metadata();
     match input {
         PipelineData::ListStream(mut stream, ..) => {
             if let Some(mut first) = stream.next() {
@@ -106,7 +107,7 @@ fn drop_cols(
                             Err(e) => Value::error(e, head),
                         }
                     }))
-                    .into_pipeline_data(engine_state.ctrlc.clone()))
+                    .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
             } else {
                 Ok(PipelineData::Empty)
             }
@@ -121,14 +122,14 @@ fn drop_cols(
                             drop_record_cols(val, head, &drop_cols)?
                         }
                     }
-                    Ok(Value::list(vals, span).into_pipeline_data())
+                    Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
                 }
                 Value::Record {
                     val: mut record, ..
                 } => {
                     let len = record.len().saturating_sub(columns);
                     record.truncate(len);
-                    Ok(Value::record(record, span).into_pipeline_data())
+                    Ok(Value::record(record, span).into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
                 Value::Error { error, .. } => Err(*error),

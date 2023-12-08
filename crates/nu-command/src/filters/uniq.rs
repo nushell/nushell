@@ -311,9 +311,7 @@ pub fn uniq(
         uniq_values.into_iter().map(|v| v.val).collect()
     };
 
-    Ok(Value::list(result, head)
-        .into_pipeline_data()
-        .set_metadata(metadata))
+    Ok(Value::list(result, head).into_pipeline_data_with_metadata(metadata))
 }
 
 fn sort(iter: IntoIter<String, ValueCounter>) -> Vec<ValueCounter> {

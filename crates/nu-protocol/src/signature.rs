@@ -469,7 +469,8 @@ impl Signature {
         let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
+                "There may be duplicate short flags for '-{}'",
+                c
             );
             c
         });
@@ -478,7 +479,8 @@ impl Signature {
             let name: String = name.into();
             debug_assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags, such as --help"
+                "There may be duplicate name flags for '--{}'",
+                name
             );
             name
         };
@@ -694,13 +696,13 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        Err(ShellError::GenericError(
-            "Internal error: can't run custom command with 'run', use block_id".to_string(),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Internal error: can't run custom command with 'run', use block_id".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
     }
 
     fn get_block_id(&self) -> Option<BlockId> {

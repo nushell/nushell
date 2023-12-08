@@ -12,13 +12,17 @@ pub fn run_command_with_value(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     if is_ignored_command(command) {
-        return Err(ShellError::IOError(String::from("the command is ignored")));
+        return Err(ShellError::IOError {
+            msg: String::from("the command is ignored"),
+        });
     }
 
     let pipeline = PipelineData::Value(input.clone(), None);
     let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
-        Err(ShellError::IOError(error.to_string()))
+        Err(ShellError::IOError {
+            msg: error.to_string(),
+        })
     } else {
         Ok(pipeline)
     }
@@ -63,7 +67,9 @@ fn eval_source2(
         );
 
         if let Some(err) = working_set.parse_errors.first() {
-            return Err(ShellError::IOError(err.to_string()));
+            return Err(ShellError::IOError {
+                msg: err.to_string(),
+            });
         }
 
         (output, working_set.render())
@@ -71,7 +77,9 @@ fn eval_source2(
 
     // We need to merge different info other wise things like PIPEs etc will not work.
     if let Err(err) = engine_state.merge_delta(delta) {
-        return Err(ShellError::IOError(err.to_string()));
+        return Err(ShellError::IOError {
+            msg: err.to_string(),
+        });
     }
 
     // eval_block outputs all expressions except the last to STDOUT;

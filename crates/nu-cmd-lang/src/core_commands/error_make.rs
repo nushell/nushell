@@ -61,13 +61,13 @@ impl Command for ErrorMake {
                 description: "Create a simple custom error",
                 example: r#"error make {msg: "my custom error message"}"#,
                 result: Some(Value::error(
-                    ShellError::GenericError(
-                        "my custom error message".to_string(),
-                        "".to_string(),
-                        None,
-                        None,
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "my custom error message".into(),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    },
                     Span::unknown(),
                 )),
             },
@@ -87,13 +87,13 @@ impl Command for ErrorMake {
         help: "A help string, suggesting a fix to the user"  # optional
     }"#,
                 result: Some(Value::error(
-                    ShellError::GenericError(
-                        "my custom error message".to_string(),
-                        "my custom label text".to_string(),
-                        Some(Span::new(123, 456)),
-                        Some("A help string, suggesting a fix to the user".to_string()),
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "my custom error message".into(),
+                        msg: "my custom label text".into(),
+                        span: Some(Span::new(123, 456)),
+                        help: Some("A help string, suggesting a fix to the user".into()),
+                        inner: vec![],
+                    },
                     Span::unknown(),
                 )),
             },
@@ -122,35 +122,35 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
     let value = match value {
         Value::Record { val, .. } => val,
         _ => {
-            return ShellError::GenericError(
-                "Creating error value not supported.".into(),
-                "unsupported error format, must be a record".into(),
-                throw_span,
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: "Creating error value not supported.".into(),
+                msg: "unsupported error format, must be a record".into(),
+                span: throw_span,
+                help: None,
+                inner: vec![],
+            }
         }
     };
 
     let msg = match value.get("msg") {
         Some(Value::String { val, .. }) => val.clone(),
         Some(_) => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "`$.msg` has wrong type, must be string".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "`$.msg` has wrong type, must be string".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }
         }
         None => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "missing required member `$.msg`".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "missing required member `$.msg`".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }
         }
     };
 
@@ -162,72 +162,80 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
     let (label, label_span) = match value.get("label") {
         Some(value @ Value::Record { val, .. }) => (val, value.span()),
         Some(_) => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "`$.label` has wrong type, must be a record".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "`$.label` has wrong type, must be a record".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }
         }
         // correct return: no label
         None => {
-            return ShellError::GenericError(
-                msg,
-                "originates from here".to_string(),
-                throw_span,
+            return ShellError::GenericError {
+                error: msg,
+                msg: "originates from here".into(),
+                span: throw_span,
                 help,
-                Vec::new(),
-            )
+                inner: vec![],
+            }
         }
     };
 
     // remove after a few versions
     if label.get("start").is_some() || label.get("end").is_some() {
-        return ShellError::GenericError(
-            UNABLE_TO_PARSE.into(),
-            "`start` and `end` are deprecated".into(),
-            Some(span),
-            Some("Use `$.label.span` instead".into()),
-            Vec::new(),
-        );
+        return ShellError::GenericError {
+            error: UNABLE_TO_PARSE.into(),
+            msg: "`start` and `end` are deprecated".into(),
+            span: Some(span),
+            help: Some("Use `$.label.span` instead".into()),
+            inner: vec![],
+        };
     }
 
     let text = match label.get("text") {
         Some(Value::String { val, .. }) => val.clone(),
         Some(_) => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "`$.label.text` has wrong type, must be string".into(),
-                Some(label_span),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "`$.label.text` has wrong type, must be string".into(),
+                span: Some(label_span),
+                help: None,
+                inner: vec![],
+            }
         }
         None => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "missing required member `$.label.text`".into(),
-                Some(label_span),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "missing required member `$.label.text`".into(),
+                span: Some(label_span),
+                help: None,
+                inner: vec![],
+            }
         }
     };
 
     let (span, span_span) = match label.get("span") {
         Some(value @ Value::Record { val, .. }) => (val, value.span()),
         Some(value) => {
-            return ShellError::GenericError(
-                UNABLE_TO_PARSE.into(),
-                "`$.label.span` has wrong type, must be record".into(),
-                Some(value.span()),
-                None,
-                Vec::new(),
-            )
+            return ShellError::GenericError {
+                error: UNABLE_TO_PARSE.into(),
+                msg: "`$.label.span` has wrong type, must be record".into(),
+                span: Some(value.span()),
+                help: None,
+                inner: vec![],
+            }
         }
         // correct return: label, no span
-        None => return ShellError::GenericError(msg, text, throw_span, help, Vec::new()),
+        None => {
+            return ShellError::GenericError {
+                error: msg,
+                msg: text,
+                span: throw_span,
+                help,
+                inner: vec![],
+            }
+        }
     };
 
     let span_start = match get_span_sides(span, span_span, "start") {
@@ -240,41 +248,41 @@ fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
     };
 
     if span_start > span_end {
-        return ShellError::GenericError(
-            "invalid error format.".into(),
-            "`$.label.start` should be smaller than `$.label.end`".into(),
-            Some(label_span),
-            Some(format!("{} > {}", span_start, span_end)),
-            Vec::new(),
-        );
+        return ShellError::GenericError {
+            error: "invalid error format.".into(),
+            msg: "`$.label.start` should be smaller than `$.label.end`".into(),
+            span: Some(label_span),
+            help: Some(format!("{} > {}", span_start, span_end)),
+            inner: vec![],
+        };
     }
 
     // correct return: everything present
-    ShellError::GenericError(
-        msg,
-        text,
-        Some(Span::new(span_start as usize, span_end as usize)),
+    ShellError::GenericError {
+        error: msg,
+        msg: text,
+        span: Some(Span::new(span_start as usize, span_end as usize)),
         help,
-        Vec::new(),
-    )
+        inner: vec![],
+    }
 }
 
 fn get_span_sides(span: &Record, span_span: Span, side: &str) -> Result<i64, ShellError> {
     match span.get(side) {
         Some(Value::Int { val, .. }) => Ok(*val),
-        Some(_) => Err(ShellError::GenericError(
-            UNABLE_TO_PARSE.into(),
-            format!("`$.span.{side}` must be int"),
-            Some(span_span),
-            None,
-            Vec::new(),
-        )),
-        None => Err(ShellError::GenericError(
-            UNABLE_TO_PARSE.into(),
-            format!("`$.span.{side}` must be present, if span is specified."),
-            Some(span_span),
-            None,
-            Vec::new(),
-        )),
+        Some(_) => Err(ShellError::GenericError {
+            error: UNABLE_TO_PARSE.into(),
+            msg: format!("`$.span.{side}` must be int"),
+            span: Some(span_span),
+            help: None,
+            inner: vec![],
+        }),
+        None => Err(ShellError::GenericError {
+            error: UNABLE_TO_PARSE.into(),
+            msg: format!("`$.span.{side}` must be present, if span is specified."),
+            span: Some(span_span),
+            help: None,
+            inner: vec![],
+        }),
     }
 }
