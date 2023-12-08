@@ -116,18 +116,6 @@ fn update(
         PipelineData::Value(mut value, metadata) => {
             if replacement.as_block().is_ok() {
                 match (cell_path.members.first(), &mut value) {
-                    (Some(PathMember::Int { .. }), _) => {
-                        update_single_value_by_closure(
-                            &mut value,
-                            replacement,
-                            engine_state,
-                            stack,
-                            redirect_stdout,
-                            redirect_stderr,
-                            &cell_path.members,
-                            true,
-                        )?;
-                    }
                     (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
                         let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
@@ -148,7 +136,7 @@ fn update(
                             )?;
                         }
                     }
-                    _ => {
+                    (first, _) => {
                         update_single_value_by_closure(
                             &mut value,
                             replacement,
@@ -157,7 +145,7 @@ fn update(
                             redirect_stdout,
                             redirect_stderr,
                             &cell_path.members,
-                            false,
+                            matches!(first, Some(PathMember::Int { .. })),
                         )?;
                     }
                 }
