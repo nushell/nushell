@@ -204,9 +204,9 @@ fn upsert(
                 }
 
                 if path.is_empty() {
-                    let value = stream.next().unwrap_or(Value::nothing(path_span));
+                    let span = replacement.span();
+                    let value = stream.next().unwrap_or(Value::nothing(span));
                     if replacement.as_block().is_ok() {
-                        let span = replacement.span();
                         let capture_block = Closure::from_value(replacement)?;
                         let block = engine_state.get_block(capture_block.block_id);
                         let mut stack = stack.captures_to_stack(capture_block.captures);
