@@ -47,6 +47,18 @@ impl<'a> ResourceInfo<'a> {
     }
 }
 
+impl<'a> Default for ResourceInfo<'a> {
+    fn default() -> Self {
+        Self {
+            name: "file-size",
+            desc: "Maximum size of files created by the shell",
+            flag: 'f',
+            multiplier: 1024,
+            resource: Resource::RLIMIT_FSIZE,
+        }
+    }
+}
+
 static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
     let resources = [
         #[cfg(any(target_os = "freebsd", target_os = "dragonfly"))]
@@ -268,23 +280,6 @@ fn max_desc_len() -> usize {
     desc_len + unit_len + 3
 }
 
-/// Find specified resource
-fn find_resource(name: &str) -> Result<&ResourceInfo, ShellError> {
-    for res in RESOURCE_ARRAY.iter() {
-        if res.name == name {
-            return Ok(res);
-        }
-    }
-
-    Err(ShellError::GenericError(
-        format!("Resource not found for {name}"),
-        String::new(),
-        None,
-        None,
-        vec![],
-    ))
-}
-
 /// Fill `ResourceInfo` to the record entry
 fn fill_record(
     record: &mut Record,
@@ -365,8 +360,8 @@ fn print_limits(call: &Call, print_all: bool, hard: bool) -> Result<PipelineData
 
     // Print `RLIMIT_FSIZE` limit if no resource flag provided.
     if print_default_limit {
-        let res = find_resource("file-size")?;
-        fill_record(&mut record, res, max_len, hard, call.head)?;
+        let res = ResourceInfo::default();
+        fill_record(&mut record, &res, max_len, hard, call.head)?;
     }
 
     Ok(Value::record(record, call.head).into_pipeline_data())
@@ -488,8 +483,8 @@ impl Command for ULimit {
 
             // Set `RLIMIT_FSIZE` limit if no resource flag provided.
             if set_default_limit {
-                let res = find_resource("file-size")?;
-                set_limits(&spanned_limit, res, hard, soft)?;
+                let res = ResourceInfo::default();
+                set_limits(&spanned_limit, &res, hard, soft)?;
             }
 
             Ok(PipelineData::Empty)
