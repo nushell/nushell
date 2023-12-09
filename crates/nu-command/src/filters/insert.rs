@@ -57,49 +57,64 @@ impl Command for Insert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Insert a new entry into a single record",
-            example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-            result: Some(Value::test_record(record! {
-                "name" =>  Value::test_string("nu"),
-                "stars" => Value::test_int(5),
-                "alias" => Value::test_string("Nushell"),
-            })),
-        },
-        Example {
-            description: "Insert a new column into a table, populating all rows",
-            example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::test_list (
-                vec![Value::test_record(record! {
+        vec![
+            Example {
+                description: "Insert a new entry into a single record",
+                example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+                result: Some(Value::test_record(record! {
+                    "name" =>  Value::test_string("nu"),
+                    "stars" => Value::test_int(5),
+                    "alias" => Value::test_string("Nushell"),
+                })),
+            },
+            Example {
+                description: "Insert a new column into a table, populating all rows",
+                example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("Nushell"),
                     "lang" =>    Value::test_string("Rust"),
                     "type" =>    Value::test_string("shell"),
-                })],
-            )),
-        },
-        Example {
-            description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
-            example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
-            result: Some(Value::test_list (
-                vec![
+                })])),
+            },
+            Example {
+                description: "Insert a new column with values computed based off the other columns",
+                example: "[[foo]; [7] [8] [9]] | insert bar {|row| $row.foo * 2 }",
+                result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "index" => Value::test_int(0),
-                        "foo" =>   Value::test_int(7),
-                        "bar" =>   Value::test_int(7),
+                        "foo" => Value::test_int(7),
+                        "bar" => Value::test_int(14),
                     }),
                     Value::test_record(record! {
-                        "index" => Value::test_int(1),
-                        "foo" =>   Value::test_int(8),
-                        "bar" =>   Value::test_int(9),
+                        "foo" => Value::test_int(8),
+                        "bar" => Value::test_int(16),
                     }),
                     Value::test_record(record! {
-                        "index" => Value::test_int(2),
-                        "foo" =>   Value::test_int(9),
-                        "bar" =>   Value::test_int(11),
+                        "foo" => Value::test_int(9),
+                        "bar" => Value::test_int(18),
                     }),
-                ],
-            )),
-        }]
+                ])),
+            },
+            Example {
+                description: "Insert a new value into a list at an index",
+                example: "[1 2 4] | insert 2 3",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
+            },
+            Example {
+                description: "Insert a new value at the end of a list",
+                example: "[1 2 3] | insert 3 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
+            },
+        ]
     }
 }
 

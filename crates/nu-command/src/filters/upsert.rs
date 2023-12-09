@@ -57,19 +57,28 @@ impl Command for Upsert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Update a record's value",
-            example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
-            result: Some(Value::test_record(record! {
-                "name" => Value::test_string("Nushell"),
-                "stars" => Value::test_int(5),
-            })),
-        },
-        Example {
-            description: "Update each row of a table",
-            example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
-            result: Some(Value::test_list(
-                vec![
+        vec![
+            Example {
+                description: "Update a record's value",
+                example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
+                result: Some(Value::test_record(record! {
+                    "name" => Value::test_string("Nushell"),
+                    "stars" => Value::test_int(5),
+                })),
+            },
+            Example {
+                description: "Insert a new entry into a record",
+                example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
+                result: Some(Value::test_record(record! {
+                    "name" =>     Value::test_string("nu"),
+                    "stars" =>    Value::test_int(5),
+                    "language" => Value::test_string("Rust"),
+                })),
+            },
+            Example {
+                description: "Update each row of a table",
+                example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
+                result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "name" => Value::test_string("Nushell"),
                         "lang" => Value::test_string("Rust"),
@@ -78,46 +87,45 @@ impl Command for Upsert {
                         "name" => Value::test_string("Reedline"),
                         "lang" => Value::test_string("Rust"),
                     }),
-                ],
-            )),
-        },
-        Example {
-            description: "Insert a new entry into a single record",
-            example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
-            result: Some(Value::test_record(record! {
-                "name" =>     Value::test_string("nu"),
-                "stars" =>    Value::test_int(5),
-                "language" => Value::test_string("Rust"),
-            })),
-        }, Example {
-            description: "Use in closure form for more involved updating logic",
-            example: "[[count fruit]; [1 'apple']] | enumerate | upsert item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-            result: Some(Value::test_list(
-                vec![Value::test_record(record! {
-                    "count" => Value::test_int(5),
-                    "fruit" => Value::test_string("apple"),
-                })],
-            )),
-        },
-        Example {
-            description: "Upsert an int into a list, updating an existing value based on the index",
-            example: "[1 2 3] | upsert 0 2",
-            result: Some(Value::test_list(
-                vec![Value::test_int(2), Value::test_int(2), Value::test_int(3)],
-            )),
-        },
-        Example {
-            description: "Upsert an int into a list, inserting a new value based on the index",
-            example: "[1 2 3] | upsert 3 4",
-            result: Some(Value::test_list(
-                vec![
+                ])),
+            },
+            Example {
+                description: "Insert a new column with values computed based off the other columns",
+                example: "[[foo]; [7] [8] [9]] | upsert bar {|row| $row.foo * 2 }",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(7),
+                        "bar" => Value::test_int(14),
+                    }),
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(8),
+                        "bar" => Value::test_int(16),
+                    }),
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(9),
+                        "bar" => Value::test_int(18),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Upsert into a list, updating an existing value at an index",
+                example: "[1 2 3] | upsert 0 2",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
+            },
+            Example {
+                description: "Upsert into a list, inserting a new value at the end",
+                example: "[1 2 3] | upsert 3 4",
+                result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
                     Value::test_int(3),
                     Value::test_int(4),
-                ],
-            )),
-        },
+                ])),
+            },
         ]
     }
 }
