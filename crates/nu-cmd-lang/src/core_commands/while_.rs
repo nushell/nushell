@@ -62,7 +62,7 @@ impl Command for While {
                             call.redirect_stdout,
                             call.redirect_stderr,
                         ) {
-                            Err(ShellError::Break(_)) => {
+                            Err(ShellError::Break { .. }) => {
                                 break;
                             }
                             Err(ShellError::Continue(_)) => {

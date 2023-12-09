@@ -83,7 +83,7 @@ impl Command for Items {
                 redirect_stderr,
             ) {
                 Ok(v) => Some(v.into_value(span)),
-                Err(ShellError::Break(_)) => None,
+                Err(ShellError::Break { .. }) => None,
                 Err(error) => {
                     let error = chain_error_with_input(error, false, input_span);
                     Some(Value::error(error, span))

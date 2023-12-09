@@ -1123,7 +1123,10 @@ pub enum ShellError {
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
-    Break(#[label = "used outside of loop"] Span),
+    Break {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
