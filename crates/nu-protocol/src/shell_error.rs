@@ -1137,7 +1137,11 @@ pub enum ShellError {
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
-    Return(#[label = "used outside of function"] Span, Box<Value>),
+    Return {
+        #[label("used outside of function")]
+        span: Span,
+        value: Box<Value>,
+    },
 
     /// The code being executed called itself too many times.
     ///

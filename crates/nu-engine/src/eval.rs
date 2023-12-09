@@ -593,7 +593,7 @@ pub fn eval_block_with_early_return(
         redirect_stdout,
         redirect_stderr,
     ) {
-        Err(ShellError::Return(_, value)) => Ok(PipelineData::Value(*value, None)),
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
         x => x,
     }
 }
