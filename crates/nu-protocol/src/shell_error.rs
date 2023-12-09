@@ -944,14 +944,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    // These three are unused. Remove?
-    #[error("No file to be removed")]
-    NoFileToBeRemoved(),
-    #[error("No file to be moved")]
-    NoFileToBeMoved(),
-    #[error("No file to be copied")]
-    NoFileToBeCopied(),
-
     /// Error while trying to read a file
     ///
     /// ## Resolution
