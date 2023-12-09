@@ -1275,7 +1275,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         help("Correct glob pattern or file access issue")
     )]
     //todo: add error detail
-    ErrorExpandingGlob(String, #[label = "{0}"] Span),
+    ErrorExpandingGlob {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Tried spreading a non-list inside a list.
     ///
