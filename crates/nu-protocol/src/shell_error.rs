@@ -1114,7 +1114,12 @@ pub enum ShellError {
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
     #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
+    EvalBlockWithInput {
+        #[label("source value")]
+        span: Span,
+        #[related]
+        sources: Vec<ShellError>,
+    },
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
