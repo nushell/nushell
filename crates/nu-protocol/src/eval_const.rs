@@ -212,7 +212,7 @@ fn eval_const_call(
     let decl = working_set.get_decl(call.decl_id);
 
     if !decl.is_const() {
-        return Err(ShellError::NotAConstCommand(call.head));
+        return Err(ShellError::NotAConstCommand { span: call.head });
     }
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {

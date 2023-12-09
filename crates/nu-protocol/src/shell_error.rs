@@ -1228,7 +1228,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_const_command),
         help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
     )]
-    NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
+    NotAConstCommand {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
 
     /// Tried getting a help message at parse time.
     ///
