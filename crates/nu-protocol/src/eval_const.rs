@@ -233,7 +233,7 @@ pub fn eval_const_subexpression(
     for pipeline in block.pipelines.iter() {
         for element in pipeline.elements.iter() {
             let PipelineElement::Expression(_, expr) = element else {
-                return Err(ShellError::NotAConstant(span));
+                return Err(ShellError::NotAConstant { span });
             };
 
             input = eval_constant_with_input(working_set, expr, input)?
@@ -288,7 +288,7 @@ impl Eval for EvalConst {
         _: String,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_var(
@@ -299,7 +299,7 @@ impl Eval for EvalConst {
     ) -> Result<Value, ShellError> {
         match working_set.get_variable(var_id).const_val.as_ref() {
             Some(val) => Ok(val.clone()),
-            None => Err(ShellError::NotAConstant(span)),
+            None => Err(ShellError::NotAConstant { span }),
         }
     }
 
@@ -322,7 +322,7 @@ impl Eval for EvalConst {
         span: Span,
     ) -> Result<Value, ShellError> {
         // TODO: It may be more helpful to give not_a_const_command error
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_subexpression(
@@ -346,7 +346,7 @@ impl Eval for EvalConst {
         _: bool,
         expr_span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(expr_span))
+        Err(ShellError::NotAConstant { span: expr_span })
     }
 
     fn eval_assignment(
@@ -358,7 +358,7 @@ impl Eval for EvalConst {
         _op_span: Span,
         expr_span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(expr_span))
+        Err(ShellError::NotAConstant { span: expr_span })
     }
 
     fn eval_row_condition_or_closure(
@@ -367,7 +367,7 @@ impl Eval for EvalConst {
         _: usize,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_string_interpolation(
@@ -376,11 +376,11 @@ impl Eval for EvalConst {
         _: &[Expression],
         span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn eval_glob_pattern(
@@ -389,10 +389,10 @@ impl Eval for EvalConst {
         _: String,
         span: Span,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(span))
+        Err(ShellError::NotAConstant { span })
     }
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant(expr.span))
+        Err(ShellError::NotAConstant { span: expr.span })
     }
 }

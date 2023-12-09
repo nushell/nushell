@@ -1212,7 +1212,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_constant),
         help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
     )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+    NotAConstant {
+        #[label("Value is not a parse-time constant")]
+        span: Span,
+    },
 
     /// Tried running a command that is not const-compatible
     ///
