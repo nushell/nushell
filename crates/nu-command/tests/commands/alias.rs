@@ -137,6 +137,12 @@ fn alias_match() {
     assert_eq!(actual.out, "yes!");
 }
 
+#[test]
+fn alias_parenthesis_enclosed() {
+    let actual = nu!(r#" alias spam = (match 3 { 1..10 => 'yes!' }); spam "#);
+    assert_eq!(actual.out, "yes!");
+}
+
 // Issue https://github.com/nushell/nushell/issues/8103
 #[test]
 fn alias_multiword_name() {
