@@ -1243,7 +1243,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_const_help),
         help("Help messages are currently not supported to be constants.")
     )]
-    NotAConstHelp(#[label = "Cannot get help message at parse time."] Span),
+    NotAConstHelp {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
 
     /// Invalid glob pattern
     ///
