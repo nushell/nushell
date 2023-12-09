@@ -27,7 +27,7 @@ impl Command for Continue {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::Continue(call.head))
+        Err(ShellError::Continue { span: call.head })
     }
 
     fn examples(&self) -> Vec<Example> {

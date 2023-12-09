@@ -116,7 +116,7 @@ impl Command for For {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
-                        Err(ShellError::Continue(_)) => {
+                        Err(ShellError::Continue { .. }) => {
                             continue;
                         }
                         Err(err) => {
@@ -162,7 +162,7 @@ impl Command for For {
                         Err(ShellError::Break { .. }) => {
                             break;
                         }
-                        Err(ShellError::Continue(_)) => {
+                        Err(ShellError::Continue { .. }) => {
                             continue;
                         }
                         Err(err) => {

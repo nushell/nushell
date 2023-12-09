@@ -1130,7 +1130,10 @@ pub enum ShellError {
 
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
-    Continue(#[label = "used outside of loop"] Span),
+    Continue {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]

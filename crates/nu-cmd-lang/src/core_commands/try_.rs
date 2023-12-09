@@ -129,7 +129,7 @@ fn handle_catch(
 fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
     match error {
         nu_protocol::ShellError::Break { .. } => Err(error),
-        nu_protocol::ShellError::Continue(_) => Err(error),
+        nu_protocol::ShellError::Continue { .. } => Err(error),
         nu_protocol::ShellError::Return(_, _) => Err(error),
         _ => Ok(error),
     }

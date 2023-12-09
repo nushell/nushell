@@ -51,7 +51,7 @@ impl Command for Loop {
                 Err(ShellError::Break { .. }) => {
                     break;
                 }
-                Err(ShellError::Continue(_)) => {
+                Err(ShellError::Continue { .. }) => {
                     continue;
                 }
                 Err(err) => {
