@@ -1092,13 +1092,14 @@ pub enum ShellError {
     /// ## Resolution
     ///
     /// Check the help for the new suggested command and update your script accordingly.
-    #[error("Removed command: {0}")]
+    #[error("Removed command: {removed}")]
     #[diagnostic(code(nu::shell::removed_command))]
-    RemovedCommand(
-        String,
-        String,
-        #[label = "'{0}' has been removed from Nushell. Please use '{1}' instead."] Span,
-    ),
+    RemovedCommand {
+        removed: String,
+        replacement: String,
+        #[label("'{removed}' has been removed from Nushell. Please use '{replacement}' instead.")]
+        span: Span,
+    },
 
     /// Non-Unicode input received.
     ///

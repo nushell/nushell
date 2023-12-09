@@ -305,11 +305,11 @@ impl ExternalCommand {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::RemovedCommand(
-                                command_name_lower,
+                            return Err(ShellError::RemovedCommand {
+                                removed: command_name_lower,
                                 replacement,
-                                self.name.span,
-                            ));
+                                span: self.name.span,
+                            });
                         }
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
