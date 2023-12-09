@@ -1110,15 +1110,6 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::non_unicode_input))]
     NonUnicodeInput,
 
-    /// Unexpected abbr component.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the path abbreviation to ensure that it is valid.
-    #[error("Unexpected abbr component `{0}`.")]
-    #[diagnostic(code(nu::shell::unexpected_path_abbreviateion))]
-    UnexpectedAbbrComponent(String),
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
