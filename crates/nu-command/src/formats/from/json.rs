@@ -155,12 +155,12 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                     msg: "error parsing JSON text".into(),
                     span: Some(span),
                     help: None,
-                    inner: vec![ShellError::OutsideSpannedLabeledError(
-                        string_input,
-                        "Error while parsing JSON text".into(),
-                        label,
-                        label_span,
-                    )],
+                    inner: vec![ShellError::OutsideSpannedLabeledError {
+                        src: string_input,
+                        error: "Error while parsing JSON text".into(),
+                        msg: label,
+                        span: label_span,
+                    }],
                 })
             }
             x => Err(ShellError::CantConvert {

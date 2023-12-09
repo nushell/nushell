@@ -1076,9 +1076,16 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{1}")]
+    #[error("{error}")]
     #[diagnostic()]
-    OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
+    OutsideSpannedLabeledError {
+        #[source_code]
+        src: String,
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Attempted to use a command that has been removed from Nushell.
     ///
