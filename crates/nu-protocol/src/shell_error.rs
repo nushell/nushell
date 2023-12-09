@@ -1258,7 +1258,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::invalid_glob_pattern),
         help("Refer to xxx for help on nushell glob patterns.")
     )]
-    InvalidGlobPattern(String, #[label = "{0}"] Span),
+    InvalidGlobPattern {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Error expanding glob pattern
     ///
