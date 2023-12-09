@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath, PathMember};
+use nu_protocol::ast::{Block, Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -63,18 +63,8 @@ impl Command for Update {
                 })),
             },
             Example {
-                description: "Use in closure form for more involved updating logic",
-                example: "[[count fruit]; [1 'apple']] | enumerate | update item.count {|e| ($e.item.fruit | str length) + $e.index } | get item",
-                result: Some(Value::test_list(
-                    vec![Value::test_record(record! {
-                        "count" => Value::test_int(5),
-                        "fruit" => Value::test_string("apple"),
-                    })],
-                )),
-            },
-            Example {
-                description: "Alter each value in the 'authors' column to use a single string instead of a list",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ','}",
+                description: "Use a closure to alter each value in the 'authors' column to a single string",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ',' }",
                 result: Some(Value::test_list(
                     vec![Value::test_record(record! {
                         "project" => Value::test_string("nu"),
@@ -84,14 +74,28 @@ impl Command for Update {
             },
             Example {
                 description: "You can also use a simple command to update 'authors' to a single string",
-                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|| str join ','}",
+                example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
                 result: Some(Value::test_list(
                     vec![Value::test_record(record! {
                         "project" => Value::test_string("nu"),
                         "authors" => Value::test_string("Andrés,JT,Yehuda"),
                     })],
                 )),
-            }
+            },
+            Example {
+                description: "Update a value at an index in a list",
+                example: "[1 2 3] | update 1 4",
+                result: Some(Value::test_list(
+                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
+                )),
+            },
+            Example {
+                description: "Use a closure to compute a new value at an index",
+                example: "[1 2 3] | update 1 {|i| $i + 2 }",
+                result: Some(Value::test_list(
+                    vec![Value::test_int(1), Value::test_int(4), Value::test_int(3)]
+                )),
+            },
         ]
     }
 }
@@ -110,109 +114,220 @@ fn update(
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
 
-    let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
-    // Let's capture the metadata for ls_colors
-    let metadata = input.metadata();
-    let mdclone = metadata.clone();
-
-    // Replace is a block, so set it up and run it instead of using it as the replacement
-    if replacement.as_block().is_ok() {
-        let capture_block = Closure::from_value(replacement)?;
-        let block = engine_state.get_block(capture_block.block_id).clone();
-
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-
-        Ok(input
-            .map(
-                move |mut input| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, input.clone())
+    match input {
+        PipelineData::Value(mut value, metadata) => {
+            if replacement.as_block().is_ok() {
+                match (cell_path.members.first(), &mut value) {
+                    (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                        let span = replacement.span();
+                        let capture_block = Closure::from_value(replacement)?;
+                        let block = engine_state.get_block(capture_block.block_id);
+                        let stack = stack.captures_to_stack(capture_block.captures.clone());
+                        for val in vals {
+                            let mut stack = stack.clone();
+                            update_value_by_closure(
+                                val,
+                                span,
+                                engine_state,
+                                &mut stack,
+                                redirect_stdout,
+                                redirect_stderr,
+                                block,
+                                &cell_path.members,
+                                false,
+                            )?;
                         }
                     }
+                    (first, _) => {
+                        update_single_value_by_closure(
+                            &mut value,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &cell_path.members,
+                            matches!(first, Some(PathMember::Int { .. })),
+                        )?;
+                    }
+                }
+            } else {
+                value.update_data_at_cell_path(&cell_path.members, replacement)?;
+            }
+            Ok(value.into_pipeline_data_with_metadata(metadata))
+        }
+        PipelineData::ListStream(mut stream, metadata) => {
+            if let Some((
+                &PathMember::Int {
+                    val,
+                    span: path_span,
+                    ..
+                },
+                path,
+            )) = cell_path.members.split_first()
+            {
+                let mut pre_elems = vec![];
 
-                    let input_at_path =
-                        match input.clone().follow_cell_path(&cell_path.members, false) {
-                            Err(e) => return Value::error(e, span),
-                            Ok(v) => v,
-                        };
-                    let output = eval_block(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        input_at_path.into_pipeline_data_with_metadata(metadata.clone()),
+                for idx in 0..=val {
+                    if let Some(v) = stream.next() {
+                        pre_elems.push(v);
+                    } else if idx == 0 {
+                        return Err(ShellError::AccessEmptyContent { span: path_span });
+                    } else {
+                        return Err(ShellError::AccessBeyondEnd {
+                            max_idx: idx - 1,
+                            span: path_span,
+                        });
+                    }
+                }
+
+                // cannot fail since loop above does at least one iteration or returns an error
+                let value = pre_elems.last_mut().expect("one element");
+
+                if replacement.as_block().is_ok() {
+                    update_single_value_by_closure(
+                        value,
+                        replacement,
+                        engine_state,
+                        stack,
                         redirect_stdout,
                         redirect_stderr,
-                    );
+                        path,
+                        true,
+                    )?;
+                } else {
+                    value.update_data_at_cell_path(path, replacement)?;
+                }
 
-                    match output {
-                        Ok(pd) => {
-                            if let Err(e) = input
-                                .update_data_at_cell_path(&cell_path.members, pd.into_value(span))
-                            {
-                                return Value::error(e, span);
-                            }
+                Ok(pre_elems
+                    .into_iter()
+                    .chain(stream)
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+            } else if replacement.as_block().is_ok() {
+                let replacement_span = replacement.span();
+                let engine_state = engine_state.clone();
+                let capture_block = Closure::from_value(replacement)?;
+                let block = engine_state.get_block(capture_block.block_id).clone();
+                let stack = stack.captures_to_stack(capture_block.captures.clone());
 
+                Ok(stream
+                    .map(move |mut input| {
+                        // Recreate the stack for each iteration to
+                        // isolate environment variable changes, etc.
+                        let mut stack = stack.clone();
+
+                        let err = update_value_by_closure(
+                            &mut input,
+                            replacement_span,
+                            &engine_state,
+                            &mut stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &block,
+                            &cell_path.members,
+                            false,
+                        );
+
+                        if let Err(e) = err {
+                            Value::error(e, span)
+                        } else {
                             input
                         }
-                        Err(e) => Value::error(e, span),
-                    }
-                },
-                ctrlc,
-            )?
-            .set_metadata(mdclone))
-    } else {
-        if let Some(PathMember::Int { val, span, .. }) = cell_path.members.first() {
-            let mut input = input.into_iter();
-            let mut pre_elems = vec![];
-
-            for idx in 0..*val {
-                if let Some(v) = input.next() {
-                    pre_elems.push(v);
-                } else if idx == 0 {
-                    return Err(ShellError::AccessEmptyContent { span: *span });
-                } else {
-                    return Err(ShellError::AccessBeyondEnd {
-                        max_idx: idx - 1,
-                        span: *span,
-                    });
-                }
+                    })
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+            } else {
+                Ok(stream
+                    .map(move |mut input| {
+                        if let Err(e) =
+                            input.update_data_at_cell_path(&cell_path.members, replacement.clone())
+                        {
+                            Value::error(e, span)
+                        } else {
+                            input
+                        }
+                    })
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
             }
-
-            // Skip over the replaced value
-            let _ = input.next();
-
-            return Ok(pre_elems
-                .into_iter()
-                .chain(vec![replacement])
-                .chain(input)
-                .into_pipeline_data_with_metadata(metadata, ctrlc));
         }
-        Ok(input
-            .map(
-                move |mut input| {
-                    let replacement = replacement.clone();
-
-                    if let Err(e) = input.update_data_at_cell_path(&cell_path.members, replacement)
-                    {
-                        return Value::error(e, span);
-                    }
-
-                    input
-                },
-                ctrlc,
-            )?
-            .set_metadata(metadata))
+        PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
+            type_name: "empty pipeline".to_string(),
+            span,
+        }),
+        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
+            type_name: "external stream".to_string(),
+            span,
+        }),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update_value_by_closure(
+    value: &mut Value,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    block: &Block,
+    cell_path: &[PathMember],
+    first_path_member_int: bool,
+) -> Result<(), ShellError> {
+    let input_at_path = value.clone().follow_cell_path(cell_path, false)?;
+
+    if let Some(var) = block.signature.get_positional(0) {
+        if let Some(var_id) = &var.var_id {
+            stack.add_var(
+                *var_id,
+                if first_path_member_int {
+                    input_at_path.clone()
+                } else {
+                    value.clone()
+                },
+            )
+        }
+    }
+
+    let output = eval_block(
+        engine_state,
+        stack,
+        block,
+        input_at_path.into_pipeline_data(),
+        redirect_stdout,
+        redirect_stderr,
+    )?;
+
+    value.update_data_at_cell_path(cell_path, output.into_value(span))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn update_single_value_by_closure(
+    value: &mut Value,
+    replacement: Value,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    cell_path: &[PathMember],
+    first_path_member_int: bool,
+) -> Result<(), ShellError> {
+    let span = replacement.span();
+    let capture_block = Closure::from_value(replacement)?;
+    let block = engine_state.get_block(capture_block.block_id);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
+
+    update_value_by_closure(
+        value,
+        span,
+        engine_state,
+        &mut stack,
+        redirect_stdout,
+        redirect_stderr,
+        block,
+        cell_path,
+        first_path_member_int,
+    )
 }
 
 #[cfg(test)]
