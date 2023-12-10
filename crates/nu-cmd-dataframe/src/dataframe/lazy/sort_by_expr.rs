@@ -16,7 +16,7 @@ impl Command for LazySortBy {
     }
 
     fn usage(&self) -> &str {
-        "sorts a lazy dataframe based on expression(s)."
+        "Sorts a lazy dataframe based on expression(s)."
     }
 
     fn signature(&self) -> Signature {

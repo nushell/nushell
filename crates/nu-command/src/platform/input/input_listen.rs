@@ -49,7 +49,7 @@ impl Command for InputListen {
     }
 
     fn usage(&self) -> &str {
-        "Listen for user interface event"
+        "Listen for user interface event."
     }
 
     fn extra_usage(&self) -> &str {

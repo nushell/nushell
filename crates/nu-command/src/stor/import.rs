@@ -29,7 +29,7 @@ impl Command for StorImport {
     }
 
     fn usage(&self) -> &str {
-        "Import a sqlite database file into the in-memory sqlite database"
+        "Import a sqlite database file into the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {

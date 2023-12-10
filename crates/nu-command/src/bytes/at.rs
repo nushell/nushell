@@ -57,7 +57,7 @@ impl Command for BytesAt {
     }
 
     fn usage(&self) -> &str {
-        "Get bytes defined by a range"
+        "Get bytes defined by a range."
     }
 
     fn search_terms(&self) -> Vec<&str> {

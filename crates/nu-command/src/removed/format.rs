@@ -27,7 +27,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "Removed command: use `format date` instead"
+        "Removed command: use `format date` instead."
     }
 
     fn run(
