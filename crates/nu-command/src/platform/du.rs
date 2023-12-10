@@ -108,7 +108,10 @@ impl Command for Du {
         let exclude = args.exclude.map_or(Ok(None), move |x| {
             Pattern::new(&x.item)
                 .map(Some)
-                .map_err(|e| ShellError::InvalidGlobPattern(e.msg.to_string(), x.span))
+                .map_err(|e| ShellError::InvalidGlobPattern {
+                    msg: e.msg.into(),
+                    span: x.span,
+                })
         })?;
 
         let include_files = args.all;

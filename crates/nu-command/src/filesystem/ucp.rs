@@ -193,10 +193,10 @@ impl Command for UCp {
                         app_vals.push(path)
                     }
                     Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob(
-                            format!("error {} in path {}", e.error(), e.path().display()),
-                            p.span,
-                        ));
+                        return Err(ShellError::ErrorExpandingGlob {
+                            msg: format!("error {} in path {}", e.error(), e.path().display()),
+                            span: p.span,
+                        });
                     }
                 }
             }

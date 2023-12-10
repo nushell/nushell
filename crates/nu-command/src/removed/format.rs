@@ -37,10 +37,10 @@ impl Command for SubCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(nu_protocol::ShellError::RemovedCommand(
-            self.name().to_string(),
-            "format date".to_owned(),
-            call.head,
-        ))
+        Err(nu_protocol::ShellError::RemovedCommand {
+            removed: self.name().to_string(),
+            replacement: "format date".to_owned(),
+            span: call.head,
+        })
     }
 }
