@@ -24,7 +24,7 @@ impl Command for StorOpen {
     }
 
     fn usage(&self) -> &str {
-        "Opens the in-memory sqlite database"
+        "Opens the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {

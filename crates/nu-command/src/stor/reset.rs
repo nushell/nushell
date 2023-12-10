@@ -21,7 +21,7 @@ impl Command for StorReset {
     }
 
     fn usage(&self) -> &str {
-        "Reset the in-memory database by dropping all tables"
+        "Reset the in-memory database by dropping all tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {

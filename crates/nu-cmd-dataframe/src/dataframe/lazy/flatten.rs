@@ -17,7 +17,7 @@ impl Command for LazyFlatten {
     }
 
     fn usage(&self) -> &str {
-        "An alias for dfr explode"
+        "An alias for dfr explode."
     }
 
     fn signature(&self) -> Signature {
