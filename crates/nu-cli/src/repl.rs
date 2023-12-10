@@ -50,6 +50,7 @@ pub fn evaluate_repl(
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
+    session_id: Option<Spanned<i64>>,
     entire_start_time: Instant,
 ) -> Result<()> {
     use nu_cmd_base::hook;
@@ -111,7 +112,11 @@ pub fn evaluate_repl(
     // Setup history_isolation aka "history per session"
     let history_isolation = engine_state.get_config().history_isolation;
     let history_session_id = if history_isolation {
-        Reedline::create_history_session_id()
+        if let Some(session_id_nanos) = session_id {
+            Some(HistorySessionId(session_id_nanos.item))
+        } else {
+            Reedline::create_history_session_id()
+        }
     } else {
         None
     };
@@ -716,6 +721,11 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
         .unwrap_or(0);
 
     engine_state.history_session_id = session_id;
+
+    engine_state.add_env_var(
+        "NU_SESSION_ID".to_string(),
+        Value::int(session_id, Span::unknown()),
+    );
 }
 
 fn update_line_editor_history(
@@ -734,12 +744,8 @@ fn update_line_editor_history(
             .into_diagnostic()?,
         ),
         HistoryFileFormat::Sqlite => Box::new(
-            SqliteBackedHistory::with_file(
-                history_path.to_path_buf(),
-                history_session_id,
-                Some(chrono::Utc::now()),
-            )
-            .into_diagnostic()?,
+            SqliteBackedHistory::with_file(history_path.to_path_buf(), history_session_id)
+                .into_diagnostic()?,
         ),
     };
     let line_editor = line_editor

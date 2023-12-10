@@ -276,6 +276,7 @@ pub(crate) fn run_repl(
         config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,
+        parsed_nu_cli_args.session_id,
         entire_start_time,
     );
     perf(

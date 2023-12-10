@@ -23,11 +23,18 @@ impl Command for HistorySession {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            example: "history session",
-            description: "Get current history session",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "history session",
+                description: "Get current history session",
+                result: None,
+            },
+            Example {
+                example: "history -l | where session_id == (history session) | last 5",
+                description: "Gets the last 5 history entries of the current session",
+                result: None,
+            },
+        ]
     }
 
     fn run(

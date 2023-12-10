@@ -32,8 +32,10 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
         }
 
         let flag_value = match arg.as_ref() {
-            "--commands" | "-c" | "--table-mode" | "-m" | "-e" | "--execute" | "--config"
-            | "--env-config" | "-I" | "ide-ast" => args.next().map(|a| escape_quote_string(&a)),
+            "--commands" | "-c" | "--session_id" | "-s" | "--table-mode" | "-m" | "-e"
+            | "--execute" | "--config" | "--env-config" | "-I" | "ide-ast" => {
+                args.next().map(|a| escape_quote_string(&a))
+            }
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
@@ -94,6 +96,7 @@ pub(crate) fn parse_commandline_args(
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
             let commands: Option<Expression> = call.get_flag_expr("commands");
+            let session_id = call.get_flag_expr("session_id");
             let testbin: Option<Expression> = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
             let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
@@ -139,7 +142,26 @@ pub(crate) fn parse_commandline_args(
                 }
             }
 
+            fn extract_contents_i64(
+                expression: Option<Expression>,
+            ) -> Result<Option<Spanned<i64>>, ShellError> {
+                expression
+                    .map(|x| match x.expr {
+                        Expr::Int(i) => Ok(Some(Spanned {
+                            item: i,
+                            span: x.span,
+                        })),
+                        _ => Err(ShellError::TypeMismatch {
+                            err_message: "number".into(),
+                            span: x.span,
+                        }),
+                    })
+                    .transpose()
+                    .map(|x| x.flatten())
+            }
+
             let commands = extract_contents(commands)?;
+            let session_id = extract_contents_i64(session_id)?;
             let testbin = extract_contents(testbin)?;
             #[cfg(feature = "plugin")]
             let plugin_file = extract_contents(plugin_file)?;
@@ -180,6 +202,7 @@ pub(crate) fn parse_commandline_args(
                 login_shell,
                 interactive_shell,
                 commands,
+                session_id,
                 testbin,
                 #[cfg(feature = "plugin")]
                 plugin_file,
@@ -219,6 +242,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) login_shell: Option<Spanned<String>>,
     pub(crate) interactive_shell: Option<Spanned<String>>,
     pub(crate) commands: Option<Spanned<String>>,
+    pub(crate) session_id: Option<Spanned<i64>>,
     pub(crate) testbin: Option<Spanned<String>>,
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
@@ -255,6 +279,12 @@ impl Command for Nu {
                 SyntaxShape::String,
                 "run the given commands and then exit",
                 Some('c'),
+            )
+            .named(
+                "session_id",
+                SyntaxShape::Int,
+                "uses a specific history session",
+                Some('s'),
             )
             .named(
                 "execute",
