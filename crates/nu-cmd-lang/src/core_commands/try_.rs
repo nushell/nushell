@@ -31,7 +31,7 @@ impl Command for Try {
                         SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                     ])),
                 ),
-                "block to run if try block fails",
+                "Block to run if try block fails.",
             )
             .category(Category::Core)
     }

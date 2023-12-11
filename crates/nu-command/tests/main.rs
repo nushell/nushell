@@ -72,9 +72,23 @@ fn arguments_start_uppercase() {
             let arg_name = arg.name;
             let desc = arg.desc;
 
+            // Check lowercase to allow usage to contain syntax like:
+            //
+            // "`as` keyword …"
             if !desc.starts_with(|u: char| u.is_uppercase()) {
                 failures.push(format!(
                     "{cmd_name} required argument \"{arg_name}\": \"{desc}\""
+                ));
+            }
+        }
+
+        for arg in signature.optional_positional {
+            let arg_name = arg.name;
+            let desc = arg.desc;
+
+            if desc.starts_with(|u: char| u.is_lowercase()) {
+                failures.push(format!(
+                    "{cmd_name} optional argument \"{arg_name}\": \"{desc}\""
                 ));
             }
         }
@@ -204,7 +218,7 @@ fn usage_start_uppercase() {
         let cmd_name = String::from_utf8_lossy(&name_bytes);
         let usage = cmd.usage();
 
-        // Check lowercase to allow usage to contain removed syntax like:
+        // Check lowercase to allow usage to contain syntax like:
         //
         // "`let-env FOO = ...` …"
         if usage.starts_with(|u: char| u.is_lowercase()) {

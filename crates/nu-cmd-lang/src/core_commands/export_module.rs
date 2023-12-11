@@ -24,7 +24,7 @@ impl Command for ExportModule {
             .optional(
                 "block",
                 SyntaxShape::Block,
-                "body of the module if 'module' parameter is not a path",
+                "Body of the module if 'module' parameter is not a path.",
             )
             .category(Category::Core)
     }

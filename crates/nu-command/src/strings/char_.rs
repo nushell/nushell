@@ -165,7 +165,7 @@ impl Command for Char {
             .optional(
                 "character",
                 SyntaxShape::Any,
-                "the name of the character to output",
+                "The name of the character to output.",
             )
             .rest("rest", SyntaxShape::Any, "multiple Unicode bytes")
             .switch("list", "List all supported character names", Some('l'))

@@ -41,7 +41,7 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::Filepath, "the filename to use")
+            .optional("filename", SyntaxShape::Filepath, "The filename to use.")
             .rest(
                 "filenames",
                 SyntaxShape::Filepath,

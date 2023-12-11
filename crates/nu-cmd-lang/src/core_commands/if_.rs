@@ -36,7 +36,7 @@ impl Command for If {
                         SyntaxShape::Expression,
                     ])),
                 ),
-                "expression or block to run if check fails",
+                "Expression or block to run when the condition is false.",
             )
             .category(Category::Core)
     }

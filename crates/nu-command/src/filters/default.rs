@@ -24,7 +24,11 @@ impl Command for Default {
                 SyntaxShape::Any,
                 "The value to use as a default.",
             )
-            .optional("column name", SyntaxShape::String, "the name of the column")
+            .optional(
+                "column name",
+                SyntaxShape::String,
+                "The name of the column.",
+            )
             .category(Category::Filters)
     }
 

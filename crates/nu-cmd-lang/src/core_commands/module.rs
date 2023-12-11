@@ -24,7 +24,7 @@ impl Command for Module {
             .optional(
                 "block",
                 SyntaxShape::Block,
-                "body of the module if 'module' parameter is not a module path",
+                "Body of the module if 'module' parameter is not a module path.",
             )
             .category(Category::Core)
     }
