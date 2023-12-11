@@ -74,7 +74,7 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                    "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
