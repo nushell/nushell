@@ -71,6 +71,20 @@ fn arguments_end_period() {
 
 #[test]
 fn arguments_start_uppercase() {
+    fn starts_uppercase(cmd_name: &str, ty: &str, arg: PositionalArg, failures: &mut Vec<String>) {
+        let arg_name = arg.name;
+        let desc = arg.desc;
+
+        // Check lowercase to allow usage to contain syntax like:
+        //
+        // "`as` keyword …"
+        if desc.starts_with(|u: char| u.is_lowercase()) {
+            failures.push(format!(
+                "{cmd_name} {ty} argument \"{arg_name}\": \"{desc}\""
+            ));
+        }
+    }
+
     let ctx = crate::create_default_context();
     let decls = ctx.get_decls_sorted(true);
     let mut failures = Vec::new();
@@ -81,28 +95,15 @@ fn arguments_start_uppercase() {
         let signature = cmd.signature();
 
         for arg in signature.required_positional {
-            let arg_name = arg.name;
-            let desc = arg.desc;
-
-            // Check lowercase to allow usage to contain syntax like:
-            //
-            // "`as` keyword …"
-            if !desc.starts_with(|u: char| u.is_uppercase()) {
-                failures.push(format!(
-                    "{cmd_name} required argument \"{arg_name}\": \"{desc}\""
-                ));
-            }
+            starts_uppercase(&cmd_name, "required", arg, &mut failures);
         }
 
         for arg in signature.optional_positional {
-            let arg_name = arg.name;
-            let desc = arg.desc;
+            starts_uppercase(&cmd_name, "optional", arg, &mut failures);
+        }
 
-            if desc.starts_with(|u: char| u.is_lowercase()) {
-                failures.push(format!(
-                    "{cmd_name} optional argument \"{arg_name}\": \"{desc}\""
-                ));
-            }
+        if let Some(arg) = signature.rest_positional {
+            starts_uppercase(&cmd_name, "rest", arg, &mut failures);
         }
     }
 
