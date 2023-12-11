@@ -26,7 +26,7 @@ impl Command for HelpExterns {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of extern to get help on",
+                "The name of extern to get help on.",
             )
             .named(
                 "find",

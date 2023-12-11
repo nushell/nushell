@@ -48,7 +48,7 @@ impl Command for External {
             )
             .switch("trim-end-newline", "trimming end newlines", None)
             .required("command", SyntaxShape::String, "External command to run.")
-            .rest("args", SyntaxShape::Any, "arguments for external command")
+            .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
     }
 

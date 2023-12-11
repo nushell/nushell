@@ -53,7 +53,11 @@ impl Command for Do {
                 "keep the environment defined inside the command",
                 None,
             )
-            .rest("rest", SyntaxShape::Any, "the parameter(s) for the closure")
+            .rest(
+                "rest",
+                SyntaxShape::Any,
+                "The parameter(s) for the closure.",
+            )
             .category(Category::Core)
     }
 

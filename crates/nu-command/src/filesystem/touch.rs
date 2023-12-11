@@ -52,7 +52,7 @@ impl Command for Touch {
                 "do not create the file if it does not exist",
                 Some('c'),
             )
-            .rest("rest", SyntaxShape::Filepath, "additional files to create")
+            .rest("rest", SyntaxShape::Filepath, "Additional files to create.")
             .category(Category::FileSystem)
     }
 

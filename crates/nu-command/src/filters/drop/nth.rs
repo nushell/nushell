@@ -27,7 +27,7 @@ impl Command for DropNth {
                 SyntaxShape::Any,
                 "The number of the row to drop or a range to drop consecutive rows.",
             )
-            .rest("rest", SyntaxShape::Any, "the number of the row to drop")
+            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 

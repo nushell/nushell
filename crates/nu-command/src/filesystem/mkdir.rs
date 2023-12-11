@@ -23,7 +23,7 @@ impl Command for Mkdir {
             .rest(
                 "rest",
                 SyntaxShape::Directory,
-                "the name(s) of the path(s) to create",
+                "The name(s) of the path(s) to create.",
             )
             .switch("verbose", "print created path(s).", Some('v'))
             .category(Category::FileSystem)

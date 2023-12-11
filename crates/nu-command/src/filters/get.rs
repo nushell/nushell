@@ -41,7 +41,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 SyntaxShape::CellPath,
                 "The cell path to the data.",
             )
-            .rest("rest", SyntaxShape::CellPath, "additional cell paths")
+            .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",

@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, operate on strings at the given cell paths",
+                "For a data structure input, operate on strings at the given cell paths.",
             )
             .switch("all", "replace all occurrences of the pattern", Some('a'))
             .switch(

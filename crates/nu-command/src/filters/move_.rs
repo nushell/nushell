@@ -30,7 +30,7 @@ impl Command for Move {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .rest("columns", SyntaxShape::String, "the columns to move")
+            .rest("columns", SyntaxShape::String, "The columns to move.")
             .named(
                 "after",
                 SyntaxShape::String,

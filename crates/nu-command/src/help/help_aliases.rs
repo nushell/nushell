@@ -26,7 +26,7 @@ impl Command for HelpAliases {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of alias to get help on",
+                "The name of alias to get help on.",
             )
             .named(
                 "find",

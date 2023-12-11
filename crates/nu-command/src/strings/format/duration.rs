@@ -45,7 +45,7 @@ impl Command for FormatDuration {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, format duration at the given cell paths",
+                "For a data structure input, format duration at the given cell paths.",
             )
             .category(Category::Strings)
     }

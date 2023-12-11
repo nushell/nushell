@@ -42,7 +42,7 @@ impl Command for FormatFilesize {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, format filesizes at the given cell paths",
+                "For a data structure input, format filesizes at the given cell paths.",
             )
             .category(Category::Strings)
     }

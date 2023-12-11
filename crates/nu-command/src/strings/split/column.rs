@@ -35,7 +35,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "column names to give the new columns",
+                "column names to give the new columns.",
             )
             .category(Category::Strings)
     }

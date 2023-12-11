@@ -39,7 +39,7 @@ impl Command for BytesRemove {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, remove bytes from data at the given cell paths",
+                "For a data structure input, remove bytes from data at the given cell paths.",
             )
             .switch("end", "remove from end of binary", Some('e'))
             .switch("all", "remove occurrences of finding binary", Some('a'))

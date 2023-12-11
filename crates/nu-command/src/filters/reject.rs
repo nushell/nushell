@@ -33,7 +33,7 @@ impl Command for Reject {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the names of columns to remove from the table",
+                "The names of columns to remove from the table.",
             )
             .category(Category::Filters)
     }

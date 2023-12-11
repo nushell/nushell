@@ -167,7 +167,7 @@ impl Command for Char {
                 SyntaxShape::Any,
                 "The name of the character to output.",
             )
-            .rest("rest", SyntaxShape::Any, "multiple Unicode bytes")
+            .rest("rest", SyntaxShape::Any, "Multiple Unicode bytes.")
             .switch("list", "List all supported character names", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378", Some('u'))
             .switch("integer", "Create a codepoint from an integer", Some('i'))

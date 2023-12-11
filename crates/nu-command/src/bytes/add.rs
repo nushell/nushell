@@ -51,7 +51,7 @@ impl Command for BytesAdd {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, add bytes to the data at the given cell paths",
+                "For a data structure input, add bytes to the data at the given cell paths.",
             )
             .category(Category::Bytes)
     }

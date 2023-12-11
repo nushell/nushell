@@ -25,7 +25,7 @@ impl Command for Use {
             .rest(
                 "members",
                 SyntaxShape::Any,
-                "Which members of the module to import",
+                "Which members of the module to import.",
             )
             .category(Category::Core)
     }

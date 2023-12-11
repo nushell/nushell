@@ -58,7 +58,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, search strings at the given cell paths, and replace with result",
+                "For a data structure input, search strings at the given cell paths, and replace with result.",
             )
             .named(
                 "range",

@@ -68,7 +68,7 @@ impl Command for Rm {
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "additional file path(s) to remove",
+                "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
     }

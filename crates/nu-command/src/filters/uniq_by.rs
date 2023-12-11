@@ -24,7 +24,7 @@ impl Command for UniqBy {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .rest("columns", SyntaxShape::Any, "the column(s) to filter by")
+            .rest("columns", SyntaxShape::Any, "The column(s) to filter by.")
             .switch(
                 "count",
                 "Return a table containing the distinct input values together with their counts",

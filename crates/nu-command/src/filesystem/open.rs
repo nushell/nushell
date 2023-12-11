@@ -45,7 +45,7 @@ impl Command for Open {
             .rest(
                 "filenames",
                 SyntaxShape::Filepath,
-                "optional additional files to open",
+                "Optional additional files to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
             .category(Category::FileSystem)
