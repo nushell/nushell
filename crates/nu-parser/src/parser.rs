@@ -980,13 +980,13 @@ pub fn parse_internal_call(
                         Span::new(arg_span.start + 3, arg_span.end),
                         &SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     );
-                    spans_idx += 1;
 
                     call.add_spread(args);
                 } else {
                     working_set.error(ParseError::UnexpectedSpreadArg(arg_span));
                 }
 
+                spans_idx += 1;
                 continue;
             }
         }
