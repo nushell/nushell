@@ -139,7 +139,7 @@ fn get_documentation(
     if !sig.named.is_empty() {
         long_desc.push_str(&get_flags_section(Some(engine_state), sig, |v| {
             nu_highlight_string(
-                &v.into_string_parsable(", ", &engine_state.config),
+                &v.into_string(", ", &engine_state.config),
                 engine_state,
                 stack,
             )
@@ -185,9 +185,9 @@ fn get_documentation(
                 _ => {
                     let opt_suffix = if let Some(value) = &positional.default_value {
                         format!(
-                            " (optional, default: {})",
+                            " (optional, default: `{}`)",
                             nu_highlight_string(
-                                &value.into_string_parsable(", ", &engine_state.config),
+                                &value.into_string(", ", &engine_state.config),
                                 engine_state,
                                 stack
                             )
