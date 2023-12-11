@@ -352,7 +352,7 @@ impl Stack {
         let checked_name = if &name.to_ascii_lowercase() == "path" {
             "PATH"
         } else {
-            &name
+            name
         };
 
         for scope in self.env_vars.iter().rev() {
@@ -389,7 +389,7 @@ impl Stack {
         let checked_name = if &name.to_ascii_lowercase() == "path" {
             "PATH"
         } else {
-            &name
+            name
         };
 
         for scope in self.env_vars.iter().rev() {
@@ -426,7 +426,7 @@ impl Stack {
         let checked_name = if &name.to_ascii_lowercase() == "path" {
             "PATH"
         } else {
-            &name
+            name
         };
 
         for scope in self.env_vars.iter_mut().rev() {
@@ -464,7 +464,7 @@ impl Stack {
         let checked_name = if &name.to_ascii_lowercase() == "path" {
             "PATH"
         } else {
-            &name
+            name
         };
 
         for scope in self.env_vars.iter().rev() {
