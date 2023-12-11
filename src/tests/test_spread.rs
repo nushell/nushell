@@ -139,3 +139,22 @@ fn spread_type_record() -> TestResult {
         "type_mismatch",
     )
 }
+
+#[test]
+fn spread_external_args() -> TestResult {
+    run_test(r#"^echo ...[1 2] 3 ...[4 5]"#, "1 2 3 4 5")
+}
+
+#[test]
+fn spread_internal_args() -> TestResult {
+    run_test(
+        r#"def f [a b c? d? ...x] { echo a b c d $x }
+                 f 1 2 ...[5 6]"#,
+        "",
+    ).unwrap();
+    fail_test(
+        r#"def f [a b c? d? ...x] { echo a b c d $x }
+                 f 1 ...[5 6]"#,
+        "unexpected spread argument",
+    )
+}

@@ -485,11 +485,8 @@ pub enum ParseError {
     ),
 
     #[error("Unexpected spread argument.")]
-    #[diagnostic(
-        code(nu::parser::unexpected_spread_arg),
-        help("This command does not have a rest parameter. Try listing the arguments individually.")
-    )]
-    UnexpectedSpreadArg(#[label = "unexpected spread argument"] Span),
+    #[diagnostic(code(nu::parser::unexpected_spread_arg), help("Usage: {0}"))]
+    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
 
 impl ParseError {
@@ -576,7 +573,7 @@ impl ParseError {
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectionInLetMut(s, _) => *s,
-            ParseError::UnexpectedSpreadArg(s) => *s,
+            ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
 }

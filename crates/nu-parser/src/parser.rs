@@ -973,7 +973,9 @@ pub fn parse_internal_call(
                 && contents.starts_with(b"...")
                 && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
             {
-                if signature.rest_positional.is_some() {
+                if positional_idx >= signature.required_positional.len()
+                    && signature.rest_positional.is_some()
+                {
                     // Parse list of arguments to be spread
                     let args = parse_value(
                         working_set,
@@ -983,7 +985,10 @@ pub fn parse_internal_call(
 
                     call.add_spread(args);
                 } else {
-                    working_set.error(ParseError::UnexpectedSpreadArg(arg_span));
+                    working_set.error(ParseError::UnexpectedSpreadArg(
+                        signature.call_signature(),
+                        arg_span,
+                    ));
                 }
 
                 spans_idx += 1;
