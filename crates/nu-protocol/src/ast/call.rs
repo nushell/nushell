@@ -10,6 +10,7 @@ pub enum Argument {
     Positional(Expression),
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
     Unknown(Expression), // unknown argument used in "fall-through" signatures
+    Spread(Expression), // a list spread to fill in rest arguments
 }
 
 impl Argument {
@@ -30,6 +31,7 @@ impl Argument {
                 Span::new(start, end)
             }
             Argument::Unknown(e) => e.span,
+            Argument::Spread(e) => e.span,
         }
     }
 }
@@ -85,6 +87,7 @@ impl Call {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
+            Argument::Spread(_) => None,
         })
     }
 
@@ -96,6 +99,7 @@ impl Call {
             Argument::Named(named) => Some(named),
             Argument::Positional(_) => None,
             Argument::Unknown(_) => None,
+            Argument::Spread(_) => None,
         })
     }
 
@@ -118,11 +122,16 @@ impl Call {
         self.arguments.push(Argument::Unknown(unknown));
     }
 
+    pub fn add_spread(&mut self, args: Expression) {
+        self.arguments.push(Argument::Spread(args));
+    }
+
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
         self.arguments.iter().filter_map(|arg| match arg {
             Argument::Named(_) => None,
             Argument::Positional(positional) => Some(positional),
             Argument::Unknown(unknown) => Some(unknown),
+            Argument::Spread(_) => None,
         })
     }
 
@@ -131,6 +140,7 @@ impl Call {
             Argument::Named(_) => None,
             Argument::Positional(positional) => Some(positional),
             Argument::Unknown(unknown) => Some(unknown),
+            Argument::Spread(_) => None,
         })
     }
 

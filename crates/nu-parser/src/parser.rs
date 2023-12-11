@@ -965,6 +965,32 @@ pub fn parse_internal_call(
             continue;
         }
 
+        {
+            let arg_span = spans[spans_idx];
+            let contents = working_set.get_span_contents(arg_span);
+
+            if contents.len() > 3
+                && contents.starts_with(b"...")
+                && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+            {
+                if signature.rest_positional.is_some() {
+                    // Parse list of arguments to be spread
+                    let args = parse_value(
+                        working_set,
+                        Span::new(arg_span.start + 3, arg_span.end),
+                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    );
+                    spans_idx += 1;
+
+                    call.add_spread(args);
+                } else {
+                    working_set.error(ParseError::UnexpectedSpreadArg(arg_span));
+                }
+
+                continue;
+            }
+        }
+
         // Parse a positional arg if there is one
         if let Some(positional) = signature.get_positional(positional_idx) {
             let end = calculate_end_span(working_set, &signature, spans, spans_idx, positional_idx);
