@@ -8,6 +8,11 @@ use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
 
+#[cfg(windows)]
+const ENV_PATH_NAME: &str = "Path";
+#[cfg(not(windows))]
+const ENV_PATH_NAME: &str = "PATH";
+
 /// A runtime value stack used during evaluation
 ///
 /// A note on implementation:
@@ -117,7 +122,7 @@ impl Stack {
     pub fn add_env_var(&mut self, var: String, value: Value) {
         // When dealing with Path/PATH always make it PATH
         let checked_var = if &var.to_ascii_lowercase() == "path" {
-            "PATH"
+            ENV_PATH_NAME
         } else {
             &var
         };
@@ -223,7 +228,7 @@ impl Stack {
                         .map(|(k, v)| {
                             // No matter the case, always return PATH as uppercase
                             if k.to_ascii_lowercase() == "path" {
-                                ("PATH".into(), v.clone())
+                                (ENV_PATH_NAME.into(), v.clone())
                             } else {
                                 (k.clone(), v.clone())
                             }
@@ -252,7 +257,7 @@ impl Stack {
                             .map(|(k, v)| {
                                 // No matter the case, always return PATH as uppercase
                                 if k.to_ascii_lowercase() == "path" {
-                                    ("PATH".into(), v.clone())
+                                    (ENV_PATH_NAME.into(), v.clone())
                                 } else {
                                     (k.clone(), v.clone())
                                 }
@@ -280,7 +285,7 @@ impl Stack {
                             .map(|(k, v)| {
                                 // No matter the case, always return PATH as uppercase
                                 if k.to_ascii_lowercase() == "path" {
-                                    ("PATH".into(), v.clone())
+                                    (ENV_PATH_NAME.into(), v.clone())
                                 } else {
                                     (k.clone(), v.clone())
                                 }
@@ -314,7 +319,7 @@ impl Stack {
                         .map(|k| {
                             // No matter the case, always return PATH as uppercase
                             if k.to_ascii_lowercase() == "path" {
-                                "PATH".into()
+                                ENV_PATH_NAME.into()
                             } else {
                                 k.clone()
                             }
@@ -333,7 +338,7 @@ impl Stack {
                             .map(|k| {
                                 // No matter the case, always return PATH as uppercase
                                 if k.to_ascii_lowercase() == "path" {
-                                    "PATH".into()
+                                    ENV_PATH_NAME.into()
                                 } else {
                                     k.clone()
                                 }
@@ -350,7 +355,7 @@ impl Stack {
     pub fn get_env_var(&self, engine_state: &EngineState, name: &str) -> Option<Value> {
         // When dealing with Path/PATH always make it PATH
         let checked_name = if &name.to_ascii_lowercase() == "path" {
-            "PATH"
+            ENV_PATH_NAME
         } else {
             name
         };
@@ -387,7 +392,7 @@ impl Stack {
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
         // When dealing with Path/PATH always make it PATH
         let checked_name = if &name.to_ascii_lowercase() == "path" {
-            "PATH"
+            ENV_PATH_NAME
         } else {
             name
         };
@@ -424,7 +429,7 @@ impl Stack {
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         // When dealing with Path/PATH always make it PATH
         let checked_name = if &name.to_ascii_lowercase() == "path" {
-            "PATH"
+            ENV_PATH_NAME
         } else {
             name
         };
@@ -462,7 +467,7 @@ impl Stack {
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
         // When dealing with Path/PATH always make it PATH
         let checked_name = if &name.to_ascii_lowercase() == "path" {
-            "PATH"
+            ENV_PATH_NAME
         } else {
             name
         };
