@@ -46,7 +46,7 @@ const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
-    stack: &mut Stack,
+    mut stack: Stack,
     nushell_path: &str,
     prerun_command: Option<Spanned<String>>,
     load_std_lib: Option<Spanned<String>>,
@@ -72,7 +72,7 @@ pub fn evaluate_repl(
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
-    if let Some(e) = convert_env_values(engine_state, stack) {
+    if let Some(e) = convert_env_values(engine_state, &stack) {
         let working_set = StateWorkingSet::new(engine_state);
         report_error(&working_set, &e);
     }
@@ -148,13 +148,14 @@ pub fn evaluate_repl(
     if let Some(s) = prerun_command {
         eval_source(
             engine_state,
-            stack,
+            &mut stack,
             s.item.as_bytes(),
             &format!("entry #{entry_num}"),
             PipelineData::empty(),
             false,
         );
-        engine_state.merge_env(stack, get_guaranteed_cwd(engine_state, stack))?;
+        let cwd = get_guaranteed_cwd(engine_state, &stack);
+        engine_state.merge_env(&mut stack, cwd)?;
     }
 
     engine_state.set_startup_time(entire_start_time.elapsed().as_nanos() as i64);
@@ -166,7 +167,7 @@ pub fn evaluate_repl(
     if load_std_lib.is_none() && engine_state.get_config().show_banner {
         eval_source(
             engine_state,
-            stack,
+            &mut stack,
             r#"use std banner; banner"#.as_bytes(),
             "show_banner",
             PipelineData::empty(),
@@ -178,17 +179,34 @@ pub fn evaluate_repl(
         warn!("Terminal doesn't support use_kitty_protocol config");
     }
 
+    // now that we've done all the setup, we're going to put the stack in an Arc<Mutex>>
+    // This is to allow various plugins to have access to the stack, without resorting to cloning
+    // (which might lead to weird surprises if, for example, the prompt actually edits the stack,
+    //  but is in fact just editing a copy!)
+    let stack = stack.into_shareable();
+
     loop {
         let loop_start_time = std::time::Instant::now();
 
-        let cwd = get_guaranteed_cwd(engine_state, stack);
+        let mut locked_stack = stack.lock().expect("Shared stack deadlock");
+        let cwd = get_guaranteed_cwd(engine_state, &locked_stack);
+
+        perf(
+            "get guaranteed cwd",
+            loop_start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
 
         start_time = std::time::Instant::now();
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
-        if let Err(err) = engine_state.merge_env(stack, cwd) {
+        if let Err(err) = engine_state.merge_env(&mut locked_stack, cwd) {
             report_error_new(engine_state, &err);
         }
+        drop(locked_stack);
         perf(
             "merge env",
             start_time,
@@ -270,7 +288,7 @@ pub fn evaluate_repl(
             .with_cursor_config(cursor_config)
             .with_transient_prompt(prompt_update::transient_prompt(
                 engine_reference.clone(),
-                stack,
+                stack.clone(),
             ));
         perf(
             "reedline builder",
@@ -280,8 +298,8 @@ pub fn evaluate_repl(
             column!(),
             use_color,
         );
-
-        let style_computer = StyleComputer::from_config(engine_state, stack);
+        let locked_stack = stack.lock().expect("Shared stack deadlock");
+        let style_computer = StyleComputer::from_config(engine_state, &locked_stack);
 
         start_time = std::time::Instant::now();
         line_editor = if config.use_ansi_coloring {
@@ -293,6 +311,8 @@ pub fn evaluate_repl(
         } else {
             line_editor.disable_hints()
         };
+        drop(locked_stack);
+
         perf(
             "reedline coloring/style_computer",
             start_time,
@@ -303,11 +323,16 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
-            Reedline::create()
-        });
+
+        line_editor = {
+            let stack = stack.lock().expect("Shared stack deadlock");
+            add_menus(line_editor, engine_reference, &stack, config).unwrap_or_else(|e| {
+                let working_set = StateWorkingSet::new(engine_state);
+                report_error(&working_set, &e);
+                Reedline::create()
+            })
+        };
+
         perf(
             "reedline menus",
             start_time,
@@ -318,7 +343,10 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        let buffer_editor = get_editor(engine_state, stack, Span::unknown());
+        let buffer_editor = {
+            let stack = stack.lock().expect("Shared stack deadlock");
+            get_editor(engine_state, &stack, Span::unknown())
+        };
 
         line_editor = if let Ok((cmd, args)) = buffer_editor {
             let mut command = std::process::Command::new(&cmd);
@@ -391,7 +419,9 @@ pub fn evaluate_repl(
         // Right before we start our prompt and take input from the user,
         // fire the "pre_prompt" hook
         if let Some(hook) = config.hooks.pre_prompt.clone() {
-            if let Err(err) = eval_hook(engine_state, stack, None, vec![], &hook, "pre_prompt") {
+            let mut stack = stack.lock().expect("Shared stack deadlock");
+            if let Err(err) = eval_hook(engine_state, &mut stack, None, vec![], &hook, "pre_prompt")
+            {
                 report_error_new(engine_state, &err);
             }
         }
@@ -408,11 +438,16 @@ pub fn evaluate_repl(
         // Next, check all the environment variables they ask for
         // fire the "env_change" hook
         let config = engine_state.get_config();
-        if let Err(error) =
-            hook::eval_env_change_hook(config.hooks.env_change.clone(), engine_state, stack)
-        {
+        let mut locked_stack = stack.lock().expect("Shared stack deadlock");
+        if let Err(error) = hook::eval_env_change_hook(
+            config.hooks.env_change.clone(),
+            engine_state,
+            &mut locked_stack,
+        ) {
             report_error_new(engine_state, &error)
         }
+        drop(locked_stack);
+
         perf(
             "env-change hook",
             start_time,
@@ -424,7 +459,10 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         let config = &engine_state.get_config().clone();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        let prompt = {
+            let mut stack = stack.lock().expect("Shared stack deadlock");
+            prompt_update::update_prompt(config, engine_state, &mut stack, &mut nu_prompt)
+        };
         perf(
             "update_prompt",
             start_time,
@@ -465,10 +503,15 @@ pub fn evaluate_repl(
                     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
                     repl.buffer = s.to_string();
                     drop(repl);
-
-                    if let Err(err) =
-                        eval_hook(engine_state, stack, None, vec![], &hook, "pre_execution")
-                    {
+                    let mut stack = stack.lock().expect("Shared stack deadlock");
+                    if let Err(err) = eval_hook(
+                        engine_state,
+                        &mut stack,
+                        None,
+                        vec![],
+                        &hook,
+                        "pre_execution",
+                    ) {
                         report_error_new(engine_state, &err);
                     }
                 }
@@ -485,7 +528,10 @@ pub fn evaluate_repl(
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
-                let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
+                let cwd = {
+                    let stack = stack.lock().expect("Shared stack deadlock");
+                    nu_engine::env::current_dir_str(engine_state, &stack)
+                }?;
 
                 let mut orig = s.clone();
                 if orig.starts_with('`') {
@@ -512,7 +558,9 @@ pub fn evaluate_repl(
                             .expect("internal error: cannot canonicalize known path");
                         (path.to_string_lossy().to_string(), tokens.0[0].span)
                     };
-
+                    // This is a long lock, as this is doing a lot of stuff with the stack up until the end
+                    // of the block
+                    let mut stack = stack.lock().expect("Shared stack deadlock");
                     stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
 
                     //FIXME: this only changes the current scope, but instead this environment variable
@@ -573,10 +621,10 @@ pub fn evaluate_repl(
                             }
                         }
                     }
-
+                    let mut stack = stack.lock().expect("Shared stack deadlock");
                     eval_source(
                         engine_state,
-                        stack,
+                        &mut stack,
                         s.as_bytes(),
                         &format!("entry #{entry_num}"),
                         PipelineData::empty(),
@@ -585,13 +633,16 @@ pub fn evaluate_repl(
                 }
                 let cmd_duration = start_time.elapsed();
 
-                stack.add_env_var(
-                    "CMD_DURATION_MS".into(),
-                    Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
-                );
-
+                {
+                    let mut stack = stack.lock().expect("Shared stack deadlock");
+                    stack.add_env_var(
+                        "CMD_DURATION_MS".into(),
+                        Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
+                    );
+                }
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
                 {
+                    let stack = stack.lock().expect("Shared stack deadlock");
                     line_editor
                         .update_last_command_context(&|mut c| {
                             c.duration = Some(cmd_duration);
@@ -604,7 +655,8 @@ pub fn evaluate_repl(
                 }
 
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    let stack = stack.lock().expect("Shared stack deadlock");
+                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state))?;
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
 
@@ -662,13 +714,15 @@ pub fn evaluate_repl(
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    let stack = stack.lock().expect("Shared stack deadlock");
+                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state))?;
                 }
             }
             Ok(Signal::CtrlD) => {
                 // When exiting clear to a new line
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    let stack = stack.lock().expect("Shared stack deadlock");
+                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state))?;
                 }
                 println!();
                 break;
@@ -683,7 +737,8 @@ pub fn evaluate_repl(
                     // Alternatively only allow that expected failures let the REPL loop
                 }
                 if shell_integration {
-                    run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
+                    let stack = stack.lock().expect("Shared stack deadlock");
+                    run_ansi_sequence(&get_command_finished_marker(&stack, engine_state))?;
                 }
             }
         }

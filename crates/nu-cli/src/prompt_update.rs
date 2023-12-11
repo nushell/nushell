@@ -1,6 +1,7 @@
 use crate::NushellPrompt;
 use log::trace;
 use nu_engine::eval_subexpression;
+use nu_protocol::engine::ShareableStack;
 use nu_protocol::report_error;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
@@ -101,12 +102,10 @@ fn get_prompt_string(
 pub(crate) fn update_prompt<'prompt>(
     config: &Config,
     engine_state: &EngineState,
-    stack: &Stack,
+    stack: &mut Stack,
     nu_prompt: &'prompt mut NushellPrompt,
 ) -> &'prompt dyn Prompt {
-    let mut stack = stack.clone();
-
-    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, &mut stack);
+    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, stack);
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><prompt><133 B><command><133 C><command output>
@@ -122,20 +121,18 @@ pub(crate) fn update_prompt<'prompt>(
         left_prompt_string
     };
 
-    let right_prompt_string =
-        get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, &mut stack);
+    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
 
-    let prompt_indicator_string =
-        get_prompt_string(PROMPT_INDICATOR, config, engine_state, &mut stack);
+    let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
 
     let prompt_vi_insert_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
 
     let prompt_vi_normal_string =
-        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, &mut stack);
+        get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, stack);
 
     // apply the other indicators
     nu_prompt.update_all_prompt_strings(
@@ -155,7 +152,7 @@ pub(crate) fn update_prompt<'prompt>(
 
 struct TransientPrompt {
     engine_state: Arc<EngineState>,
-    stack: Stack,
+    stack: ShareableStack,
 }
 
 /// Try getting `$env.TRANSIENT_PROMPT_<X>`, and get `$env.PROMPT_<X>` if that fails
@@ -174,38 +171,42 @@ impl Prompt for TransientPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        nu_prompt.update_prompt_left(get_transient_prompt_string(
-            TRANSIENT_PROMPT_COMMAND,
-            PROMPT_COMMAND,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ));
+        {
+            let mut stack = self.stack.lock().expect("Shared stack deadlock");
+            nu_prompt.update_prompt_left(get_transient_prompt_string(
+                TRANSIENT_PROMPT_COMMAND,
+                PROMPT_COMMAND,
+                config,
+                &self.engine_state,
+                &mut stack,
+            ));
+        }
         nu_prompt.render_prompt_left().to_string().into()
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        nu_prompt.update_prompt_right(
-            get_transient_prompt_string(
-                TRANSIENT_PROMPT_COMMAND_RIGHT,
-                PROMPT_COMMAND_RIGHT,
-                config,
-                &self.engine_state,
-                &mut stack,
-            ),
-            config.render_right_prompt_on_last_line,
-        );
+        {
+            let mut stack = self.stack.lock().expect("Shared stack deadlock");
+            nu_prompt.update_prompt_right(
+                get_transient_prompt_string(
+                    TRANSIENT_PROMPT_COMMAND_RIGHT,
+                    PROMPT_COMMAND_RIGHT,
+                    config,
+                    &self.engine_state,
+                    &mut stack,
+                ),
+                config.render_right_prompt_on_last_line,
+            );
+        }
         nu_prompt.render_prompt_right().to_string().into()
     }
 
     fn render_prompt_indicator(&self, prompt_mode: reedline::PromptEditMode) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
+        let mut stack = self.stack.lock().expect("Shared stack deadlock");
         nu_prompt.update_prompt_indicator(get_transient_prompt_string(
             TRANSIENT_PROMPT_INDICATOR,
             PROMPT_INDICATOR,
@@ -236,7 +237,7 @@ impl Prompt for TransientPrompt {
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
         let mut nu_prompt = NushellPrompt::new();
         let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
+        let mut stack = self.stack.lock().expect("Shared stack deadlock");
         nu_prompt.update_prompt_multiline(get_transient_prompt_string(
             TRANSIENT_PROMPT_MULTILINE_INDICATOR,
             PROMPT_MULTILINE_INDICATOR,
@@ -262,9 +263,12 @@ impl Prompt for TransientPrompt {
 }
 
 /// Construct the transient prompt
-pub(crate) fn transient_prompt(engine_state: Arc<EngineState>, stack: &Stack) -> Box<dyn Prompt> {
+pub(crate) fn transient_prompt(
+    engine_state: Arc<EngineState>,
+    stack: ShareableStack,
+) -> Box<dyn Prompt> {
     Box::new(TransientPrompt {
         engine_state,
-        stack: stack.clone(),
+        stack,
     })
 }

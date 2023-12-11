@@ -2,7 +2,7 @@ use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, ShareableStack, StateWorkingSet},
     PipelineData, Span, Type, Value,
 };
 use nu_utils::IgnoreCaseExt;
@@ -14,14 +14,19 @@ use super::completer::map_value_completions;
 
 pub struct CustomCompletion {
     engine_state: Arc<EngineState>,
-    stack: Stack,
+    stack: ShareableStack,
     decl_id: usize,
     line: String,
     sort_by: SortBy,
 }
 
 impl CustomCompletion {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack, decl_id: usize, line: String) -> Self {
+    pub fn new(
+        engine_state: Arc<EngineState>,
+        stack: ShareableStack,
+        decl_id: usize,
+        line: String,
+    ) -> Self {
         Self {
             engine_state,
             stack,
@@ -45,10 +50,12 @@ impl Completer for CustomCompletion {
         // Line position
         let line_pos = pos - offset;
 
+        let mut stack = self.stack.lock().expect("Shared stack deadlock");
+
         // Call custom declaration
         let result = eval_call(
             &self.engine_state,
-            &mut self.stack,
+            &mut stack,
             &Call {
                 decl_id: self.decl_id,
                 head: span,
@@ -72,6 +79,7 @@ impl Completer for CustomCompletion {
             },
             PipelineData::empty(),
         );
+        drop(stack);
 
         let mut custom_completion_options = None;
 

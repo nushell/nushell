@@ -533,7 +533,7 @@ impl LanguageServer {
             &params.text_document_position.text_document.uri,
         )?;
 
-        let stack = Stack::new();
+        let stack = Stack::new().into_shareable();
         let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
 
         let location =

@@ -22,7 +22,7 @@ fn completer() -> NuCompleter {
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
-    NuCompleter::new(std::sync::Arc::new(engine), stack)
+    NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable())
 }
 
 #[fixture]
@@ -36,7 +36,7 @@ fn completer_strings() -> NuCompleter {
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
-    NuCompleter::new(std::sync::Arc::new(engine), stack)
+    NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable())
 }
 
 #[fixture]
@@ -56,7 +56,7 @@ fn extern_completer() -> NuCompleter {
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
-    NuCompleter::new(std::sync::Arc::new(engine), stack)
+    NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable())
 }
 
 #[fixture]
@@ -79,14 +79,14 @@ fn custom_completer() -> NuCompleter {
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
-    NuCompleter::new(std::sync::Arc::new(engine), stack)
+    NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable())
 }
 
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "$ ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -138,7 +138,7 @@ fn dotnu_completions() {
     let (_, _, engine, stack) = new_engine();
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Test source completion
     let completion_str = "source-env ".to_string();
@@ -198,7 +198,7 @@ fn file_completions() {
     let (dir, dir_str, engine, stack) = new_engine();
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Test completions for the current folder
     let target_dir = format!("cp {dir_str}");
@@ -235,7 +235,7 @@ fn partial_completions() {
     let (dir, _, engine, stack) = new_partial_engine();
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Test completions for a folder's name
     let target_dir = format!("cd {}", file(dir.join("pa")));
@@ -314,7 +314,7 @@ fn partial_completions() {
 fn command_ls_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "ls ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -346,7 +346,7 @@ fn command_ls_with_filecompletion() {
 fn command_open_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "open ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -379,7 +379,7 @@ fn command_open_with_filecompletion() {
 fn command_rm_with_globcompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "rm ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -412,7 +412,7 @@ fn command_rm_with_globcompletion() {
 fn command_cp_with_globcompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "cp ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -445,7 +445,7 @@ fn command_cp_with_globcompletion() {
 fn command_save_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "save ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -478,7 +478,7 @@ fn command_save_with_filecompletion() {
 fn command_touch_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "touch ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -511,7 +511,7 @@ fn command_touch_with_filecompletion() {
 fn command_watch_with_filecompletion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "watch ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -544,7 +544,7 @@ fn command_watch_with_filecompletion() {
 fn file_completion_quoted() {
     let (_, _, engine, stack) = new_quote_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "open ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -581,7 +581,7 @@ fn flag_completions() {
     let (_, _, engine, stack) = new_engine();
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
     // Test completions for the 'ls' flags
     let suggestions = completer.complete("ls -", 4);
 
@@ -616,7 +616,7 @@ fn folder_with_directorycompletions() {
     let (dir, dir_str, engine, stack) = new_engine();
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Test completions for the current folder
     let target_dir = format!("cd {dir_str}");
@@ -644,7 +644,7 @@ fn variables_completions() {
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
@@ -745,7 +745,7 @@ fn alias_of_command_and_flags() {
     let alias = r#"alias ll = ls -l"#;
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
@@ -764,7 +764,7 @@ fn alias_of_basic_command() {
     let alias = r#"alias ll = ls "#;
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
@@ -786,7 +786,7 @@ fn alias_of_another_alias() {
     let alias = r#"alias lf = ll -f"#;
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let suggestions = completer.complete("lf t", 4);
     #[cfg(windows)]
@@ -821,7 +821,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     engine_state.set_config(config);
 
     // Instantiate a new completer
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack.into_shareable());
 
     completer.complete(input, input.len())
 }
@@ -830,7 +830,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
 fn unknown_command_completion() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let target_dir = "thiscommanddoesnotexist ";
     let suggestions = completer.complete(target_dir, target_dir.len());
@@ -891,7 +891,7 @@ fn flagcompletion_triggers_after_cursor_piped(mut completer: NuCompleter) {
 fn filecompletions_triggers_after_cursor() {
     let (_, _, engine, stack) = new_engine();
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     let suggestions = completer.complete("cp   test_c", 3);
 
@@ -998,7 +998,7 @@ fn alias_offset_bug_7648() {
     let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Issue #7648
     // Nushell crashes when an alias name is shorter than the alias command
@@ -1017,7 +1017,7 @@ fn alias_offset_bug_7754() {
     let alias = r#"alias ll = ls -l"#;
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack, dir).is_ok());
 
-    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack);
+    let mut completer = NuCompleter::new(std::sync::Arc::new(engine), stack.into_shareable());
 
     // Issue #7754
     // Nushell crashes when an alias name is shorter than the alias command

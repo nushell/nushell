@@ -99,7 +99,7 @@ fn get_editor_commandline(
 
 pub fn get_editor(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    stack: &Stack,
     span: Span,
 ) -> Result<(String, Vec<String>), ShellError> {
     let config = engine_state.get_config();

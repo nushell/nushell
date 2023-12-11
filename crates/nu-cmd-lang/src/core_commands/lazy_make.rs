@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Closure, Command, EngineState, Stack};
+use nu_protocol::engine::{Closure, Command, EngineState, ShareableStack, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, LazyRecord, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
@@ -98,7 +98,7 @@ impl Command for LazyMake {
 #[derive(Clone)]
 struct NuLazyRecord {
     engine_state: EngineState,
-    stack: Arc<Mutex<Stack>>,
+    stack: ShareableStack,
     columns: Vec<String>,
     get_value: Closure,
     span: Span,

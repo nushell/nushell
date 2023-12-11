@@ -272,7 +272,7 @@ pub(crate) fn run_repl(
     let start_time = std::time::Instant::now();
     let ret_val = evaluate_repl(
         engine_state,
-        &mut stack,
+        stack,
         config_files::NUSHELL_FOLDER,
         parsed_nu_cli_args.execute,
         parsed_nu_cli_args.no_std_lib,

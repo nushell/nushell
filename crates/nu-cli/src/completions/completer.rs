@@ -6,7 +6,7 @@ use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
     ast::PipelineElement,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, ShareableStack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
@@ -16,11 +16,11 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
-    stack: Stack,
+    stack: ShareableStack,
 }
 
 impl NuCompleter {
-    pub fn new(engine_state: Arc<EngineState>, stack: Stack) -> Self {
+    pub fn new(engine_state: Arc<EngineState>, stack: ShareableStack) -> Self {
         Self {
             engine_state,
             stack,
@@ -62,10 +62,11 @@ impl NuCompleter {
         offset: usize,
         span: Span,
     ) -> Option<Vec<Suggestion>> {
-        let stack = self.stack.clone();
         let block = self.engine_state.get_block(block_id);
-        let mut callee_stack = stack.gather_captures(&self.engine_state, &block.captures);
-
+        let mut callee_stack = {
+            let stack = self.stack.lock().expect("Shared stack deadlock");
+            stack.gather_captures(&self.engine_state, &block.captures)
+        };
         // Line
         if let Some(pos_arg) = block.signature.required_positional.first() {
             if let Some(var_id) = pos_arg.var_id {
@@ -506,6 +507,8 @@ pub fn map_value_completions<'a>(
 
 #[cfg(test)]
 mod completer_tests {
+    use nu_protocol::engine::Stack;
+
     use super::*;
 
     #[test]
@@ -526,7 +529,7 @@ mod completer_tests {
             result.err().unwrap()
         );
 
-        let mut completer = NuCompleter::new(engine_state.into(), Stack::new());
+        let mut completer = NuCompleter::new(engine_state.into(), Stack::new().into_shareable());
         let dataset = vec![
             ("sudo", false, "", Vec::new()),
             ("sudo l", true, "l", vec!["ls", "let", "lines", "loop"]),

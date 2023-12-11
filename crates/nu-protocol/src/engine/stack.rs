@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Mutex};
 
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
@@ -38,6 +39,9 @@ pub struct Stack {
     pub recursion_count: u64,
 }
 
+/// A Stack wrapped in Arc and Mutex, for sharing between multiple code paths.
+pub type ShareableStack = Arc<Mutex<Stack>>;
+
 impl Stack {
     pub fn new() -> Stack {
         Stack {
@@ -47,6 +51,10 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             recursion_count: 0,
         }
+    }
+
+    pub fn into_shareable(self) -> ShareableStack {
+        Arc::new(Mutex::from(self))
     }
 
     pub fn with_env(
@@ -191,6 +199,7 @@ impl Stack {
     }
 
     /// Flatten the env var scope frames into one frame
+    /// XXX this function is potentially extremely expensive
     pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 
@@ -219,6 +228,7 @@ impl Stack {
     }
 
     /// Get flattened environment variables only from the stack
+    /// XXX this function is potentially extremely expensive
     pub fn get_stack_env_vars(&self) -> HashMap<String, Value> {
         let mut result = HashMap::new();
 

@@ -1,7 +1,7 @@
 use crate::completions::{Completer, CompletionOptions};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, ShareableStack, StateWorkingSet},
     Span, Value,
 };
 
@@ -14,14 +14,14 @@ use super::MatchAlgorithm;
 #[derive(Clone)]
 pub struct VariableCompletion {
     engine_state: Arc<EngineState>, // TODO: Is engine state necessary? It's already a part of working set in fetch()
-    stack: Stack,
+    stack: ShareableStack,
     var_context: (Vec<u8>, Vec<Vec<u8>>), // tuple with $var and the sublevels (.b.c.d)
 }
 
 impl VariableCompletion {
     pub fn new(
         engine_state: Arc<EngineState>,
-        stack: Stack,
+        stack: ShareableStack,
         var_context: (Vec<u8>, Vec<Vec<u8>>),
     ) -> Self {
         Self {
@@ -56,7 +56,12 @@ impl Completer for VariableCompletion {
         if !var_str.is_empty() {
             // Completion for $env.<tab>
             if var_str == "$env" {
-                let env_vars = self.stack.get_env_vars(&self.engine_state);
+                // XXX this is doing an expensive copy of all the keys and values for
+                // autocomplete
+                let env_vars = {
+                    let stack = self.stack.lock().expect("Shared stack deadlock");
+                    stack.get_env_vars(&self.engine_state)
+                };
 
                 // Return nested values
                 if sublevels_count > 0 {
@@ -109,9 +114,11 @@ impl Completer for VariableCompletion {
             // Completions for $nu.<tab>
             if var_str == "$nu" {
                 // Eval nu var
+                let stack = self.stack.lock().expect("Shared stack deadlock");
+
                 if let Ok(nuval) = eval_variable(
                     &self.engine_state,
-                    &self.stack,
+                    &stack,
                     nu_protocol::NU_VARIABLE_ID,
                     nu_protocol::Span::new(current_span.start, current_span.end),
                 ) {
@@ -134,7 +141,10 @@ impl Completer for VariableCompletion {
             // Completion other variable types
             if let Some(var_id) = var_id {
                 // Extract the variable value from the stack
-                let var = self.stack.get_var(var_id, Span::new(span.start, span.end));
+                let var = {
+                    let stack = self.stack.lock().expect("Shared stack deadlock");
+                    stack.get_var(var_id, Span::new(span.start, span.end))
+                };
 
                 // If the value exists and it's of type Record
                 if let Ok(value) = var {
