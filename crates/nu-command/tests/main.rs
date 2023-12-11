@@ -43,7 +43,39 @@ fn arguments_end_period() {
             let arg_name = arg.name;
             let desc = arg.desc;
             if !desc.ends_with('.') {
-                failures.push(format!("{cmd_name} argument \"{arg_name}\": \"{desc}\""));
+                failures.push(format!(
+                    "{cmd_name} required argument \"{arg_name}\": \"{desc}\""
+                ));
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command argument description does not end with a period:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn arguments_start_uppercase() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let signature = cmd.signature();
+
+        for arg in signature.required_positional {
+            let arg_name = arg.name;
+            let desc = arg.desc;
+
+            if !desc.starts_with(|u: char| u.is_uppercase()) {
+                failures.push(format!(
+                    "{cmd_name} required argument \"{arg_name}\": \"{desc}\""
+                ));
             }
         }
     }

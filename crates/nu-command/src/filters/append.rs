@@ -20,7 +20,7 @@ impl Command for Append {
             .required(
                 "row",
                 SyntaxShape::Any,
-                "the row, list, or table to append.",
+                "The row, list, or table to append.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
