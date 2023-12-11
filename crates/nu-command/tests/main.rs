@@ -48,6 +48,16 @@ fn arguments_end_period() {
                 ));
             }
         }
+
+        for arg in signature.optional_positional {
+            let arg_name = arg.name;
+            let desc = arg.desc;
+            if !desc.ends_with('.') {
+                failures.push(format!(
+                    "{cmd_name} optional argument \"{arg_name}\": \"{desc}\""
+                ));
+            }
+        }
     }
 
     assert!(

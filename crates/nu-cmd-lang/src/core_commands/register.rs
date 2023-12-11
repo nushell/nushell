@@ -25,7 +25,7 @@ impl Command for Register {
             .optional(
                 "signature",
                 SyntaxShape::Any,
-                "Block with signature description as json object",
+                "Block with signature description as json object.",
             )
             .named(
                 "shell",
