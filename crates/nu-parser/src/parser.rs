@@ -966,7 +966,6 @@ pub fn parse_internal_call(
         }
 
         {
-            let arg_span = spans[spans_idx];
             let contents = working_set.get_span_contents(arg_span);
 
             if contents.len() > 3
@@ -984,6 +983,9 @@ pub fn parse_internal_call(
                     );
 
                     call.add_spread(args);
+                    // Let the parser know that it's parsing rest arguments now
+                    positional_idx =
+                        signature.required_positional.len() + signature.optional_positional.len();
                 } else {
                     working_set.error(ParseError::UnexpectedSpreadArg(
                         signature.call_signature(),

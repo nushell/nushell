@@ -10,7 +10,7 @@ pub enum Argument {
     Positional(Expression),
     Named((Spanned<String>, Option<Spanned<String>>, Option<Expression>)),
     Unknown(Expression), // unknown argument used in "fall-through" signatures
-    Spread(Expression), // a list spread to fill in rest arguments
+    Spread(Expression),  // a list spread to fill in rest arguments
 }
 
 impl Argument {

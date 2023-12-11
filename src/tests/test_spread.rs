@@ -151,7 +151,8 @@ fn spread_internal_args() -> TestResult {
         r#"def f [a b c? d? ...x] { echo a b c d $x }
                  f 1 2 ...[5 6]"#,
         "",
-    ).unwrap();
+    )
+    .unwrap();
     fail_test(
         r#"def f [a b c? d? ...x] { echo a b c d $x }
                  f 1 ...[5 6]"#,
