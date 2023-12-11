@@ -27,7 +27,7 @@ impl Command for OverlayUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "Module name to use overlay for",
+                "Module name to use overlay for.",
             )
             .optional(
                 "as",

@@ -44,8 +44,8 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .required("find", SyntaxShape::String, "the pattern to find")
-            .required("replace", SyntaxShape::String, "the replacement string")
+            .required("find", SyntaxShape::String, "The pattern to find.")
+            .required("replace", SyntaxShape::String, "The replacement string.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

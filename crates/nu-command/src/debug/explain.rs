@@ -23,7 +23,7 @@ impl Command for Explain {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)

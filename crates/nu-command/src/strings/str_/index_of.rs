@@ -44,7 +44,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "the string to find in the input")
+            .required("string", SyntaxShape::String, "The string to find in the input.")
             .switch(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",

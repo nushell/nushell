@@ -37,7 +37,7 @@ impl Command for FormatFilesize {
             .required(
                 "format value",
                 SyntaxShape::String,
-                "the format into which convert the file sizes",
+                "The format into which convert the file sizes.",
             )
             .rest(
                 "rest",

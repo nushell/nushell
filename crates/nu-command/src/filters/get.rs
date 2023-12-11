@@ -39,7 +39,7 @@ If multiple cell paths are given, this will produce a list of values."#
             .required(
                 "cell_path",
                 SyntaxShape::CellPath,
-                "the cell path to the data",
+                "The cell path to the data.",
             )
             .rest("rest", SyntaxShape::CellPath, "additional cell paths")
             .switch(

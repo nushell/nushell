@@ -21,7 +21,7 @@ impl Command for Use {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "Module or module file")
+            .required("module", SyntaxShape::String, "Module or module file.")
             .rest(
                 "members",
                 SyntaxShape::Any,

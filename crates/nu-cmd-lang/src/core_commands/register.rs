@@ -20,7 +20,7 @@ impl Command for Register {
             .required(
                 "plugin",
                 SyntaxShape::Filepath,
-                "path of executable for plugin",
+                "Path of executable for plugin.",
             )
             .optional(
                 "signature",

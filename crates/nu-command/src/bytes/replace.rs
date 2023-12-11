@@ -36,8 +36,8 @@ impl Command for BytesReplace {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("find", SyntaxShape::Binary, "the pattern to find")
-            .required("replace", SyntaxShape::Binary, "the replacement pattern")
+            .required("find", SyntaxShape::Binary, "the pattern to find.")
+            .required("replace", SyntaxShape::Binary, "the replacement pattern.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

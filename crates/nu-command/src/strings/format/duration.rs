@@ -40,7 +40,7 @@ impl Command for FormatDuration {
             .required(
                 "format value",
                 SyntaxShape::String,
-                "the unit in which to display the duration",
+                "The unit in which to display the duration.",
             )
             .rest(
                 "rest",

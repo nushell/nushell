@@ -35,7 +35,7 @@ impl Command for BytesRemove {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .required("pattern", SyntaxShape::Binary, "the pattern to find")
+            .required("pattern", SyntaxShape::Binary, "the pattern to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

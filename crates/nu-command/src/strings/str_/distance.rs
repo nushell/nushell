@@ -36,7 +36,7 @@ impl Command for SubCommand {
             .required(
                 "compare-string",
                 SyntaxShape::String,
-                "the first string to compare",
+                "The first string to compare.",
             )
             .rest(
                 "rest",

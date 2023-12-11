@@ -28,7 +28,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "the character or string that denotes what separates columns",
+                "The character or string that denotes what separates columns.",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
             .switch("regex", "separator is a regular expression", Some('r'))

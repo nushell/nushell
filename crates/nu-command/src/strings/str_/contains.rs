@@ -39,7 +39,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .required("string", SyntaxShape::String, "the substring to find")
+            .required("string", SyntaxShape::String, "The substring to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,

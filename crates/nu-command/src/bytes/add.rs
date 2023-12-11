@@ -40,7 +40,7 @@ impl Command for BytesAdd {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("data", SyntaxShape::Binary, "the binary to add")
+            .required("data", SyntaxShape::Binary, "the binary to add.")
             .named(
                 "index",
                 SyntaxShape::Int,

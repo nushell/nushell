@@ -24,7 +24,7 @@ impl Command for Every {
             .required(
                 "stride",
                 SyntaxShape::Int,
-                "how many rows to skip between (and including) each row returned",
+                "How many rows to skip between (and including) each row returned.",
             )
             .switch(
                 "skip",

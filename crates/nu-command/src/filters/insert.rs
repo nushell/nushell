@@ -27,12 +27,12 @@ impl Command for Insert {
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to insert",
+                "The name of the column to insert.",
             )
             .required(
                 "new value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s)",
+                "The new value to give the cell(s).",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

@@ -29,6 +29,33 @@ fn quickcheck_parse(data: String) -> bool {
 }
 
 #[test]
+fn arguments_end_period() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let signature = cmd.signature();
+
+        for arg in signature.required_positional {
+            let arg_name = arg.name;
+            let desc = arg.desc;
+            if !desc.ends_with('.') {
+                failures.push(format!("{cmd_name} argument \"{arg_name}\": \"{desc}\""));
+            }
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command argument description does not end with a period:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
 fn signature_name_matches_command_name() {
     let ctx = create_default_context();
     let decls = ctx.get_decls_sorted(true);

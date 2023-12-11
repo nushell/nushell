@@ -41,7 +41,7 @@ impl Command for BytesIndexOf {
             .required(
                 "pattern",
                 SyntaxShape::Binary,
-                "the pattern to find index of",
+                "the pattern to find index of.",
             )
             .rest(
                 "rest",

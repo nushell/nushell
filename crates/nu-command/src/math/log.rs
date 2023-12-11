@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .required(
                 "base",
                 SyntaxShape::Number,
-                "Base for which the logarithm should be computed",
+                "Base for which the logarithm should be computed.",
             )
             .input_output_types(vec![
                 (Type::Number, Type::Float),

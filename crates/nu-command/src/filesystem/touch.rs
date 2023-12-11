@@ -29,7 +29,7 @@ impl Command for Touch {
             .required(
                 "filename",
                 SyntaxShape::Filepath,
-                "the path of the file you want to create",
+                "The path of the file you want to create.",
             )
             .named(
                 "reference",

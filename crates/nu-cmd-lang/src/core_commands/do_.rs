@@ -25,7 +25,7 @@ impl Command for Do {
             .required(
                 "closure",
                 SyntaxShape::OneOf(vec![SyntaxShape::Closure(None), SyntaxShape::Any]),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(

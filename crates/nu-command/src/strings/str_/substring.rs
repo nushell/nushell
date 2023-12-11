@@ -63,7 +63,7 @@ impl Command for SubCommand {
             .required(
                 "range",
                 SyntaxShape::Any,
-                "the indexes to substring [start end]",
+                "The indexes to substring [start end].",
             )
             .rest(
                 "rest",
