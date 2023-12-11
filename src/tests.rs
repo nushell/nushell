@@ -35,6 +35,7 @@ use tempfile::NamedTempFile;
 
 pub type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+#[cfg(test)]
 pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();

@@ -207,7 +207,14 @@ impl Stack {
                                 true
                             }
                         })
-                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .map(|(k, v)| {
+                            // No matter the case, always return PATH as uppercase
+                            if k.to_ascii_lowercase() == "path" {
+                                ("PATH".into(), v.clone())
+                            } else {
+                                (k.clone(), v.clone())
+                            }
+                        })
                         .collect::<HashMap<String, Value>>(),
                 );
             }
@@ -225,7 +232,20 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
+                    result.extend(
+                        env_vars
+                            .clone()
+                            .iter()
+                            .map(|(k, v)| {
+                                // No matter the case, always return PATH as uppercase
+                                if k.to_ascii_lowercase() == "path" {
+                                    ("PATH".into(), v.clone())
+                                } else {
+                                    (k.clone(), v.clone())
+                                }
+                            })
+                            .collect::<HashMap<String, Value>>(),
+                    );
                 }
             }
         }
