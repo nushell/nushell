@@ -30,7 +30,7 @@ mach2 = "0.4"
 [target.'cfg(target_os = "windows")'.dependencies]
 chrono = { version = "0.4", default-features = false }
 ntapi = "0.4"
-once_cell = "1.18"
+once_cell = "1.19"
 winapi = { version = "0.3", features = [
     "tlhelp32",
         "fileapi",

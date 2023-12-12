@@ -62,7 +62,7 @@ notify-debouncer-full = { version = "0.3", default-features = false }
 num = { version = "0.4", optional = true }
 num-format = { version = "0.4" }
 num-traits = "0.2"
-once_cell = "1.18"
+once_cell = "1.19"
 open = "5.0"
 os_pipe = "1.1"
 pathdiff = "0.2"
