@@ -962,6 +962,11 @@ pub fn check_pipeline_type(
                         }
                     }
                     if compatible {
+                        if let Some(new_current_type) = new_current_type {
+                            current_type = new_current_type
+                        } else {
+                            current_type = Type::Any;
+                        }
                         continue;
                     }
                 } else {
