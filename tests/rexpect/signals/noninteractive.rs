@@ -1,16 +1,19 @@
 use std::{thread::sleep, time::Duration};
 
-use crate::rexpect::{nu_binary, spawn_nu};
+use crate::rexpect::{
+    nu_binary,
+    signals::{EXTERNAL_SLEEP, INTERNAL_SLEEP},
+    spawn_bash_repl, spawn_nu,
+};
 
 use rexpect::{
     error::Error,
     process::{signal::Signal, wait::WaitStatus},
-    spawn_bash,
 };
 
 #[test]
 fn can_be_backgrounded_in_bash() -> Result<(), Error> {
-    let mut p = spawn_bash(Some(1000))?;
+    let mut p = spawn_bash_repl(Some(1000))?;
 
     p.send_line(&format!("{} -n -c 'sleep 100ms' &", nu_binary()))?;
     p.wait_for_prompt()?;
@@ -27,7 +30,7 @@ fn can_be_backgrounded_in_bash() -> Result<(), Error> {
 #[test]
 #[ignore] // currently fails
 fn ctrlc_internal() -> Result<(), Error> {
-    let mut p = spawn_nu("sleep 1sec")?;
+    let mut p = spawn_nu(INTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.signal(Signal::SIGINT)?;
     let status = p.wait()?;
@@ -41,7 +44,7 @@ fn ctrlc_internal() -> Result<(), Error> {
 #[test]
 #[ignore] // currently fails
 fn sigquit_internal() -> Result<(), Error> {
-    let mut p = spawn_nu("sleep 1sec")?;
+    let mut p = spawn_nu(INTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.signal(Signal::SIGQUIT)?;
     let status = p.wait()?;
@@ -55,7 +58,7 @@ fn sigquit_internal() -> Result<(), Error> {
 #[test]
 #[ignore] // currently fails
 fn ctrlc_external() -> Result<(), Error> {
-    let mut p = spawn_nu("bash -c read")?;
+    let mut p = spawn_nu(EXTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.signal(Signal::SIGINT)?;
     let status = p.wait()?;
@@ -69,7 +72,7 @@ fn ctrlc_external() -> Result<(), Error> {
 #[test]
 #[ignore] // currently fails
 fn sigquit_external() -> Result<(), Error> {
-    let mut p = spawn_nu("bash -c read")?;
+    let mut p = spawn_nu(EXTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.signal(Signal::SIGQUIT)?;
     let status = p.wait()?;

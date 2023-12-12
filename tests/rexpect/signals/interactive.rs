@@ -1,16 +1,19 @@
 use std::{thread::sleep, time::Duration};
 
-use crate::rexpect::{nu_binary, spawn_nu_repl, NuReplExt};
+use crate::rexpect::{
+    nu_binary,
+    signals::{EXTERNAL_SLEEP, INTERNAL_SLEEP},
+    spawn_bash_repl, spawn_nu_repl, NuReplExt,
+};
 
 use rexpect::{
     error::Error,
     process::{signal::Signal, wait::WaitStatus},
-    spawn_bash,
 };
 
 #[test]
 fn can_be_backgrounded_in_bash() -> Result<(), Error> {
-    let mut p = spawn_bash(Some(1000))?;
+    let mut p = spawn_bash_repl(Some(1000))?;
 
     p.send_line(&format!("{} -n &", nu_binary()))?;
     p.wait_for_prompt()?;
@@ -26,7 +29,7 @@ fn can_be_backgrounded_in_bash() -> Result<(), Error> {
 fn internal_ctrl_c() -> Result<(), Error> {
     let mut p = spawn_nu_repl(Some(1000))?;
 
-    p.send_nu_line("sleep 5sec")?;
+    p.send_nu_line(INTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.send_control('c')?;
     p.exp_string("Operation interrupted by user")?;
@@ -43,7 +46,7 @@ fn internal_ctrl_c() -> Result<(), Error> {
 fn external_ctrl_c() -> Result<(), Error> {
     let mut p = spawn_nu_repl(Some(1000))?;
 
-    p.send_nu_line("bash -c read")?;
+    p.send_nu_line(EXTERNAL_SLEEP)?;
     sleep(Duration::from_millis(500));
     p.send_control('c')?;
     p.handle_prompt()?;

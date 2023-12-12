@@ -15,6 +15,8 @@ fn nu_binary() -> String {
     executable_path().into_os_string().into_string().unwrap()
 }
 
+const PROMPT: &str = "[REXPECT_PROMPT>";
+
 /// Spawn an interactive nu repl session
 fn spawn_nu_repl(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
     let mut config_dir = nu_test_support::fs::root();
@@ -28,7 +30,7 @@ fn spawn_nu_repl(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
         .arg(config_dir.join("env.nu"));
 
     let mut session = PtyReplSession {
-        prompt: "<REXPECT_PROMPT>".into(),
+        prompt: PROMPT.into(),
         pty_session: spawn_command(command, timeout)?,
         quit_command: None,
         echo_on: false,
@@ -86,4 +88,24 @@ impl NuReplExt for PtyReplSession {
         self.send_nu_line("exit")?;
         Ok(())
     }
+}
+
+/// Spawn an interactive bash session
+fn spawn_bash_repl(timeout: Option<u64>) -> Result<PtyReplSession, Error> {
+    let mut c = Command::new("bash");
+    c.arg("--norc")
+        .arg("--noprofile")
+        .env("PS1", PROMPT)
+        .env("HISTIGNORE", "*");
+
+    let mut repl = PtyReplSession {
+        prompt: PROMPT.into(),
+        pty_session: spawn_command(c, timeout)?,
+        quit_command: Some("quit".into()),
+        echo_on: false,
+    };
+
+    repl.wait_for_prompt()?;
+
+    Ok(repl)
 }
