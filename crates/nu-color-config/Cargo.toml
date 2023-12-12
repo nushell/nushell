@@ -5,19 +5,19 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-color-confi
 edition = "2021"
 license = "MIT"
 name = "nu-color-config"
-version = "0.88.0"
+version = "0.88.1"
 
 [lib]
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.88.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.88.1" }
 nu-ansi-term = "0.49.0"
-nu-utils = { path = "../nu-utils", version = "0.88.0" }
-nu-engine = { path = "../nu-engine", version = "0.88.0" }
-nu-json = { path = "../nu-json", version = "0.88.0" }
+nu-utils = { path = "../nu-utils", version = "0.88.1" }
+nu-engine = { path = "../nu-engine", version = "0.88.1" }
+nu-json = { path = "../nu-json", version = "0.88.1" }
 
 serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.88.0" }
+nu-test-support = { path = "../nu-test-support", version = "0.88.1" }
