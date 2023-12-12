@@ -120,27 +120,27 @@ where
             match shift_result {
                 Ok(val) => Value::int( val, span ),
                 Err(_) => Value::error(
-                    ShellError::GenericError(
-                        "Shift left result beyond the range of 64 bit signed number".to_string(),
-                        format!(
+                    ShellError::GenericError {
+                        error:"Shift left result beyond the range of 64 bit signed number".into(),
+                        msg: format!(
                             "{val} of the specified number of bytes shift left {bits} bits exceed limit"
                         ),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
                     span,
                 ),
             }
         }
         None => Value::error(
-            ShellError::GenericError(
-                "Shift left failed".to_string(),
-                format!("{val} shift left {bits} bits failed, you may shift too many bits"),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+            ShellError::GenericError {
+                error: "Shift left failed".into(),
+                msg: format!("{val} shift left {bits} bits failed, you may shift too many bits"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }

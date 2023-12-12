@@ -12,7 +12,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
-    eval_const::{eval_constant, value_as_string},
+    eval_const::eval_constant,
     span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
@@ -580,7 +580,9 @@ pub fn parse_def(
             let declaration = working_set.get_decl_mut(decl_id);
 
             signature.name = name.clone();
-            *signature = signature.add_help();
+            if !has_wrapped {
+                *signature = signature.add_help();
+            }
             signature.usage = usage;
             signature.extra_usage = extra_usage;
             signature.allows_unknown_args = has_wrapped;
@@ -856,7 +858,6 @@ pub fn parse_alias(
 
     if let Some(decl_id) = working_set.find_decl(b"alias") {
         let (command_spans, rest_spans) = spans.split_at(split_id);
-        let (usage, extra_usage) = working_set.build_usage(&lite_command.comments);
 
         let original_starting_error_count = working_set.parse_errors.len();
 
@@ -865,6 +866,7 @@ pub fn parse_alias(
             output,
             ..
         } = parse_internal_call(working_set, span(command_spans), rest_spans, decl_id);
+
         working_set
             .parse_errors
             .truncate(original_starting_error_count);
@@ -1008,6 +1010,27 @@ pub fn parse_alias(
                     ));
                     return alias_pipeline;
                 }
+            };
+
+            // Tries to build a useful usage string
+            let (usage, extra_usage) = match lite_command.comments.is_empty() {
+                // First from comments, if any are present
+                false => working_set.build_usage(&lite_command.comments),
+                // Then from the command itself
+                true => match alias_call.arguments.get(1) {
+                    Some(Argument::Positional(Expression {
+                        expr: Expr::Keyword(.., expr),
+                        ..
+                    })) => {
+                        let aliased = working_set.get_span_contents(expr.span);
+                        (
+                            format!("Alias for `{}`", String::from_utf8_lossy(aliased)),
+                            String::new(),
+                        )
+                    }
+                    // Then with a default.
+                    _ => ("User declared alias".into(), String::new()),
+                },
             };
 
             let decl = Alias {
@@ -2645,7 +2668,7 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2694,7 +2717,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -2717,7 +2740,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
     let new_name = if let Some(kw_expression) = call.positional_nth(1) {
         if let Some(new_name_expression) = kw_expression.as_keyword() {
             match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match value_as_string(val, new_name_expression.span) {
+                Ok(val) => match val.as_string() {
                     Ok(s) => Some(Spanned {
                         item: s,
                         span: new_name_expression.span,
@@ -2911,7 +2934,7 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
 
     let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
         match eval_constant(working_set, expr) {
-            Ok(val) => match value_as_string(val, expr.span) {
+            Ok(val) => match val.as_string() {
                 Ok(s) => (s, expr.span),
                 Err(err) => {
                     working_set.error(err.wrap(working_set, call_span));
@@ -3372,7 +3395,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
                     }
                 };
 
-                let filename = match value_as_string(val, spans[1]) {
+                let filename = match val.as_string() {
                     Ok(s) => s,
                     Err(err) => {
                         working_set.error(err.wrap(working_set, span(&spans[1..])));
@@ -3568,8 +3591,9 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
         .map(|expr| {
             let val =
                 eval_constant(working_set, expr).map_err(|err| err.wrap(working_set, call.head))?;
-            let filename =
-                value_as_string(val, expr.span).map_err(|err| err.wrap(working_set, call.head))?;
+            let filename = val
+                .as_string()
+                .map_err(|err| err.wrap(working_set, call.head))?;
 
             let Some(path) = find_in_dirs(&filename, working_set, &cwd, PLUGIN_DIRS_VAR) else {
                 return Err(ParseError::RegisteredFileNotFound(filename, expr.span));

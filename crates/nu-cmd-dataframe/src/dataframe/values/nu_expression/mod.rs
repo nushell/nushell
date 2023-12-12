@@ -299,7 +299,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             },
             span,
         )),
-        Expr::Take { expr, idx } => Ok(Value::record(
+        Expr::Gather {
+            expr,
+            idx,
+            returns_scalar: _,
+        } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
                 "idx" => expr_to_value(idx.as_ref(), span)?,
@@ -401,7 +405,6 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Window {
             function,
             partition_by,
-            order_by,
             options,
         } => {
             let partition_by: Result<Vec<Value>, ShellError> = partition_by
@@ -409,22 +412,21 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 .map(|e| expr_to_value(e, span))
                 .collect();
 
-            let order_by = order_by
-                .as_ref()
-                .map(|e| expr_to_value(e.as_ref(), span))
-                .transpose()?
-                .unwrap_or_else(|| Value::nothing(span));
-
             Ok(Value::record(
                 record! {
                     "function" => expr_to_value(function, span)?,
                     "partition_by" => Value::list(partition_by?, span),
-                    "order_by" => order_by,
                     "options" => Value::string(format!("{options:?}"), span),
                 },
                 span,
             ))
         }
+        Expr::SubPlan(_, _) => Err(ShellError::UnsupportedInput {
+            msg: "Expressions of type SubPlan are not yet supported".to_string(),
+            input: format!("Expression is {expr:?}"),
+            msg_span: span,
+            input_span: Span::unknown(),
+        }),
         // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
         // I am not sure what we can meaningfully do with this at this time.
         Expr::Selector(_) => Err(ShellError::UnsupportedInput {

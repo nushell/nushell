@@ -71,8 +71,20 @@ fn update_list() {
 }
 
 #[test]
-fn update_past_end_list() {
+fn update_past_end_of_list() {
     let actual = nu!("[1, 2, 3] | update 5 abc | to json -r");
+    assert!(actual.err.contains("too large"));
+}
+
+#[test]
+fn update_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | update 1 abc | to json -r");
+    assert_eq!(actual.out, r#"[1,"abc",3]"#);
+}
+
+#[test]
+fn update_past_end_of_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | update 5 abc | to json -r");
     assert!(actual.err.contains("too large"));
 }
 
@@ -85,7 +97,7 @@ fn update_nonexistent_column() {
 #[test]
 fn update_uses_enumerate_index() {
     let actual = nu!(
-        r#"[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"#
+        "[[a]; [7] [6]] | enumerate | update item.a {|el| $el.index + 1 + $el.item.a } | flatten | to nuon"
     );
 
     assert_eq!(actual.out, "[[index, a]; [0, 8], [1, 8]]");
@@ -96,4 +108,46 @@ fn update_support_lazy_record() {
     let actual =
         nu!(r#"let x = (lazy make -c ["h"] -g {|a| $a | str upcase}); $x | update h 10 | get h"#);
     assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn list_replacement_closure() {
+    let actual = nu!("[1, 2] | update 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | update 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+}
+
+#[test]
+fn record_replacement_closure() {
+    let actual = nu!("{ a: text } | update a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+
+    let actual = nu!("{ a: text } | update a { str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: TEXT}");
+}
+
+#[test]
+fn table_replacement_closure() {
+    let actual = nu!("[[a]; [text]] | update a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | update a { str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+}
+
+#[test]
+fn list_stream_replacement_closure() {
+    let actual = nu!("[1, 2] | every 1 | update 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[1, 2] | every 1 | update 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | update a {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | update a { str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a]; [TEXT]]");
 }

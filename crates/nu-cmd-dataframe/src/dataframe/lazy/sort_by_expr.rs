@@ -16,7 +16,7 @@ impl Command for LazySortBy {
     }
 
     fn usage(&self) -> &str {
-        "sorts a lazy dataframe based on expression(s)."
+        "Sorts a lazy dataframe based on expression(s)."
     }
 
     fn signature(&self) -> Signature {
@@ -118,13 +118,13 @@ impl Command for LazySortBy {
                         .get_flag::<Value>(engine_state, stack, "reverse")?
                         .expect("already checked and it exists")
                         .span();
-                    return Err(ShellError::GenericError(
-                        "Incorrect list size".into(),
-                        "Size doesn't match expression list".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Incorrect list size".into(),
+                        msg: "Size doesn't match expression list".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     list
                 }

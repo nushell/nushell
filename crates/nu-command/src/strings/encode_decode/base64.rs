@@ -91,15 +91,15 @@ fn action(
         "crypt" => GeneralPurpose::new(&alphabet::CRYPT, NO_PAD),
         "mutf7" => GeneralPurpose::new(&alphabet::IMAP_MUTF7, NO_PAD),
         not_valid => return Value::error (
-            ShellError::GenericError(
-            "value is not an accepted character set".to_string(),
-            format!(
+            ShellError::GenericError {
+            error: "value is not an accepted character set".into(),
+            msg: format!(
                 "{not_valid} is not a valid character-set.\nPlease use `help encode base64` to see a list of valid character sets."
             ),
-            Some(config_character_set.span),
-            None,
-            Vec::new(),
-        ), config_character_set.span)
+            span: Some(config_character_set.span),
+            help: None,
+            inner: vec![],
+        }, config_character_set.span)
     };
     let value_span = input.span();
     match input {
@@ -110,15 +110,15 @@ fn action(
                 let mut enc_vec = vec![0; val.len() * 4 / 3 + 4];
                 let bytes_written = match base64_engine.encode_slice(val, &mut enc_vec) {
                     Ok(bytes_written) => bytes_written,
-                    Err(err) => {
+                    Err(e) => {
                         return Value::error(
-                            ShellError::GenericError(
-                                "Error encoding data".into(),
-                                err.to_string(),
-                                Some(value_span),
-                                None,
-                                Vec::new(),
-                            ),
+                            ShellError::GenericError {
+                                error: "Error encoding data".into(),
+                                msg: e.to_string(),
+                                span: Some(value_span),
+                                help: None,
+                                inner: vec![],
+                            },
                             value_span,
                         )
                     }
@@ -157,30 +157,32 @@ fn action(
                                 match String::from_utf8(decoded_value) {
                                     Ok(string_value) => Value::string(string_value, command_span),
                                     Err(e) => Value::error(
-                                        ShellError::GenericError(
-                                            "base64 payload isn't a valid utf-8 sequence"
-                                                .to_owned(),
-                                            e.to_string(),
-                                            Some(value_span),
-                                            Some("consider using the `--binary` flag".to_owned()),
-                                            Vec::new(),
-                                        ),
+                                        ShellError::GenericError {
+                                            error: "base64 payload isn't a valid utf-8 sequence"
+                                                .into(),
+                                            msg: e.to_string(),
+                                            span: Some(value_span),
+                                            help: Some(
+                                                "consider using the `--binary` flag".to_owned(),
+                                            ),
+                                            inner: vec![],
+                                        },
                                         value_span,
                                     ),
                                 }
                             }
                         }
                         Err(_) => Value::error(
-                            ShellError::GenericError(
-                                "value could not be base64 decoded".to_string(),
-                                format!(
+                            ShellError::GenericError {
+                                error: "value could not be base64 decoded".into(),
+                                msg: format!(
                                     "invalid base64 input for character set {}",
                                     &config_character_set.item
                                 ),
-                                Some(command_span),
-                                None,
-                                Vec::new(),
-                            ),
+                                span: Some(command_span),
+                                help: None,
+                                inner: vec![],
+                            },
                             command_span,
                         ),
                     }

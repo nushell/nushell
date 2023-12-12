@@ -111,13 +111,13 @@ pub(crate) fn call_plugin(
 
         encoding.decode_response(&mut buf_read)
     } else {
-        Err(ShellError::GenericError(
-            "Error with stdout reader".into(),
-            "no stdout reader".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Error with stdout reader".into(),
+            msg: "no stdout reader".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
     }
 }
 

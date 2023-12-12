@@ -78,14 +78,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let series = df.as_series(call.head)?;
-    let bool = series.bool().map_err(|_| {
-        ShellError::GenericError(
-            "Error converting to bool".into(),
-            "all-false only works with series of type bool".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let bool = series.bool().map_err(|_| ShellError::GenericError {
+        error: "Error converting to bool".into(),
+        msg: "all-false only works with series of type bool".into(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let value = Value::bool(bool.all(), call.head);

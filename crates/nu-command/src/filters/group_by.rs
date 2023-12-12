@@ -262,13 +262,13 @@ fn group_closure(
                     let collection: Vec<Value> = s.into_iter().collect();
 
                     if collection.len() > 1 {
-                        return Err(ShellError::GenericError(
-                            "expected one value from the block".into(),
-                            "requires a table with one value for grouping".into(),
-                            Some(span),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "expected one value from the block".into(),
+                            msg: "requires a table with one value for grouping".into(),
+                            span: Some(span),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
 
                     let value = match collection.first() {

@@ -126,15 +126,16 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                 not(target_os = "ios")
             ))]
             {
-                let proc_stat = proc.curr_proc.stat().map_err(|e| {
-                    ShellError::GenericError(
-                        "Error getting process stat".into(),
-                        e.to_string(),
-                        Some(Span::unknown()),
-                        None,
-                        Vec::new(),
-                    )
-                })?;
+                let proc_stat = proc
+                    .curr_proc
+                    .stat()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Error getting process stat".into(),
+                        msg: e.to_string(),
+                        span: Some(Span::unknown()),
+                        help: None,
+                        inner: vec![],
+                    })?;
                 // If we can't get the start time, just use the current time
                 let proc_start = proc_stat
                     .starttime()

@@ -69,13 +69,13 @@ pub fn sort(
         Some(Value::Record { val: record, .. }) => {
             if sort_columns.is_empty() {
                 // This uses the same format as the 'requires a column name' error in split_by.rs
-                return Err(ShellError::GenericError(
-                    "expected name".into(),
-                    "requires a column name to sort table data".into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "expected name".into(),
+                    msg: "requires a column name to sort table data".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                });
             }
 
             if let Some(nonexistent) = nonexistent_column(&sort_columns, record.columns()) {

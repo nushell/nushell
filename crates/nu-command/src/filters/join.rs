@@ -54,7 +54,7 @@ impl Command for Join {
     }
 
     fn usage(&self) -> &str {
-        "Join two tables"
+        "Join two tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {

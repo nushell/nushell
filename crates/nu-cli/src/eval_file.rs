@@ -139,7 +139,7 @@ pub fn evaluate_file(
             false,
         );
         let pipeline_data = match pipeline_data {
-            Err(ShellError::Return(_, _)) => {
+            Err(ShellError::Return { .. }) => {
                 // allows early exists before `main` is run.
                 return Ok(());
             }

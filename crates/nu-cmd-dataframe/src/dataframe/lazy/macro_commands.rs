@@ -121,7 +121,7 @@ lazy_command!(
     "dfr reverse",
     "Reverses the LazyFrame",
     vec![Example {
-        description: "Reverses the dataframe",
+        description: "Reverses the dataframe.",
         example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr reverse",
         result: Some(
             NuDataFrame::try_from_columns(vec![
@@ -147,7 +147,7 @@ lazy_command!(
 lazy_command!(
     LazyCache,
     "dfr cache",
-    "Caches operations in a new LazyFrame",
+    "Caches operations in a new LazyFrame.",
     vec![Example {
         description: "Caches the result into a new LazyFrame",
         example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr reverse | dfr cache",

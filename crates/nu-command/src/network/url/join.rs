@@ -283,13 +283,13 @@ impl UrlComponents {
             _ => {
                 nu_protocol::report_error_new(
                     engine_state,
-                    &ShellError::GenericError(
-                        format!("'{key}' is not a valid URL field"),
-                        format!("remove '{key}' col from input record"),
-                        Some(span),
-                        None,
-                        vec![],
-                    ),
+                    &ShellError::GenericError {
+                        error: format!("'{key}' is not a valid URL field"),
+                        msg: format!("remove '{key}' col from input record"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
                 );
                 Ok(self)
             }

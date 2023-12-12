@@ -41,7 +41,7 @@ impl Command for StorUpdate {
     }
 
     fn usage(&self) -> &str {
-        "Update information in a specified table in the in-memory sqlite database"
+        "Update information in a specified table in the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -131,15 +131,14 @@ impl Command for StorUpdate {
                     }
                     // dbg!(&update_stmt);
 
-                    conn.execute(&update_stmt, []).map_err(|err| {
-                        ShellError::GenericError(
-                            "Failed to open SQLite connection in memory from update".into(),
-                            err.to_string(),
-                            Some(Span::test_data()),
-                            None,
-                            Vec::new(),
-                        )
-                    })?;
+                    conn.execute(&update_stmt, [])
+                        .map_err(|err| ShellError::GenericError {
+                            error: "Failed to open SQLite connection in memory from update".into(),
+                            msg: err.to_string(),
+                            span: Some(Span::test_data()),
+                            help: None,
+                            inner: vec![],
+                        })?;
                 }
                 None => {
                     return Err(ShellError::MissingParameter {

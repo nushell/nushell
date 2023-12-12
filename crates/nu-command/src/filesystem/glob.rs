@@ -74,7 +74,7 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                    "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
@@ -158,13 +158,13 @@ impl Command for Glob {
         };
 
         if glob_pattern.item.is_empty() {
-            return Err(ShellError::GenericError(
-                "glob pattern must not be empty".to_string(),
-                "glob pattern is empty".to_string(),
-                Some(glob_pattern.span),
-                Some("add characters to the glob pattern".to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "glob pattern must not be empty".into(),
+                msg: "glob pattern is empty".into(),
+                span: Some(glob_pattern.span),
+                help: Some("add characters to the glob pattern".into()),
+                inner: vec![],
+            });
         }
 
         let folder_depth = if let Some(depth) = depth {
@@ -176,13 +176,13 @@ impl Command for Glob {
         let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
             Ok(p) => p.partition(),
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "error with glob pattern".to_string(),
-                    format!("{e}"),
-                    Some(glob_pattern.span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "error with glob pattern".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -195,13 +195,13 @@ impl Command for Glob {
                 std::path::PathBuf::new() // user should get empty list not an error
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "error in canonicalize".to_string(),
-                    format!("{e}"),
-                    Some(glob_pattern.span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "error in canonicalize".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -216,14 +216,12 @@ impl Command for Glob {
                     },
                 )
                 .not(np)
-                .map_err(|err| {
-                    ShellError::GenericError(
-                        "error with glob's not pattern".to_string(),
-                        format!("{err}"),
-                        Some(not_pattern_span),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|err| ShellError::GenericError {
+                    error: "error with glob's not pattern".into(),
+                    msg: format!("{err}"),
+                    span: Some(not_pattern_span),
+                    help: None,
+                    inner: vec![],
                 })?
                 .flatten();
             let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;

@@ -9,19 +9,15 @@ provide interactive utilities and building blocks for users writing casual scrip
 To see what's here:
 ```
 > use std
-> help commands | select name usage | where name =~ "std "
-╭────┬─────────────────────────────┬────────────────────────────────────────────────────────────────╮
-│  # │            name             │                                usage                           │
-├────┼─────────────────────────────┼────────────────────────────────────────────────────────────────┤
-│  0 │ std assert                  │ Universal assert command                                       │
-│  1 │ std assert equal            │ Assert $left == $right                                         │
-           . . .
-│ 11 │ std clip                    │ put the end of a pipe into the system clipboard.               │
-│ 12 │ std dirs add                │ Add one or more directories to the list.                       │
-           . . .
-├────┼─────────────────────────────┼────────────────────────────────────────────────────────────────┤
-│  # │            name             │                                usage                           │
-╰────┴─────────────────────────────┴────────────────────────────────────────────────────────────────╯
+> scope commands | select name usage | where name =~ "std "
+#┬───────────name────────────┬──────────────────────usage──────────────────────
+0│std assert                 │Universal assert command
+1│std assert equal           │Assert $left == $right
+2│std assert error           │Assert that executing the code generates an error
+3│std assert greater         │Assert $left > $right
+4│std assert greater or equal│Assert $left >= $right
+             ...                                     ...
+─┴───────────────────────────┴─────────────────────────────────────────────────
 ```
 
 ## :toolbox: Using the standard library in the REPL or in scripts

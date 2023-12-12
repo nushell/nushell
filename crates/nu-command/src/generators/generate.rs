@@ -155,13 +155,13 @@ used as the next argument to the closure, otherwise generation stops.
                                 } else if k.eq_ignore_ascii_case("next") {
                                     next = Some(v);
                                 } else {
-                                    let error = ShellError::GenericError(
-                                        "Invalid block return".to_string(),
-                                        format!("Unexpected record key '{}'", k),
-                                        Some(span),
-                                        None,
-                                        Vec::new(),
-                                    );
+                                    let error = ShellError::GenericError {
+                                        error: "Invalid block return".into(),
+                                        msg: format!("Unexpected record key '{}'", k),
+                                        span: Some(span),
+                                        help: None,
+                                        inner: vec![],
+                                    };
                                     err = Some(Value::error(error, block_span));
                                     break;
                                 }
@@ -176,13 +176,13 @@ used as the next argument to the closure, otherwise generation stops.
 
                         // some other value -> error and stop
                         _ => {
-                            let error = ShellError::GenericError(
-                                "Invalid block return".to_string(),
-                                format!("Expected record, found {}", value.get_type()),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            );
+                            let error = ShellError::GenericError {
+                                error: "Invalid block return".into(),
+                                msg: format!("Expected record, found {}", value.get_type()),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            };
 
                             (Some(Value::error(error, block_span)), None)
                         }
@@ -191,13 +191,13 @@ used as the next argument to the closure, otherwise generation stops.
 
                 Ok(other) => {
                     let val = other.into_value(block_span);
-                    let error = ShellError::GenericError(
-                        "Invalid block return".to_string(),
-                        format!("Expected record, found {}", val.get_type()),
-                        Some(val.span()),
-                        None,
-                        Vec::new(),
-                    );
+                    let error = ShellError::GenericError {
+                        error: "Invalid block return".into(),
+                        msg: format!("Expected record, found {}", val.get_type()),
+                        span: Some(val.span()),
+                        help: None,
+                        inner: vec![],
+                    };
 
                     (Some(Value::error(error, block_span)), None)
                 }

@@ -42,12 +42,15 @@ impl Command for Return {
     ) -> Result<PipelineData, ShellError> {
         let return_value: Option<Value> = call.opt(engine_state, stack, 0)?;
         if let Some(value) = return_value {
-            Err(ShellError::Return(call.head, Box::new(value)))
+            Err(ShellError::Return {
+                span: call.head,
+                value: Box::new(value),
+            })
         } else {
-            Err(ShellError::Return(
-                call.head,
-                Box::new(Value::nothing(call.head)),
-            ))
+            Err(ShellError::Return {
+                span: call.head,
+                value: Box::new(Value::nothing(call.head)),
+            })
         }
     }
 

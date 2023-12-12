@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = "0.87.2"
+# version = "0.88.0"
 
 def create_left_prompt [] {
     let home =  $nu.home-path
@@ -8,7 +8,7 @@ def create_left_prompt [] {
     # Perform tilde substitution on dir
     # To determine if the prefix of the path matches the home dir, we split the current path into
     # segments, and compare those with the segments of the home dir. In cases where the current dir
-    # is a parent of the home dir (e.g. `/home`, homedir is `/home/user`), this comparison will 
+    # is a parent of the home dir (e.g. `/home`, homedir is `/home/user`), this comparison will
     # also evaluate to true. Inside the condition, we attempt to str replace `$home` with `~`.
     # Inside the condition, either:
     # 1. The home prefix will be replaced
@@ -86,14 +86,14 @@ $env.ENV_CONVERSIONS = {
 }
 
 # Directories to search for scripts when calling source or use
+# The default for this is $nu.default-config-dir/scripts
 $env.NU_LIB_DIRS = [
-    # FIXME: This default is not implemented in rust code as of 2023-09-06.
     ($nu.default-config-dir | path join 'scripts') # add <nushell-config-dir>/scripts
 ]
 
 # Directories to search for plugin binaries when calling register
+# The default for this is $nu.default-config-dir/plugins
 $env.NU_PLUGIN_DIRS = [
-    # FIXME: This default is not implemented in rust code as of 2023-09-06.
     ($nu.default-config-dir | path join 'plugins') # add <nushell-config-dir>/plugins
 ]
 

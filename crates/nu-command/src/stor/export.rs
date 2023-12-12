@@ -29,7 +29,7 @@ impl Command for StorExport {
     }
 
     fn usage(&self) -> &str {
-        "Export the in-memory sqlite database to a sqlite database file"
+        "Export the in-memory sqlite database to a sqlite database file."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -70,14 +70,12 @@ impl Command for StorExport {
             // This uses vacuum. I'm not really sure if this is the best way to do this.
             // I also added backup in the sqlitedatabase impl. If we have problems, we could switch to that.
             db.export_in_memory_database_to_file(&conn, file_name)
-                .map_err(|err| {
-                    ShellError::GenericError(
-                        "Failed to open SQLite connection in memory from export".into(),
-                        err.to_string(),
-                        Some(Span::test_data()),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to open SQLite connection in memory from export".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
                 })?;
         }
         // dbg!(db.clone());

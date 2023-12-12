@@ -35,7 +35,7 @@ impl Command for StorInsert {
     }
 
     fn usage(&self) -> &str {
-        "Insert information into a specified table in the in-memory sqlite database"
+        "Insert information into a specified table in the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -119,15 +119,14 @@ impl Command for StorInsert {
 
                     // dbg!(&create_stmt);
 
-                    conn.execute(&create_stmt, []).map_err(|err| {
-                        ShellError::GenericError(
-                            "Failed to open SQLite connection in memory from insert".into(),
-                            err.to_string(),
-                            Some(Span::test_data()),
-                            None,
-                            Vec::new(),
-                        )
-                    })?;
+                    conn.execute(&create_stmt, [])
+                        .map_err(|err| ShellError::GenericError {
+                            error: "Failed to open SQLite connection in memory from insert".into(),
+                            msg: err.to_string(),
+                            span: Some(Span::test_data()),
+                            help: None,
+                            inner: vec![],
+                        })?;
                 }
                 None => {
                     return Err(ShellError::MissingParameter {
