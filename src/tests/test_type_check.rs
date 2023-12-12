@@ -121,3 +121,11 @@ fn transpose_into_load_env() -> TestResult {
         "10",
     )
 }
+
+#[test]
+fn friendly_list_any_type() -> TestResult {
+    run_test(
+        r#"[['a', 'b']; ["1", "2"]] | flatten | str trim | transpose -ird | get "1""#,
+        "2",
+    )
+}

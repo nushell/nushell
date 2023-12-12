@@ -942,7 +942,28 @@ pub fn check_pipeline_type(
                     } else {
                         current_type = Type::Any;
                     }
-                    continue 'elem;
+                    continue;
+                } else if current_type == Type::List(Box::new(Type::Any)) {
+                    let mut new_current_type = None;
+                    let mut compatible = false;
+                    for (call_input, call_output) in decl.signature().input_output_types {
+                        if type_compatible(&call_input, &current_type) {
+                            compatible = true;
+                            if let Some(inner_current_type) = &new_current_type {
+                                if inner_current_type == &Type::Any {
+                                    break;
+                                } else if inner_current_type != &call_output {
+                                    // Union unequal types to Any for now
+                                    new_current_type = Some(Type::Any)
+                                }
+                            } else {
+                                new_current_type = Some(call_output.clone())
+                            }
+                        }
+                    }
+                    if compatible {
+                        continue;
+                    }
                 } else {
                     for (call_input, call_output) in decl.signature().input_output_types {
                         if type_compatible(&call_input, &current_type) {
