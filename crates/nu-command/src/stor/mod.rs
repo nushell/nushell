@@ -27,7 +27,7 @@ pub use import::StorImport;
 #[cfg(feature = "sqlite")]
 pub use insert::StorInsert;
 #[cfg(feature = "sqlite")]
-pub use open::StorOpen;
+pub use ::open::StorOpen;
 #[cfg(feature = "sqlite")]
 pub use reset::StorReset;
 pub use stor_::Stor;
