@@ -127,21 +127,33 @@ impl Call {
     }
 
     pub fn positional_iter(&self) -> impl Iterator<Item = &Expression> {
-        self.arguments.iter().filter_map(|arg| match arg {
-            Argument::Named(_) => None,
-            Argument::Positional(positional) => Some(positional),
-            Argument::Unknown(unknown) => Some(unknown),
-            Argument::Spread(_) => None,
-        })
+        self.arguments
+            .iter()
+            .take_while(|arg| match arg {
+                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
+                _ => true,
+            })
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some(positional),
+                Argument::Unknown(unknown) => Some(unknown),
+                Argument::Spread(_) => None,
+            })
     }
 
     pub fn positional_iter_mut(&mut self) -> impl Iterator<Item = &mut Expression> {
-        self.arguments.iter_mut().filter_map(|arg| match arg {
-            Argument::Named(_) => None,
-            Argument::Positional(positional) => Some(positional),
-            Argument::Unknown(unknown) => Some(unknown),
-            Argument::Spread(_) => None,
-        })
+        self.arguments
+            .iter_mut()
+            .take_while(|arg| match arg {
+                Argument::Spread(_) => false, // Don't include positional arguments given to rest parameter
+                _ => true,
+            })
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some(positional),
+                Argument::Unknown(unknown) => Some(unknown),
+                Argument::Spread(_) => None,
+            })
     }
 
     pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
@@ -154,6 +166,24 @@ impl Call {
 
     pub fn positional_len(&self) -> usize {
         self.positional_iter().count()
+    }
+
+    /// Returns every argument to the rest parameter, as well as whether each argument
+    /// is spread or a normal positional argument (true for spread, false for normal)
+    pub fn rest_iter(&self, start: usize) -> impl Iterator<Item = (&Expression, bool)> {
+        // todo maybe rewrite to be more elegant or something
+        let args = self
+            .arguments
+            .iter()
+            .filter_map(|arg| match arg {
+                Argument::Named(_) => None,
+                Argument::Positional(positional) => Some((positional, false)),
+                Argument::Unknown(unknown) => Some((unknown, false)),
+                Argument::Spread(args) => Some((args, true)),
+            })
+            .collect::<Vec<_>>();
+        let spread_start = args.iter().position(|(_, spread)| *spread).unwrap_or(start);
+        args.into_iter().skip(start.min(spread_start))
     }
 
     pub fn get_parser_info(&self, name: &str) -> Option<&Expression> {

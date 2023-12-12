@@ -148,9 +148,9 @@ fn spread_external_args() -> TestResult {
 #[test]
 fn spread_internal_args() -> TestResult {
     run_test(
-        r#"def f [a b c? d? ...x] { echo a b c d $x }
+        r#"def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
                  f 1 2 ...[5 6]"#,
-        "",
+        "[1, 2, null, null, [5, 6]]",
     )
     .unwrap();
     fail_test(
