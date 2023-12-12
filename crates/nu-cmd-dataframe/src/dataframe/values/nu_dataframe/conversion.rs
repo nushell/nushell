@@ -823,7 +823,7 @@ fn series_to_values(
             .collect::<Result<Vec<Value>, ShellError>>()?;
             Ok(values)
         }
-        DataType::Datetime(time_unit, _) => {
+        DataType::Datetime(time_unit, tz) => {
             let casted = series.datetime().map_err(|e| ShellError::GenericError {
                 error: "Error casting column to datetime".into(),
                 msg: "".into(),
@@ -851,14 +851,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Struct(polar_fields) => {
-            let casted = series.struct_().map_err(|e| {
-                ShellError::GenericError(
-                    "Error casting column to struct".into(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                )
+            let casted = series.struct_().map_err(|e| ShellError::GenericError {
+                error: "Error casting column to struct".into(),
+                msg: "".to_string(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: Vec::new(),
             })?;
             let it = casted.into_iter();
             let values: Result<Vec<Value>, ShellError> =
@@ -959,15 +957,17 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         }
         AnyValue::Struct(_idx, _struct_array, _s_fields) => {
             // This should convert to a StructOwned object.
-            let static_value = any_value.clone().into_static().map_err(|e| {
-                ShellError::GenericError(
-                    "Cannot convert polars struct to static value".into(),
-                    e.to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            let static_value =
+                any_value
+                    .clone()
+                    .into_static()
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Cannot convert polars struct to static value".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: Vec::new(),
+                    })?;
             any_value_to_value(&static_value, span)
         }
         AnyValue::StructOwned(struct_tuple) => {
@@ -992,13 +992,13 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
         AnyValue::Utf8Owned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
-        e => Err(ShellError::GenericError(
-            "Error creating Value".into(),
-            "".to_string(),
-            None,
-            Some(format!("Value not supported in nushell: {e}")),
-            Vec::new(),
-        )),
+        e => Err(ShellError::GenericError {
+            error: "Error creating Value".into(),
+            msg: "".to_string(),
+            span: None,
+            help: Some(format!("Value not supported in nushell: {e}")),
+            inner: Vec::new(),
+        }),
     }
 }
 
@@ -1020,15 +1020,15 @@ fn datetime_from_epoch_nanos(
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
-        polars_tz.parse::<Tz>().map_err(|_| {
-            ShellError::GenericError(
-                format!("Could not parse polars timezone: {polars_tz}"),
-                "".to_string(),
-                Some(span),
-                None,
-                vec![],
-            )
-        })?
+        polars_tz
+            .parse::<Tz>()
+            .map_err(|_| ShellError::GenericError {
+                error: format!("Could not parse polars timezone: {polars_tz}"),
+                msg: "".to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?
     } else {
         Tz::UTC
     };
