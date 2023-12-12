@@ -48,10 +48,10 @@ impl Command for Loop {
                 call.redirect_stdout,
                 call.redirect_stderr,
             ) {
-                Err(ShellError::Break(_)) => {
+                Err(ShellError::Break { .. }) => {
                     break;
                 }
-                Err(ShellError::Continue(_)) => {
+                Err(ShellError::Continue { .. }) => {
                     continue;
                 }
                 Err(err) => {

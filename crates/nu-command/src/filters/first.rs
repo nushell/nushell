@@ -96,7 +96,7 @@ fn first_helper(
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
     let rows_desired: usize = match rows {
-        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),
+        Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
         Some(x) => x as usize,
         None => 1,
     };

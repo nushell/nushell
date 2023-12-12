@@ -34,10 +34,10 @@ impl Command for LetEnv {
         call: &Call,
         _: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(nu_protocol::ShellError::RemovedCommand(
-            self.name().to_string(),
-            "$env.<environment variable> = ...".to_owned(),
-            call.head,
-        ))
+        Err(nu_protocol::ShellError::RemovedCommand {
+            removed: self.name().to_string(),
+            replacement: "$env.<environment variable> = ...".to_owned(),
+            span: call.head,
+        })
     }
 }

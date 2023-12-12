@@ -23,6 +23,7 @@ mod random;
 mod removed;
 mod shells;
 mod sort_utils;
+mod stor;
 mod strings;
 mod system;
 mod viewers;
@@ -52,6 +53,8 @@ pub use random::*;
 pub use removed::*;
 pub use shells::*;
 pub use sort_utils::*;
+#[cfg(feature = "sqlite")]
+pub use stor::*;
 pub use strings::*;
 pub use system::*;
 pub use viewers::*;

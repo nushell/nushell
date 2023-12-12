@@ -84,27 +84,27 @@ pub fn glob_from(
     let pattern = pattern.to_string_lossy().to_string();
     let glob_options = options.unwrap_or_default();
 
-    let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|err| {
-        nu_protocol::ShellError::GenericError(
-            "Error extracting glob pattern".into(),
-            err.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
+    let glob = nu_glob::glob_with(&pattern, glob_options).map_err(|e| {
+        nu_protocol::ShellError::GenericError {
+            error: "Error extracting glob pattern".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }
     })?;
 
     Ok((
         prefix,
         Box::new(glob.map(move |x| match x {
             Ok(v) => Ok(v),
-            Err(err) => Err(nu_protocol::ShellError::GenericError(
-                "Error extracting glob pattern".into(),
-                err.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+            Err(e) => Err(nu_protocol::ShellError::GenericError {
+                error: "Error extracting glob pattern".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
         })),
     ))
 }

@@ -130,13 +130,13 @@ fn registry_query(
                         )
                         .into_pipeline_data())
                     }
-                    Err(_) => Err(ShellError::GenericError(
-                        "Unable to find registry key/value".to_string(),
-                        format!("Registry value: {} was not found", value.item),
-                        Some(value.span),
-                        None,
-                        Vec::new(),
-                    )),
+                    Err(_) => Err(ShellError::GenericError {
+                        error: "Unable to find registry key/value".into(),
+                        msg: format!("Registry value: {} was not found", value.item),
+                        span: Some(value.span),
+                        help: None,
+                        inner: vec![],
+                    }),
                 }
             }
             None => Ok(Value::nothing(call_span).into_pipeline_data()),
@@ -153,13 +153,13 @@ fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
     .filter(|flag| call.has_flag(flag))
     .collect();
     if flags.len() > 1 {
-        return Err(ShellError::GenericError(
-            "Only one registry key can be specified".into(),
-            "Only one registry key can be specified".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Only one registry key can be specified".into(),
+            msg: "Only one registry key can be specified".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
     let hive = flags.first().copied().unwrap_or("hkcu");
     let hkey = match hive {

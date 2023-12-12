@@ -1009,7 +1009,10 @@ impl Value {
                             } else if let Some(suggestion) =
                                 did_you_mean(val.columns(), column_name)
                             {
-                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
@@ -1032,7 +1035,10 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                return Err(ShellError::DidYouMean(suggestion, *origin_span));
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
                                 return Err(ShellError::CantFindColumn {
                                     col_name: column_name.clone(),
@@ -1064,10 +1070,10 @@ impl Value {
                                             } else if let Some(suggestion) =
                                                 did_you_mean(val.columns(), column_name)
                                             {
-                                                Err(ShellError::DidYouMean(
+                                                Err(ShellError::DidYouMean {
                                                     suggestion,
-                                                    *origin_span,
-                                                ))
+                                                    span: *origin_span,
+                                                })
                                             } else {
                                                 Err(ShellError::CantFindColumn {
                                                     col_name: column_name.clone(),
@@ -1137,6 +1143,7 @@ impl Value {
         cell_path: &[PathMember],
         new_val: Value,
     ) -> Result<(), ShellError> {
+        let v_span = self.span();
         if let Some((member, path)) = cell_path.split_first() {
             match member {
                 PathMember::String {
@@ -1209,22 +1216,26 @@ impl Value {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.upsert_data_at_cell_path(path, new_val)?;
-                        } else if vals.len() == *row_num && path.is_empty() {
-                            // If the upsert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
+                        } else {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
-                    v => {
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
+                            src_span: v_span,
                         });
                     }
                 },
@@ -1626,22 +1637,30 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(path, new_val, head_span)?;
-                        } else if vals.len() == *row_num && path.is_empty() {
-                            // If the insert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                            if path.is_empty() {
+                                vals.insert(*row_num, new_val);
+                            } else {
+                                v.insert_data_at_cell_path(path, new_val, head_span)?;
+                            }
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
+                        } else {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
-                    v => {
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
+                            src_span: v_span,
                         });
                     }
                 },

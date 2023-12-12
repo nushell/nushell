@@ -157,8 +157,8 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => None,
+                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(Value::error(error, input_span))
@@ -180,8 +180,8 @@ with 'transpose' first."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(ShellError::Continue(v)) => return Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => return None,
+                        Err(ShellError::Continue { span }) => return Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => return None,
                         Err(err) => return Some(Value::error(err, span)),
                     };
 
@@ -203,8 +203,8 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => None,
+                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(Value::error(error, input_span))

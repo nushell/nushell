@@ -705,13 +705,13 @@ impl Value {
         } else {
             return (
                 config,
-                Some(ShellError::GenericError(
-                    "Error while applying config changes".into(),
-                    "$env.config is not a record".into(),
-                    Some(self.span()),
-                    None,
-                    vec![],
-                )),
+                Some(ShellError::GenericError {
+                    error: "Error while applying config changes".into(),
+                    msg: "$env.config is not a record".into(),
+                    span: Some(self.span()),
+                    help: None,
+                    inner: vec![],
+                }),
             );
         }
 
@@ -719,14 +719,13 @@ impl Value {
         (
             config,
             if !errors.is_empty() {
-                Some(ShellError::GenericError(
-                    "Config record contains invalid values or unknown settings".into(),
-                    // Without a span, this second string is ignored.
-                    "".into(),
-                    None,
-                    None,
-                    errors,
-                ))
+                Some(ShellError::GenericError {
+                    error: "Config record contains invalid values or unknown settings".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: None,
+                    inner: errors,
+                })
             } else {
                 None
             },

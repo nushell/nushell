@@ -128,9 +128,9 @@ fn handle_catch(
 /// `Err` when flow control to bubble up with `?`
 fn intercept_block_control(error: ShellError) -> Result<ShellError, ShellError> {
     match error {
-        nu_protocol::ShellError::Break(_) => Err(error),
-        nu_protocol::ShellError::Continue(_) => Err(error),
-        nu_protocol::ShellError::Return(_, _) => Err(error),
+        nu_protocol::ShellError::Break { .. } => Err(error),
+        nu_protocol::ShellError::Continue { .. } => Err(error),
+        nu_protocol::ShellError::Return { .. } => Err(error),
         _ => Ok(error),
     }
 }

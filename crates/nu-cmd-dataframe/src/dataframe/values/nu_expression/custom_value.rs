@@ -57,7 +57,10 @@ fn compute_with_value(
     match right {
         Value::CustomValue { val: rhs, .. } => {
             let rhs = rhs.as_any().downcast_ref::<NuExpression>().ok_or_else(|| {
-                ShellError::DowncastNotPossible("Unable to create expression".to_string(), rhs_span)
+                ShellError::DowncastNotPossible {
+                    msg: "Unable to create expression".into(),
+                    span: rhs_span,
+                }
             })?;
 
             match rhs.as_ref() {

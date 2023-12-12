@@ -151,12 +151,13 @@ impl Command for Touch {
                     &item,
                     FileTime::from_system_time(date.expect("should be a valid date").into()),
                 ) {
-                    return Err(ShellError::ChangeModifiedTimeNotPossible(
-                        format!("Failed to change the modified time: {err}"),
-                        call.positional_nth(index)
+                    return Err(ShellError::ChangeModifiedTimeNotPossible {
+                        msg: format!("Failed to change the modified time: {err}"),
+                        span: call
+                            .positional_nth(index)
                             .expect("already checked positional")
                             .span,
-                    ));
+                    });
                 };
             }
 
@@ -170,12 +171,13 @@ impl Command for Touch {
                             ref_date_atime.expect("should be a valid date").into(),
                         ),
                     ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {err}"),
-                            call.positional_nth(index)
+                        return Err(ShellError::ChangeAccessTimeNotPossible {
+                            msg: format!("Failed to change the access time: {err}"),
+                            span: call
+                                .positional_nth(index)
                                 .expect("already checked positional")
                                 .span,
-                        ));
+                        });
                     };
                 } else {
                     // Should not panic as we return an error above if we can't parse the date
@@ -183,12 +185,13 @@ impl Command for Touch {
                         &item,
                         FileTime::from_system_time(date.expect("should be a valid date").into()),
                     ) {
-                        return Err(ShellError::ChangeAccessTimeNotPossible(
-                            format!("Failed to change the access time: {err}"),
-                            call.positional_nth(index)
+                        return Err(ShellError::ChangeAccessTimeNotPossible {
+                            msg: format!("Failed to change the access time: {err}"),
+                            span: call
+                                .positional_nth(index)
                                 .expect("already checked positional")
                                 .span,
-                        ));
+                        });
                     };
                 }
             }

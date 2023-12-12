@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Value,
 };
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
@@ -73,9 +74,12 @@ fn integer(
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    let range: Option<Range> = call.opt(engine_state, stack, 0)?;
+    let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let (min, max) = if let Some(r) = range {
+    let mut range_span = call.head;
+    let (min, max) = if let Some(spanned_range) = range {
+        let r = spanned_range.item;
+        range_span = spanned_range.span;
         if r.is_end_inclusive() {
             (r.from.as_int()?, r.to.as_int()?)
         } else if r.to.as_int()? > 0 {
@@ -91,7 +95,7 @@ fn integer(
         Some(Ordering::Greater) => Err(ShellError::InvalidRange {
             left_flank: min.to_string(),
             right_flank: max.to_string(),
-            span,
+            span: range_span,
         }),
         Some(Ordering::Equal) => Ok(PipelineData::Value(Value::int(min, span), None)),
         _ => {

@@ -51,13 +51,13 @@ impl Command for ConfigReset {
         let mut config_path = match nu_path::config_dir() {
             Some(path) => path,
             None => {
-                return Err(ShellError::GenericError(
-                    "Could not find config path".to_string(),
-                    "Could not find config path".to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Could not find config path".into(),
+                    msg: "Could not find config path".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
         config_path.push("nushell");

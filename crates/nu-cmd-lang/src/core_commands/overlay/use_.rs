@@ -96,7 +96,9 @@ impl Command for OverlayUse {
             if let Some(name) = os_str.to_str() {
                 name.to_string()
             } else {
-                return Err(ShellError::NonUtf8(name_arg.span));
+                return Err(ShellError::NonUtf8 {
+                    span: name_arg.span,
+                });
             }
         } else {
             return Err(ShellError::OverlayNotFoundAtRuntime {

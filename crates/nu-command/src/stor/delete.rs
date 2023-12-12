@@ -1,0 +1,140 @@
+use crate::database::{SQLiteDatabase, MEMORY_DB};
+use nu_engine::CallExt;
+use nu_protocol::{
+    ast::Call,
+    engine::{Command, EngineState, Stack},
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    Type, Value,
+};
+
+#[derive(Clone)]
+pub struct StorDelete;
+
+impl Command for StorDelete {
+    fn name(&self) -> &str {
+        "stor delete"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("stor delete")
+            .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
+            .required_named(
+                "table-name",
+                SyntaxShape::String,
+                "name of the table you want to insert into",
+                Some('t'),
+            )
+            .named(
+                "where-clause",
+                SyntaxShape::String,
+                "a sql string to use as a where clause without the WHERE keyword",
+                Some('w'),
+            )
+            .allow_variants_without_examples(true)
+            .category(Category::Math)
+    }
+
+    fn usage(&self) -> &str {
+        "Delete a table or specified rows in the in-memory sqlite database."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["sqlite", "remove", "table", "saving", "drop"]
+    }
+
+    fn examples(&self) -> Vec<Example> {
+        vec![
+            Example {
+                description: "Delete a table from the in-memory sqlite database",
+                example: "stor delete --table-name nudb",
+                result: None,
+            },
+            Example {
+                description:
+                    "Delete some rows from the in-memory sqlite database with a where clause",
+                example: "stor delete --table-name nudb --where-clause \"int1 == 5\"",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let span = call.head;
+        // For dropping/deleting an entire table
+        let table_name_opt: Option<String> = call.get_flag(engine_state, stack, "table-name")?;
+
+        // For deleting rows from a table
+        let where_clause_opt: Option<String> =
+            call.get_flag(engine_state, stack, "where-clause")?;
+
+        if table_name_opt.is_none() && where_clause_opt.is_none() {
+            return Err(ShellError::MissingParameter {
+                param_name: "requires at least one of table-name or where-clause".into(),
+                span,
+            });
+        }
+
+        if table_name_opt.is_none() && where_clause_opt.is_some() {
+            return Err(ShellError::MissingParameter {
+                param_name: "using the where-clause requires the use of a table-name".into(),
+                span,
+            });
+        }
+
+        // Open the in-mem database
+        let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
+
+        if let Some(new_table_name) = table_name_opt {
+            let where_clause = match where_clause_opt {
+                Some(where_stmt) => where_stmt,
+                None => String::new(),
+            };
+
+            if let Ok(conn) = db.open_connection() {
+                let sql_stmt = if where_clause.is_empty() {
+                    // We're deleting an entire table
+                    format!("DROP TABLE {}", new_table_name)
+                } else {
+                    // We're just deleting some rows
+                    let mut delete_stmt = format!("DELETE FROM {} ", new_table_name);
+
+                    // Yup, this is a bit janky, but I'm not sure a better way to do this without having
+                    // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
+                    // and other sql syntax. So, for now, just type a sql where clause as a string.
+                    delete_stmt.push_str(&format!("WHERE {}", where_clause));
+                    delete_stmt
+                };
+
+                // dbg!(&sql_stmt);
+                conn.execute(&sql_stmt, [])
+                    .map_err(|err| ShellError::GenericError {
+                        error: "Failed to open SQLite connection in memory from delete".into(),
+                        msg: err.to_string(),
+                        span: Some(Span::test_data()),
+                        help: None,
+                        inner: vec![],
+                    })?;
+            }
+        }
+        // dbg!(db.clone());
+        Ok(Value::custom_value(db, span).into_pipeline_data())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(StorDelete {})
+    }
+}

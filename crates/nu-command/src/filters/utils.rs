@@ -11,7 +11,10 @@ pub fn chain_error_with_input(
     span: Span,
 ) -> ShellError {
     if !input_is_error {
-        return ShellError::EvalBlockWithInput(span, vec![error_source]);
+        return ShellError::EvalBlockWithInput {
+            span,
+            sources: vec![error_source],
+        };
     }
     error_source
 }

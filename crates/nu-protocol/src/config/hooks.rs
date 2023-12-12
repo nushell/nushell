@@ -46,23 +46,22 @@ pub(super) fn create_hooks(value: &Value) -> Result<Hooks, ShellError> {
                     "display_output" => hooks.display_output = Some(val.clone()),
                     "command_not_found" => hooks.command_not_found = Some(val.clone()),
                     x => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                        "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'"
-                            .to_string(),
-                        x.to_string(),
-                        span,
-                    ));
+                        return Err(ShellError::UnsupportedConfigValue {
+                            expected: "'pre_prompt', 'pre_execution', 'env_change', 'display_output', 'command_not_found'".into(),
+                            value: x.into(),
+                            span
+                        });
                     }
                 }
             }
 
             Ok(hooks)
         }
-        _ => Err(ShellError::UnsupportedConfigValue(
-            "record for 'hooks' config".into(),
-            "non-record value".into(),
+        _ => Err(ShellError::UnsupportedConfigValue {
+            expected: "record for 'hooks' config".into(),
+            value: "non-record value".into(),
             span,
-        )),
+        }),
     }
 }
 

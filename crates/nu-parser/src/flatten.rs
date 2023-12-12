@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
     Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
-    PipelineElement,
+    PipelineElement, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -410,29 +410,54 @@ pub fn flatten_expression(
 
             let mut output = vec![];
             for l in list {
-                let flattened_lhs = flatten_expression(working_set, &l.0);
-                let flattened_rhs = flatten_expression(working_set, &l.1);
+                match l {
+                    RecordItem::Pair(key, val) => {
+                        let flattened_lhs = flatten_expression(working_set, key);
+                        let flattened_rhs = flatten_expression(working_set, val);
 
-                if let Some(first) = flattened_lhs.first() {
-                    if first.0.start > last_end {
-                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
+                        if let Some(first) = flattened_lhs.first() {
+                            if first.0.start > last_end {
+                                output
+                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                            }
+                        }
+                        if let Some(last) = flattened_lhs.last() {
+                            last_end = last.0.end;
+                        }
+                        output.extend(flattened_lhs);
+
+                        if let Some(first) = flattened_rhs.first() {
+                            if first.0.start > last_end {
+                                output
+                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                            }
+                        }
+                        if let Some(last) = flattened_rhs.last() {
+                            last_end = last.0.end;
+                        }
+
+                        output.extend(flattened_rhs);
+                    }
+                    RecordItem::Spread(op_span, record) => {
+                        if op_span.start > last_end {
+                            output.push((Span::new(last_end, op_span.start), FlatShape::Record));
+                        }
+                        output.push((*op_span, FlatShape::Operator));
+                        last_end = op_span.end;
+
+                        let flattened_inner = flatten_expression(working_set, record);
+                        if let Some(first) = flattened_inner.first() {
+                            if first.0.start > last_end {
+                                output
+                                    .push((Span::new(last_end, first.0.start), FlatShape::Record));
+                            }
+                        }
+                        if let Some(last) = flattened_inner.last() {
+                            last_end = last.0.end;
+                        }
+                        output.extend(flattened_inner);
                     }
                 }
-                if let Some(last) = flattened_lhs.last() {
-                    last_end = last.0.end;
-                }
-                output.extend(flattened_lhs);
-
-                if let Some(first) = flattened_rhs.first() {
-                    if first.0.start > last_end {
-                        output.push((Span::new(last_end, first.0.start), FlatShape::Record));
-                    }
-                }
-                if let Some(last) = flattened_rhs.last() {
-                    last_end = last.0.end;
-                }
-
-                output.extend(flattened_rhs);
             }
             if last_end < outer_span.end {
                 output.push((Span::new(last_end, outer_span.end), FlatShape::Record));

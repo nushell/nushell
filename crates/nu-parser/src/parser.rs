@@ -14,9 +14,10 @@ use nu_protocol::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
+        RecordItem,
     },
     engine::StateWorkingSet,
-    eval_const::{eval_constant, value_as_string},
+    eval_const::eval_constant,
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
@@ -1619,6 +1620,10 @@ pub fn parse_brace_expr(
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
+    } else if second_token.is_some_and(|c| {
+        c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
+    }) {
+        parse_record(working_set, span)
     } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
         parse_closure_expression(working_set, shape, span)
     } else if matches!(shape, SyntaxShape::Block) {
@@ -2698,7 +2703,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     let head_expr = parse_value(working_set, *head_span, &SyntaxShape::Any);
 
     let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
-        Ok(val) => match value_as_string(val, head_expr.span) {
+        Ok(val) => match val.as_string() {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
                 working_set.error(err.wrap(working_set, span(spans)));
@@ -5199,33 +5204,68 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     let mut field_types = Some(vec![]);
     while idx < tokens.len() {
-        let field = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        let curr_span = tokens[idx].span;
+        let curr_tok = working_set.get_span_contents(curr_span);
+        if curr_tok.starts_with(b"...")
+            && curr_tok.len() > 3
+            && (curr_tok[3] == b'$' || curr_tok[3] == b'{' || curr_tok[3] == b'(')
+        {
+            // Parse spread operator
+            let inner = parse_value(
+                working_set,
+                Span::new(curr_span.start + 3, curr_span.end),
+                &SyntaxShape::Record(vec![]),
+            );
+            idx += 1;
 
-        idx += 1;
-        if idx == tokens.len() {
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let colon = working_set.get_span_contents(tokens[idx].span);
-        idx += 1;
-        if idx == tokens.len() || colon != b":" {
-            //FIXME: need better error
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
-        idx += 1;
-
-        if let Some(field) = field.as_string() {
-            if let Some(fields) = &mut field_types {
-                fields.push((field, value.ty.clone()));
+            match &inner.ty {
+                Type::Record(inner_fields) => {
+                    if let Some(fields) = &mut field_types {
+                        for (field, ty) in inner_fields {
+                            fields.push((field.clone(), ty.clone()));
+                        }
+                    }
+                }
+                _ => {
+                    // We can't properly see all the field types
+                    // so fall back to the Any type later
+                    field_types = None;
+                }
             }
+            output.push(RecordItem::Spread(
+                Span::new(curr_span.start, curr_span.start + 3),
+                inner,
+            ));
         } else {
-            // We can't properly see all the field types
-            // so fall back to the Any type later
-            field_types = None;
+            // Normal key-value pair
+            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+
+            idx += 1;
+            if idx == tokens.len() {
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let colon = working_set.get_span_contents(tokens[idx].span);
+            idx += 1;
+            if idx == tokens.len() || colon != b":" {
+                //FIXME: need better error
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+            idx += 1;
+
+            if let Some(field) = field.as_string() {
+                if let Some(fields) = &mut field_types {
+                    fields.push((field, value.ty.clone()));
+                }
+            } else {
+                // We can't properly see all the field types
+                // so fall back to the Any type later
+                field_types = None;
+            }
+            output.push(RecordItem::Pair(field, value));
         }
-        output.push((field, value));
     }
 
     Expression {
@@ -5838,10 +5878,29 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::Record(fields) => {
-            for (field_name, field_value) in fields {
-                discover_captures_in_expr(working_set, field_name, seen, seen_blocks, output)?;
-                discover_captures_in_expr(working_set, field_value, seen, seen_blocks, output)?;
+        Expr::Record(items) => {
+            for item in items {
+                match item {
+                    RecordItem::Pair(field_name, field_value) => {
+                        discover_captures_in_expr(
+                            working_set,
+                            field_name,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                        discover_captures_in_expr(
+                            working_set,
+                            field_value,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                    }
+                    RecordItem::Spread(_, record) => {
+                        discover_captures_in_expr(working_set, record, seen, seen_blocks, output)?;
+                    }
+                }
             }
         }
         Expr::Signature(sig) => {
