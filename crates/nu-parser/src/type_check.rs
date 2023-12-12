@@ -912,6 +912,7 @@ pub fn check_pipeline_type(
     let mut output_errors: Option<Vec<ParseError>> = None;
 
     let list_any_type = Type::List(Box::new(Type::Any));
+    let any_type = Type::Any;
 
     'elem: for elem in &pipeline.elements {
         match elem {
@@ -924,7 +925,8 @@ pub fn check_pipeline_type(
             ) => {
                 let decl = working_set.get_decl(call.decl_id);
 
-                if [Type::Any, list_any_type.clone()].contains(&current_type) {
+                // use list of reference to avoid allocate memory repeatly in for loop
+                if [&any_type, &list_any_type].contains(&&current_type) {
                     let mut new_current_type = None;
                     for (call_input, call_output) in decl.signature().input_output_types {
                         let matched = if current_type == list_any_type {
