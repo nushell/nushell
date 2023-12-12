@@ -927,7 +927,7 @@ pub fn check_pipeline_type(
                 if [Type::Any, list_any_type.clone()].contains(&current_type) {
                     let mut new_current_type = None;
                     for (call_input, call_output) in decl.signature().input_output_types {
-                        let matched = if &current_type == &list_any_type {
+                        let matched = if current_type == list_any_type {
                             type_compatible(&call_input, &current_type)
                         } else {
                             // it's any type, always match
