@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
-    Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern, PathMember,
-    Pattern, Pipeline, PipelineElement, RecordItem,
+    Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
+    PathMember, Pattern, Pipeline, PipelineElement, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -193,17 +193,30 @@ pub fn flatten_expression(
             }
 
             let mut args = vec![];
-            for positional in call.positional_iter() {
-                let flattened = flatten_expression(working_set, positional);
-                args.extend(flattened);
-            }
-            for named in call.named_iter() {
-                if named.0.span.end != 0 {
-                    // Ignore synthetic flags
-                    args.push((named.0.span, FlatShape::Flag));
-                }
-                if let Some(expr) = &named.2 {
-                    args.extend(flatten_expression(working_set, expr));
+            for arg in &call.arguments {
+                match arg {
+                    Argument::Positional(positional) | Argument::Unknown(positional) => {
+                        let flattened = flatten_expression(working_set, positional);
+                        args.extend(flattened);
+                    }
+                    Argument::Named(named) => {
+                        if named.0.span.end != 0 {
+                            // Ignore synthetic flags
+                            args.push((named.0.span, FlatShape::Flag));
+                        }
+                        if let Some(expr) = &named.2 {
+                            args.extend(flatten_expression(working_set, expr));
+                        }
+                    }
+                    Argument::Spread(expr) => {
+                        // TODO hardcoding the operator's span is probably unsafe,
+                        // put it in the Spread variant itself
+                        args.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        args.extend(flatten_expression(working_set, expr));
+                    }
                 }
             }
             // sort these since flags and positional args can be intermixed

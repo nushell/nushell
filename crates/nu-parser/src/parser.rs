@@ -5869,14 +5869,19 @@ pub fn discover_captures_in_expr(
                 }
             }
 
-            for named in call.named_iter() {
-                if let Some(arg) = &named.2 {
-                    discover_captures_in_expr(working_set, arg, seen, seen_blocks, output)?;
+            for arg in &call.arguments {
+                match arg {
+                    Argument::Named(named) => {
+                        if let Some(arg) = &named.2 {
+                            discover_captures_in_expr(working_set, arg, seen, seen_blocks, output)?;
+                        }
+                    }
+                    Argument::Positional(expr)
+                    | Argument::Unknown(expr)
+                    | Argument::Spread(expr) => {
+                        discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+                    }
                 }
-            }
-
-            for positional in call.positional_iter() {
-                discover_captures_in_expr(working_set, positional, seen, seen_blocks, output)?;
             }
         }
         Expr::CellPath(_) => {}

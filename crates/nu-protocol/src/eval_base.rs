@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, RecordItem, ExternalArgument,
+        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
+        ExternalArgument, Math, Operator, RecordItem,
     },
     Range, Record, ShellError, Span, Value, VarId,
 };

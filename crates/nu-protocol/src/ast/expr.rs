@@ -1,7 +1,10 @@
 use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
-use super::{Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator, RangeOperator};
+use super::{
+    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
+    RangeOperator,
+};
 use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

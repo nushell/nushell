@@ -1,5 +1,5 @@
 use crate::{
-    ast::{Assignment, Block, Call, Expr, Expression, PipelineElement, ExternalArgument},
+    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PipelineElement},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
     record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
