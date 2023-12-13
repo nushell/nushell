@@ -24,7 +24,7 @@ impl Command for QueryDb {
                 SyntaxShape::String,
                 "SQL to execute against the database",
             )
-            .category(Category::Custom("database".into()))
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
