@@ -132,32 +132,20 @@ pub fn create_external_command(
     }
 
     let mut spanned_args = vec![];
-    let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
+    // let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
     let mut arg_keep_raw = vec![];
-    for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
-        match one_arg {
-            Value::List { vals, .. } => {
-                // turn all the strings in the array into params.
-                // Example: one_arg may be something like ["ls" "-a"]
-                // convert it to "ls" "-a"
-                for v in vals {
-                    spanned_args.push(value_as_spanned(v)?);
-                    // for arguments in list, it's always treated as a whole arguments
-                    arg_keep_raw.push(true);
-                }
-            }
-            val => {
-                spanned_args.push(value_as_spanned(val)?);
-                match one_arg_expr.expr {
-                    // refer to `parse_dollar_expr` function
-                    // the expression type of $variable_name, $"($variable_name)"
-                    // will be Expr::StringInterpolation, Expr::FullCellPath
-                    Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
-                    _ => arg_keep_raw.push(false),
-                }
-                {}
-            }
-        }
+    // for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
+    for val in args {
+        spanned_args.push(value_as_spanned(val)?);
+        // todo do this properly
+        arg_keep_raw.push(false);
+        // match one_arg_expr.expr {
+        //     // refer to `parse_dollar_expr` function
+        //     // the expression type of $variable_name, $"($variable_name)"
+        //     // will be Expr::StringInterpolation, Expr::FullCellPath
+        //     Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
+        //     _ => arg_keep_raw.push(false),
+        // }
     }
 
     Ok(ExternalCommand {
