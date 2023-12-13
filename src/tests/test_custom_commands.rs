@@ -76,7 +76,7 @@ fn custom_switch1() -> TestResult {
 #[test]
 fn custom_flag_with_type_checking() -> TestResult {
     fail_test(
-        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb $y"#,
+        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb --dry-run=$y"#,
         "type_mismatch",
     )
 }
