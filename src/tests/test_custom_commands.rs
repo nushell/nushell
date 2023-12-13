@@ -74,6 +74,14 @@ fn custom_switch1() -> TestResult {
 }
 
 #[test]
+fn custom_flag_with_type_checking() -> TestResult {
+    fail_test(
+        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb $y"#,
+        "type_mismatch",
+    )
+}
+
+#[test]
 fn custom_switch2() -> TestResult {
     run_test(
         r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
@@ -116,7 +124,7 @@ fn custom_flag1() -> TestResult {
         r#"def florb [
             --age: int = 0
             --name = "foobar"
-        ] { 
+        ] {
             ($age | into string) + $name
         }
         florb"#,
