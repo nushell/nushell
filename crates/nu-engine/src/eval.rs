@@ -66,21 +66,12 @@ pub fn eval_call(
         if let Some(rest_positional) = decl.signature().rest_positional {
             let mut rest_items = vec![];
 
-            for (arg, spread) in call.rest_iter(
+            for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
-            ) {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
-                if spread {
-                    match result {
-                        Value::List { vals: mut args, .. } => {
-                            rest_items.append(&mut args);
-                        }
-                        _ => return Err(ShellError::CannotSpreadAsList { span: arg.span }),
-                    }
-                } else {
-                    rest_items.push(result);
-                }
+                |expr| eval_expression(engine_state, caller_stack, expr),
+            )? {
+                rest_items.push(result);
             }
 
             let span = if let Some(rest_item) = rest_items.first() {

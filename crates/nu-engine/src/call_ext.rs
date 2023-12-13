@@ -98,8 +98,9 @@ impl CallExt for Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for expr in self.positional_iter().skip(starting_pos) {
-            let result = eval_expression(engine_state, stack, expr)?;
+        for result in self.rest_iter_flattened(starting_pos, |expr| {
+            eval_expression(engine_state, stack, expr)
+        })? {
             output.push(FromValue::from_value(result)?);
         }
 
@@ -113,8 +114,9 @@ impl CallExt for Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for expr in self.positional_iter().skip(starting_pos) {
-            let result = eval_constant(working_set, expr)?;
+        for result in
+            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
+        {
             output.push(FromValue::from_value(result)?);
         }
 
