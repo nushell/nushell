@@ -14,6 +14,7 @@ mod value;
 pub use self::bool::SubCommand as IntoBool;
 pub use self::filesize::SubCommand as IntoFilesize;
 pub use binary::SubCommand as IntoBinary;
+pub use cell_path::IntoCellPath;
 pub use command::Into;
 pub use datetime::SubCommand as IntoDatetime;
 pub use duration::SubCommand as IntoDuration;
