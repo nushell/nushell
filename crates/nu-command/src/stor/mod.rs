@@ -17,6 +17,8 @@ mod stor_;
 mod update;
 
 #[cfg(feature = "sqlite")]
+pub use self::open::StorOpen;
+#[cfg(feature = "sqlite")]
 pub use create::StorCreate;
 #[cfg(feature = "sqlite")]
 pub use delete::StorDelete;
@@ -26,8 +28,6 @@ pub use export::StorExport;
 pub use import::StorImport;
 #[cfg(feature = "sqlite")]
 pub use insert::StorInsert;
-#[cfg(feature = "sqlite")]
-pub use self::open::StorOpen;
 #[cfg(feature = "sqlite")]
 pub use reset::StorReset;
 pub use stor_::Stor;
