@@ -1,6 +1,7 @@
 mod commandline;
 mod default_context;
 mod history;
+mod history_migrate;
 mod history_session;
 mod keybindings;
 mod keybindings_default;
@@ -9,6 +10,7 @@ mod keybindings_listen;
 
 pub use commandline::Commandline;
 pub use history::History;
+pub use history_migrate::HistoryMigrate;
 pub use history_session::HistorySession;
 pub use keybindings::Keybindings;
 pub use keybindings_default::KeybindingsDefault;
