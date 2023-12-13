@@ -1,8 +1,9 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
+use nu_engine::eval_expression;
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
@@ -113,7 +114,6 @@ pub fn create_external_command(
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
     // Translate environment variables from Values to Strings
     let env_vars_str = env_to_strings(engine_state, stack)?;
@@ -132,20 +132,29 @@ pub fn create_external_command(
     }
 
     let mut spanned_args = vec![];
-    // let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
     let mut arg_keep_raw = vec![];
-    // for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
-    for val in args {
-        spanned_args.push(value_as_spanned(val)?);
-        // todo do this properly
-        arg_keep_raw.push(false);
-        // match one_arg_expr.expr {
-        //     // refer to `parse_dollar_expr` function
-        //     // the expression type of $variable_name, $"($variable_name)"
-        //     // will be Expr::StringInterpolation, Expr::FullCellPath
-        //     Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
-        //     _ => arg_keep_raw.push(false),
-        // }
+    for (arg, spread) in call.rest_iter(1) {
+        let val = eval_expression(engine_state, stack, arg)?;
+        if spread {
+            match val {
+                Value::List { vals, .. } => {
+                    for val in vals {
+                        spanned_args.push(value_as_spanned(val)?);
+                        arg_keep_raw.push(true);
+                    }
+                }
+                _ => return Err(ShellError::CannotSpreadAsList { span: arg.span }),
+            }
+        } else {
+            spanned_args.push(value_as_spanned(val)?);
+            match arg.expr {
+                // refer to `parse_dollar_expr` function
+                // the expression type of $variable_name, $"($variable_name)"
+                // will be Expr::StringInterpolation, Expr::FullCellPath
+                Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
+                _ => arg_keep_raw.push(false),
+            }
+        }
     }
 
     Ok(ExternalCommand {
