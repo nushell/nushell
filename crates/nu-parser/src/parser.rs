@@ -12,9 +12,9 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
-        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
-        Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
-        RecordItem,
+        ExternalArgument, FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember,
+        MatchPattern, Math, Operator, PathMember, Pattern, Pipeline, PipelineElement,
+        RangeInclusion, RangeOperator, RecordItem,
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -266,28 +266,22 @@ pub fn check_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> O
     }
 }
 
-fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$") || contents.starts_with(b"(") {
-        parse_dollar_expr(working_set, span)
+        ExternalArgument::Regular(parse_dollar_expr(working_set, span))
     } else if contents.starts_with(b"[") {
-        parse_list_expression(working_set, span, &SyntaxShape::Any)
+        ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
     } else if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
     {
-        let args = parse_value(
+        ExternalArgument::Spread(parse_value(
             working_set,
             Span::new(span.start + 3, span.end),
-            &SyntaxShape::Any,
-        );
-        Expression {
-            expr: Expr::Spread(Box::new(args)),
-            span,
-            ty: Type::Any,
-            custom_completion: None,
-        }
+            &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+        ))
     } else {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
         let contents = if contents.starts_with(b"\"") {
@@ -300,12 +294,12 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             String::from_utf8_lossy(contents).to_string()
         };
 
-        Expression {
+        ExternalArgument::Regular(Expression {
             expr: Expr::String(contents),
             span,
             ty: Type::String,
             custom_completion: None,
-        }
+        })
     }
 }
 
@@ -5887,11 +5881,15 @@ pub fn discover_captures_in_expr(
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}
-        Expr::ExternalCall(head, exprs, _) => {
+        Expr::ExternalCall(head, args, _) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
-            for expr in exprs {
-                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+            for arg in args {
+                match arg {
+                    ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                        discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+                    }
+                }
             }
         }
         Expr::Filepath(_) => {}

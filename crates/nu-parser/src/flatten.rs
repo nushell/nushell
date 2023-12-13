@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
-    PipelineElement, RecordItem,
+    Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern, PathMember,
+    Pattern, Pipeline, PipelineElement, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -231,15 +231,26 @@ pub fn flatten_expression(
             for arg in args {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
-                    Expression {
-                        expr: Expr::String(..),
-                        span,
-                        ..
-                    } => {
-                        output.push((*span, FlatShape::ExternalArg));
-                    }
-                    _ => {
-                        output.extend(flatten_expression(working_set, arg));
+                    ExternalArgument::Regular(expr) => match expr {
+                        Expression {
+                            expr: Expr::String(..),
+                            span,
+                            ..
+                        } => {
+                            output.push((*span, FlatShape::ExternalArg));
+                        }
+                        _ => {
+                            output.extend(flatten_expression(working_set, expr));
+                        }
+                    },
+                    ExternalArgument::Spread(expr) => {
+                        // TODO hardcoding the operator's span is probably unsafe,
+                        // put it in the Spread variant itself
+                        output.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        output.extend(flatten_expression(working_set, expr));
                     }
                 }
             }

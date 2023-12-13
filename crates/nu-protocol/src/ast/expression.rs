@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Expr, RecordItem};
+use super::{Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -183,8 +183,12 @@ impl Expression {
                     return true;
                 }
                 for arg in args {
-                    if arg.has_in_variable(working_set) {
-                        return true;
+                    match arg {
+                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                            if expr.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
                     }
                 }
                 false
@@ -390,7 +394,11 @@ impl Expression {
             Expr::ExternalCall(head, args, _) => {
                 head.replace_in_variable(working_set, new_var_id);
                 for arg in args {
-                    arg.replace_in_variable(working_set, new_var_id)
+                    match arg {
+                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                            expr.replace_in_variable(working_set, new_var_id)
+                        }
+                    }
                 }
             }
             Expr::Filepath(_) => {}
@@ -560,7 +568,11 @@ impl Expression {
             Expr::ExternalCall(head, args, _) => {
                 head.replace_span(working_set, replaced, new_span);
                 for arg in args {
-                    arg.replace_span(working_set, replaced, new_span)
+                    match arg {
+                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
+                            expr.replace_span(working_set, replaced, new_span)
+                        }
+                    }
                 }
             }
             Expr::Filepath(_) => {}

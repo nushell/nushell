@@ -37,6 +37,12 @@ impl Argument {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum ExternalArgument {
+    Regular(Expression),
+    Spread(Expression),
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Call {
     /// identifier of the declaration to call
     pub decl_id: DeclId,
@@ -160,6 +166,7 @@ impl Call {
         self.positional_iter().nth(i)
     }
 
+    // TODO this method is never used. Delete?
     pub fn positional_nth_mut(&mut self, i: usize) -> Option<&mut Expression> {
         self.positional_iter_mut().nth(i)
     }
