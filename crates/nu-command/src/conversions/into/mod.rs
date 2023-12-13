@@ -1,5 +1,6 @@
 mod binary;
 mod bool;
+mod cell_path;
 mod command;
 mod datetime;
 mod duration;
