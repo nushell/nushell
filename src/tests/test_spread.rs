@@ -185,3 +185,8 @@ fn spread_non_list_args() -> TestResult {
     fail_test(r#"echo ...(1)"#, "cannot spread value").unwrap();
     fail_test(r#"^echo ...(1)"#, "cannot spread value")
 }
+
+#[test]
+fn spread_args_type() -> TestResult {
+    fail_test(r#"def f [...x: int] {}; f ...["abc"]"#, "expected int")
+}

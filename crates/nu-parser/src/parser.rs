@@ -978,11 +978,15 @@ pub fn parse_internal_call(
                         signature.call_signature(),
                     ));
                 } else {
+                    let rest_shape = match &signature.rest_positional {
+                        Some(arg) => arg.shape.clone(),
+                        None => SyntaxShape::Any,
+                    };
                     // Parse list of arguments to be spread
                     let args = parse_value(
                         working_set,
                         Span::new(arg_span.start + 3, arg_span.end),
-                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                        &SyntaxShape::List(Box::new(rest_shape)),
                     );
 
                     call.add_spread(args);
