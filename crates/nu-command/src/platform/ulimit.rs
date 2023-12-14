@@ -238,8 +238,8 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
     ];
 
     let mut resource_array = Vec::new();
-    for (name, desc, flag, multipler, res) in resources {
-        resource_array.push(ResourceInfo::new(name, desc, flag, multipler, res));
+    for (name, desc, flag, multiplier, res) in resources {
+        resource_array.push(ResourceInfo::new(name, desc, flag, multiplier, res));
     }
 
     resource_array
