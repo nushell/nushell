@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
 edition = "2021"
 license = "MIT"
 name = "nu-path"
-version = "0.88.1"
+version = "0.88.2"
 exclude = ["/fuzz"]
 
 [lib]
