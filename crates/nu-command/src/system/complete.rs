@@ -64,8 +64,7 @@ impl Command for Complete {
                                 } else {
                                     Ok::<_, ShellError>(Value::binary(stderr.item, stderr.span))
                                 }
-                            })
-                            .expect("failed to create thread"),
+                            }),
                         stderr_span,
                     )
                 });
@@ -83,11 +82,13 @@ impl Command for Complete {
                 }
 
                 if let Some((handler, stderr_span)) = stderr_handler {
-                    let res = handler.join().map_err(|err| ShellError::ExternalCommand {
-                        label: "Fail to receive external commands stderr message".to_string(),
-                        help: format!("{err:?}"),
-                        span: stderr_span,
-                    })??;
+                    let res = handler?
+                        .join()
+                        .map_err(|err| ShellError::ExternalCommand {
+                            label: "Fail to receive external commands stderr message".to_string(),
+                            help: format!("{err:?}"),
+                            span: stderr_span,
+                        })??;
                     record.push("stderr", res)
                 };
 

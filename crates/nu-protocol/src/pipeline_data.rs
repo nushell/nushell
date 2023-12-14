@@ -861,8 +861,7 @@ pub fn print_if_stream(
 
     thread::Builder::new()
         .name("stderr consumer".to_string())
-        .spawn(move || stderr_stream.map(|x| x.into_bytes()))
-        .expect("could not create thread");
+        .spawn(move || stderr_stream.map(|x| x.into_bytes()))?;
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;

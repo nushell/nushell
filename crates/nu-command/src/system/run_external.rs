@@ -436,8 +436,7 @@ impl ExternalCommand {
                                 }
 
                                 Ok(())
-                            })
-                            .expect("Failed to create thread");
+                            })?;
                     }
                 }
 
@@ -525,7 +524,7 @@ impl ExternalCommand {
                             Ok(())
                         }
                     }
-                }).expect("Failed to create thread");
+                })?;
 
                 let (stderr_tx, stderr_rx) = mpsc::sync_channel(OUTPUT_BUFFERS_IN_FLIGHT);
                 if redirect_stderr {
@@ -541,8 +540,7 @@ impl ExternalCommand {
 
                             read_and_redirect_message(stderr, stderr_tx, stderr_ctrlc);
                             Ok::<(), ShellError>(())
-                        })
-                        .expect("Failed to create thread");
+                        })?;
                 }
 
                 let stdout_receiver = ChannelReceiver::new(stdout_rx);

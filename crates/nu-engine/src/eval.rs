@@ -439,7 +439,7 @@ fn eval_element_with_input(
                                     stderr_stack,
                                     save_call,
                                     input,
-                                ));
+                                )?);
 
                                 Ok(might_consume_external_result(
                                     PipelineData::ExternalStream {
@@ -870,8 +870,8 @@ impl DataSaveJob {
         mut stack: Stack,
         save_call: Call,
         input: PipelineData,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ShellError> {
+        let job = Self {
             inner: thread::Builder::new()
                 .name("stderr saver".to_string())
                 .spawn(move || {
@@ -879,9 +879,10 @@ impl DataSaveJob {
                     if let Err(err) = result {
                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                     }
-                })
-                .expect("Failed to create thread"),
-        }
+                })?,
+        };
+
+        Ok(job)
     }
 
     pub fn join(self) -> thread::Result<()> {
