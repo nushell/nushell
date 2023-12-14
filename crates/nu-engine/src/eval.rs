@@ -603,8 +603,8 @@ pub fn eval_block(
     stack: &mut Stack,
     block: &Block,
     mut input: PipelineData,
-    mut redirect_stdout: bool,
-    mut redirect_stderr: bool,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
     if let Some(recursive) = block.recursive {
@@ -629,6 +629,8 @@ pub fn eval_block(
         let elements = &pipeline.elements;
         let elements_length = elements.len();
         for (idx, element) in elements.iter().enumerate() {
+            let mut redirect_stdout = redirect_stdout;
+            let mut redirect_stderr = redirect_stderr;
             if !redirect_stderr && idx < elements_length - 1 {
                 let next_element = &elements[idx + 1];
                 if matches!(

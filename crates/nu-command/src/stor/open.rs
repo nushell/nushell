@@ -20,7 +20,7 @@ impl Command for StorOpen {
                 Type::Custom("sqlite-in-memory".into()),
             )])
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
