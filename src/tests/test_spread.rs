@@ -156,9 +156,9 @@ fn spread_internal_args() -> TestResult {
     )
     .unwrap();
     run_test(
-        r#"def f [a b c? ...x] { [$a $b $c $d $x] | to nuon }
+        r#"def f [a b c? ...x] { [$a $b $c $x] | to nuon }
                 f 1 2 3 ...[5 6]"#,
-        "[1, 2, 3, null, [5, 6]]",
+        "[1, 2, 3, [5, 6]]",
     )
     .unwrap();
 
