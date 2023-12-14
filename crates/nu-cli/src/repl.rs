@@ -502,10 +502,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(
-                                    tokens.0[0].span,
-                                    path.to_string_lossy().to_string(),
-                                ),
+                                &ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: tokens.0[0].span,
+                                },
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)
@@ -773,23 +773,21 @@ pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) ->
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    io::stdout().write_all(seq.as_bytes()).map_err(|e| {
-        ShellError::GenericError(
-            "Error writing ansi sequence".into(),
-            e.to_string(),
-            Some(Span::unknown()),
-            None,
-            Vec::new(),
-        )
-    })?;
-    io::stdout().flush().map_err(|e| {
-        ShellError::GenericError(
-            "Error flushing stdio".into(),
-            e.to_string(),
-            Some(Span::unknown()),
-            None,
-            Vec::new(),
-        )
+    io::stdout()
+        .write_all(seq.as_bytes())
+        .map_err(|e| ShellError::GenericError {
+            error: "Error writing ansi sequence".into(),
+            msg: e.to_string(),
+            span: Some(Span::unknown()),
+            help: None,
+            inner: vec![],
+        })?;
+    io::stdout().flush().map_err(|e| ShellError::GenericError {
+        error: "Error flushing stdio".into(),
+        msg: e.to_string(),
+        span: Some(Span::unknown()),
+        help: None,
+        inner: vec![],
     })
 }
 

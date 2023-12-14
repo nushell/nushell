@@ -196,33 +196,33 @@ pub fn transpose(
                         if let Ok(s) = x.as_string() {
                             headers.push(s.to_string());
                         } else {
-                            return Err(ShellError::GenericError(
-                                "Header row needs string headers".into(),
-                                "used non-string headers".into(),
-                                Some(name),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "Header row needs string headers".into(),
+                                msg: "used non-string headers".into(),
+                                span: Some(name),
+                                help: None,
+                                inner: vec![],
+                            });
                         }
                     }
                     _ => {
-                        return Err(ShellError::GenericError(
-                            "Header row is incomplete and can't be used".into(),
-                            "using incomplete header row".into(),
-                            Some(name),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Header row is incomplete and can't be used".into(),
+                            msg: "using incomplete header row".into(),
+                            span: Some(name),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             } else {
-                return Err(ShellError::GenericError(
-                    "Header row is incomplete and can't be used".into(),
-                    "using incomplete header row".into(),
-                    Some(name),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Header row is incomplete and can't be used".into(),
+                    msg: "using incomplete header row".into(),
+                    span: Some(name),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     } else {
@@ -291,7 +291,7 @@ pub fn transpose(
             metadata,
         ))
     } else {
-        Ok(result_data.into_pipeline_data(ctrlc).set_metadata(metadata))
+        Ok(result_data.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

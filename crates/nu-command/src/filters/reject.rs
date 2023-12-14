@@ -215,6 +215,7 @@ fn reject(
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: HashSet<usize> = HashSet::new();
+    let metadata = input.metadata();
     let val = input.into_value(span);
     let mut val = val;
     let mut new_columns = vec![];
@@ -224,13 +225,13 @@ fn reject(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Reject only allows row numbers for rows".into(),
-                        "extra after row number".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Reject only allows row numbers for rows".into(),
+                        msg: "extra after row number".into(),
+                        span: Some(*span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 if !unique_rows.contains(val) {
                     unique_rows.insert(*val);
@@ -257,7 +258,7 @@ fn reject(
     for cell_path in new_columns {
         val.remove_data_at_cell_path(&cell_path.members)?;
     }
-    Ok(val.into_pipeline_data())
+    Ok(val.into_pipeline_data_with_metadata(metadata))
 }
 
 #[cfg(test)]

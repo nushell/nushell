@@ -1,6 +1,5 @@
 use dialoguer::{console::Term, Select};
 use dialoguer::{FuzzySelect, MultiSelect};
-use nu_ansi_term::Color;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -45,6 +44,7 @@ impl Command for InputList {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::List(Box::new(Type::Any)), Type::Any),
+                (Type::Range, Type::Int),
             ])
             .optional("prompt", SyntaxShape::String, "the prompt to display")
             .switch(
@@ -82,87 +82,21 @@ impl Command for InputList {
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. }
-            | PipelineData::Value(Value::Record { .. }, ..) => {
-                let mut lentable = Vec::<usize>::new();
-                let rows = input.into_iter().collect::<Vec<_>>();
-                rows.iter().for_each(|row| {
-                    if let Ok(record) = row.as_record() {
-                        let columns = record.len();
-                        for (i, (col, val)) in record.iter().enumerate() {
-                            if i == columns - 1 {
-                                break;
-                            }
-
-                            if let Ok(val) = val.as_string() {
-                                let len = nu_utils::strip_ansi_likely(&val).len()
-                                    + nu_utils::strip_ansi_likely(col).len();
-                                if let Some(max_len) = lentable.get(i) {
-                                    lentable[i] = (*max_len).max(len);
-                                } else {
-                                    lentable.push(len);
-                                }
-                            }
-                        }
-                    }
-                });
-
-                rows.into_iter()
-                    .map_while(move |x| {
-                        if let Ok(val) = x.as_string() {
-                            Some(Options {
-                                name: val,
-                                value: x,
-                            })
-                        } else if let Ok(record) = x.as_record() {
-                            let mut options = Vec::new();
-                            let columns = record.len();
-                            for (i, (col, val)) in record.iter().enumerate() {
-                                if let Ok(val) = val.as_string() {
-                                    let len = nu_utils::strip_ansi_likely(&val).len()
-                                        + nu_utils::strip_ansi_likely(col).len();
-                                    options.push(format!(
-                                        " {}{}{}: {}{}",
-                                        Color::Cyan.prefix(),
-                                        col,
-                                        Color::Cyan.suffix(),
-                                        &val,
-                                        if i == columns - 1 {
-                                            String::from("")
-                                        } else {
-                                            format!(
-                                                "{} |",
-                                                " ".repeat(
-                                                    lentable
-                                                        .get(i)
-                                                        .cloned()
-                                                        .unwrap_or_default()
-                                                        .saturating_sub(len)
-                                                )
-                                            )
-                                        }
-                                    ));
-                                }
-                            }
-                            Some(Options {
-                                name: options.join(""),
-                                value: x,
-                            })
-                        } else {
-                            None
-                        }
-                    })
-                    .collect()
-            }
+            | PipelineData::ListStream { .. } => input
+                .into_iter()
+                .map(move |val| Options {
+                    name: val.into_string(", ", engine_state.get_config()),
+                    value: val,
+                })
+                .collect(),
 
             _ => {
                 return Err(ShellError::TypeMismatch {
-                    err_message: "expected a list or table".to_string(),
+                    err_message: "expected a list, a table, or a range".to_string(),
                     span: head,
                 })
             }
         };
-        let prompt = prompt.unwrap_or_default();
 
         if options.is_empty() {
             return Err(ShellError::TypeMismatch {
@@ -188,7 +122,7 @@ impl Command for InputList {
             let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
-                if !prompt.is_empty() {
+                if let Some(prompt) = prompt {
                     multi_select.with_prompt(&prompt)
                 } else {
                     multi_select
@@ -196,13 +130,15 @@ impl Command for InputList {
                 .items(&options)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         } else if call.has_flag("fuzzy") {
             let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
             InteractMode::Single(
-                if !prompt.is_empty() {
+                if let Some(prompt) = prompt {
                     fuzzy_select.with_prompt(&prompt)
                 } else {
                     fuzzy_select
@@ -211,12 +147,14 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         } else {
             let select = Select::new(); //::with_theme(&theme);
             InteractMode::Single(
-                if !prompt.is_empty() {
+                if let Some(prompt) = prompt {
                     select.with_prompt(&prompt)
                 } else {
                     select
@@ -225,7 +163,9 @@ impl Command for InputList {
                 .default(0)
                 .report(false)
                 .interact_on_opt(&Term::stderr())
-                .map_err(|err| ShellError::IOError(format!("{}: {}", INTERACT_ERROR, err)))?,
+                .map_err(|err| ShellError::IOError {
+                    msg: format!("{}: {}", INTERACT_ERROR, err),
+                })?,
             )
         };
 
@@ -260,6 +200,11 @@ impl Command for InputList {
             Example {
                 description: "Return a single record from a table with fuzzy search",
                 example: r#"ls | input list --fuzzy 'Select the target'"#,
+                result: None,
+            },
+            Example {
+                description: "Choose an item from a range",
+                example: r#"1..10 | input list"#,
                 result: None,
             },
         ]

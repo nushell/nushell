@@ -105,7 +105,7 @@ impl Command for Open {
 
             for path in nu_engine::glob_from(&path, &cwd, call_span, None)
                 .map_err(|err| match err {
-                    ShellError::DirectoryNotFound(span, _) => ShellError::FileNotFound { span },
+                    ShellError::DirectoryNotFound { span, .. } => ShellError::FileNotFound { span },
                     _ => err,
                 })?
                 .1
@@ -125,13 +125,13 @@ impl Command for Open {
 
                     #[cfg(not(unix))]
                     let error_msg = String::from("Permission denied");
-                    return Err(ShellError::GenericError(
-                        "Permission denied".into(),
-                        error_msg,
-                        Some(arg_span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Permission denied".into(),
+                        msg: error_msg,
+                        span: Some(arg_span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     #[cfg(feature = "sqlite")]
                     if !raw {
@@ -146,13 +146,13 @@ impl Command for Open {
                     let file = match std::fs::File::open(path) {
                         Ok(file) => file,
                         Err(err) => {
-                            return Err(ShellError::GenericError(
-                                "Permission denied".into(),
-                                err.to_string(),
-                                Some(arg_span),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "Permission denied".into(),
+                                msg: err.to_string(),
+                                span: Some(arg_span),
+                                help: None,
+                                inner: vec![],
+                            });
                         }
                     };
 
@@ -200,13 +200,13 @@ impl Command for Open {
                                 decl.run(engine_state, stack, &Call::new(call_span), file_contents)
                             };
                             output.push(command_output.map_err(|inner| {
-                                    ShellError::GenericError(
-                                        format!("Error while parsing as {ext}"),
-                                        format!("Could not parse '{}' with `from {}`", path.display(), ext),
-                                        Some(arg_span),
-                                        Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
-                                        vec![inner],
-                                    )
+                                    ShellError::GenericError{
+                                        error: format!("Error while parsing as {ext}"),
+                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
+                                        span: Some(arg_span),
+                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        inner: vec![inner],
+                                }
                                 })?);
                         }
                         None => output.push(file_contents),

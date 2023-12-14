@@ -118,8 +118,7 @@ impl Command for SkipWhile {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

@@ -347,7 +347,7 @@ impl LanguageServer {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
 
-                let mut description = "```\n### Signature\n```\n".to_string();
+                let mut description = "\n### Signature\n```\n".to_string();
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
@@ -371,7 +371,7 @@ impl LanguageServer {
                     let mut first = true;
                     for required_arg in &signature.required_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
@@ -387,7 +387,7 @@ impl LanguageServer {
                     }
                     for optional_arg in &signature.optional_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
@@ -403,7 +403,7 @@ impl LanguageServer {
                     }
                     if let Some(arg) = &signature.rest_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             " `...{}: {}`",
@@ -422,7 +422,7 @@ impl LanguageServer {
                     let mut first = true;
                     for named in &signature.named {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         } else {
                             first = false;
                         }
@@ -450,7 +450,7 @@ impl LanguageServer {
                     description.push_str("\n```\n");
                     for input_output in &signature.input_output_types {
                         description
-                            .push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
+                            .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
                     }
                     description.push_str("\n```\n");
                 }
@@ -463,10 +463,10 @@ impl LanguageServer {
                         .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
                 }
                 if !decl.examples().is_empty() {
-                    description.push_str("### Example(s)\n```\n");
+                    description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "```\n  {}\n```\n  {}\n\n",
+                            "  {}\n```\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
@@ -957,7 +957,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "```\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
+                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
                 }
             })
         );

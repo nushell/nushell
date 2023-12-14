@@ -125,13 +125,13 @@ impl Command for LazyAggregate {
                     let dtype = schema.get(name.as_str());
 
                     if matches!(dtype, Some(DataType::Object(..))) {
-                        return Err(ShellError::GenericError(
-                            "Object type column not supported for aggregation".into(),
-                            format!("Column '{name}' is type Object"),
-                            Some(call.head),
-                            Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Object type column not supported for aggregation".into(),
+                            msg: format!("Column '{name}' is type Object"),
+                            span: Some(call.head),
+                            help: Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
+                            inner: vec![],
+                        });
                     }
                 }
             }
@@ -171,7 +171,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Slice { input: expr, .. }
         | Expr::Cast { expr, .. }
         | Expr::Sort { expr, .. }
-        | Expr::Take { expr, .. }
+        | Expr::Gather { expr, .. }
         | Expr::SortBy { expr, .. }
         | Expr::Exclude(expr, _)
         | Expr::Alias(expr, _)
@@ -189,6 +189,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::RenameAlias { .. }
         | Expr::Count
         | Expr::Nth(_)
+        | Expr::SubPlan(_, _)
         | Expr::Selector(_) => None,
     }
 }

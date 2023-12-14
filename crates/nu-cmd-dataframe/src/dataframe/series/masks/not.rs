@@ -68,14 +68,12 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let bool = series.bool().map_err(|e| {
-        ShellError::GenericError(
-            "Error inverting mask".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let bool = series.bool().map_err(|e| ShellError::GenericError {
+        error: "Error inverting mask".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let res = bool.not();

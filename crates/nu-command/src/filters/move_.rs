@@ -129,22 +129,22 @@ impl Command for Move {
                 span: v.span(),
             },
             (Some(_), Some(_)) => {
-                return Err(ShellError::GenericError(
-                    "Cannot move columns".to_string(),
-                    "Use either --after, or --before, not both".to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "Cannot move columns".into(),
+                    msg: "Use either --after, or --before, not both".into(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                })
             }
             (None, None) => {
-                return Err(ShellError::GenericError(
-                    "Cannot move columns".to_string(),
-                    "Missing --after or --before flag".to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "Cannot move columns".into(),
+                    msg: "Missing --after or --before flag".into(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -198,24 +198,24 @@ fn move_record_columns(
     match &before_or_after.item {
         BeforeOrAfter::After(after) => {
             if !record.contains(after) {
-                return Err(ShellError::GenericError(
-                    "Cannot move columns".to_string(),
-                    "column does not exist".to_string(),
-                    Some(before_or_after.span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Cannot move columns".into(),
+                    msg: "column does not exist".into(),
+                    span: Some(before_or_after.span),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
         BeforeOrAfter::Before(before) => {
             if !record.contains(before) {
-                return Err(ShellError::GenericError(
-                    "Cannot move columns".to_string(),
-                    "column does not exist".to_string(),
-                    Some(before_or_after.span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Cannot move columns".into(),
+                    msg: "column does not exist".into(),
+                    span: Some(before_or_after.span),
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }
@@ -227,13 +227,13 @@ fn move_record_columns(
         if let Some(idx) = record.index_of(&column_str) {
             column_idx.push(idx);
         } else {
-            return Err(ShellError::GenericError(
-                "Cannot move columns".to_string(),
-                "column does not exist".to_string(),
-                Some(column.span()),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Cannot move columns".into(),
+                msg: "column does not exist".into(),
+                span: Some(column.span()),
+                help: None,
+                inner: vec![],
+            });
         }
     }
 

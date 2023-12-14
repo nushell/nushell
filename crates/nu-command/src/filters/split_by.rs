@@ -23,7 +23,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Split a record into groups"
+        "Split a record into groups."
     }
 
     fn run(
@@ -102,13 +102,13 @@ pub fn split_by(
             Ok(split(splitter.as_ref(), input, name)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
-        None => Err(ShellError::GenericError(
-            "expected name".into(),
-            "requires a column name for splitting".into(),
-            Some(name),
-            None,
-            Vec::new(),
-        )),
+        None => Err(ShellError::GenericError {
+            error: "expected name".into(),
+            msg: "requires a column name for splitting".into(),
+            span: Some(name),
+            help: None,
+            inner: vec![],
+        }),
     }
 }
 

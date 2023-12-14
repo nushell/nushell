@@ -96,14 +96,12 @@ fn command_eager(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let res = series.unique().map_err(|e| {
-        ShellError::GenericError(
-            "Error calculating unique values".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-slice command can only be used with string columns".into()),
-            Vec::new(),
-        )
+    let res = series.unique().map_err(|e| ShellError::GenericError {
+        error: "Error calculating unique values".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-slice command can only be used with string columns".into()),
+        inner: vec![],
     })?;
 
     NuDataFrame::try_from_series(vec![res.into_series()], call.head)

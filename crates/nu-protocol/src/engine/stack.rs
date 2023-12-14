@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
+use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
 
 /// Environment variables per overlay
 pub type EnvVars = HashMap<String, HashMap<String, Value>>;
@@ -34,7 +35,7 @@ pub struct Stack {
     pub env_hidden: HashMap<String, HashSet<String>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
-    pub recursion_count: Box<u64>,
+    pub recursion_count: u64,
 }
 
 impl Stack {
@@ -44,7 +45,7 @@ impl Stack {
             env_vars: vec![],
             env_hidden: HashMap::new(),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
-            recursion_count: Box::new(0),
+            recursion_count: 0,
         }
     }
 
@@ -78,6 +79,16 @@ impl Stack {
             if var_id == *id {
                 return Ok(val.clone());
             }
+        }
+
+        if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
+            return Err(ShellError::GenericError {
+                error: "Built-in variables `$env` and `$nu` have no metadata".into(),
+                msg: "no metadata available".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         Err(ShellError::VariableNotFoundAtRuntime { span })
@@ -148,7 +159,7 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
-            recursion_count: self.recursion_count.to_owned(),
+            recursion_count: self.recursion_count,
         }
     }
 
@@ -175,7 +186,7 @@ impl Stack {
             env_vars,
             env_hidden: self.env_hidden.clone(),
             active_overlays: self.active_overlays.clone(),
-            recursion_count: self.recursion_count.to_owned(),
+            recursion_count: self.recursion_count,
         }
     }
 

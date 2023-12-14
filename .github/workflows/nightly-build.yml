@@ -39,7 +39,7 @@ jobs:
         uses: hustcer/setup-nu@v3.8
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.87.1
+          version: 0.86.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -135,7 +135,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
@@ -143,7 +143,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.8
       with:
-        version: 0.87.1
+        version: 0.86.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -249,7 +249,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
@@ -257,7 +257,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3.8
       with:
-        version: 0.87.1
+        version: 0.86.0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -323,7 +323,7 @@ jobs:
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3.8
         with:
-          version: 0.87.1
+          version: 0.86.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

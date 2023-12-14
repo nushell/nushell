@@ -14,9 +14,10 @@ use nu_protocol::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
         FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
         Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
+        RecordItem,
     },
     engine::StateWorkingSet,
-    eval_const::{eval_constant, value_as_string},
+    eval_const::eval_constant,
     span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
     SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
@@ -401,13 +402,31 @@ fn parse_long_flag(
                     }
                 } else {
                     // A flag with no argument
-                    (
-                        Some(Spanned {
-                            item: long_name,
-                            span: arg_span,
-                        }),
-                        None,
-                    )
+                    // It can also takes a boolean value like --x=true
+                    if split.len() > 1 {
+                        // and we also have the argument
+                        let long_name_len = long_name.len();
+                        let mut span = arg_span;
+                        span.start += long_name_len + 3; //offset by long flag and '='
+
+                        let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
+
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                            }),
+                            Some(arg),
+                        )
+                    } else {
+                        (
+                            Some(Spanned {
+                                item: long_name,
+                                span: arg_span,
+                            }),
+                            None,
+                        )
+                    }
                 }
             } else {
                 working_set.error(ParseError::UnknownFlag(
@@ -1201,8 +1220,11 @@ fn parse_binary_with_base(
                     TokenContents::Pipe
                     | TokenContents::PipePipe
                     | TokenContents::OutGreaterThan
+                    | TokenContents::OutGreaterGreaterThan
                     | TokenContents::ErrGreaterThan
-                    | TokenContents::OutErrGreaterThan => {
+                    | TokenContents::ErrGreaterGreaterThan
+                    | TokenContents::OutErrGreaterThan
+                    | TokenContents::OutErrGreaterGreaterThan => {
                         working_set.error(ParseError::Expected("binary", span));
                         return garbage(span);
                     }
@@ -1598,6 +1620,10 @@ pub fn parse_brace_expr(
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
+    } else if second_token.is_some_and(|c| {
+        c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
+    }) {
+        parse_record(working_set, span)
     } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
         parse_closure_expression(working_set, shape, span)
     } else if matches!(shape, SyntaxShape::Block) {
@@ -2677,7 +2703,7 @@ pub fn parse_import_pattern(working_set: &mut StateWorkingSet, spans: &[Span]) -
     let head_expr = parse_value(working_set, *head_span, &SyntaxShape::Any);
 
     let (maybe_module_id, head_name) = match eval_constant(working_set, &head_expr) {
-        Ok(val) => match value_as_string(val, head_expr.span) {
+        Ok(val) => match val.as_string() {
             Ok(s) => (working_set.find_module(s.as_bytes()), s.into_bytes()),
             Err(err) => {
                 working_set.error(err.wrap(working_set, span(spans)));
@@ -3705,7 +3731,7 @@ pub fn parse_list_expression(
         working_set.error(err)
     }
 
-    let (output, err) = lite_parse(&output);
+    let (mut output, err) = lite_parse(&output);
     if let Some(err) = err {
         working_set.error(err)
     }
@@ -3715,24 +3741,55 @@ pub fn parse_list_expression(
     let mut contained_type: Option<Type> = None;
 
     if !output.block.is_empty() {
-        for arg in &output.block[0].commands {
+        for arg in output.block.remove(0).commands {
             let mut spans_idx = 0;
 
-            if let LiteElement::Command(_, command) = arg {
+            if let LiteElement::Command(_, mut command) = arg {
                 while spans_idx < command.parts.len() {
-                    let arg = parse_multispan_value(
-                        working_set,
-                        &command.parts,
-                        &mut spans_idx,
-                        element_shape,
-                    );
+                    let curr_span = command.parts[spans_idx];
+                    let curr_tok = working_set.get_span_contents(curr_span);
+                    let (arg, ty) = if curr_tok.starts_with(b"...")
+                        && curr_tok.len() > 3
+                        && (curr_tok[3] == b'$' || curr_tok[3] == b'[' || curr_tok[3] == b'(')
+                    {
+                        // Parse the spread operator
+                        // Remove "..." before parsing argument to spread operator
+                        command.parts[spans_idx] = Span::new(curr_span.start + 3, curr_span.end);
+                        let spread_arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            &SyntaxShape::List(Box::new(element_shape.clone())),
+                        );
+                        let elem_ty = match &spread_arg.ty {
+                            Type::List(elem_ty) => *elem_ty.clone(),
+                            _ => Type::Any,
+                        };
+                        let span = Span::new(curr_span.start, spread_arg.span.end);
+                        let spread_expr = Expression {
+                            expr: Expr::Spread(Box::new(spread_arg)),
+                            span,
+                            ty: elem_ty.clone(),
+                            custom_completion: None,
+                        };
+                        (spread_expr, elem_ty)
+                    } else {
+                        let arg = parse_multispan_value(
+                            working_set,
+                            &command.parts,
+                            &mut spans_idx,
+                            element_shape,
+                        );
+                        let ty = arg.ty.clone();
+                        (arg, ty)
+                    };
 
                     if let Some(ref ctype) = contained_type {
-                        if *ctype != arg.ty {
+                        if *ctype != ty {
                             contained_type = Some(Type::Any);
                         }
                     } else {
-                        contained_type = Some(arg.ty.clone());
+                        contained_type = Some(ty);
                     }
 
                     args.push(arg);
@@ -5147,33 +5204,68 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     let mut field_types = Some(vec![]);
     while idx < tokens.len() {
-        let field = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+        let curr_span = tokens[idx].span;
+        let curr_tok = working_set.get_span_contents(curr_span);
+        if curr_tok.starts_with(b"...")
+            && curr_tok.len() > 3
+            && (curr_tok[3] == b'$' || curr_tok[3] == b'{' || curr_tok[3] == b'(')
+        {
+            // Parse spread operator
+            let inner = parse_value(
+                working_set,
+                Span::new(curr_span.start + 3, curr_span.end),
+                &SyntaxShape::Record(vec![]),
+            );
+            idx += 1;
 
-        idx += 1;
-        if idx == tokens.len() {
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let colon = working_set.get_span_contents(tokens[idx].span);
-        idx += 1;
-        if idx == tokens.len() || colon != b":" {
-            //FIXME: need better error
-            working_set.error(ParseError::Expected("record", span));
-            return garbage(span);
-        }
-        let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
-        idx += 1;
-
-        if let Some(field) = field.as_string() {
-            if let Some(fields) = &mut field_types {
-                fields.push((field, value.ty.clone()));
+            match &inner.ty {
+                Type::Record(inner_fields) => {
+                    if let Some(fields) = &mut field_types {
+                        for (field, ty) in inner_fields {
+                            fields.push((field.clone(), ty.clone()));
+                        }
+                    }
+                }
+                _ => {
+                    // We can't properly see all the field types
+                    // so fall back to the Any type later
+                    field_types = None;
+                }
             }
+            output.push(RecordItem::Spread(
+                Span::new(curr_span.start, curr_span.start + 3),
+                inner,
+            ));
         } else {
-            // We can't properly see all the field types
-            // so fall back to the Any type later
-            field_types = None;
+            // Normal key-value pair
+            let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+
+            idx += 1;
+            if idx == tokens.len() {
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let colon = working_set.get_span_contents(tokens[idx].span);
+            idx += 1;
+            if idx == tokens.len() || colon != b":" {
+                //FIXME: need better error
+                working_set.error(ParseError::Expected("record", span));
+                return garbage(span);
+            }
+            let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
+            idx += 1;
+
+            if let Some(field) = field.as_string() {
+                if let Some(fields) = &mut field_types {
+                    fields.push((field, value.ty.clone()));
+                }
+            } else {
+                // We can't properly see all the field types
+                // so fall back to the Any type later
+                field_types = None;
+            }
+            output.push(RecordItem::Pair(field, value));
         }
-        output.push((field, value));
     }
 
     Expression {
@@ -5313,14 +5405,14 @@ pub fn parse_pipeline(
 
                     PipelineElement::Expression(*span, expr)
                 }
-                LiteElement::Redirection(span, redirection, command) => {
+                LiteElement::Redirection(span, redirection, command, is_append_mode) => {
                     let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
-                    PipelineElement::Redirection(*span, redirection.clone(), expr)
+                    PipelineElement::Redirection(*span, redirection.clone(), expr, *is_append_mode)
                 }
                 LiteElement::SeparateRedirection {
-                    out: (out_span, out_command),
-                    err: (err_span, err_command),
+                    out: (out_span, out_command, out_append_mode),
+                    err: (err_span, err_command, err_append_mode),
                 } => {
                     trace!("parsing: pipeline element: separate redirection");
                     let out_expr =
@@ -5330,13 +5422,13 @@ pub fn parse_pipeline(
                         parse_value(working_set, err_command.parts[0], &SyntaxShape::Any);
 
                     PipelineElement::SeparateRedirection {
-                        out: (*out_span, out_expr),
-                        err: (*err_span, err_expr),
+                        out: (*out_span, out_expr, *out_append_mode),
+                        err: (*err_span, err_expr, *err_append_mode),
                     }
                 }
                 LiteElement::SameTargetRedirection {
                     cmd: (cmd_span, command),
-                    redirection: (redirect_span, redirect_command),
+                    redirection: (redirect_span, redirect_command, is_append_mode),
                 } => {
                     trace!("parsing: pipeline element: same target redirection");
                     let expr = parse_expression(working_set, &command.parts, is_subexpression);
@@ -5344,7 +5436,7 @@ pub fn parse_pipeline(
                         parse_value(working_set, redirect_command.parts[0], &SyntaxShape::Any);
                     PipelineElement::SameTargetRedirection {
                         cmd: (*cmd_span, expr),
-                        redirection: (*redirect_span, redirect_expr),
+                        redirection: (*redirect_span, redirect_expr, *is_append_mode),
                     }
                 }
             })
@@ -5368,9 +5460,10 @@ pub fn parse_pipeline(
     } else {
         match &pipeline.commands[0] {
             LiteElement::Command(_, command)
-            | LiteElement::Redirection(_, _, command)
+            | LiteElement::Redirection(_, _, command, _)
             | LiteElement::SeparateRedirection {
-                out: (_, command), ..
+                out: (_, command, _),
+                ..
             } => {
                 let mut pipeline = parse_builtin_commands(working_set, command, is_subexpression);
 
@@ -5428,7 +5521,7 @@ pub fn parse_pipeline(
             }
             LiteElement::SameTargetRedirection {
                 cmd: (span, command),
-                redirection: (redirect_span, redirect_cmd),
+                redirection: (redirect_span, redirect_cmd, is_append_mode),
             } => {
                 trace!("parsing: pipeline element: same target redirection");
                 let expr = parse_expression(working_set, &command.parts, is_subexpression);
@@ -5439,7 +5532,7 @@ pub fn parse_pipeline(
                 Pipeline {
                     elements: vec![PipelineElement::SameTargetRedirection {
                         cmd: (*span, expr),
-                        redirection: (*redirect_span, redirect_expr),
+                        redirection: (*redirect_span, redirect_expr, *is_append_mode),
                     }],
                 }
             }
@@ -5471,9 +5564,10 @@ pub fn parse_block(
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
                 LiteElement::Command(_, command)
-                | LiteElement::Redirection(_, _, command)
+                | LiteElement::Redirection(_, _, command, _)
                 | LiteElement::SeparateRedirection {
-                    out: (_, command), ..
+                    out: (_, command, _),
+                    ..
                 }
                 | LiteElement::SameTargetRedirection {
                     cmd: (_, command), ..
@@ -5563,14 +5657,14 @@ pub fn discover_captures_in_pipeline_element(
 ) -> Result<(), ParseError> {
     match element {
         PipelineElement::Expression(_, expression)
-        | PipelineElement::Redirection(_, _, expression)
+        | PipelineElement::Redirection(_, _, expression, _)
         | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
             discover_captures_in_expr(working_set, expression, seen, seen_blocks, output)
         }
         PipelineElement::SeparateRedirection {
-            out: (_, out_expr),
-            err: (_, err_expr),
+            out: (_, out_expr, _),
+            err: (_, err_expr, _),
         } => {
             discover_captures_in_expr(working_set, out_expr, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, err_expr, seen, seen_blocks, output)?;
@@ -5578,7 +5672,7 @@ pub fn discover_captures_in_pipeline_element(
         }
         PipelineElement::SameTargetRedirection {
             cmd: (_, cmd_expr),
-            redirection: (_, redirect_expr),
+            redirection: (_, redirect_expr, _),
         } => {
             discover_captures_in_expr(working_set, cmd_expr, seen, seen_blocks, output)?;
             discover_captures_in_expr(working_set, redirect_expr, seen, seen_blocks, output)?;
@@ -5784,10 +5878,29 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::Record(fields) => {
-            for (field_name, field_value) in fields {
-                discover_captures_in_expr(working_set, field_name, seen, seen_blocks, output)?;
-                discover_captures_in_expr(working_set, field_value, seen, seen_blocks, output)?;
+        Expr::Record(items) => {
+            for item in items {
+                match item {
+                    RecordItem::Pair(field_name, field_value) => {
+                        discover_captures_in_expr(
+                            working_set,
+                            field_name,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                        discover_captures_in_expr(
+                            working_set,
+                            field_value,
+                            seen,
+                            seen_blocks,
+                            output,
+                        )?;
+                    }
+                    RecordItem::Spread(_, record) => {
+                        discover_captures_in_expr(working_set, record, seen, seen_blocks, output)?;
+                    }
+                }
             }
         }
         Expr::Signature(sig) => {
@@ -5870,6 +5983,9 @@ pub fn discover_captures_in_expr(
         Expr::VarDecl(var_id) => {
             seen.push(*var_id);
         }
+        Expr::Spread(expr) => {
+            discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+        }
     }
     Ok(())
 }
@@ -5882,28 +5998,38 @@ fn wrap_element_with_collect(
         PipelineElement::Expression(span, expression) => {
             PipelineElement::Expression(*span, wrap_expr_with_collect(working_set, expression))
         }
-        PipelineElement::Redirection(span, redirection, expression) => {
+        PipelineElement::Redirection(span, redirection, expression, is_append_mode) => {
             PipelineElement::Redirection(
                 *span,
                 redirection.clone(),
                 wrap_expr_with_collect(working_set, expression),
+                *is_append_mode,
             )
         }
         PipelineElement::SeparateRedirection {
-            out: (out_span, out_exp),
-            err: (err_span, err_exp),
+            out: (out_span, out_exp, out_append_mode),
+            err: (err_span, err_exp, err_append_mode),
         } => PipelineElement::SeparateRedirection {
-            out: (*out_span, wrap_expr_with_collect(working_set, out_exp)),
-            err: (*err_span, wrap_expr_with_collect(working_set, err_exp)),
+            out: (
+                *out_span,
+                wrap_expr_with_collect(working_set, out_exp),
+                *out_append_mode,
+            ),
+            err: (
+                *err_span,
+                wrap_expr_with_collect(working_set, err_exp),
+                *err_append_mode,
+            ),
         },
         PipelineElement::SameTargetRedirection {
             cmd: (cmd_span, cmd_exp),
-            redirection: (redirect_span, redirect_exp),
+            redirection: (redirect_span, redirect_exp, is_append_mode),
         } => PipelineElement::SameTargetRedirection {
             cmd: (*cmd_span, wrap_expr_with_collect(working_set, cmd_exp)),
             redirection: (
                 *redirect_span,
                 wrap_expr_with_collect(working_set, redirect_exp),
+                *is_append_mode,
             ),
         },
         PipelineElement::And(span, expression) => {

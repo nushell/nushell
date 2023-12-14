@@ -305,11 +305,11 @@ impl ExternalCommand {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::RemovedCommand(
-                                command_name_lower,
+                            return Err(ShellError::RemovedCommand {
+                                removed: command_name_lower,
                                 replacement,
-                                self.name.span,
-                            ));
+                                span: self.name.span,
+                            });
                         }
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
@@ -601,16 +601,16 @@ impl ExternalCommand {
             }
             process
         } else {
-            return Err(ShellError::GenericError(
-                "Current directory not found".to_string(),
-                "did not find PWD environment variable".to_string(),
-                Some(span),
-                Some(concat!(
+            return Err(ShellError::GenericError{
+                error: "Current directory not found".into(),
+                msg: "did not find PWD environment variable".into(),
+                span: Some(span),
+                help: Some(concat!(
                     "The environment variable 'PWD' was not found. ",
                     "It is required to define the current directory when running an external command."
-                ).to_string()),
-                Vec::new(),
-            ));
+                ).into()),
+                inner:Vec::new(),
+            });
         };
 
         process.envs(&self.env_vars);

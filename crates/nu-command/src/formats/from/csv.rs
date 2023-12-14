@@ -129,6 +129,13 @@ fn from_csv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    if let PipelineData::Value(Value::List { .. }, _) = input {
+        return Err(ShellError::TypeMismatch {
+            err_message: "received list stream, did you forget to open file with --raw flag?"
+                .into(),
+            span: name,
+        });
+    }
 
     let separator = match call.get_flag::<String>(engine_state, stack, "separator")? {
         Some(sep) => {
@@ -138,10 +145,10 @@ fn from_csv(
                 let unicode_sep = u32::from_str_radix(&sep, 16);
                 char::from_u32(unicode_sep.unwrap_or(b'\x1f' as u32)).unwrap_or(',')
             } else {
-                return Err(ShellError::NonUtf8Custom(
-                    "separator should be a single char or a 4-byte unicode".to_string(),
-                    call.span(),
-                ));
+                return Err(ShellError::NonUtf8Custom {
+                    msg: "separator should be a single char or a 4-byte unicode".into(),
+                    span: call.span(),
+                });
             }
         }
         None => ',',

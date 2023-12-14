@@ -215,13 +215,13 @@ fn select(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Select only allows row numbers for rows".into(),
-                        "extra after row number".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Select only allows row numbers for rows".into(),
+                        msg: "extra after row number".into(),
+                        span: Some(*span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 unique_rows.insert(*val);
             }
@@ -244,8 +244,7 @@ fn select(
             rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
-        .set_metadata(metadata)
+        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())
     } else {
         input
     };
@@ -285,8 +284,7 @@ fn select(
 
                     Ok(output
                         .into_iter()
-                        .into_pipeline_data(engine_state.ctrlc.clone())
-                        .set_metadata(metadata))
+                        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
                 }
                 _ => {
                     if !columns.is_empty() {
@@ -303,10 +301,9 @@ fn select(
                         }
 
                         Ok(Value::record(record, call_span)
-                            .into_pipeline_data()
-                            .set_metadata(metadata))
+                            .into_pipeline_data_with_metadata(metadata))
                     } else {
-                        Ok(v.into_pipeline_data().set_metadata(metadata))
+                        Ok(v.into_pipeline_data_with_metadata(metadata))
                     }
                 }
             }
@@ -332,9 +329,7 @@ fn select(
                 }
             }
 
-            Ok(values
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
+            Ok(values.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         }
         _ => Ok(PipelineData::empty()),
     }

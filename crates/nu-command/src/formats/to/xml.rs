@@ -390,7 +390,7 @@ fn to_xml(
         let s = if let Ok(s) = String::from_utf8(b) {
             s
         } else {
-            return Err(ShellError::NonUtf8(head));
+            return Err(ShellError::NonUtf8 { span: head });
         };
         Ok(Value::string(s, head).into_pipeline_data())
     })

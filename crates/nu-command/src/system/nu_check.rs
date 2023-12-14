@@ -53,11 +53,13 @@ impl Command for NuCheck {
         let mut working_set = StateWorkingSet::new(engine_state);
 
         if is_all && is_module {
-            return Err(ShellError::GenericError(
-                "Detected command flags conflict".to_string(),
-                "You cannot have both `--all` and `--as-module` on the same command line, please refer to `nu-check --help` for more details".to_string(),
-                Some(call.head),
-                None, vec![]));
+            return Err(ShellError::GenericError {
+                error: "Detected command flags conflict".into(),
+                msg: "You cannot have both `--all` and `--as-module` on the same command line, please refer to `nu-check --help` for more details".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![]
+            });
         }
 
         let span = input.span().unwrap_or(call.head);
@@ -130,13 +132,13 @@ impl Command for NuCheck {
 
                     let ext: Vec<_> = path_str.rsplitn(2, '.').collect();
                     if ext[0] != "nu" {
-                        return Err(ShellError::GenericError(
-                            "Cannot parse input".to_string(),
-                            "File extension must be the type of .nu".to_string(),
-                            Some(call.head),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "Cannot parse input".into(),
+                            msg: "File extension must be the type of .nu".into(),
+                            span: Some(call.head),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
 
                     // Change currently parsed directory
@@ -163,13 +165,13 @@ impl Command for NuCheck {
 
                     result
                 } else {
-                    Err(ShellError::GenericError(
-                        "Failed to execute command".to_string(),
-                        "Please run 'nu-check --help' for more details".to_string(),
-                        Some(call.head),
-                        None,
-                        Vec::new(),
-                    ))
+                    Err(ShellError::GenericError {
+                        error: "Failed to execute command".into(),
+                        msg: "Please run 'nu-check --help' for more details".into(),
+                        span: Some(call.head),
+                        help: None,
+                        inner: vec![],
+                    })
                 }
             }
         }
@@ -241,13 +243,13 @@ fn heuristic_parse(
                 Ok(v) => Ok(v),
                 Err(_) => {
                     if is_debug {
-                        Err(ShellError::GenericError(
-                            "Failed to parse content,tried both script and module".to_string(),
-                            "syntax error".to_string(),
-                            Some(span),
-                            Some("Run `nu-check --help` for more details".to_string()),
-                            Vec::new(),
-                        ))
+                        Err(ShellError::GenericError {
+                            error: "Failed to parse content,tried both script and module".into(),
+                            msg: "syntax error".into(),
+                            span: Some(span),
+                            help: Some("Run `nu-check --help` for more details".into()),
+                            inner: vec![],
+                        })
                     } else {
                         Ok(PipelineData::Value(Value::bool(false, span), None))
                     }
@@ -285,14 +287,14 @@ fn heuristic_parse_file(
                         Ok(v) => Ok(v),
                         Err(_) => {
                             if is_debug {
-                                Err(ShellError::GenericError(
-                                    "Failed to parse content,tried both script and module"
-                                        .to_string(),
-                                    "syntax error".to_string(),
-                                    Some(call.head),
-                                    Some("Run `nu-check --help` for more details".to_string()),
-                                    Vec::new(),
-                                ))
+                                Err(ShellError::GenericError {
+                                    error: "Failed to parse content,tried both script and module"
+                                        .into(),
+                                    msg: "syntax error".into(),
+                                    span: Some(call.head),
+                                    help: Some("Run `nu-check --help` for more details".into()),
+                                    inner: vec![],
+                                })
                             } else {
                                 Ok(PipelineData::Value(Value::bool(false, call.head), None))
                             }
@@ -301,7 +303,9 @@ fn heuristic_parse_file(
                 }
             }
         } else {
-            Err(ShellError::IOError("Can not read input".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read input".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -332,13 +336,13 @@ fn parse_module(
                     .first()
                     .expect("Unable to parse content as module")
             );
-            Err(ShellError::GenericError(
-                "Failed to parse content".to_string(),
+            Err(ShellError::GenericError {
+                error: "Failed to parse content".into(),
                 msg,
-                Some(span),
-                Some("If the content is intended to be a script, please try to remove `--as-module` flag ".to_string()),
-                Vec::new(),
-            ))
+                span: Some(span),
+                help: Some("If the content is intended to be a script, please try to remove `--as-module` flag ".into()),
+                inner: vec![],
+            })
         } else {
             Ok(PipelineData::Value(Value::bool(false, new_span), None))
         }
@@ -365,13 +369,13 @@ fn parse_script(
                 .expect("Unable to parse content")
         );
         if is_debug {
-            Err(ShellError::GenericError(
-                "Failed to parse content".to_string(),
+            Err(ShellError::GenericError {
+                error: "Failed to parse content".into(),
                 msg,
-                Some(span),
-                Some("If the content is intended to be a module, please consider flag of `--as-module` ".to_string()),
-                Vec::new(),
-            ))
+                span: Some(span),
+                help: Some("If the content is intended to be a module, please consider flag of `--as-module` ".into()),
+                inner: vec![],
+            })
         } else {
             Ok(PipelineData::Value(Value::bool(false, span), None))
         }
@@ -402,7 +406,9 @@ fn parse_file_script(
                 call.head,
             )
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })
@@ -425,7 +431,9 @@ fn parse_file_module(
         if let Ok(contents) = std::fs::read(path) {
             parse_module(working_set, Some(filename), &contents, is_debug, call.head)
         } else {
-            Err(ShellError::IOError("Can not read path".to_string()))
+            Err(ShellError::IOError {
+                msg: "Can not read path".to_string(),
+            })
         }
     } else {
         Err(ShellError::NotFound { span: call.head })

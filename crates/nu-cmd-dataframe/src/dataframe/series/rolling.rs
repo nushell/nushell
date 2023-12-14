@@ -23,13 +23,13 @@ impl RollType {
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
             "mean" => Ok(Self::Mean),
-            _ => Err(ShellError::GenericError(
-                "Wrong operation".into(),
-                "Operation not valid for cumulative".into(),
-                Some(span),
-                Some("Allowed values: min, max, sum, mean".into()),
-                Vec::new(),
-            )),
+            _ => Err(ShellError::GenericError {
+                error: "Wrong operation".into(),
+                msg: "Operation not valid for cumulative".into(),
+                span: Some(span),
+                help: Some("Allowed values: min, max, sum, mean".into()),
+                inner: vec![],
+            }),
         }
     }
 
@@ -129,13 +129,13 @@ fn command(
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(_) = series.dtype() {
-        return Err(ShellError::GenericError(
-            "Found object series".into(),
-            "Series of type object cannot be used for rolling operation".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Found object series".into(),
+            msg: "Series of type object cannot be used for rolling operation".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let roll_type = RollType::from_str(&roll_type.item, roll_type.span)?;
@@ -158,14 +158,12 @@ fn command(
         RollType::Mean => series.rolling_mean(rolling_opts),
     };
 
-    let mut res = res.map_err(|e| {
-        ShellError::GenericError(
-            "Error calculating rolling values".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let mut res = res.map_err(|e| ShellError::GenericError {
+        error: "Error calculating rolling values".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let name = format!("{}_{}", series.name(), roll_type.to_str());

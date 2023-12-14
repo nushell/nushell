@@ -54,7 +54,7 @@ impl Command for Join {
     }
 
     fn usage(&self) -> &str {
-        "Join two tables"
+        "Join two tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -68,6 +68,7 @@ impl Command for Join {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let metadata = input.metadata();
         let table_2: Value = call.req(engine_state, stack, 0)?;
         let l_on: Value = call.req(engine_state, stack, 1)?;
         let r_on: Value = call
@@ -87,7 +88,7 @@ impl Command for Join {
                 Value::String { val: r_on, .. },
             ) => {
                 let result = join(rows_1, rows_2, l_on, r_on, join_type, span);
-                Ok(PipelineData::Value(result, None))
+                Ok(PipelineData::Value(result, metadata))
             }
             _ => Err(ShellError::UnsupportedInput {
                 msg: "(PipelineData<table>, table, string, string)".into(),
@@ -245,7 +246,7 @@ fn join_rows(
     this: &[Value],
     this_join_key: &str,
     other: HashMap<String, Vec<&Record>>,
-    other_keys: &[String],
+    other_keys: Vec<&String>,
     shared_join_key: Option<&str>,
     join_type: &JoinType,
     include_inner: IncludeInner,
@@ -285,7 +286,7 @@ fn join_rows(
                     // row with null values for columns not present,
                     let other_record = other_keys
                         .iter()
-                        .map(|key| {
+                        .map(|&key| {
                             let val = if Some(key.as_ref()) == shared_join_key {
                                 this_record
                                     .get(key)
@@ -318,11 +319,11 @@ fn join_rows(
 
 // Return column names (i.e. ordered keys from the first row; we assume that
 // these are the same for all rows).
-fn column_names(table: &[Value]) -> &[String] {
+fn column_names(table: &[Value]) -> Vec<&String> {
     table
         .iter()
         .find_map(|val| match val {
-            Value::Record { val, .. } => Some(&*val.cols),
+            Value::Record { val, .. } => Some(val.columns().collect()),
             _ => None,
         })
         .unwrap_or_default()
@@ -363,7 +364,7 @@ fn merge_records(left: &Record, right: &Record, shared_key: Option<&str>) -> Rec
 
     for (k, v) in right {
         let k_seen = seen.contains(k);
-        let k_shared = shared_key == Some(k);
+        let k_shared = shared_key == Some(k.as_str());
         // Do not output shared join key twice
         if !(k_seen && k_shared) {
             record.push(

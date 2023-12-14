@@ -4,6 +4,7 @@ pub mod cli_error;
 pub mod config;
 mod did_you_mean;
 pub mod engine;
+pub mod eval_base;
 pub mod eval_const;
 mod example;
 mod exportable;

@@ -72,22 +72,22 @@ fn get_editor_commandline(
                     let params = editor_cmd.collect::<Result<_, ShellError>>()?;
                     Ok((editor, params))
                 }
-                _ => Err(ShellError::GenericError(
-                    "Editor executable is missing".into(),
-                    "Set the first element to an executable".into(),
-                    Some(value.span()),
-                    Some(HELP_MSG.into()),
-                    vec![],
-                )),
+                _ => Err(ShellError::GenericError {
+                    error: "Editor executable is missing".into(),
+                    msg: "Set the first element to an executable".into(),
+                    span: Some(value.span()),
+                    help: Some(HELP_MSG.into()),
+                    inner: vec![],
+                }),
             }
         }
-        Value::String { .. } | Value::List { .. } => Err(ShellError::GenericError(
-            format!("{var_name} should be a non-empty string or list<String>"),
-            "Specify an executable here".into(),
-            Some(value.span()),
-            Some(HELP_MSG.into()),
-            vec![],
-        )),
+        Value::String { .. } | Value::List { .. } => Err(ShellError::GenericError {
+            error: format!("{var_name} should be a non-empty string or list<String>"),
+            msg: "Specify an executable here".into(),
+            span: Some(value.span()),
+            help: Some(HELP_MSG.into()),
+            inner: vec![],
+        }),
         x => Err(ShellError::CantConvert {
             to_type: "string or list<string>".into(),
             from_type: x.get_type().to_string(),
@@ -114,13 +114,14 @@ pub fn get_editor(
     } else if let Some(value) = env_vars.get("VISUAL") {
         get_editor_commandline(value, "$env.VISUAL")
     } else {
-        Err(ShellError::GenericError(
-            "No editor configured".into(),
-            "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`"
-                .into(),
-            Some(span),
-            Some(HELP_MSG.into()),
-            vec![],
-        ))
+        Err(ShellError::GenericError {
+            error: "No editor configured".into(),
+            msg:
+                "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`"
+                    .into(),
+            span: Some(span),
+            help: Some(HELP_MSG.into()),
+            inner: vec![],
+        })
     }
 }

@@ -138,14 +138,12 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern = Regex::new(&item_to_parse).map_err(|err| {
-        ShellError::GenericError(
-            "Error with regular expression".into(),
-            err.to_string(),
-            Some(pattern_span),
-            None,
-            Vec::new(),
-        )
+    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
+        error: "Error with regular expression".into(),
+        msg: e.to_string(),
+        span: Some(pattern_span),
+        help: None,
+        inner: vec![],
     })?;
 
     let columns = column_names(&regex_pattern);
@@ -164,13 +162,13 @@ fn operate(
                             let captures = match c {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    return Err(ShellError::GenericError(
-                                        "Error with regular expression captures".into(),
-                                        e.to_string(),
-                                        None,
-                                        None,
-                                        Vec::new(),
-                                    ))
+                                    return Err(ShellError::GenericError {
+                                        error: "Error with regular expression captures".into(),
+                                        msg: e.to_string(),
+                                        span: None,
+                                        help: None,
+                                        inner: vec![],
+                                    })
                                 }
                             };
 
@@ -430,13 +428,13 @@ fn stream_helper(
             Ok(c) => c,
             Err(e) => {
                 return Some(Value::error(
-                    ShellError::GenericError(
-                        "Error with regular expression captures".into(),
-                        e.to_string(),
-                        Some(span),
-                        Some(e.to_string()),
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "Error with regular expression captures".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: Some(e.to_string()),
+                        inner: vec![],
+                    },
                     span,
                 ))
             }

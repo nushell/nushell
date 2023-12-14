@@ -12,13 +12,48 @@ use std::io::{self, BufRead, Read, Write};
 pub fn echo_env(to_stdout: bool) {
     let args = args();
     for arg in args {
-        if let Ok(v) = std::env::var(arg) {
-            if to_stdout {
-                println!("{v}");
-            } else {
-                eprintln!("{v}");
-            }
+        echo_one_env(&arg, to_stdout)
+    }
+}
+
+fn echo_one_env(arg: &str, to_stdout: bool) {
+    if let Ok(v) = std::env::var(arg) {
+        if to_stdout {
+            println!("{v}");
+        } else {
+            eprintln!("{v}");
         }
+    }
+}
+
+/// Mix echo of env keys from input
+/// Example:
+///     * nu --testbin echo_env_mixed out-err FOO BAR
+///     * nu --testbin echo_env_mixed err-out FOO BAR
+/// If it's not present, panic instead
+pub fn echo_env_mixed() {
+    let args = args();
+    let args = &args[1..];
+
+    if args.len() != 3 {
+        panic!(
+            r#"Usage examples:
+* nu --testbin echo_env_mixed out-err FOO BAR
+* nu --testbin echo_env_mixed err-out FOO BAR"#
+        )
+    }
+    match args[0].as_str() {
+        "out-err" => {
+            let (out_arg, err_arg) = (&args[1], &args[2]);
+            echo_one_env(out_arg, true);
+            echo_one_env(err_arg, false);
+        }
+        "err-out" => {
+            let (err_arg, out_arg) = (&args[1], &args[2]);
+            echo_one_env(err_arg, false);
+            echo_one_env(out_arg, true);
+        }
+        _ => panic!("The mixed type must be `out_err`, `err_out`"),
     }
 }
 

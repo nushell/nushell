@@ -135,9 +135,7 @@ impl Command for Window {
             remainder,
         };
 
-        Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

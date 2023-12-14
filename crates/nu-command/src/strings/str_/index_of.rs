@@ -13,7 +13,7 @@ use unicode_segmentation::UnicodeSegmentation;
 struct Arguments {
     end: bool,
     substring: String,
-    range: Option<Range>,
+    range: Option<Spanned<Range>>,
     cell_paths: Option<Vec<CellPath>>,
     graphemes: bool,
 }
@@ -147,7 +147,10 @@ fn action(
 ) -> Value {
     match input {
         Value::String { val: s, .. } => {
-            let (start_index, end_index) = if let Some(range) = range {
+            let mut range_span = head;
+            let (start_index, end_index) = if let Some(spanned_range) = range {
+                range_span = spanned_range.span;
+                let range = &spanned_range.item;
                 match util::process_range(range) {
                     Ok(r) => {
                         // `process_range()` returns `isize::MAX` if the range is open-ended,
@@ -167,6 +170,17 @@ fn action(
             } else {
                 (0usize, s.len())
             };
+
+            if s.get(start_index..end_index).is_none() {
+                return Value::error(
+                    ShellError::OutOfBounds {
+                        left_flank: start_index.to_string(),
+                        right_flank: end_index.to_string(),
+                        span: range_span,
+                    },
+                    head,
+                );
+            }
 
             // When the -e flag is present, search using rfind instead of find.s
             if let Some(result) = if *end {
@@ -265,10 +279,15 @@ mod tests {
             inclusion: RangeInclusion::Inclusive,
         };
 
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
         let options = Arguments {
             substring: String::from("Cargo"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -288,10 +307,15 @@ mod tests {
             to: Value::int(5, Span::test_data()),
         };
 
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
         let options = Arguments {
             substring: String::from("Banana"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -311,10 +335,15 @@ mod tests {
             inclusion: RangeInclusion::Inclusive,
         };
 
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
         let options = Arguments {
             substring: String::from("123"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -334,10 +363,15 @@ mod tests {
             inclusion: RangeInclusion::RightExclusive,
         };
 
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
         let options = Arguments {
             substring: String::from("1"),
 
-            range: Some(range),
+            range: Some(spanned_range),
             cell_paths: None,
             end: false,
             graphemes: false,
@@ -362,5 +396,63 @@ mod tests {
 
         let actual = action(&word, &options, Span::test_data());
         assert_eq!(actual, Value::test_int(15));
+    }
+
+    #[test]
+    fn index_is_not_a_char_boundary() {
+        let word = Value::string(String::from("💛"), Span::test_data());
+
+        let range = Range {
+            from: Value::int(0, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(3, Span::test_data()),
+            inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::new(),
+
+            range: Some(spanned_range),
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert!(actual.is_error());
+    }
+
+    #[test]
+    fn index_is_out_of_bounds() {
+        let word = Value::string(String::from("hello"), Span::test_data());
+
+        let range = Range {
+            from: Value::int(-1, Span::test_data()),
+            incr: Value::int(1, Span::test_data()),
+            to: Value::int(3, Span::test_data()),
+            inclusion: RangeInclusion::Inclusive,
+        };
+
+        let spanned_range = Spanned {
+            item: range,
+            span: Span::test_data(),
+        };
+
+        let options = Arguments {
+            substring: String::from("h"),
+
+            range: Some(spanned_range),
+            cell_paths: None,
+            end: false,
+            graphemes: false,
+        };
+
+        let actual = action(&word, &options, Span::test_data());
+        assert!(actual.is_error());
     }
 }
