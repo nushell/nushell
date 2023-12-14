@@ -88,7 +88,10 @@ fn into_cell_path(call: &Call, input: PipelineData) -> Result<PipelineData, Shel
 
     match input {
         PipelineData::Value(value, _) => Ok(value_to_cell_path(&value, head)?.into_pipeline_data()),
-        PipelineData::ListStream(_, _) => todo!(),
+        PipelineData::ListStream(stream, ..) => {
+            let list: Vec<_> = stream.collect();
+            Ok(list_to_cell_path(&list, head)?.into_pipeline_data())
+        }
         PipelineData::ExternalStream { span, .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "list, int".into(),
             wrong_type: "raw data".into(),
