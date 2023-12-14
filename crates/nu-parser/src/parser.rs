@@ -966,7 +966,7 @@ pub fn parse_internal_call(
                 && contents.starts_with(b"...")
                 && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
             {
-                if signature.rest_positional.is_none() {
+                if signature.rest_positional.is_none() && !signature.allows_unknown_args {
                     working_set.error(ParseError::UnexpectedSpreadArg(
                         signature.call_signature(),
                         arg_span,

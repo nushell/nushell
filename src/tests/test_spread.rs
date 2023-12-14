@@ -142,7 +142,8 @@ fn spread_type_record() -> TestResult {
 
 #[test]
 fn spread_external_args() -> TestResult {
-    run_test(r#"^echo ...[1 2] 3 ...[4 5]"#, "1 2 3 4 5")
+    run_test(r#"^echo ...[1 "foo"] 2 ...[3 "bar"]"#, "1 foo 2 3 bar").unwrap();
+    run_test(r#"exec echo "foo" ...[5 6]"#, "foo 5 6")
 }
 
 #[test]
