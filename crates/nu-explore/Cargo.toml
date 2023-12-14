@@ -5,20 +5,20 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
 edition = "2021"
 license = "MIT"
 name = "nu-explore"
-version = "0.88.1"
+version = "0.88.2"
 
 [lib]
 bench = false
 
 [dependencies]
 nu-ansi-term = "0.49.0"
-nu-protocol = { path = "../nu-protocol", version = "0.88.1" }
-nu-parser = { path = "../nu-parser", version = "0.88.1" }
-nu-color-config = { path = "../nu-color-config", version = "0.88.1" }
-nu-engine = { path = "../nu-engine", version = "0.88.1" }
-nu-table = { path = "../nu-table", version = "0.88.1" }
-nu-json = { path = "../nu-json", version = "0.88.1" }
-nu-utils = { path = "../nu-utils", version = "0.88.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.88.2" }
+nu-parser = { path = "../nu-parser", version = "0.88.2" }
+nu-color-config = { path = "../nu-color-config", version = "0.88.2" }
+nu-engine = { path = "../nu-engine", version = "0.88.2" }
+nu-table = { path = "../nu-table", version = "0.88.2" }
+nu-json = { path = "../nu-json", version = "0.88.2" }
+nu-utils = { path = "../nu-utils", version = "0.88.2" }
 
 terminal_size = "0.2"
 strip-ansi-escapes = "0.2.0"
