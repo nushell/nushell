@@ -148,14 +148,29 @@ fn spread_external_args() -> TestResult {
 #[test]
 fn spread_internal_args() -> TestResult {
     run_test(
-        r#"def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
-                 f 1 2 ...[5 6]"#,
-        "[1, 2, null, null, [5, 6]]",
+        r#"
+        let list = ["foo" 4]
+        def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
+        f 1 2 ...[5 6] 7 ...$list"#,
+        "[1, 2, null, null, [5, 6, 7, foo, 4]]",
+    )
+    .unwrap();
+    run_test(
+        r#"def f [a b c? ...x] { [$a $b $c $d $x] | to nuon }
+                f 1 2 3 ...[5 6]"#,
+        "[1, 2, 3, null, [5, 6]]",
+    )
+    .unwrap();
+
+    fail_test(
+        r#"def f [a b c? d? ...x] { echo $a $b $c $d $x }
+                 f 1 ...[5 6]"#,
+        "Missing required positional argument",
     )
     .unwrap();
     fail_test(
-        r#"def f [a b c? d? ...x] { echo a b c d $x }
-                 f 1 ...[5 6]"#,
+        r#"def f [a b?] { echo a b c d }
+                 f ...[5 6]"#,
         "unexpected spread argument",
     )
 }

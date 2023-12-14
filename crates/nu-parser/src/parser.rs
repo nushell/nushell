@@ -960,15 +960,24 @@ pub fn parse_internal_call(
         }
 
         {
-            let contents = working_set.get_span_contents(arg_span);
+            let contents = working_set.get_span_contents(spans[spans_idx]);
 
             if contents.len() > 3
                 && contents.starts_with(b"...")
                 && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
             {
-                if positional_idx >= signature.required_positional.len()
-                    && signature.rest_positional.is_some()
-                {
+                if signature.rest_positional.is_none() {
+                    working_set.error(ParseError::UnexpectedSpreadArg(
+                        signature.call_signature(),
+                        arg_span,
+                    ));
+                } else if positional_idx < signature.required_positional.len() {
+                    working_set.error(ParseError::MissingPositional(
+                        signature.required_positional[positional_idx].name.clone(),
+                        Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                        signature.call_signature(),
+                    ));
+                } else {
                     // Parse list of arguments to be spread
                     let args = parse_value(
                         working_set,
@@ -980,11 +989,6 @@ pub fn parse_internal_call(
                     // Let the parser know that it's parsing rest arguments now
                     positional_idx =
                         signature.required_positional.len() + signature.optional_positional.len();
-                } else {
-                    working_set.error(ParseError::UnexpectedSpreadArg(
-                        signature.call_signature(),
-                        arg_span,
-                    ));
                 }
 
                 spans_idx += 1;
