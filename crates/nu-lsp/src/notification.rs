@@ -162,7 +162,7 @@ hello"#,
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                    "value": "Renders some updated greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -207,7 +207,7 @@ hello"#,
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                    "value": "Renders some updated greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
