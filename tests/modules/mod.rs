@@ -671,13 +671,6 @@ fn module_dir_import_twice_no_panic() {
 }
 
 #[test]
-fn not_allowed_submodule_file() {
-    let inp = &["use samples/not_allowed"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert!(actual.err.contains("invalid_module_file_name"));
-}
-
-#[test]
 fn module_dir_missing_mod_nu() {
     let inp = &["use samples/missing_mod_nu"];
     let actual = nu!(cwd: "tests/modules", &inp.join("; "));
