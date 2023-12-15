@@ -293,33 +293,40 @@ fn max_desc_len(call: &Call, print_all: bool) -> usize {
 
 /// Fill `ResourceInfo` to the record entry
 fn fill_record(
-    record: &mut Record,
     res: &ResourceInfo,
     max_len: usize,
+    soft: bool,
     hard: bool,
     span: Span,
-) -> Result<(), ShellError> {
-    let mut col = String::new();
-    col.push_str(res.desc);
+) -> Result<Record, ShellError> {
+    let mut record = Record::new();
+    let mut desc = String::new();
+
+    desc.push_str(res.desc);
 
     debug_assert!(res.desc.len() + res.get_unit().len() + 3 <= max_len);
     let width = max_len - res.desc.len() - res.get_unit().len() - 3;
     if width == 0 {
-        col.push_str(format!(" {}-{})", res.get_unit(), res.flag).as_str());
+        desc.push_str(format!(" {}-{})", res.get_unit(), res.flag).as_str());
     } else {
-        col.push_str(format!("{:>width$} {}-{})", ' ', res.get_unit(), res.flag).as_str());
+        desc.push_str(format!("{:>width$} {}-{})", ' ', res.get_unit(), res.flag).as_str());
     }
 
+    record.push("description", Value::string(desc, span));
+
     let (soft_limit, hard_limit) = getrlimit(res.resource)?;
-    let limit = if hard {
-        limit_to_value(hard_limit, res.multiplier, span)?
-    } else {
-        limit_to_value(soft_limit, res.multiplier, span)?
-    };
 
-    record.push(col, limit);
+    if soft {
+        let soft_limit = limit_to_value(soft_limit, res.multiplier, span)?;
+        record.push("soft", soft_limit);
+    }
 
-    Ok(())
+    if hard {
+        let hard_limit = limit_to_value(hard_limit, res.multiplier, span)?;
+        record.push("hard", hard_limit);
+    }
+
+    Ok(record)
 }
 
 /// Set limits
@@ -349,8 +356,13 @@ fn set_limits(
 }
 
 /// Print limits
-fn print_limits(call: &Call, print_all: bool, hard: bool) -> Result<PipelineData, ShellError> {
-    let mut record = Record::new();
+fn print_limits(
+    call: &Call,
+    print_all: bool,
+    soft: bool,
+    hard: bool,
+) -> Result<PipelineData, ShellError> {
+    let mut output = Vec::new();
     let mut print_default_limit = true;
     let max_len = max_desc_len(call, print_all);
 
@@ -362,7 +374,8 @@ fn print_limits(call: &Call, print_all: bool, hard: bool) -> Result<PipelineData
             }
         }
 
-        fill_record(&mut record, res, max_len, hard, call.head)?;
+        let record = fill_record(res, max_len, soft, hard, call.head)?;
+        output.push(Value::record(record, call.head));
 
         if print_default_limit {
             print_default_limit = false;
@@ -372,10 +385,11 @@ fn print_limits(call: &Call, print_all: bool, hard: bool) -> Result<PipelineData
     // Print `RLIMIT_FSIZE` limit if no resource flag provided.
     if print_default_limit {
         let res = ResourceInfo::default();
-        fill_record(&mut record, &res, max_len, hard, call.head)?;
+        let record = fill_record(&res, max_len, soft, hard, call.head)?;
+        output.push(Value::record(record, call.head));
     }
 
-    Ok(Value::record(record, call.head).into_pipeline_data())
+    Ok(Value::list(output, call.head).into_pipeline_data())
 }
 
 /// Wrap `nix::sys::resource::getrlimit`
@@ -460,7 +474,10 @@ impl Command for ULimit {
 
     fn signature(&self) -> Signature {
         let mut sig = Signature::build("ulimit")
-            .input_output_type(Type::Nothing, Type::Record(vec![]))
+            .input_output_types(vec![
+                (Type::Nothing, Type::Table(vec![])),
+                (Type::Nothing, Type::Nothing),
+            ])
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))
@@ -485,14 +502,14 @@ impl Command for ULimit {
         let mut hard = call.has_flag("hard");
         let all = call.has_flag("all");
 
+        if !hard && !soft {
+            // Set both hard and soft limits if neither was specified.
+            hard = true;
+            soft = true;
+        }
+
         if let Some(spanned_limit) = call.opt::<Spanned<String>>(engine_state, stack, 0)? {
             let mut set_default_limit = true;
-
-            if !hard && !soft {
-                // Set both hard and soft limits if neither was specified.
-                hard = true;
-                soft = true;
-            }
 
             for res in RESOURCE_ARRAY.iter() {
                 if call.has_flag(res.name) {
@@ -512,7 +529,7 @@ impl Command for ULimit {
 
             Ok(PipelineData::Empty)
         } else {
-            print_limits(call, all, hard)
+            print_limits(call, all, soft, hard)
         }
     }
 
