@@ -927,9 +927,9 @@ mod test {
 
     #[test]
     fn argument_with_inner_quotes_test() {
-        let input = r#"bash -c 'echo a'"#.into();
+        let input = r#"sh -c 'echo a'"#.into();
         let res = remove_quotes(input);
 
-        assert_eq!("bash -c 'echo a'", res)
+        assert_eq!("sh -c 'echo a'", res)
     }
 }
