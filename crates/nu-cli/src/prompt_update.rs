@@ -7,8 +7,6 @@ use nu_protocol::{
     Config, PipelineData, Value,
 };
 use reedline::Prompt;
-use std::borrow::Cow;
-use std::sync::{Arc, RwLock};
 
 // Name of environment variable where the prompt could be stored
 pub(crate) const PROMPT_COMMAND: &str = "PROMPT_COMMAND";
@@ -102,7 +100,7 @@ pub(crate) fn update_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &Stack,
-    nu_prompt: Arc<RwLock<NushellPrompt>>,
+    nu_prompt: &mut NushellPrompt,
 ) {
     let mut stack = stack.clone();
 
@@ -138,140 +136,63 @@ pub(crate) fn update_prompt(
         get_prompt_string(PROMPT_INDICATOR_VI_NORMAL, config, engine_state, &mut stack);
 
     // apply the other indicators
-    nu_prompt
-        .write()
-        .expect("Could not lock on nu_prompt to update")
-        .update_all_prompt_strings(
-            left_prompt_string,
-            right_prompt_string,
-            prompt_indicator_string,
-            prompt_multiline_string,
-            (prompt_vi_insert_string, prompt_vi_normal_string),
-            config.render_right_prompt_on_last_line,
-        );
-
+    nu_prompt.update_all_prompt_strings(
+        left_prompt_string,
+        right_prompt_string,
+        prompt_indicator_string,
+        prompt_multiline_string,
+        (prompt_vi_insert_string, prompt_vi_normal_string),
+        config.render_right_prompt_on_last_line,
+    );
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
 }
 
-struct TransientPrompt {
-    prompt_lock: Arc<RwLock<NushellPrompt>>,
-    engine_state: Arc<EngineState>,
-    stack: Stack,
-}
-
-impl TransientPrompt {
-    fn new_prompt(&self) -> NushellPrompt {
-        if let Ok(prompt) = self.prompt_lock.read() {
-            prompt.clone()
-        } else {
-            NushellPrompt::new()
-        }
-    }
-}
-
-impl Prompt for TransientPrompt {
-    fn render_prompt_left(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_COMMAND,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_left(Some(s))
-        }
-        nu_prompt.render_prompt_left().to_string().into()
-    }
-
-    fn render_prompt_right(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_COMMAND_RIGHT,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
-        }
-        nu_prompt.render_prompt_right().to_string().into()
-    }
-
-    fn render_prompt_indicator(&self, prompt_mode: reedline::PromptEditMode) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_INDICATOR,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_indicator(Some(s))
-        }
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_vi_insert(Some(s))
-        }
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_vi_normal(Some(s))
-        }
-        nu_prompt
-            .render_prompt_indicator(prompt_mode)
-            .to_string()
-            .into()
-    }
-
-    fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
-        let mut stack = self.stack.clone();
-        if let Some(s) = get_prompt_string(
-            TRANSIENT_PROMPT_MULTILINE_INDICATOR,
-            config,
-            &self.engine_state,
-            &mut stack,
-        ) {
-            nu_prompt.update_prompt_multiline(Some(s))
-        }
-        nu_prompt
-            .render_prompt_multiline_indicator()
-            .to_string()
-            .into()
-    }
-
-    fn render_prompt_history_search_indicator(
-        &self,
-        history_search: reedline::PromptHistorySearch,
-    ) -> Cow<str> {
-        NushellPrompt::new()
-            .render_prompt_history_search_indicator(history_search)
-            .to_string()
-            .into()
-    }
-}
-
 /// Construct the transient prompt
-pub(crate) fn transient_prompt(
-    prompt_lock: Arc<RwLock<NushellPrompt>>,
-    engine_state: Arc<EngineState>,
-    stack: &Stack,
+pub(crate) fn make_transient_prompt(
+    nu_prompt: &NushellPrompt,
+    engine_state: &EngineState,
+    stack: &mut Stack,
 ) -> Box<dyn Prompt> {
-    Box::new(TransientPrompt {
-        prompt_lock,
+    let mut prompt = nu_prompt.clone();
+    let config = engine_state.get_config();
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
+        prompt.update_prompt_left(Some(s))
+    }
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
+    {
+        prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
+    }
+
+    if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
+        prompt.update_prompt_indicator(Some(s))
+    }
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
+        config,
         engine_state,
-        stack: stack.clone(),
-    })
+        stack,
+    ) {
+        prompt.update_prompt_vi_insert(Some(s))
+    }
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
+        config,
+        engine_state,
+        stack,
+    ) {
+        prompt.update_prompt_vi_normal(Some(s))
+    }
+
+    if let Some(s) = get_prompt_string(
+        TRANSIENT_PROMPT_MULTILINE_INDICATOR,
+        config,
+        engine_state,
+        stack,
+    ) {
+        prompt.update_prompt_multiline(Some(s))
+    }
+
+    Box::new(prompt)
 }
