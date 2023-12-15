@@ -233,6 +233,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Whoami,
         };
 
+        #[cfg(unix)]
+        bind_command! { ULimit };
+
         // Date
         bind_command! {
             Date,

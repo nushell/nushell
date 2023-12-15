@@ -106,6 +106,8 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
+#[cfg(unix)]
+mod ulimit;
 mod umkdir;
 mod uniq;
 mod uniq_by;

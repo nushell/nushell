@@ -104,7 +104,7 @@ winreg = "0.52"
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 umask = "2.1"
-nix = { version = "0.27", default-features = false, features = ["user"] }
+nix = { version = "0.27", default-features = false, features = ["user", "resource"] }
 
 [target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android"), not(target_os = "ios")))'.dependencies]
 procfs = "0.16.0"
