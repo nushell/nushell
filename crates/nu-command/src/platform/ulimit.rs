@@ -481,7 +481,7 @@ impl Command for ULimit {
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))
-            .optional("limit", SyntaxShape::String, "Limit value")
+            .optional("limit", SyntaxShape::String, "Limit value.")
             .category(Category::Platform);
 
         for res in RESOURCE_ARRAY.iter() {
