@@ -40,7 +40,7 @@ impl Command for BytesAdd {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("data", SyntaxShape::Binary, "the binary to add")
+            .required("data", SyntaxShape::Binary, "The binary to add.")
             .named(
                 "index",
                 SyntaxShape::Int,
@@ -51,7 +51,7 @@ impl Command for BytesAdd {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, add bytes to the data at the given cell paths",
+                "For a data structure input, add bytes to the data at the given cell paths.",
             )
             .category(Category::Bytes)
     }

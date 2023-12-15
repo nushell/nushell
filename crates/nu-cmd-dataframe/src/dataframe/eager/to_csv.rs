@@ -74,55 +74,53 @@ fn command(
 
     let mut df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let mut file = File::create(&file_name.item).map_err(|e| {
-        ShellError::GenericError(
-            "Error with file name".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
+    let mut file = File::create(&file_name.item).map_err(|e| ShellError::GenericError {
+        error: "Error with file name".into(),
+        msg: e.to_string(),
+        span: Some(file_name.span),
+        help: None,
+        inner: vec![],
     })?;
 
     let writer = CsvWriter::new(&mut file);
 
     let writer = if no_header {
-        writer.has_header(false)
+        writer.include_header(false)
     } else {
-        writer.has_header(true)
+        writer.include_header(true)
     };
 
     let mut writer = match delimiter {
         None => writer,
         Some(d) => {
             if d.item.len() != 1 {
-                return Err(ShellError::GenericError(
-                    "Incorrect delimiter".into(),
-                    "Delimiter has to be one char".into(),
-                    Some(d.span),
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Incorrect delimiter".into(),
+                    msg: "Delimiter has to be one char".into(),
+                    span: Some(d.span),
+                    help: None,
+                    inner: vec![],
+                });
             } else {
                 let delimiter = match d.item.chars().next() {
                     Some(d) => d as u8,
                     None => unreachable!(),
                 };
 
-                writer.with_delimiter(delimiter)
+                writer.with_separator(delimiter)
             }
         }
     };
 
-    writer.finish(df.as_mut()).map_err(|e| {
-        ShellError::GenericError(
-            "Error writing to file".into(),
-            e.to_string(),
-            Some(file_name.span),
-            None,
-            Vec::new(),
-        )
-    })?;
+    writer
+        .finish(df.as_mut())
+        .map_err(|e| ShellError::GenericError {
+            error: "Error writing to file".into(),
+            msg: e.to_string(),
+            span: Some(file_name.span),
+            help: None,
+            inner: vec![],
+        })?;
 
     let file_value = Value::string(format!("saved {:?}", &file_name.item), file_name.span);
 

@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, convert data at the given cell paths",
+                "For a data structure input, convert data at the given cell paths.",
             )
             .category(Category::Conversions)
     }
@@ -79,45 +79,36 @@ impl Command for SubCommand {
             Example {
                 description: "Convert string to filesize in table",
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["device".to_string(), "size".to_string()],
-                            vals: vec![
-                                Value::string("/dev/sda1".to_string(), Span::test_data()),
-                                Value::filesize(200, Span::test_data()),
-                            ],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["device".to_string(), "size".to_string()],
-                            vals: vec![
-                                Value::string("/dev/loop0".to_string(), Span::test_data()),
-                                Value::filesize(50, Span::test_data()),
-                            ],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "device" => Value::test_string("/dev/sda1"),
+                        "size" =>   Value::test_filesize(200),
+                    }),
+                    Value::test_record(record! {
+                        "device" => Value::test_string("/dev/loop0"),
+                        "size" =>   Value::test_filesize(50),
+                    }),
+                ])),
             },
             Example {
                 description: "Convert string to filesize",
                 example: "'2' | into filesize",
-                result: Some(Value::filesize(2, Span::test_data())),
+                result: Some(Value::test_filesize(2)),
             },
             Example {
                 description: "Convert float to filesize",
                 example: "8.3 | into filesize",
-                result: Some(Value::filesize(8, Span::test_data())),
+                result: Some(Value::test_filesize(8)),
             },
             Example {
                 description: "Convert int to filesize",
                 example: "5 | into filesize",
-                result: Some(Value::filesize(5, Span::test_data())),
+                result: Some(Value::test_filesize(5)),
             },
             Example {
                 description: "Convert file size to filesize",
                 example: "4KB | into filesize",
-                result: Some(Value::filesize(4000, Span::test_data())),
+                result: Some(Value::test_filesize(4000)),
             },
         ]
     }

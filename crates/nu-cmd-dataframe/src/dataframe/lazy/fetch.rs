@@ -16,7 +16,7 @@ impl Command for LazyFetch {
     }
 
     fn usage(&self) -> &str {
-        "collects the lazyframe to the selected rows."
+        "Collects the lazyframe to the selected rows."
     }
 
     fn signature(&self) -> Signature {
@@ -67,14 +67,12 @@ impl Command for LazyFetch {
         let eager: NuDataFrame = lazy
             .into_polars()
             .fetch(rows as usize)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error fetching rows".into(),
-                    e.to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error fetching rows".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
             })?
             .into();
 

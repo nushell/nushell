@@ -24,8 +24,8 @@ impl Command for SubCommand {
         Signature::build("http patch")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("URL", SyntaxShape::String, "the URL to post to")
-            .required("data", SyntaxShape::Any, "the contents of the post body")
+            .required("URL", SyntaxShape::String, "The URL to post to.")
+            .required("data", SyntaxShape::Any, "The contents of the post body.")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -179,7 +179,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.patch(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

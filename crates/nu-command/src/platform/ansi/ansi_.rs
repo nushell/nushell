@@ -514,7 +514,7 @@ impl Command for AnsiCommand {
             .optional(
                 "code",
                 SyntaxShape::Any,
-                "the name of the code to use like 'green' or 'reset' to reset the color",
+                "The name of the code to use (from `ansi -l`).",
             )
             .switch(
                 "escape", // \x1b[
@@ -732,13 +732,13 @@ Operating system commands:
                         None => Color::White.prefix().to_string(),
                     },
                     Err(err) => {
-                        return Err(ShellError::GenericError(
-                            "error parsing hex color".to_string(),
-                            format!("{err}"),
-                            Some(code.span()),
-                            None,
-                            Vec::new(),
-                        ));
+                        return Err(ShellError::GenericError {
+                            error: "error parsing hex color".into(),
+                            msg: format!("{err}"),
+                            span: Some(code.span()),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             } else {

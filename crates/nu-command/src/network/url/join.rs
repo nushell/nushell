@@ -104,12 +104,12 @@ impl Command for SubCommand {
                         url_components?.to_url(span)
                     }
                     Value::Error { error, .. } => Err(*error),
-                    other => Err(ShellError::UnsupportedInput(
-                        "Expected a record from pipeline".to_string(),
-                        "value originates from here".into(),
-                        head,
-                        other.span(),
-                    )),
+                    other => Err(ShellError::UnsupportedInput {
+                        msg: "Expected a record from pipeline".to_string(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: other.span(),
+                    }),
                 }
             })
             .collect();
@@ -283,13 +283,13 @@ impl UrlComponents {
             _ => {
                 nu_protocol::report_error_new(
                     engine_state,
-                    &ShellError::GenericError(
-                        format!("'{key}' is not a valid URL field"),
-                        format!("remove '{key}' col from input record"),
-                        Some(span),
-                        None,
-                        vec![],
-                    ),
+                    &ShellError::GenericError {
+                        error: format!("'{key}' is not a valid URL field"),
+                        msg: format!("remove '{key}' col from input record"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    },
                 );
                 Ok(self)
             }
@@ -302,16 +302,16 @@ impl UrlComponents {
             return Ok(true);
         }
         match key {
-            "host" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                "empty string".into(),
-                value_span,
-            )),
-            "scheme" => Err(ShellError::UnsupportedConfigValue(
-                "non-empty string".into(),
-                "empty string".into(),
-                value_span,
-            )),
+            "host" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
+            "scheme" => Err(ShellError::UnsupportedConfigValue {
+                expected: "non-empty string".into(),
+                value: "empty string".into(),
+                span: value_span,
+            }),
             _ => Ok(false),
         }
     }

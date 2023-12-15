@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_engine::CallExt;
@@ -33,7 +32,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
-            .rest("append", SyntaxShape::String, "Path to append to the input")
+            .rest(
+                "append",
+                SyntaxShape::String,
+                "Path to append to the input.",
+            )
             .category(Category::Path)
     }
 
@@ -180,12 +183,12 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
             metadata,
         )),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: head }),
-        _ => Err(ShellError::UnsupportedInput(
-            "Input value cannot be joined".to_string(),
-            "value originates from here".into(),
-            head,
-            input.span().unwrap_or(call.head),
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "Input value cannot be joined".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input.span().unwrap_or(call.head),
+        }),
     }
 }
 
@@ -246,38 +249,26 @@ fn join_record(record: &Record, head: Span, span: Span, args: &Arguments) -> Val
 }
 
 fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, ShellError> {
-    for key in &record.cols {
+    for key in record.columns() {
         if !super::ALLOWED_COLUMNS.contains(&key.as_str()) {
             let allowed_cols = super::ALLOWED_COLUMNS.join(", ");
-            return Err(ShellError::UnsupportedInput(
-                format!(
+            return Err(ShellError::UnsupportedInput { msg: format!(
                     "Column '{key}' is not valid for a structured path. Allowed columns on this platform are: {allowed_cols}"
-                ),
-                "value originates from here".into(),
-                head,
-                span
-            ));
+                ), input: "value originates from here".into(), msg_span: head, input_span: span });
         }
     }
-
-    let entries: HashMap<&str, &Value> = record
-        .cols
-        .iter()
-        .map(String::as_str)
-        .zip(&record.vals)
-        .collect();
 
     let mut result = PathBuf::new();
 
     #[cfg(windows)]
-    if let Some(val) = entries.get("prefix") {
+    if let Some(val) = record.get("prefix") {
         let p = val.as_string()?;
         if !p.is_empty() {
             result.push(p);
         }
     }
 
-    if let Some(val) = entries.get("parent") {
+    if let Some(val) = record.get("parent") {
         let p = val.as_string()?;
         if !p.is_empty() {
             result.push(p);
@@ -285,14 +276,14 @@ fn merge_record(record: &Record, head: Span, span: Span) -> Result<PathBuf, Shel
     }
 
     let mut basename = String::new();
-    if let Some(val) = entries.get("stem") {
+    if let Some(val) = record.get("stem") {
         let p = val.as_string()?;
         if !p.is_empty() {
             basename.push_str(&p);
         }
     }
 
-    if let Some(val) = entries.get("extension") {
+    if let Some(val) = record.get("extension") {
         let p = val.as_string()?;
         if !p.is_empty() {
             basename.push('.');

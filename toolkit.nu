@@ -39,14 +39,43 @@ export def clippy [
         print $"running ('toolkit clippy' | pretty-format-command)"
     }
 
+    # If changing these settings also change CI settings in .github/workflows/ci.yml
     try {(
         cargo clippy
             --workspace
-            --tests
+            --exclude nu_plugin_*
             --features ($features | str join ",")
         --
             -D warnings
-    )} catch {
+            -D clippy::unwrap_used
+    )
+
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-format-command) on tests"
+    }
+    # In tests we don't have to deny unwrap
+    (
+        cargo clippy
+            --tests
+            --workspace
+            --exclude nu_plugin_*
+            --features ($features | str join ",")
+        --
+            -D warnings
+    )
+
+    if $verbose {
+        print $"running ('toolkit clippy' | pretty-format-command) on plugins"
+    }
+    (
+        cargo clippy
+            --package nu_plugin_*
+        --
+            -D warnings
+            -D clippy::unwrap_used
+    )
+
+    } catch {
         error make --unspanned {
             msg: $"\nplease fix the above ('clippy' | pretty-format-command) errors before continuing!"
         }
@@ -238,9 +267,17 @@ export def "check pr" [
     print $"running ('toolkit test' | pretty-format-command)"
     try {
         if $fast {
-            test --features $features --fast
+            if ($features | is-empty) {
+                test --workspace --fast
+            } else {
+                test --features $features --fast
+            }
         } else {
-            test --features $features
+            if ($features | is-empty) {
+                test --workspace
+            } else {
+                test --features $features
+            }
         }
     } catch {
         return (report --fail-test)

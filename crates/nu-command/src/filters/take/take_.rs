@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -28,7 +28,7 @@ impl Command for Take {
             .required(
                 "n",
                 SyntaxShape::Int,
-                "starting from the front, the number of elements to return",
+                "Starting from the front, the number of elements to return.",
             )
             .category(Category::Filters)
     }
@@ -60,8 +60,7 @@ impl Command for Take {
                     Value::List { vals, .. } => Ok(vals
                         .into_iter()
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
                         Ok(PipelineData::Value(Value::binary(slice, span), metadata))
@@ -69,8 +68,7 @@ impl Command for Take {
                     Value::Range { val, .. } => Ok(val
                         .into_range_iter(ctrlc.clone())?
                         .take(rows_desired)
-                        .into_pipeline_data(ctrlc)
-                        .set_metadata(metadata)),
+                        .into_pipeline_data_with_metadata(metadata, ctrlc)),
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     other => Err(ShellError::OnlySupportsThisInputType {
@@ -83,8 +81,7 @@ impl Command for Take {
             }
             PipelineData::ListStream(ls, metadata) => Ok(ls
                 .take(rows_desired)
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata)),
+                .into_pipeline_data_with_metadata(metadata, ctrlc)),
             PipelineData::ExternalStream { span, .. } => {
                 Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),
@@ -107,45 +104,41 @@ impl Command for Take {
             Example {
                 description: "Return the first item of a list/table",
                 example: "[1 2 3] | take 1",
-                result: Some(Value::list(vec![Value::test_int(1)], Span::test_data())),
+                result: Some(Value::test_list(vec![Value::test_int(1)])),
             },
             Example {
                 description: "Return the first 2 items of a list/table",
                 example: "[1 2 3] | take 2",
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
             },
             Example {
                 description: "Return the first two rows of a table",
                 example: "[[editions]; [2015] [2018] [2021]] | take 2",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["editions".to_string()],
-                            vals: vec![Value::test_int(2015)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["editions".to_string()],
-                            vals: vec![Value::test_int(2018)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "editions" => Value::test_int(2015),
+                    }),
+                    Value::test_record(record! {
+                        "editions" => Value::test_int(2018),
+                    }),
+                ])),
             },
             Example {
                 description: "Return the first 2 bytes of a binary value",
                 example: "0x[01 23 45] | take 2",
-                result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
+                result: Some(Value::test_binary(vec![0x01, 0x23])),
             },
             Example {
                 description: "Return the first 3 elements of a range",
                 example: "1..10 | take 3",
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                ])),
             },
         ]
     }

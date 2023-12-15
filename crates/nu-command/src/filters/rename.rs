@@ -3,7 +3,7 @@ use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
     SyntaxShape, Type, Value,
 };
 use std::collections::HashSet;
@@ -34,7 +34,11 @@ impl Command for Rename {
                 "A closure to apply changes on each column",
                 Some('b'),
             )
-            .rest("rest", SyntaxShape::String, "the new names for the columns")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "The new names for the columns.",
+            )
             .category(Category::Filters)
     }
 
@@ -57,50 +61,43 @@ impl Command for Rename {
             Example {
                 description: "Rename a column",
                 example: "[[a, b]; [1, 2]] | rename my_column",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["my_column".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "my_column" => Value::test_int(1),
+                    "b" =>         Value::test_int(2),
+                })])),
             },
             Example {
                 description: "Rename many columns",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["eggs".to_string(), "ham".to_string(), "bacon".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "eggs" =>  Value::test_int(1),
+                    "ham" =>   Value::test_int(2),
+                    "bacon" => Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Rename a specific column",
                 example: "[[a, b, c]; [1, 2, 3]] | rename --column { a: ham }",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ham".to_string(), "b".to_string(), "c".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ham" => Value::test_int(1),
+                    "b" =>   Value::test_int(2),
+                    "c" =>   Value::test_int(3),
+                })])),
             },
             Example {
                 description: "Rename the fields of a record",
                 example: "{a: 1 b: 2} | rename x y",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["x".to_string(), "y".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "x" => Value::test_int(1),
+                    "y" => Value::test_int(2),
                 })),
             },
             Example {
                 description: "Rename fields based on a given closure",
                 example: "{abc: 1, bbc: 2} | rename --block {str replace --all 'b' 'z'}",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["azc".to_string(), "zzc".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2)],
+                result: Some(Value::test_record(record! {
+                    "azc" => Value::test_int(1),
+                    "zzc" => Value::test_int(2),
                 })),
             },
         ]
@@ -148,7 +145,7 @@ fn rename(
         if let Some(capture_block) = call.get_flag::<Closure>(engine_state, stack, "block")? {
             let engine_state = engine_state.clone();
             let block = engine_state.get_block(capture_block.block_id).clone();
-            let stack = stack.captures_to_stack(&capture_block.captures);
+            let stack = stack.captures_to_stack(capture_block.captures);
             let orig_env_vars = stack.env_vars.clone();
             let orig_env_hidden = stack.env_hidden.clone();
             Some((engine_state, block, stack, orig_env_vars, orig_env_hidden))
@@ -211,16 +208,9 @@ fn rename(
                                                 "already checked column to rename still exists",
                                             );
                                         return Value::error(
-                                            ShellError::UnsupportedInput(
-                                                format!(
+                                            ShellError::UnsupportedInput { msg: format!(
                                                     "The column '{not_exists_column}' does not exist in the input",
-                                                ),
-                                                "value originated from here".into(),
-                                                // Arrow 1 points at the specified column name,
-                                                head_span,
-                                                // Arrow 2 points at the input value.
-                                                span,
-                                            ),
+                                                ), input: "value originated from here".into(), msg_span: head_span, input_span: span },
                                             span,
                                         );
                                     }

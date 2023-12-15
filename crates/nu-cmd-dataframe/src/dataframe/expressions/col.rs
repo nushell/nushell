@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 use polars::prelude::col;
 
@@ -34,9 +34,9 @@ impl Command for ExprCol {
         vec![Example {
             description: "Creates a named column expression and converts it to a nu object",
             example: "dfr col a | dfr into-nu",
-            result: Some(Value::test_record(Record {
-                cols: vec!["expr".into(), "value".into()],
-                vals: vec![Value::test_string("column"), Value::test_string("a")],
+            result: Some(Value::test_record(record! {
+                "expr" =>  Value::test_string("column"),
+                "value" => Value::test_string("a"),
             })),
         }]
     }

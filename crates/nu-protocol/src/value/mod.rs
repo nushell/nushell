@@ -9,9 +9,9 @@ mod unit;
 
 use crate::ast::{Bits, Boolean, CellPath, Comparison, MatchPattern, PathMember};
 use crate::ast::{Math, Operator};
-use crate::engine::EngineState;
+use crate::engine::{Closure, EngineState};
 use crate::ShellError;
-use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type, VarId};
+use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
 
 use byte_unit::ByteUnit;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
@@ -20,13 +20,12 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::get_system_locale;
 use nu_utils::locale::get_system_locale_string;
+use nu_utils::{get_system_locale, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt::Write;
 use std::{
     borrow::Cow,
@@ -109,8 +108,7 @@ pub enum Value {
         internal_span: Span,
     },
     Closure {
-        val: BlockId,
-        captures: HashMap<VarId, Value>,
+        val: Closure,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
         internal_span: Span,
@@ -202,13 +200,8 @@ impl Clone for Value {
                 val: *val,
                 internal_span: *internal_span,
             },
-            Value::Closure {
-                val,
-                captures,
-                internal_span,
-            } => Value::Closure {
-                val: *val,
-                captures: captures.clone(),
+            Value::Closure { val, internal_span } => Value::Closure {
+                val: val.clone(),
                 internal_span: *internal_span,
             },
             Value::Nothing { internal_span } => Value::Nothing {
@@ -443,7 +436,7 @@ impl Value {
     pub fn as_block(&self) -> Result<BlockId, ShellError> {
         match self {
             Value::Block { val, .. } => Ok(*val),
-            Value::Closure { val, .. } => Ok(*val),
+            Value::Closure { val, .. } => Ok(val.block_id),
             x => Err(ShellError::CantConvert {
                 to_type: "block".into(),
                 from_type: x.get_type().to_string(),
@@ -453,9 +446,9 @@ impl Value {
         }
     }
 
-    pub fn as_closure(&self) -> Result<(BlockId, &HashMap<VarId, Value>), ShellError> {
+    pub fn as_closure(&self) -> Result<&Closure, ShellError> {
         match self {
-            Value::Closure { val, captures, .. } => Ok((*val, captures)),
+            Value::Closure { val, .. } => Ok(val),
             x => Err(ShellError::CantConvert {
                 to_type: "closure".into(),
                 from_type: x.get_type().to_string(),
@@ -635,21 +628,17 @@ impl Value {
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
-            Value::Record { val, .. } => val
-                .iter()
-                .find(|(col, _)| col == &name)
-                .map(|(_, val)| val.clone()),
+            Value::Record { val, .. } => val.get(name).cloned(),
             Value::List { vals, .. } => {
-                let mut out = vec![];
-                for item in vals {
-                    match item {
-                        Value::Record { .. } => match item.get_data_by_key(name) {
-                            Some(v) => out.push(v),
-                            None => out.push(Value::nothing(span)),
-                        },
-                        _ => out.push(Value::nothing(span)),
-                    }
-                }
+                let out = vals
+                    .iter()
+                    .map(|item| {
+                        item.as_record()
+                            .ok()
+                            .and_then(|val| val.get(name).cloned())
+                            .unwrap_or(Value::nothing(span))
+                    })
+                    .collect::<Vec<_>>();
 
                 if !out.is_empty() {
                     Some(Value::list(out, span))
@@ -732,11 +721,11 @@ impl Value {
                 collected.into_string(separator, config)
             }
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern: {:?}>", val),
         }
@@ -787,11 +776,11 @@ impl Value {
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { .. } => "<Pattern>".into(),
         }
@@ -895,34 +884,14 @@ impl Value {
                 Err(error) => format!("{error:?}"),
             },
             Value::Block { val, .. } => format!("<Block {val}>"),
-            Value::Closure { val, .. } => format!("<Closure {val}>"),
+            Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
             Value::Nothing { .. } => String::new(),
             Value::Error { error, .. } => format!("{error:?}"),
             Value::Binary { val, .. } => format!("{val:?}"),
-            Value::CellPath { val, .. } => val.into_string(),
+            Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
             Value::MatchPattern { val, .. } => format!("<Pattern {:?}>", val),
         }
-    }
-
-    /// Check if the content is empty
-    pub fn is_empty(&self) -> bool {
-        match self {
-            Value::String { val, .. } => val.is_empty(),
-            Value::List { vals, .. } => vals.is_empty(),
-            Value::Record { val, .. } => val.is_empty(),
-            Value::Binary { val, .. } => val.is_empty(),
-            Value::Nothing { .. } => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_nothing(&self) -> bool {
-        matches!(self, Value::Nothing { .. })
-    }
-
-    pub fn is_error(&self) -> bool {
-        matches!(self, Value::Error { .. })
     }
 
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
@@ -931,28 +900,9 @@ impl Value {
         cell_path: &[PathMember],
         insensitive: bool,
     ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, true)
-    }
-
-    pub fn follow_cell_path_not_from_user_input(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-    ) -> Result<Value, ShellError> {
-        self.follow_cell_path_helper(cell_path, insensitive, false)
-    }
-
-    fn follow_cell_path_helper(
-        self,
-        cell_path: &[PathMember],
-        insensitive: bool,
-        from_user_input: bool,
-    ) -> Result<Value, ShellError> {
         let mut current = self;
 
         for member in cell_path {
-            // FIXME: this uses a few extra clones for simplicity, but there may be a way
-            // to traverse the path without them
             match member {
                 PathMember::Int {
                     val: count,
@@ -960,16 +910,22 @@ impl Value {
                     optional,
                 } => {
                     // Treat a numeric path member as `select <val>`
-                    match &mut current {
-                        Value::List { vals: val, .. } => {
-                            if let Some(item) = val.get(*count) {
-                                current = item.clone();
+                    match current {
+                        Value::List { mut vals, .. } => {
+                            if *count < vals.len() {
+                                // `vals` is owned and will be dropped right after this,
+                                // so we can `swap_remove` the value at index `count`
+                                // without worrying about preserving order.
+                                current = vals.swap_remove(*count);
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
-                            } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
+                            } else if vals.is_empty() {
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
                             } else {
-                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
+                                return Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *origin_span,
+                                });
                             }
                         }
                         Value::Binary { val, .. } => {
@@ -978,19 +934,22 @@ impl Value {
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else if val.is_empty() {
-                                return Err(ShellError::AccessEmptyContent { span: *origin_span })
+                                return Err(ShellError::AccessEmptyContent { span: *origin_span });
                             } else {
-                                return Err(ShellError::AccessBeyondEnd { max_idx:val.len()-1,span: *origin_span });
+                                return Err(ShellError::AccessBeyondEnd {
+                                    max_idx: val.len() - 1,
+                                    span: *origin_span,
+                                });
                             }
                         }
                         Value::Range { val, .. } => {
-                            if let Some(item) = val.clone().into_range_iter(None)?.nth(*count) {
-                                current = item.clone();
+                            if let Some(item) = val.into_range_iter(None)?.nth(*count) {
+                                current = item;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
                             } else {
                                 return Err(ShellError::AccessBeyondEndOfStream {
-                                    span: *origin_span
+                                    span: *origin_span,
                                 });
                             }
                         }
@@ -1016,11 +975,14 @@ impl Value {
                             return Err(ShellError::TypeMismatch {
                                 err_message:"Can't access record values with a row index. Try specifying a column name instead".into(),
                                 span: *origin_span,
-                            })
+                            });
                         }
-                        Value::Error { error, .. } => return Err(*error.to_owned()),
+                        Value::Error { error, .. } => return Err(*error),
                         x => {
-                            return Err(ShellError::IncompatiblePathAccess { type_name:format!("{}",x.get_type()), span: *origin_span })
+                            return Err(ShellError::IncompatiblePathAccess {
+                                type_name: format!("{}", x.get_type()),
+                                span: *origin_span,
+                            });
                         }
                     }
                 }
@@ -1031,30 +993,29 @@ impl Value {
                 } => {
                     let span = current.span();
 
-                    match &mut current {
+                    match current {
                         Value::Record { val, .. } => {
                             // Make reverse iterate to avoid duplicate column leads to first value, actually last value is expected.
                             if let Some(found) = val.iter().rev().find(|x| {
                                 if insensitive {
-                                    x.0.to_lowercase() == column_name.to_lowercase()
+                                    x.0.eq_ignore_case(column_name)
                                 } else {
                                     x.0 == column_name
                                 }
                             }) {
-                                current = found.1.clone();
+                                current = found.1.clone(); // TODO: avoid clone here
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) =
+                                did_you_mean(val.columns(), column_name)
+                            {
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) = did_you_mean(&val.cols, column_name) {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.to_string(),
+                                    col_name: column_name.clone(),
                                     span: *origin_span,
                                     src_span: span,
                                 });
@@ -1063,21 +1024,24 @@ impl Value {
                         Value::LazyRecord { val, .. } => {
                             let columns = val.column_names();
 
-                            if columns.contains(&column_name.as_str()) {
-                                current = val.get_column_value(column_name)?;
+                            if let Some(col) = columns.iter().rev().find(|&col| {
+                                if insensitive {
+                                    col.eq_ignore_case(column_name)
+                                } else {
+                                    col == column_name
+                                }
+                            }) {
+                                current = val.get_column_value(col)?;
                             } else if *optional {
                                 return Ok(Value::nothing(*origin_span)); // short-circuit
+                            } else if let Some(suggestion) = did_you_mean(&columns, column_name) {
+                                return Err(ShellError::DidYouMean {
+                                    suggestion,
+                                    span: *origin_span,
+                                });
                             } else {
-                                if from_user_input {
-                                    if let Some(suggestion) = did_you_mean(&columns, column_name) {
-                                        return Err(ShellError::DidYouMean(
-                                            suggestion,
-                                            *origin_span,
-                                        ));
-                                    }
-                                }
                                 return Err(ShellError::CantFindColumn {
-                                    col_name: column_name.to_string(),
+                                    col_name: column_name.clone(),
                                     span: *origin_span,
                                     src_span: span,
                                 });
@@ -1087,39 +1051,50 @@ impl Value {
                         // Create a List which contains each matching value for contained
                         // records in the source list.
                         Value::List { vals, .. } => {
-                            // TODO: this should stream instead of collecting
-                            let mut output = vec![];
-                            for val in vals {
-                                // only look in records; this avoids unintentionally recursing into deeply nested tables
-                                if matches!(val, Value::Record { .. }) {
-                                    if let Ok(result) = val.clone().follow_cell_path(
-                                        &[PathMember::String {
-                                            val: column_name.clone(),
+                            let list = vals
+                                .into_iter()
+                                .map(|val| {
+                                    let val_span = val.span();
+                                    match val {
+                                        Value::Record { val, .. } => {
+                                            if let Some(found) = val.iter().rev().find(|x| {
+                                                if insensitive {
+                                                    x.0.eq_ignore_case(column_name)
+                                                } else {
+                                                    x.0 == column_name
+                                                }
+                                            }) {
+                                                Ok(found.1.clone()) // TODO: avoid clone here
+                                            } else if *optional {
+                                                Ok(Value::nothing(*origin_span))
+                                            } else if let Some(suggestion) =
+                                                did_you_mean(val.columns(), column_name)
+                                            {
+                                                Err(ShellError::DidYouMean {
+                                                    suggestion,
+                                                    span: *origin_span,
+                                                })
+                                            } else {
+                                                Err(ShellError::CantFindColumn {
+                                                    col_name: column_name.clone(),
+                                                    span: *origin_span,
+                                                    src_span: val_span,
+                                                })
+                                            }
+                                        }
+                                        Value::Nothing { .. } if *optional => {
+                                            Ok(Value::nothing(*origin_span))
+                                        }
+                                        _ => Err(ShellError::CantFindColumn {
+                                            col_name: column_name.clone(),
                                             span: *origin_span,
-                                            optional: *optional,
-                                        }],
-                                        insensitive,
-                                    ) {
-                                        output.push(result);
-                                    } else {
-                                        return Err(ShellError::CantFindColumn {
-                                            col_name: column_name.to_string(),
-                                            span: *origin_span,
-                                            src_span: val.span(),
-                                        });
+                                            src_span: val_span,
+                                        }),
                                     }
-                                } else if *optional && matches!(val, Value::Nothing { .. }) {
-                                    output.push(Value::nothing(*origin_span));
-                                } else {
-                                    return Err(ShellError::CantFindColumn {
-                                        col_name: column_name.to_string(),
-                                        span: *origin_span,
-                                        src_span: val.span(),
-                                    });
-                                }
-                            }
+                                })
+                                .collect::<Result<_, _>>()?;
 
-                            current = Value::list(output, span);
+                            current = Value::list(list, span);
                         }
                         Value::CustomValue { val, .. } => {
                             current = val.follow_path_string(column_name.clone(), *origin_span)?;
@@ -1127,12 +1102,12 @@ impl Value {
                         Value::Nothing { .. } if *optional => {
                             return Ok(Value::nothing(*origin_span)); // short-circuit
                         }
-                        Value::Error { error, .. } => return Err(*error.to_owned()),
+                        Value::Error { error, .. } => return Err(*error),
                         x => {
                             return Err(ShellError::IncompatiblePathAccess {
                                 type_name: format!("{}", x.get_type()),
                                 span: *origin_span,
-                            })
+                            });
                         }
                     }
                 }
@@ -1168,8 +1143,9 @@ impl Value {
         cell_path: &[PathMember],
         new_val: Value,
     ) -> Result<(), ShellError> {
-        match cell_path.first() {
-            Some(path_member) => match path_member {
+        let v_span = self.span();
+        if let Some((member, path)) = cell_path.split_first() {
+            match member {
                 PathMember::String {
                     val: col_name,
                     span,
@@ -1179,61 +1155,43 @@ impl Value {
                         for val in vals.iter_mut() {
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let mut found = false;
-                                    for (col, val) in record.iter_mut() {
-                                        if col == col_name {
-                                            found = true;
-                                            val.upsert_data_at_cell_path(
-                                                &cell_path[1..],
-                                                new_val.clone(),
-                                            )?
-                                        }
-                                    }
-                                    if !found {
-                                        if cell_path.len() == 1 {
-                                            record.push(col_name, new_val);
-                                            break;
+                                    if let Some(val) = record.get_mut(col_name) {
+                                        val.upsert_data_at_cell_path(path, new_val.clone())?;
+                                    } else {
+                                        let new_col = if path.is_empty() {
+                                            new_val.clone()
                                         } else {
                                             let mut new_col =
                                                 Value::record(Record::new(), new_val.span());
-                                            new_col.upsert_data_at_cell_path(
-                                                &cell_path[1..],
-                                                new_val,
-                                            )?;
-                                            vals.push(new_col);
-                                            break;
-                                        }
+                                            new_col
+                                                .upsert_data_at_cell_path(path, new_val.clone())?;
+                                            new_col
+                                        };
+                                        record.push(col_name, new_col);
                                     }
                                 }
-                                Value::Error { error, .. } => return Err(*error.to_owned()),
+                                Value::Error { error, .. } => return Err(*error.clone()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
-                                        col_name: col_name.to_string(),
+                                        col_name: col_name.clone(),
                                         span: *span,
                                         src_span: v.span(),
-                                    })
+                                    });
                                 }
                             }
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let mut found = false;
-
-                        for (col, val) in record.iter_mut() {
-                            if col == col_name {
-                                found = true;
-                                val.upsert_data_at_cell_path(&cell_path[1..], new_val.clone())?
-                            }
-                        }
-                        if !found {
-                            let new_col = if cell_path.len() == 1 {
+                        if let Some(val) = record.get_mut(col_name) {
+                            val.upsert_data_at_cell_path(path, new_val)?;
+                        } else {
+                            let new_col = if path.is_empty() {
                                 new_val
                             } else {
                                 let mut new_col = Value::record(Record::new(), new_val.span());
-                                new_col.upsert_data_at_cell_path(&cell_path[1..], new_val)?;
+                                new_col.upsert_data_at_cell_path(path, new_val)?;
                                 new_col
                             };
-
                             record.push(col_name, new_col);
                         }
                     }
@@ -1241,15 +1199,15 @@ impl Value {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.upsert_data_at_cell_path(cell_path, new_val)?;
-                        *self = record
+                        *self = record;
                     }
-                    Value::Error { error, .. } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
                         return Err(ShellError::CantFindColumn {
-                            col_name: col_name.to_string(),
+                            col_name: col_name.clone(),
                             span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1257,30 +1215,33 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.upsert_data_at_cell_path(&cell_path[1..], new_val)?
-                        } else if vals.len() == *row_num && cell_path.len() == 1 {
-                            // If the upsert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                            v.upsert_data_at_cell_path(path, new_val)?;
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
+                        } else {
+                            // If the upsert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.to_owned()),
-                    v => {
+                    Value::Error { error, .. } => return Err(*error.clone()),
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
-                        })
+                            src_span: v_span,
+                        });
                     }
                 },
-            },
-            None => {
-                *self = new_val;
             }
+        } else {
+            *self = new_val;
         }
         Ok(())
     }
@@ -1297,7 +1258,6 @@ impl Value {
 
         match new_val {
             Value::Error { error, .. } => Err(*error),
-
             new_val => self.update_data_at_cell_path(cell_path, new_val),
         }
     }
@@ -1308,9 +1268,8 @@ impl Value {
         new_val: Value,
     ) -> Result<(), ShellError> {
         let v_span = self.span();
-
-        match cell_path.first() {
-            Some(path_member) => match path_member {
+        if let Some((member, path)) = cell_path.split_first() {
+            match member {
                 PathMember::String {
                     val: col_name,
                     span,
@@ -1321,47 +1280,33 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let mut found = false;
-                                    for (col, val) in record.iter_mut() {
-                                        if col == col_name {
-                                            found = true;
-                                            val.update_data_at_cell_path(
-                                                &cell_path[1..],
-                                                new_val.clone(),
-                                            )?
-                                        }
-                                    }
-                                    if !found {
+                                    if let Some(val) = record.get_mut(col_name) {
+                                        val.update_data_at_cell_path(path, new_val.clone())?;
+                                    } else {
                                         return Err(ShellError::CantFindColumn {
-                                            col_name: col_name.to_string(),
+                                            col_name: col_name.clone(),
                                             span: *span,
                                             src_span: v_span,
                                         });
                                     }
                                 }
-                                Value::Error { error, .. } => return Err(*error.to_owned()),
+                                Value::Error { error, .. } => return Err(*error.clone()),
                                 v => {
                                     return Err(ShellError::CantFindColumn {
-                                        col_name: col_name.to_string(),
+                                        col_name: col_name.clone(),
                                         span: *span,
                                         src_span: v.span(),
-                                    })
+                                    });
                                 }
                             }
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        let mut found = false;
-
-                        for (col, val) in record.iter_mut() {
-                            if col == col_name {
-                                found = true;
-                                val.update_data_at_cell_path(&cell_path[1..], new_val.clone())?
-                            }
-                        }
-                        if !found {
+                        if let Some(val) = record.get_mut(col_name) {
+                            val.update_data_at_cell_path(path, new_val)?;
+                        } else {
                             return Err(ShellError::CantFindColumn {
-                                col_name: col_name.to_string(),
+                                col_name: col_name.clone(),
                                 span: *span,
                                 src_span: v_span,
                             });
@@ -1371,15 +1316,15 @@ impl Value {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.update_data_at_cell_path(cell_path, new_val)?;
-                        *self = record
+                        *self = record;
                     }
-                    Value::Error { error, .. } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
                         return Err(ShellError::CantFindColumn {
-                            col_name: col_name.to_string(),
+                            col_name: col_name.clone(),
                             span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1387,7 +1332,7 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.update_data_at_cell_path(&cell_path[1..], new_val)?
+                            v.update_data_at_cell_path(path, new_val)?;
                         } else if vals.is_empty() {
                             return Err(ShellError::AccessEmptyContent { span: *span });
                         } else {
@@ -1397,29 +1342,27 @@ impl Value {
                             });
                         }
                     }
-                    Value::Error { error, .. } => return Err(*error.to_owned()),
+                    Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
                             src_span: v.span(),
-                        })
+                        });
                     }
                 },
-            },
-            None => {
-                *self = new_val;
             }
+        } else {
+            *self = new_val;
         }
         Ok(())
     }
 
     pub fn remove_data_at_cell_path(&mut self, cell_path: &[PathMember]) -> Result<(), ShellError> {
-        match cell_path.len() {
-            0 => Ok(()),
-            1 => {
-                let path_member = cell_path.first().expect("there is a first");
+        match cell_path {
+            [] => Ok(()),
+            [member] => {
                 let v_span = self.span();
-                match path_member {
+                match member {
                     PathMember::String {
                         val: col_name,
                         span,
@@ -1428,24 +1371,11 @@ impl Value {
                         Value::List { vals, .. } => {
                             for val in vals.iter_mut() {
                                 let v_span = val.span();
-
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let mut found = false;
-                                        let mut index = 0;
-                                        record.cols.retain_mut(|col| {
-                                            if col == col_name {
-                                                found = true;
-                                                record.vals.remove(index);
-                                                false
-                                            } else {
-                                                index += 1;
-                                                true
-                                            }
-                                        });
-                                        if !found && !optional {
+                                        if record.remove(col_name).is_none() && !optional {
                                             return Err(ShellError::CantFindColumn {
-                                                col_name: col_name.to_string(),
+                                                col_name: col_name.clone(),
                                                 span: *span,
                                                 src_span: v_span,
                                             });
@@ -1453,31 +1383,19 @@ impl Value {
                                     }
                                     v => {
                                         return Err(ShellError::CantFindColumn {
-                                            col_name: col_name.to_string(),
+                                            col_name: col_name.clone(),
                                             span: *span,
                                             src_span: v.span(),
-                                        })
+                                        });
                                     }
                                 }
                             }
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            let mut found = false;
-                            let mut index = 0;
-                            record.cols.retain_mut(|col| {
-                                if col == col_name {
-                                    found = true;
-                                    record.vals.remove(index);
-                                    false
-                                } else {
-                                    index += 1;
-                                    true
-                                }
-                            });
-                            if !found && !optional {
+                            if record.remove(col_name).is_none() && !optional {
                                 return Err(ShellError::CantFindColumn {
-                                    col_name: col_name.to_string(),
+                                    col_name: col_name.clone(),
                                     span: *span,
                                     src_span: v_span,
                                 });
@@ -1492,7 +1410,7 @@ impl Value {
                             Ok(())
                         }
                         v => Err(ShellError::CantFindColumn {
-                            col_name: col_name.to_string(),
+                            col_name: col_name.clone(),
                             span: *span,
                             src_span: v.span(),
                         }),
@@ -1524,10 +1442,9 @@ impl Value {
                     },
                 }
             }
-            _ => {
-                let path_member = cell_path.first().expect("there is a first");
+            [member, path @ ..] => {
                 let v_span = self.span();
-                match path_member {
+                match member {
                     PathMember::String {
                         val: col_name,
                         span,
@@ -1538,16 +1455,11 @@ impl Value {
                                 let v_span = val.span();
                                 match val {
                                     Value::Record { val: record, .. } => {
-                                        let mut found = false;
-                                        for (col, val) in record.iter_mut() {
-                                            if col == col_name {
-                                                found = true;
-                                                val.remove_data_at_cell_path(&cell_path[1..])?
-                                            }
-                                        }
-                                        if !found && !optional {
+                                        if let Some(val) = record.get_mut(col_name) {
+                                            val.remove_data_at_cell_path(path)?;
+                                        } else if !optional {
                                             return Err(ShellError::CantFindColumn {
-                                                col_name: col_name.to_string(),
+                                                col_name: col_name.clone(),
                                                 span: *span,
                                                 src_span: v_span,
                                             });
@@ -1555,27 +1467,21 @@ impl Value {
                                     }
                                     v => {
                                         return Err(ShellError::CantFindColumn {
-                                            col_name: col_name.to_string(),
+                                            col_name: col_name.clone(),
                                             span: *span,
                                             src_span: v.span(),
-                                        })
+                                        });
                                     }
                                 }
                             }
                             Ok(())
                         }
                         Value::Record { val: record, .. } => {
-                            let mut found = false;
-
-                            for (col, val) in record.iter_mut() {
-                                if col == col_name {
-                                    found = true;
-                                    val.remove_data_at_cell_path(&cell_path[1..])?
-                                }
-                            }
-                            if !found && !optional {
+                            if let Some(val) = record.get_mut(col_name) {
+                                val.remove_data_at_cell_path(path)?;
+                            } else if !optional {
                                 return Err(ShellError::CantFindColumn {
-                                    col_name: col_name.to_string(),
+                                    col_name: col_name.clone(),
                                     span: *span,
                                     src_span: v_span,
                                 });
@@ -1590,7 +1496,7 @@ impl Value {
                             Ok(())
                         }
                         v => Err(ShellError::CantFindColumn {
-                            col_name: col_name.to_string(),
+                            col_name: col_name.clone(),
                             span: *span,
                             src_span: v.span(),
                         }),
@@ -1602,7 +1508,7 @@ impl Value {
                     } => match self {
                         Value::List { vals, .. } => {
                             if let Some(v) = vals.get_mut(*row_num) {
-                                v.remove_data_at_cell_path(&cell_path[1..])
+                                v.remove_data_at_cell_path(path)
                             } else if *optional {
                                 Ok(())
                             } else if vals.is_empty() {
@@ -1631,8 +1537,8 @@ impl Value {
         head_span: Span,
     ) -> Result<(), ShellError> {
         let v_span = self.span();
-        match cell_path.first() {
-            Some(path_member) => match path_member {
+        if let Some((member, path)) = cell_path.split_first() {
+            match member {
                 PathMember::String {
                     val: col_name,
                     span,
@@ -1643,73 +1549,87 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    for (col, val) in record.iter_mut() {
-                                        if col == col_name {
-                                            if cell_path.len() == 1 {
-                                                return Err(ShellError::ColumnAlreadyExists {
-                                                    col_name: col_name.to_string(),
-                                                    span: *span,
-                                                    src_span: v_span,
-                                                });
-                                            } else {
-                                                return val.insert_data_at_cell_path(
-                                                    &cell_path[1..],
-                                                    new_val,
-                                                    head_span,
-                                                );
-                                            }
+                                    if let Some(val) = record.get_mut(col_name) {
+                                        if path.is_empty() {
+                                            return Err(ShellError::ColumnAlreadyExists {
+                                                col_name: col_name.clone(),
+                                                span: *span,
+                                                src_span: v_span,
+                                            });
+                                        } else {
+                                            val.insert_data_at_cell_path(
+                                                path,
+                                                new_val.clone(),
+                                                head_span,
+                                            )?;
                                         }
+                                    } else {
+                                        let new_col = if path.is_empty() {
+                                            new_val.clone()
+                                        } else {
+                                            let mut new_col =
+                                                Value::record(Record::new(), new_val.span());
+                                            new_col.insert_data_at_cell_path(
+                                                path,
+                                                new_val.clone(),
+                                                head_span,
+                                            )?;
+                                            new_col
+                                        };
+                                        record.push(col_name, new_col);
                                     }
-
-                                    record.push(col_name, new_val.clone());
                                 }
-                                // SIGH...
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 _ => {
-                                    return Err(ShellError::UnsupportedInput(
-                                        "expected table or record".into(),
-                                        format!("input type: {:?}", val.get_type()),
-                                        head_span,
-                                        *span,
-                                    ))
+                                    return Err(ShellError::UnsupportedInput {
+                                        msg: "expected table or record".into(),
+                                        input: format!("input type: {:?}", val.get_type()),
+                                        msg_span: head_span,
+                                        input_span: *span,
+                                    });
                                 }
                             }
                         }
                     }
                     Value::Record { val: record, .. } => {
-                        for (col, val) in record.iter_mut() {
-                            if col == col_name {
-                                if cell_path.len() == 1 {
-                                    return Err(ShellError::ColumnAlreadyExists {
-                                        col_name: col_name.to_string(),
-                                        span: *span,
-                                        src_span: v_span,
-                                    });
-                                } else {
-                                    return val.insert_data_at_cell_path(
-                                        &cell_path[1..],
-                                        new_val,
-                                        head_span,
-                                    );
-                                }
+                        if let Some(val) = record.get_mut(col_name) {
+                            if path.is_empty() {
+                                return Err(ShellError::ColumnAlreadyExists {
+                                    col_name: col_name.clone(),
+                                    span: *span,
+                                    src_span: v_span,
+                                });
+                            } else {
+                                val.insert_data_at_cell_path(path, new_val, head_span)?;
                             }
+                        } else {
+                            let new_col = if path.is_empty() {
+                                new_val.clone()
+                            } else {
+                                let mut new_col = Value::record(Record::new(), new_val.span());
+                                new_col.insert_data_at_cell_path(
+                                    path,
+                                    new_val.clone(),
+                                    head_span,
+                                )?;
+                                new_col
+                            };
+                            record.push(col_name, new_col);
                         }
-
-                        record.push(col_name, new_val);
                     }
                     Value::LazyRecord { val, .. } => {
                         // convert to Record first.
                         let mut record = val.collect()?;
                         record.insert_data_at_cell_path(cell_path, new_val, v_span)?;
-                        *self = record
+                        *self = record;
                     }
                     other => {
-                        return Err(ShellError::UnsupportedInput(
-                            "table or record".into(),
-                            format!("input type: {:?}", other.get_type()),
-                            head_span,
-                            *span,
-                        ))
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "table or record".into(),
+                            input: format!("input type: {:?}", other.get_type()),
+                            msg_span: head_span,
+                            input_span: *span,
+                        });
                     }
                 },
                 PathMember::Int {
@@ -1717,31 +1637,58 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
-                            v.insert_data_at_cell_path(&cell_path[1..], new_val, head_span)?
-                        } else if vals.len() == *row_num && cell_path.len() == 1 {
-                            // If the insert is at 1 + the end of the list, it's OK.
-                            // Otherwise, it's prohibited.
-                            vals.push(new_val);
-                        } else {
+                            if path.is_empty() {
+                                vals.insert(*row_num, new_val);
+                            } else {
+                                v.insert_data_at_cell_path(path, new_val, head_span)?;
+                            }
+                        } else if vals.len() != *row_num {
                             return Err(ShellError::InsertAfterNextFreeIndex {
                                 available_idx: vals.len(),
                                 span: *span,
                             });
+                        } else if !path.is_empty() {
+                            return Err(ShellError::AccessBeyondEnd {
+                                max_idx: vals.len() - 1,
+                                span: *span,
+                            });
+                        } else {
+                            // If the insert is at 1 + the end of the list, it's OK.
+                            vals.push(new_val);
                         }
                     }
-                    v => {
+                    _ => {
                         return Err(ShellError::NotAList {
                             dst_span: *span,
-                            src_span: v.span(),
-                        })
+                            src_span: v_span,
+                        });
                     }
                 },
-            },
-            None => {
-                *self = new_val;
             }
+        } else {
+            *self = new_val;
         }
         Ok(())
+    }
+
+    /// Check if the content is empty
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Value::String { val, .. } => val.is_empty(),
+            Value::List { vals, .. } => vals.is_empty(),
+            Value::Record { val, .. } => val.is_empty(),
+            Value::Binary { val, .. } => val.is_empty(),
+            Value::Nothing { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_nothing(&self) -> bool {
+        matches!(self, Value::Nothing { .. })
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, Value::Error { .. })
     }
 
     pub fn is_true(&self) -> bool {
@@ -1752,11 +1699,13 @@ impl Value {
         matches!(self, Value::Bool { val: false, .. })
     }
 
-    pub fn columns(&self) -> &[String] {
-        match self {
-            Value::Record { val, .. } => &val.cols,
-            _ => &[],
-        }
+    pub fn columns(&self) -> impl Iterator<Item = &String> {
+        let opt = match self {
+            Value::Record { val, .. } => Some(val.columns()),
+            _ => None,
+        };
+
+        opt.into_iter().flatten()
     }
 
     pub fn bool(val: bool, span: Span) -> Value {
@@ -1836,10 +1785,9 @@ impl Value {
         }
     }
 
-    pub fn closure(val: BlockId, captures: HashMap<VarId, Value>, span: Span) -> Value {
+    pub fn closure(val: Closure, span: Span) -> Value {
         Value::Closure {
             val,
-            captures,
             internal_span: span,
         }
     }
@@ -1961,8 +1909,8 @@ impl Value {
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
-    pub fn test_closure(val: BlockId, captures: HashMap<VarId, Value>) -> Value {
-        Value::closure(val, captures, Span::test_data())
+    pub fn test_closure(val: Closure) -> Value {
+        Value::closure(val, Span::test_data())
     }
 
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
@@ -2288,7 +2236,7 @@ impl PartialOrd for Value {
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::Block { .. } => Some(Ordering::Greater),
-                Value::Closure { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Closure { val: rhs, .. } => lhs.block_id.partial_cmp(&rhs.block_id),
                 Value::Nothing { .. } => Some(Ordering::Less),
                 Value::Error { .. } => Some(Ordering::Less),
                 Value::Binary { .. } => Some(Ordering::Less),
@@ -3121,7 +3069,7 @@ impl Value {
             }
             (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
-                Ok(Value::bool(rhs.cols.contains(lhs), span))
+                Ok(Value::bool(rhs.contains(lhs), span))
             }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
@@ -3169,7 +3117,7 @@ impl Value {
             }
             (lhs, Value::List { vals: rhs, .. }) => Ok(Value::bool(!rhs.contains(lhs), span)),
             (Value::String { val: lhs, .. }, Value::Record { val: rhs, .. }) => {
-                Ok(Value::bool(!rhs.cols.contains(lhs), span))
+                Ok(Value::bool(!rhs.contains(lhs), span))
             }
             (Value::String { .. } | Value::Int { .. }, Value::CellPath { val: rhs, .. }) => {
                 let val = rhs.members.iter().any(|member| match (self, member) {
@@ -3228,27 +3176,24 @@ impl Value {
                         if let Some(regex) = cache.get(rhs) {
                             regex.is_match(lhs)
                         } else {
-                            let regex = Regex::new(rhs).map_err(|e| {
-                                ShellError::UnsupportedInput(
-                                    format!("{e}"),
-                                    "value originated from here".into(),
-                                    span,
-                                    rhs_span,
-                                )
-                            })?;
+                            let regex =
+                                Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
+                                    msg: format!("{e}"),
+                                    input: "value originated from here".into(),
+                                    msg_span: span,
+                                    input_span: rhs_span,
+                                })?;
                             let ret = regex.is_match(lhs);
                             cache.put(rhs.clone(), regex);
                             ret
                         }
                     }
                     Err(_) => {
-                        let regex = Regex::new(rhs).map_err(|e| {
-                            ShellError::UnsupportedInput(
-                                format!("{e}"),
-                                "value originated from here".into(),
-                                span,
-                                rhs_span,
-                            )
+                        let regex = Regex::new(rhs).map_err(|e| ShellError::UnsupportedInput {
+                            msg: format!("{e}"),
+                            input: "value originated from here".into(),
+                            msg_span: span,
+                            input_span: rhs_span,
                         })?;
                         regex.is_match(lhs)
                     }
@@ -3846,23 +3791,22 @@ fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (By
 
 #[cfg(test)]
 mod tests {
-
-    use super::{Record, Span, Value};
+    use super::{Record, Value};
+    use crate::record;
 
     mod is_empty {
         use super::*;
 
         #[test]
         fn test_string() {
-            let value = Value::string("", Span::unknown());
+            let value = Value::test_string("");
             assert!(value.is_empty());
         }
 
         #[test]
         fn test_list() {
-            let list_with_no_values = Value::list(vec![], Span::unknown());
-            let list_with_one_empty_string =
-                Value::list(vec![Value::string("", Span::unknown())], Span::unknown());
+            let list_with_no_values = Value::test_list(vec![]);
+            let list_with_one_empty_string = Value::test_list(vec![Value::test_string("")]);
 
             assert!(list_with_no_values.is_empty());
             assert!(!list_with_one_empty_string.is_empty());
@@ -3872,21 +3816,18 @@ mod tests {
         fn test_record() {
             let no_columns_nor_cell_values = Value::test_record(Record::new());
 
-            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(Record {
-                cols: vec![String::from("")],
-                vals: vec![Value::string("", Span::unknown())],
+            let one_column_and_one_cell_value_with_empty_strings = Value::test_record(record! {
+                "" => Value::test_string(""),
             });
 
             let one_column_with_a_string_and_one_cell_value_with_empty_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("column")],
-                    vals: vec![Value::string("", Span::unknown())],
+                Value::test_record(record! {
+                    "column" => Value::test_string(""),
                 });
 
             let one_column_with_empty_string_and_one_value_with_a_string =
-                Value::test_record(Record {
-                    cols: vec![String::from("")],
-                    vals: vec![Value::string("text", Span::unknown())],
+                Value::test_record(record! {
+                    "" => Value::test_string("text"),
                 });
 
             assert!(no_columns_nor_cell_values.is_empty());
@@ -3903,24 +3844,15 @@ mod tests {
 
         #[test]
         fn test_list() {
-            let list_of_ints = Value::list(vec![Value::int(0, Span::unknown())], Span::unknown());
-            let list_of_floats =
-                Value::list(vec![Value::float(0.0, Span::unknown())], Span::unknown());
-            let list_of_ints_and_floats = Value::list(
-                vec![
-                    Value::int(0, Span::unknown()),
-                    Value::float(0.0, Span::unknown()),
-                ],
-                Span::unknown(),
-            );
-            let list_of_ints_and_floats_and_bools = Value::list(
-                vec![
-                    Value::int(0, Span::unknown()),
-                    Value::float(0.0, Span::unknown()),
-                    Value::bool(false, Span::unknown()),
-                ],
-                Span::unknown(),
-            );
+            let list_of_ints = Value::test_list(vec![Value::test_int(0)]);
+            let list_of_floats = Value::test_list(vec![Value::test_float(0.0)]);
+            let list_of_ints_and_floats =
+                Value::test_list(vec![Value::test_int(0), Value::test_float(0.0)]);
+            let list_of_ints_and_floats_and_bools = Value::test_list(vec![
+                Value::test_int(0),
+                Value::test_float(0.0),
+                Value::test_bool(false),
+            ]);
             assert_eq!(list_of_ints.get_type(), Type::List(Box::new(Type::Int)));
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
@@ -3941,13 +3873,10 @@ mod tests {
 
         #[test]
         fn test_datetime() {
-            let string = Value::date(
-                DateTime::from_naive_utc_and_offset(
-                    NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
-                    FixedOffset::east_opt(0).unwrap(),
-                ),
-                Span::unknown(),
-            )
+            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
+                NaiveDateTime::from_timestamp_millis(-123456789).unwrap(),
+                FixedOffset::east_opt(0).unwrap(),
+            ))
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because
@@ -3958,13 +3887,10 @@ mod tests {
 
         #[test]
         fn test_negative_year_datetime() {
-            let string = Value::date(
-                DateTime::from_naive_utc_and_offset(
-                    NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
-                    FixedOffset::east_opt(0).unwrap(),
-                ),
-                Span::unknown(),
-            )
+            let string = Value::test_date(DateTime::from_naive_utc_and_offset(
+                NaiveDateTime::from_timestamp_millis(-72135596800000).unwrap(),
+                FixedOffset::east_opt(0).unwrap(),
+            ))
             .into_string("", &Default::default());
 
             // We need to cut the humanized part off for tests to work, because

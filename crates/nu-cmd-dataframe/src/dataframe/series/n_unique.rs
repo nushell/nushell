@@ -83,15 +83,16 @@ fn command(
     call: &Call,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let res = df.as_series(call.head)?.n_unique().map_err(|e| {
-        ShellError::GenericError(
-            "Error counting unique values".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let res = df
+        .as_series(call.head)?
+        .n_unique()
+        .map_err(|e| ShellError::GenericError {
+            error: "Error counting unique values".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
 
     let value = Value::int(res as i64, call.head);
 

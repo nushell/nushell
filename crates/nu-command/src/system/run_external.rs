@@ -9,6 +9,7 @@ use nu_protocol::{
     SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundProcess;
+use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
 use std::collections::HashMap;
@@ -46,8 +47,8 @@ impl Command for External {
                 None,
             )
             .switch("trim-end-newline", "trimming end newlines", None)
-            .required("command", SyntaxShape::String, "external command to run")
-            .rest("args", SyntaxShape::Any, "arguments for external command")
+            .required("command", SyntaxShape::String, "External command to run.")
+            .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
     }
 
@@ -223,10 +224,10 @@ impl ExternalCommand {
                     const CMD_INTERNAL_COMMANDS: [&str; 9] = [
                         "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
                     ];
-                    let command_name_upper = self.name.item.to_uppercase();
+                    let command_name = &self.name.item;
                     let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
                         .iter()
-                        .any(|&cmd| command_name_upper == cmd);
+                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
 
                     if looks_like_cmd_internal {
                         let (cmd, new_reader) = self.create_process(&input, true, head)?;
@@ -252,9 +253,10 @@ impl ExternalCommand {
                                         which::which_in(&self.name.item, Some(path_with_cwd), cwd)
                                     {
                                         if let Some(file_name) = which_path.file_name() {
-                                            let file_name_upper =
-                                                file_name.to_string_lossy().to_uppercase();
-                                            if file_name_upper != command_name_upper {
+                                            if !file_name
+                                                .to_string_lossy()
+                                                .eq_ignore_case(command_name)
+                                            {
                                                 // which-rs found an executable file with a slightly different name
                                                 // than the one the user tried. Let's try running it
                                                 let mut new_command = self.clone();
@@ -303,11 +305,11 @@ impl ExternalCommand {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::RemovedCommand(
-                                command_name_lower,
+                            return Err(ShellError::RemovedCommand {
+                                removed: command_name_lower,
                                 replacement,
-                                self.name.span,
-                            ));
+                                span: self.name.span,
+                            });
                         }
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
@@ -599,16 +601,16 @@ impl ExternalCommand {
             }
             process
         } else {
-            return Err(ShellError::GenericError(
-                "Current directory not found".to_string(),
-                "did not find PWD environment variable".to_string(),
-                Some(span),
-                Some(concat!(
+            return Err(ShellError::GenericError{
+                error: "Current directory not found".into(),
+                msg: "did not find PWD environment variable".into(),
+                span: Some(span),
+                help: Some(concat!(
                     "The environment variable 'PWD' was not found. ",
                     "It is required to define the current directory when running an external command."
-                ).to_string()),
-                Vec::new(),
-            ));
+                ).into()),
+                inner:Vec::new(),
+            });
         };
 
         process.envs(&self.env_vars);
@@ -767,11 +769,11 @@ fn trim_expand_and_apply_arg(
 /// Given an invalid command name, try to suggest an alternative
 fn suggest_command(attempted_command: &str, engine_state: &EngineState) -> Option<String> {
     let commands = engine_state.get_signatures(false);
-    let command_name_lower = attempted_command.to_lowercase();
+    let command_folded_case = attempted_command.to_folded_case();
     let search_term_match = commands.iter().find(|sig| {
         sig.search_terms
             .iter()
-            .any(|term| term.to_lowercase() == command_name_lower)
+            .any(|term| term.to_folded_case() == command_folded_case)
     });
     match search_term_match {
         Some(sig) => Some(sig.name.clone()),
@@ -925,9 +927,9 @@ mod test {
 
     #[test]
     fn argument_with_inner_quotes_test() {
-        let input = r#"bash -c 'echo a'"#.into();
+        let input = r#"sh -c 'echo a'"#.into();
         let res = remove_quotes(input);
 
-        assert_eq!("bash -c 'echo a'", res)
+        assert_eq!("sh -c 'echo a'", res)
     }
 }

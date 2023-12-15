@@ -68,26 +68,24 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let new_df = col_string
-        .get(0)
-        .ok_or_else(|| {
-            ShellError::GenericError(
-                "Empty names list".into(),
-                "No column names were found".into(),
-                Some(col_span),
-                None,
-                Vec::new(),
-            )
+        .first()
+        .ok_or_else(|| ShellError::GenericError {
+            error: "Empty names list".into(),
+            msg: "No column names were found".into(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
         })
         .and_then(|col| {
-            df.as_ref().drop(&col.item).map_err(|e| {
-                ShellError::GenericError(
-                    "Error dropping column".into(),
-                    e.to_string(),
-                    Some(col.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            df.as_ref()
+                .drop(&col.item)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error dropping column".into(),
+                    msg: e.to_string(),
+                    span: Some(col.span),
+                    help: None,
+                    inner: vec![],
+                })
         })?;
 
     // If there are more columns in the drop selection list, these
@@ -96,15 +94,15 @@ fn command(
         .iter()
         .skip(1)
         .try_fold(new_df, |new_df, col| {
-            new_df.drop(&col.item).map_err(|e| {
-                ShellError::GenericError(
-                    "Error dropping column".into(),
-                    e.to_string(),
-                    Some(col.span),
-                    None,
-                    Vec::new(),
-                )
-            })
+            new_df
+                .drop(&col.item)
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error dropping column".into(),
+                    msg: e.to_string(),
+                    span: Some(col.span),
+                    help: None,
+                    inner: vec![],
+                })
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

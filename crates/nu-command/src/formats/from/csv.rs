@@ -4,7 +4,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -81,15 +81,11 @@ impl Command for FromCsv {
             Example {
                 description: "Convert comma-separated data to a table",
                 example: "\"ColA,ColB\n1,2\" | from csv",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(2),
-                        ],
+                result: Some(Value::test_list (
+                    vec![Value::test_record(record! {
+                        "ColA" => Value::test_int(1),
+                        "ColB" => Value::test_int(2),
                     })],
-                    Span::test_data(),
                 ))
             },
             Example {
@@ -133,6 +129,13 @@ fn from_csv(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
+    if let PipelineData::Value(Value::List { .. }, _) = input {
+        return Err(ShellError::TypeMismatch {
+            err_message: "received list stream, did you forget to open file with --raw flag?"
+                .into(),
+            span: name,
+        });
+    }
 
     let separator = match call.get_flag::<String>(engine_state, stack, "separator")? {
         Some(sep) => {
@@ -142,10 +145,10 @@ fn from_csv(
                 let unicode_sep = u32::from_str_radix(&sep, 16);
                 char::from_u32(unicode_sep.unwrap_or(b'\x1f' as u32)).unwrap_or(',')
             } else {
-                return Err(ShellError::NonUtf8Custom(
-                    "separator should be a single char or a 4-byte unicode".to_string(),
-                    call.span(),
-                ));
+                return Err(ShellError::NonUtf8Custom {
+                    msg: "separator should be a single char or a 4-byte unicode".into(),
+                    span: call.span(),
+                });
             }
         }
         None => ',',

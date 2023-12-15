@@ -25,7 +25,7 @@ impl Command for Metadata {
             .optional(
                 "expression",
                 SyntaxShape::Any,
-                "the expression you want metadata for",
+                "The expression you want metadata for.",
             )
             .category(Category::Debug)
     }
@@ -55,36 +55,30 @@ impl Command for Metadata {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
 
                             Ok(
-                                build_metadata_record(&origin, input.metadata().as_deref(), head)
+                                build_metadata_record(&origin, input.metadata().as_ref(), head)
                                     .into_pipeline_data(),
                             )
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
-                            Ok(
-                                build_metadata_record(&val, input.metadata().as_deref(), head)
-                                    .into_pipeline_data(),
-                            )
+                            Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
+                                .into_pipeline_data())
                         }
                     }
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
-                    Ok(
-                        build_metadata_record(&val, input.metadata().as_deref(), head)
-                            .into_pipeline_data(),
-                    )
+                    Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
+                        .into_pipeline_data())
                 }
             }
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
-                Ok(
-                    build_metadata_record(&val, input.metadata().as_deref(), head)
-                        .into_pipeline_data(),
-                )
+                Ok(build_metadata_record(&val, input.metadata().as_ref(), head)
+                    .into_pipeline_data())
             }
             None => {
                 let mut record = Record::new();
-                if let Some(x) = input.metadata().as_deref() {
+                if let Some(x) = input.metadata().as_ref() {
                     match x {
                         PipelineMetadata {
                             data_source: DataSource::Ls,
@@ -92,9 +86,6 @@ impl Command for Metadata {
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
                         } => record.push("source", Value::string("into html --list", head)),
-                        PipelineMetadata {
-                            data_source: DataSource::Profiling(values),
-                        } => record.push("profiling", Value::list(values.clone(), head)),
                     }
                 }
 
@@ -142,9 +133,6 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
             } => record.push("source", Value::string("into html --list", head)),
-            PipelineMetadata {
-                data_source: DataSource::Profiling(values),
-            } => record.push("profiling", Value::list(values.clone(), head)),
         }
     }
 

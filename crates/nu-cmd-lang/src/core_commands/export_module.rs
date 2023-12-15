@@ -20,11 +20,11 @@ impl Command for ExportModule {
         Signature::build("export module")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "module name or module path")
+            .required("module", SyntaxShape::String, "Module name or module path.")
             .optional(
                 "block",
                 SyntaxShape::Block,
-                "body of the module if 'module' parameter is not a path",
+                "Body of the module if 'module' parameter is not a path.",
             )
             .category(Category::Core)
     }

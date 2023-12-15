@@ -1,12 +1,22 @@
 # std.nu, `used` to load all standard library components
 
+export module assert.nu
+export module dirs.nu
+export module dt.nu
+export module formats.nu
+export module help.nu
+export module input.nu
+export module iter.nu
+export module log.nu
+export module math.nu
+export module testing.nu
+export module xml.nu
 export-env {
     use dirs.nu []
     use log.nu []
 }
 
 use dt.nu [datetime-diff, pretty-print-duration]
-use log.nu
 
 # Add the given paths to the PATH.
 #
@@ -40,39 +50,39 @@ export def --env "path add" [
     ...paths  # the paths to add to $env.PATH.
 ] {
     let span = (metadata $paths).span
-    let paths = ($paths | flatten)
+    let paths = $paths | flatten
 
     if ($paths | is-empty) or ($paths | length) == 0 {
         error make {msg: "Empty input", label: {
             text: "Provide at least one string or a record",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
     let path_name = if "PATH" in $env { "PATH" } else { "Path" }
 
-    let paths = ($paths | each {|p|
-        if ($p | describe) == "string" {
-            $p
-        } else if ($p | describe | str starts-with "record") {
-            $p | get -i $nu.os-info.name
+    let paths = $paths | each {|p|
+        let p = match ($p | describe | str replace --regex '<.*' '') {
+            "string" => $p,
+            "record" => { $p | get --ignore-errors $nu.os-info.name },
         }
-    })
+
+        $p | path expand
+    }
 
     if null in $paths or ($paths | is-empty) {
         error make {msg: "Empty input", label: {
             text: $"Received a record, that does not contain a ($nu.os-info.name) key",
-            start: $span.start,
-            end: $span.end
+            span: $span
         }}
     }
 
     load-env {$path_name: (
         $env
-        | get $path_name
-        | if $append { append $paths }
-        else { prepend $paths }
+            | get $path_name
+            | split row (char esep)
+            | path expand
+            | if $append { append $paths } else { prepend $paths }
     )}
 
     if $ret {
@@ -144,12 +154,17 @@ export def clip [
     --expand (-e) # auto-expand the data given as input
     --codepage (-c): int  # the id of the codepage to use (only on Windows), see https://en.wikipedia.org/wiki/Windows_code_page, e.g. 65001 is for UTF-8
 ] {
-    let input = (
-        $in
+    let input = $in
+
+    print $"Warning:   (char -u 26a0) (ansi yellow_bold)deprecated_command(ansi reset)"
+    print "| the `std clip` command is deprecated and will be removed in Nushell 0.89"
+    print ""
+    print $"(ansi cyan)help(ansi reset): please use (ansi {fg: cyan, attr: du})[`modules/system clip`]\(https://github.com/nushell/nu_scripts/tree/main/modules#system\)(ansi reset)"
+
+    let input = $input
         | if $expand { table --expand } else { table }
         | into string
         | if $no_strip {} else { ansi strip }
-    )
 
     match $nu.os-info.name {
         "linux" => {
@@ -324,8 +339,7 @@ export def repeat [
             msg: $"(ansi red_bold)invalid_argument(ansi reset)"
             label: {
                 text: $"n should be a positive integer, found ($n)"
-                start: $span.start
-                end: $span.end
+            	span: $span
             }
         }
     }
@@ -335,4 +349,17 @@ export def repeat [
     }
 
     1..$n | each { $item }
+}
+
+# return a null device file.
+#
+# # Examples
+#     run a command and ignore it's stderr output
+#     > cat xxx.txt e> (null-device)
+export def null-device []: nothing -> path {
+    if ($nu.os-info.name | str downcase) == "windows" {
+        '\\.\NUL'
+    } else {
+        "/dev/null"
+    }
 }

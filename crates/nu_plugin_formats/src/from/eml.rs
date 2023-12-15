@@ -2,7 +2,7 @@ use eml_parser::eml::*;
 use eml_parser::EmlParser;
 use indexmap::map::IndexMap;
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{record, PluginExample, Record, ShellError, Span, Value};
+use nu_protocol::{record, PluginExample, ShellError, Span, Value};
 
 const DEFAULT_BODY_PREVIEW: usize = 50;
 pub const CMD_NAME: &str = "from eml";
@@ -24,31 +24,17 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml"
                 .into(),
-            result: Some(Value::test_record(Record {
-                cols: vec![
-                    "Subject".to_string(),
-                    "From".to_string(),
-                    "To".to_string(),
-                    "Body".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::test_record(Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
-                        ],
+            result: Some(Value::test_record(record! {
+                    "Subject" => Value::test_string("Welcome"),
+                    "From" =>    Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("test@email.com"),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
-                        ],
+                    "To" => Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("someone@somewhere.com"),
                     }),
-                    Value::test_string("Test"),
-                ],
+                    "Body" => Value::test_string("Test"),
             })),
         },
         PluginExample {
@@ -58,31 +44,17 @@ Subject: Welcome
 To: someone@somewhere.com
 Test' | from eml -b 1"
                 .into(),
-            result: Some(Value::test_record(Record {
-                cols: vec![
-                    "Subject".to_string(),
-                    "From".to_string(),
-                    "To".to_string(),
-                    "Body".to_string(),
-                ],
-                vals: vec![
-                    Value::test_string("Welcome"),
-                    Value::test_record(Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("test@email.com"),
-                        ],
+            result: Some(Value::test_record(record! {
+                    "Subject" => Value::test_string("Welcome"),
+                    "From" =>    Value::test_record(record! {
+                        "Name" =>          Value::nothing(Span::test_data()),
+                        "Address" =>       Value::test_string("test@email.com"),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["Name".to_string(), "Address".to_string()],
-                        vals: vec![
-                            Value::nothing(Span::test_data()),
-                            Value::test_string("someone@somewhere.com"),
-                        ],
+                    "To" => Value::test_record(record! {
+                        "Name" =>        Value::nothing(Span::test_data()),
+                        "Address" =>     Value::test_string("someone@somewhere.com"),
                     }),
-                    Value::test_string("T"),
-                ],
+                    "Body" => Value::test_string("T"),
             })),
         },
     ]

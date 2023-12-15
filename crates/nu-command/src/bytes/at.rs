@@ -1,11 +1,11 @@
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_cmd_base::util;
 use nu_engine::CallExt;
+use nu_protocol::record;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Range, Record, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -47,17 +47,17 @@ impl Command for BytesAt {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .required("range", SyntaxShape::Range, "the range to get bytes")
+            .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, get bytes from data at the given cell paths",
+                "For a data structure input, get bytes from data at the given cell paths.",
             )
             .category(Category::Bytes)
     }
 
     fn usage(&self) -> &str {
-        "Get bytes defined by a range"
+        "Get bytes defined by a range."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -94,44 +94,34 @@ impl Command for BytesAt {
             Example {
                 description: "Get a subbytes `0x[10 01]` from the bytes `0x[33 44 55 10 01 13]`",
                 example: " 0x[33 44 55 10 01 13] | bytes at 3..<4",
-                result: Some(Value::binary(vec![0x10], Span::test_data())),
+                result: Some(Value::test_binary(vec![0x10])),
             },
             Example {
                 description: "Get a subbytes `0x[10 01 13]` from the bytes `0x[33 44 55 10 01 13]`",
                 example: " 0x[33 44 55 10 01 13] | bytes at 3..6",
-                result: Some(Value::binary(vec![0x10, 0x01, 0x13], Span::test_data())),
+                result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
             },
             Example {
                 description: "Get the remaining characters from a starting index",
                 example: " { data: 0x[33 44 55 10 01 13] } | bytes at 3.. data",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["data".to_string()],
-                    vals: vec![Value::test_binary(vec![0x10, 0x01, 0x13])],
+                result: Some(Value::test_record(record! {
+                    "data" => Value::test_binary(vec![0x10, 0x01, 0x13]),
                 })),
             },
             Example {
                 description: "Get the characters from the beginning until ending index",
                 example: " 0x[33 44 55 10 01 13] | bytes at ..<4",
-                result: Some(Value::binary(
-                    vec![0x33, 0x44, 0x55, 0x10],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
                 description:
                     "Or the characters from the beginning until ending index inside a table",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string(), "ColC".to_string()],
-                        vals: vec![
-                            Value::binary(vec![0x11, 0x12, 0x13], Span::test_data()),
-                            Value::binary(vec![0x15, 0x16], Span::test_data()),
-                            Value::binary(vec![0x18, 0x19], Span::test_data()),
-                        ],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
+                    "ColB" => Value::test_binary(vec![0x15, 0x16]),
+                    "ColC" => Value::test_binary(vec![0x18, 0x19]),
+                })])),
             },
         ]
     }
@@ -186,13 +176,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Error { .. } => input.clone(),
 
         other => Value::error(
-            ShellError::UnsupportedInput(
-                "Only binary values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.span(),
-            ),
+            ShellError::UnsupportedInput {
+                msg: "Only binary values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
             head,
         ),
     }

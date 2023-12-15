@@ -1,6 +1,6 @@
 use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
-    DotNuCompletion, FileCompletion, FlagCompletion, MatchAlgorithm, VariableCompletion,
+    DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
 };
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
@@ -39,14 +39,11 @@ impl NuCompleter {
     ) -> Vec<Suggestion> {
         let config = self.engine_state.get_config();
 
-        let mut options = CompletionOptions {
+        let options = CompletionOptions {
             case_sensitive: config.case_sensitive_completions,
+            match_algorithm: config.completion_algorithm.into(),
             ..Default::default()
         };
-
-        if config.completion_algorithm == "fuzzy" {
-            options.match_algorithm = MatchAlgorithm::Fuzzy;
-        }
 
         // Fetch
         let mut suggestions =
@@ -70,7 +67,7 @@ impl NuCompleter {
         let mut callee_stack = stack.gather_captures(&self.engine_state, &block.captures);
 
         // Line
-        if let Some(pos_arg) = block.signature.required_positional.get(0) {
+        if let Some(pos_arg) = block.signature.required_positional.first() {
             if let Some(var_id) = pos_arg.var_id {
                 callee_stack.add_var(
                     var_id,
@@ -125,11 +122,13 @@ impl NuCompleter {
             for pipeline_element in pipeline.elements {
                 match pipeline_element {
                     PipelineElement::Expression(_, expr)
-                    | PipelineElement::Redirection(_, _, expr)
+                    | PipelineElement::Redirection(_, _, expr, _)
                     | PipelineElement::And(_, expr)
                     | PipelineElement::Or(_, expr)
                     | PipelineElement::SameTargetRedirection { cmd: (_, expr), .. }
-                    | PipelineElement::SeparateRedirection { out: (_, expr), .. } => {
+                    | PipelineElement::SeparateRedirection {
+                        out: (_, expr, _), ..
+                    } => {
                         let flattened: Vec<_> = flatten_expression(&working_set, &expr);
                         let mut spans: Vec<String> = vec![];
 
@@ -144,18 +143,24 @@ impl NuCompleter {
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
 
+                            let is_last_span = pos >= flat.0.start && pos < flat.0.end;
+
                             // Skip the last 'a' as span item
-                            if flat_idx == flattened.len() - 1 {
-                                let mut chars = current_span_str.chars();
-                                chars.next_back();
-                                let current_span_str = chars.as_str().to_owned();
-                                spans.push(current_span_str.to_string());
+                            if is_last_span {
+                                let offset = pos - flat.0.start;
+                                if offset == 0 {
+                                    spans.push(String::new())
+                                } else {
+                                    let mut current_span_str = current_span_str.to_string();
+                                    current_span_str.remove(offset);
+                                    spans.push(current_span_str);
+                                }
                             } else {
                                 spans.push(current_span_str.to_string());
                             }
 
                             // Complete based on the last span
-                            if pos >= flat.0.start && pos < flat.0.end {
+                            if is_last_span {
                                 // Context variables
                                 let most_left_var =
                                     most_left_variable(flat_idx, &working_set, flattened.clone());
@@ -347,7 +352,9 @@ impl NuCompleter {
                                             if let Some(external_result) = self.external_completion(
                                                 block_id, &spans, offset, new_span,
                                             ) {
-                                                return external_result;
+                                                if !external_result.is_empty() {
+                                                    return external_result;
+                                                }
                                             }
                                         }
 

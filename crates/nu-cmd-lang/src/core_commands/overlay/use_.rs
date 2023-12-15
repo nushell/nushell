@@ -27,12 +27,12 @@ impl Command for OverlayUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "Module name to use overlay for",
+                "Module name to use overlay for.",
             )
             .optional(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
-                "as keyword followed by a new name",
+                "`as` keyword followed by a new name.",
             )
             .switch(
                 "prefix",
@@ -96,7 +96,9 @@ impl Command for OverlayUse {
             if let Some(name) = os_str.to_str() {
                 name.to_string()
             } else {
-                return Err(ShellError::NonUtf8(name_arg.span));
+                return Err(ShellError::NonUtf8 {
+                    span: name_arg.span,
+                });
             }
         } else {
             return Err(ShellError::OverlayNotFoundAtRuntime {

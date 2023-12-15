@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -36,7 +36,7 @@ repeating this process with row 1, and so on."#
                 "value",
                 // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,
-                "the new value to merge with",
+                "The new value to merge with.",
             )
             .category(Category::Filters)
     }
@@ -48,17 +48,17 @@ repeating this process with row 1, and so on."#
                 description: "Add an 'index' column to the input table",
                 result: Some(Value::list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["name".to_string(), "index".to_string()],
-                            vals: vec![Value::test_string("a"), Value::test_int(1)],
+                        Value::test_record(record! {
+                            "name" => Value::test_string("a"),
+                            "index" => Value::test_int(1),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["name".to_string(), "index".to_string()],
-                            vals: vec![Value::test_string("b"), Value::test_int(2)],
+                        Value::test_record(record! {
+                            "name" => Value::test_string("b"),
+                            "index" => Value::test_int(2),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["name".to_string(), "index".to_string()],
-                            vals: vec![Value::test_string("c"), Value::test_int(3)],
+                        Value::test_record(record! {
+                            "name" => Value::test_string("c"),
+                            "index" => Value::test_int(3),
                         }),
                     ],
                     Span::test_data(),
@@ -67,21 +67,19 @@ repeating this process with row 1, and so on."#
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
                 description: "Merge two records",
-                result: Some(Value::test_record(Record {
-                    cols: vec!["a".to_string(), "b".to_string(), "c".to_string()],
-                    vals: vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(3),
                 })),
             },
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
                 description: "Merge two tables, overwriting overlapping columns",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["columnA".to_string(), "columnB".to_string()],
-                        vals: vec![Value::test_string("A0*"), Value::test_string("B0")],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "columnA" => Value::test_string("A0*"),
+                    "columnB" => Value::test_string("B0"),
+                })])),
             },
         ]
     }
@@ -155,20 +153,12 @@ repeating this process with row 1, and so on."#
     }
 }
 
+// TODO: rewrite to mutate the input record
 fn do_merge(input_record: &Record, to_merge_record: &Record) -> Record {
     let mut result = input_record.clone();
 
     for (col, val) in to_merge_record {
-        let pos = result.cols.iter().position(|c| c == col);
-        // if find, replace existing data, else, push new data.
-        match pos {
-            Some(index) => {
-                result.vals[index] = val.clone();
-            }
-            None => {
-                result.push(col, val.clone());
-            }
-        }
+        result.insert(col, val.clone());
     }
     result
 }

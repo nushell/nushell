@@ -46,7 +46,7 @@ with 'transpose' first."#
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the closure to run",
+                "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .allow_variants_without_examples(true)
@@ -121,7 +121,7 @@ with 'transpose' first."#
         let outer_ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
@@ -157,8 +157,8 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => None,
+                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(Value::error(error, input_span))
@@ -180,8 +180,8 @@ with 'transpose' first."#
 
                     let x = match x {
                         Ok(x) => x,
-                        Err(ShellError::Continue(v)) => return Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => return None,
+                        Err(ShellError::Continue { span }) => return Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => return None,
                         Err(err) => return Some(Value::error(err, span)),
                     };
 
@@ -203,8 +203,8 @@ with 'transpose' first."#
                         redirect_stderr,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue(v)) => Some(Value::nothing(v)),
-                        Err(ShellError::Break(_)) => None,
+                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                        Err(ShellError::Break { .. }) => None,
                         Err(error) => {
                             let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(Value::error(error, input_span))

@@ -20,7 +20,7 @@ impl Command for Collect {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run once the stream is collected",
+                "The closure to run once the stream is collected.",
             )
             .switch(
                 "keep-env",
@@ -44,7 +44,7 @@ impl Command for Collect {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack_captures = stack.captures_to_stack(&capture_block.captures);
+        let mut stack_captures = stack.captures_to_stack(capture_block.captures.clone());
 
         let metadata = input.metadata();
         let input: Value = input.into_value(call.head);
@@ -71,8 +71,8 @@ impl Command for Collect {
             redirect_env(engine_state, stack, &stack_captures);
             // for when we support `data | let x = $in;`
             // remove the variables added earlier
-            for var_id in capture_block.captures.keys() {
-                stack_captures.remove_var(*var_id);
+            for (var_id, _) in capture_block.captures {
+                stack_captures.remove_var(var_id);
             }
             if let Some(u) = saved_positional {
                 stack_captures.remove_var(u);

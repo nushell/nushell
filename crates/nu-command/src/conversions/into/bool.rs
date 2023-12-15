@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -29,7 +29,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, convert data at the given cell paths",
+                "For a data structure input, convert data at the given cell paths.",
             )
             .category(Category::Conversions)
     }
@@ -53,61 +53,52 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let span = Span::test_data();
         vec![
             Example {
                 description: "Convert value to boolean in table",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(false, span)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["value".to_string()],
-                            vals: vec![Value::bool(true, span)],
-                        }),
-                    ],
-                    span,
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(false),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                    Value::test_record(record! {
+                        "value" => Value::test_bool(true),
+                    }),
+                ])),
             },
             Example {
                 description: "Convert bool to boolean",
                 example: "true | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "convert int to boolean",
                 example: "1 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "convert float to boolean",
                 example: "0.3 | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
             Example {
                 description: "convert float string to boolean",
                 example: "'0.0' | into bool",
-                result: Some(Value::bool(false, span)),
+                result: Some(Value::test_bool(false)),
             },
             Example {
                 description: "convert string to boolean",
                 example: "'true' | into bool",
-                result: Some(Value::bool(true, span)),
+                result: Some(Value::test_bool(true)),
             },
         ]
     }
@@ -125,13 +116,13 @@ fn into_bool(
 }
 
 fn string_to_boolean(s: &str, span: Span) -> Result<bool, ShellError> {
-    match s.trim().to_lowercase().as_str() {
+    match s.trim().to_ascii_lowercase().as_str() {
         "true" => Ok(true),
         "false" => Ok(false),
         o => {
             let val = o.parse::<f64>();
             match val {
-                Ok(f) => Ok(f.abs() >= f64::EPSILON),
+                Ok(f) => Ok(f != 0.0),
                 Err(_) => Err(ShellError::CantConvert {
                     to_type: "boolean".to_string(),
                     from_type: "string".to_string(),

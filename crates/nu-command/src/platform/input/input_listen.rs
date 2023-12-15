@@ -49,7 +49,7 @@ impl Command for InputListen {
     }
 
     fn usage(&self) -> &str {
-        "Listen for user interface event"
+        "Listen for user interface event."
     }
 
     fn extra_usage(&self) -> &str {
@@ -90,14 +90,12 @@ There are 4 `key_type` variants:
         terminal::enable_raw_mode()?;
         let console_state = event_type_filter.enable_events()?;
         loop {
-            let event = crossterm::event::read().map_err(|_| {
-                ShellError::GenericError(
-                    "Error with user input".to_string(),
-                    "".to_string(),
-                    Some(head),
-                    None,
-                    Vec::new(),
-                )
+            let event = crossterm::event::read().map_err(|_| ShellError::GenericError {
+                error: "Error with user input".into(),
+                msg: "".into(),
+                span: Some(head),
+                help: None,
+                inner: vec![],
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {
@@ -178,21 +176,21 @@ impl EventTypeFilter {
     }
 
     fn wrong_type_error(head: Span, val: &str, val_span: Span) -> ShellError {
-        ShellError::UnsupportedInput(
-            format!("{} is not a valid event type", val),
-            "value originates from here".into(),
-            head,
-            val_span,
-        )
+        ShellError::UnsupportedInput {
+            msg: format!("{} is not a valid event type", val),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: val_span,
+        }
     }
 
     fn bad_list_error(head: Span, value: &Value) -> ShellError {
-        ShellError::UnsupportedInput(
-            "--types expects a list of strings".to_string(),
-            "value originates from here".into(),
-            head,
-            value.span(),
-        )
+        ShellError::UnsupportedInput {
+            msg: "--types expects a list of strings".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: value.span(),
+        }
     }
 
     /// Enable capturing of all events allowed by this filter.
@@ -345,9 +343,9 @@ fn get_keycode_name(head: Span, code: &KeyCode) -> (Value, Value) {
     let (typ, code) = match code {
         KeyCode::F(n) => ("f", n.to_string()),
         KeyCode::Char(c) => ("char", c.to_string()),
-        KeyCode::Media(m) => ("media", format!("{m:?}").to_lowercase()),
-        KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_lowercase()),
-        _ => ("other", format!("{code:?}").to_lowercase()),
+        KeyCode::Media(m) => ("media", format!("{m:?}").to_ascii_lowercase()),
+        KeyCode::Modifier(m) => ("modifier", format!("{m:?}").to_ascii_lowercase()),
+        _ => ("other", format!("{code:?}").to_ascii_lowercase()),
     };
     (Value::string(typ, head), Value::string(code, head))
 }
@@ -365,7 +363,7 @@ fn parse_modifiers(head: Span, modifiers: &KeyModifiers) -> Value {
     let parsed_modifiers = ALL_MODIFIERS
         .iter()
         .filter(|m| modifiers.contains(**m))
-        .map(|m| format!("{m:?}").to_lowercase())
+        .map(|m| format!("{m:?}").to_ascii_lowercase())
         .map(|string| Value::string(string, head))
         .collect();
 

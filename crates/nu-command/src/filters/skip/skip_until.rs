@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, Record, ShellError, Signature,
-    Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -26,7 +26,7 @@ impl Command for SkipUntil {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that skipped element must not match",
+                "The predicate that skipped element must not match.",
             )
             .category(Category::Filters)
     }
@@ -44,35 +44,30 @@ impl Command for SkipUntil {
             Example {
                 description: "Skip until the element is positive",
                 example: "[-2 0 2 -1] | skip until {|x| $x > 0 }",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(-1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(-1),
+                ])),
             },
             Example {
                 description: "Skip until the element is positive using stored condition",
                 example: "let cond = {|x| $x > 0 }; [-2 0 2 -1] | skip until $cond",
-                result: Some(Value::list(
-                    vec![Value::test_int(2), Value::test_int(-1)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(2),
+                    Value::test_int(-1),
+                ])),
             },
             Example {
                 description: "Skip until the field value is positive",
                 example: "[{a: -2} {a: 0} {a: 2} {a: -1}] | skip until {|x| $x.a > 0 }",
-                result: Some(Value::list(
-                    vec![
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(2)],
-                        }),
-                        Value::test_record(Record {
-                            cols: vec!["a".to_string()],
-                            vals: vec![Value::test_int(-1)],
-                        }),
-                    ],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "a" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(-1),
+                    }),
+                ])),
             },
         ]
     }
@@ -91,7 +86,7 @@ impl Command for SkipUntil {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -118,8 +113,7 @@ impl Command for SkipUntil {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

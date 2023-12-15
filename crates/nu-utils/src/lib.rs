@@ -1,3 +1,4 @@
+mod casing;
 pub mod ctrl_c;
 mod deansi;
 pub mod locale;
@@ -9,6 +10,7 @@ pub use utils::{
     stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 
+pub use casing::IgnoreCaseExt;
 pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };

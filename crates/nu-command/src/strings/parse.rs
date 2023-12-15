@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, ListStream, PipelineData, Record, ShellError, Signature, Span, Spanned,
+    record, Category, Example, ListStream, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
 
@@ -28,11 +28,7 @@ impl Command for Parse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "the pattern to match. Eg) \"{foo}: {bar}\"",
-            )
+            .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
                 (Type::String, Type::Table(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
@@ -43,13 +39,10 @@ impl Command for Parse {
     }
 
     fn examples(&self) -> Vec<Example> {
-        let result = Value::list(
-            vec![Value::test_record(Record {
-                cols: vec!["foo".to_string(), "bar".to_string()],
-                vals: vec![Value::test_string("hi"), Value::test_string("there")],
-            })],
-            Span::test_data(),
-        );
+        let result = Value::test_list(vec![Value::test_record(record! {
+            "foo" => Value::test_string("hi"),
+            "bar" => Value::test_string("there"),
+        })]);
 
         vec![
             Example {
@@ -65,55 +58,46 @@ impl Command for Parse {
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern",
                 example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["name".to_string()],
-                        vals: vec![Value::test_string("bar")],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "name" => Value::test_string("bar"),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
-                result: Some(Value::list(
+                result: Some(Value::test_list(
                     vec![
-                        Value::test_record(Record {
-                            cols: vec!["capture0".to_string(), "capture1".to_string()],
-                            vals: vec![Value::test_string(""), Value::test_string("foo")],
+                        Value::test_record(record! {
+                            "capture0" => Value::test_string(""),
+                            "capture1" => Value::test_string("foo"),
                         }),
-                        Value::test_record(Record {
-                            cols: vec!["capture0".to_string(), "capture1".to_string()],
-                            vals: vec![Value::test_string("bar"), Value::test_string("")],
+                        Value::test_record(record! {
+                            "capture0" => Value::test_string("bar"),
+                            "capture1" => Value::test_string(""),
                         }),
                     ],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern",
                 example:
                     "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["capture0".to_string(), "capture1".to_string()],
-                        vals: vec![
-                            Value::test_string("@another"),
-                            Value::test_string("(foo bar)"),
-                        ],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "capture0" => Value::test_string("@another"),
+                        "capture1" => Value::test_string("(foo bar)"),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern",
                 example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["capture0".to_string()],
-                        vals: vec![Value::test_string("b")],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "capture0" => Value::test_string("b"),
                     })],
-                    Span::test_data(),
                 )),
             },
         ]
@@ -150,14 +134,12 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern = Regex::new(&item_to_parse).map_err(|err| {
-        ShellError::GenericError(
-            "Error with regular expression".into(),
-            err.to_string(),
-            Some(pattern_span),
-            None,
-            Vec::new(),
-        )
+    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
+        error: "Error with regular expression".into(),
+        msg: e.to_string(),
+        span: Some(pattern_span),
+        help: None,
+        inner: vec![],
     })?;
 
     let columns = column_names(&regex_pattern);
@@ -176,13 +158,13 @@ fn operate(
                             let captures = match c {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    return Err(ShellError::GenericError(
-                                        "Error with regular expression captures".into(),
-                                        e.to_string(),
-                                        None,
-                                        None,
-                                        Vec::new(),
-                                    ))
+                                    return Err(ShellError::GenericError {
+                                        error: "Error with regular expression captures".into(),
+                                        msg: e.to_string(),
+                                        span: None,
+                                        help: None,
+                                        inner: vec![],
+                                    })
                                 }
                             };
 
@@ -442,13 +424,13 @@ fn stream_helper(
             Ok(c) => c,
             Err(e) => {
                 return Some(Value::error(
-                    ShellError::GenericError(
-                        "Error with regular expression captures".into(),
-                        e.to_string(),
-                        Some(span),
-                        Some(e.to_string()),
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "Error with regular expression captures".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: Some(e.to_string()),
+                        inner: vec![],
+                    },
                     span,
                 ))
             }

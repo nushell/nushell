@@ -1,9 +1,9 @@
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::ast::{Call, CellPath, PathMember};
+use nu_protocol::ast::{Block, Call, CellPath, PathMember};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,12 +27,12 @@ impl Command for Insert {
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to insert",
+                "The name of the column to insert.",
             )
             .required(
                 "new value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s)",
+                "The new value to give the cell(s).",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -57,62 +57,64 @@ impl Command for Insert {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Insert a new entry into a single record",
-            example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
-            result: Some(Value::test_record(Record {
-                cols: vec!["name".into(), "stars".into(), "alias".into()],
-                vals: vec![
-                    Value::test_string("nu"),
-                    Value::test_int(5),
-                    Value::test_string("Nushell"),
-                ],
-            })),
-        },
-        Example {
-            description: "Insert a new column into a table, populating all rows",
-            example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
-            result: Some(Value::list (
-                vec![Value::test_record(Record {
-                    cols: vec!["project".into(), "lang".into(), "type".into()],
-                    vals: vec![Value::test_string("Nushell"), Value::test_string("Rust"), Value::test_string("shell")],
-                })],
-                Span::test_data(),
-            )),
-        },
-        Example {
-            description: "Insert a column with values equal to their row index, plus the value of 'foo' in each row",
-            example: "[[foo]; [7] [8] [9]] | enumerate | insert bar {|e| $e.item.foo + $e.index } | flatten",
-            result: Some(Value::list (
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(0),
-                            Value::test_int(7),
-                            Value::test_int(7),
-                        ],
+        vec![
+            Example {
+                description: "Insert a new entry into a single record",
+                example: "{'name': 'nu', 'stars': 5} | insert alias 'Nushell'",
+                result: Some(Value::test_record(record! {
+                    "name" =>  Value::test_string("nu"),
+                    "stars" => Value::test_int(5),
+                    "alias" => Value::test_string("Nushell"),
+                })),
+            },
+            Example {
+                description: "Insert a new column into a table, populating all rows",
+                example: "[[project, lang]; ['Nushell', 'Rust']] | insert type 'shell'",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "project" => Value::test_string("Nushell"),
+                    "lang" =>    Value::test_string("Rust"),
+                    "type" =>    Value::test_string("shell"),
+                })])),
+            },
+            Example {
+                description: "Insert a new column with values computed based off the other columns",
+                example: "[[foo]; [7] [8] [9]] | insert bar {|row| $row.foo * 2 }",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(7),
+                        "bar" => Value::test_int(14),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(),"foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(1),
-                            Value::test_int(8),
-                            Value::test_int(9),
-                        ],
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(8),
+                        "bar" => Value::test_int(16),
                     }),
-                    Value::test_record(Record {
-                        cols: vec!["index".into(), "foo".into(), "bar".into()],
-                        vals: vec![
-                            Value::test_int(2),
-                            Value::test_int(9),
-                            Value::test_int(11),
-                        ],
+                    Value::test_record(record! {
+                        "foo" => Value::test_int(9),
+                        "bar" => Value::test_int(18),
                     }),
-                ],
-                Span::test_data(),
-            )),
-        }]
+                ])),
+            },
+            Example {
+                description: "Insert a new value into a list at an index",
+                example: "[1 2 4] | insert 2 3",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
+            },
+            Example {
+                description: "Insert a new value at the end of a list",
+                example: "[1 2 3] | insert 3 4",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
+            },
+        ]
     }
 }
 
@@ -130,93 +132,261 @@ fn insert(
     let redirect_stdout = call.redirect_stdout;
     let redirect_stderr = call.redirect_stderr;
 
-    let engine_state = engine_state.clone();
     let ctrlc = engine_state.ctrlc.clone();
 
-    // Replace is a block, so set it up and run it instead of using it as the replacement
-    if replacement.as_block().is_ok() {
-        let capture_block: Closure = FromValue::from_value(&replacement)?;
-        let block = engine_state.get_block(capture_block.block_id).clone();
+    match input {
+        PipelineData::Value(mut value, metadata) => {
+            if replacement.as_block().is_ok() {
+                match (cell_path.members.first(), &mut value) {
+                    (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
+                        let span = replacement.span();
+                        let capture_block = Closure::from_value(replacement)?;
+                        let block = engine_state.get_block(capture_block.block_id);
+                        let stack = stack.captures_to_stack(capture_block.captures.clone());
+                        for val in vals {
+                            let mut stack = stack.clone();
+                            insert_value_by_closure(
+                                val,
+                                span,
+                                engine_state,
+                                &mut stack,
+                                redirect_stdout,
+                                redirect_stderr,
+                                block,
+                                &cell_path.members,
+                                false,
+                            )?;
+                        }
+                    }
+                    (first, _) => {
+                        insert_single_value_by_closure(
+                            &mut value,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &cell_path.members,
+                            matches!(first, Some(PathMember::Int { .. })),
+                        )?;
+                    }
+                }
+            } else {
+                value.insert_data_at_cell_path(&cell_path.members, replacement, span)?;
+            }
+            Ok(value.into_pipeline_data_with_metadata(metadata))
+        }
+        PipelineData::ListStream(mut stream, metadata) => {
+            if let Some((
+                &PathMember::Int {
+                    val,
+                    span: path_span,
+                    ..
+                },
+                path,
+            )) = cell_path.members.split_first()
+            {
+                let mut pre_elems = vec![];
 
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-
-        input.map(
-            move |mut input| {
-                // with_env() is used here to ensure that each iteration uses
-                // a different set of environment variables.
-                // Hence, a 'cd' in the first loop won't affect the next loop.
-                stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                // Element argument
-                if let Some(var) = block.signature.get_positional(0) {
-                    if let Some(var_id) = &var.var_id {
-                        stack.add_var(*var_id, input.clone())
+                for idx in 0..val {
+                    if let Some(v) = stream.next() {
+                        pre_elems.push(v);
+                    } else {
+                        return Err(ShellError::InsertAfterNextFreeIndex {
+                            available_idx: idx,
+                            span: path_span,
+                        });
                     }
                 }
 
-                let output = eval_block(
-                    &engine_state,
-                    &mut stack,
-                    &block,
-                    input.clone().into_pipeline_data(),
-                    redirect_stdout,
-                    redirect_stderr,
-                );
+                if path.is_empty() {
+                    if replacement.as_block().is_ok() {
+                        let span = replacement.span();
+                        let value = stream.next();
+                        let end_of_stream = value.is_none();
+                        let value = value.unwrap_or(Value::nothing(span));
+                        let capture_block = Closure::from_value(replacement)?;
+                        let block = engine_state.get_block(capture_block.block_id);
+                        let mut stack = stack.captures_to_stack(capture_block.captures);
 
-                match output {
-                    Ok(pd) => {
-                        let span = pd.span().unwrap_or(span);
-                        if let Err(e) = input.insert_data_at_cell_path(
-                            &cell_path.members,
-                            pd.into_value(span),
-                            span,
-                        ) {
-                            return Value::error(e, span);
+                        if let Some(var) = block.signature.get_positional(0) {
+                            if let Some(var_id) = &var.var_id {
+                                stack.add_var(*var_id, value.clone())
+                            }
                         }
 
-                        input
+                        let output = eval_block(
+                            engine_state,
+                            &mut stack,
+                            block,
+                            value.clone().into_pipeline_data(),
+                            redirect_stdout,
+                            redirect_stderr,
+                        )?;
+
+                        pre_elems.push(output.into_value(span));
+                        if !end_of_stream {
+                            pre_elems.push(value);
+                        }
+                    } else {
+                        pre_elems.push(replacement);
                     }
-                    Err(e) => Value::error(e, span),
-                }
-            },
-            ctrlc,
-        )
-    } else {
-        if let Some(PathMember::Int { val, .. }) = cell_path.members.get(0) {
-            let mut input = input.into_iter();
-            let mut pre_elems = vec![];
-
-            for _ in 0..*val {
-                if let Some(v) = input.next() {
-                    pre_elems.push(v);
+                } else if let Some(mut value) = stream.next() {
+                    if replacement.as_block().is_ok() {
+                        insert_single_value_by_closure(
+                            &mut value,
+                            replacement,
+                            engine_state,
+                            stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            path,
+                            true,
+                        )?;
+                    } else {
+                        value.insert_data_at_cell_path(path, replacement, span)?;
+                    }
+                    pre_elems.push(value)
                 } else {
-                    pre_elems.push(Value::nothing(span))
+                    return Err(ShellError::AccessBeyondEnd {
+                        max_idx: pre_elems.len() - 1,
+                        span: path_span,
+                    });
                 }
+
+                Ok(pre_elems
+                    .into_iter()
+                    .chain(stream)
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+            } else if replacement.as_block().is_ok() {
+                let engine_state = engine_state.clone();
+                let replacement_span = replacement.span();
+                let capture_block = Closure::from_value(replacement)?;
+                let block = engine_state.get_block(capture_block.block_id).clone();
+                let stack = stack.captures_to_stack(capture_block.captures.clone());
+
+                Ok(stream
+                    .map(move |mut input| {
+                        // Recreate the stack for each iteration to
+                        // isolate environment variable changes, etc.
+                        let mut stack = stack.clone();
+
+                        let err = insert_value_by_closure(
+                            &mut input,
+                            replacement_span,
+                            &engine_state,
+                            &mut stack,
+                            redirect_stdout,
+                            redirect_stderr,
+                            &block,
+                            &cell_path.members,
+                            false,
+                        );
+
+                        if let Err(e) = err {
+                            Value::error(e, span)
+                        } else {
+                            input
+                        }
+                    })
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
+            } else {
+                Ok(stream
+                    .map(move |mut input| {
+                        if let Err(e) = input.insert_data_at_cell_path(
+                            &cell_path.members,
+                            replacement.clone(),
+                            span,
+                        ) {
+                            Value::error(e, span)
+                        } else {
+                            input
+                        }
+                    })
+                    .into_pipeline_data_with_metadata(metadata, ctrlc))
             }
-
-            return Ok(pre_elems
-                .into_iter()
-                .chain(vec![replacement])
-                .chain(input)
-                .into_pipeline_data(ctrlc));
         }
-        input.map(
-            move |mut input| {
-                let replacement = replacement.clone();
-
-                if let Err(e) =
-                    input.insert_data_at_cell_path(&cell_path.members, replacement, span)
-                {
-                    return Value::error(e, span);
-                }
-
-                input
-            },
-            ctrlc,
-        )
+        PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
+            type_name: "empty pipeline".to_string(),
+            span,
+        }),
+        PipelineData::ExternalStream { .. } => Err(ShellError::IncompatiblePathAccess {
+            type_name: "external stream".to_string(),
+            span,
+        }),
     }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_value_by_closure(
+    value: &mut Value,
+    span: Span,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    block: &Block,
+    cell_path: &[PathMember],
+    first_path_member_int: bool,
+) -> Result<(), ShellError> {
+    let input_at_path = value.clone().follow_cell_path(cell_path, false);
+
+    if let Some(var) = block.signature.get_positional(0) {
+        if let Some(var_id) = &var.var_id {
+            stack.add_var(
+                *var_id,
+                if first_path_member_int {
+                    input_at_path.clone().unwrap_or(Value::nothing(span))
+                } else {
+                    value.clone()
+                },
+            )
+        }
+    }
+
+    let input_at_path = input_at_path
+        .map(IntoPipelineData::into_pipeline_data)
+        .unwrap_or(PipelineData::Empty);
+
+    let output = eval_block(
+        engine_state,
+        stack,
+        block,
+        input_at_path,
+        redirect_stdout,
+        redirect_stderr,
+    )?;
+
+    value.insert_data_at_cell_path(cell_path, output.into_value(span), span)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_single_value_by_closure(
+    value: &mut Value,
+    replacement: Value,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    cell_path: &[PathMember],
+    first_path_member_int: bool,
+) -> Result<(), ShellError> {
+    let span = replacement.span();
+    let capture_block = Closure::from_value(replacement)?;
+    let block = engine_state.get_block(capture_block.block_id);
+    let mut stack = stack.captures_to_stack(capture_block.captures);
+
+    insert_value_by_closure(
+        value,
+        span,
+        engine_state,
+        &mut stack,
+        redirect_stdout,
+        redirect_stderr,
+        block,
+        cell_path,
+        first_path_member_int,
+    )
 }
 
 #[cfg(test)]

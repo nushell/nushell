@@ -1,9 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::get_columns;
-use nu_protocol::{
-    ast::PathMember, record, ListStream, PipelineData, PipelineMetadata, RawStream, Value,
-};
+use nu_protocol::{record, ListStream, PipelineData, PipelineMetadata, RawStream, Value};
 
 use super::NuSpan;
 
@@ -19,7 +17,7 @@ pub fn collect_pipeline(input: PipelineData) -> (Vec<String>, Vec<Vec<Value>>) {
             metadata,
             span,
             ..
-        } => collect_external_stream(stdout, stderr, exit_code, metadata.map(|m| *m), span),
+        } => collect_external_stream(stdout, stderr, exit_code, metadata, span),
     }
 }
 
@@ -90,7 +88,10 @@ fn collect_external_stream(
 pub fn collect_input(value: Value) -> (Vec<String>, Vec<Vec<Value>>) {
     let span = value.span();
     match value {
-        Value::Record { val: record, .. } => (record.cols, vec![record.vals]),
+        Value::Record { val: record, .. } => {
+            let (key, val) = record.into_iter().unzip();
+            (key, vec![val])
+        }
         Value::List { vals, .. } => {
             let mut columns = get_columns(&vals);
             let data = convert_records_to_dataset(&columns, vals);
@@ -152,30 +153,15 @@ fn create_table_for_record(headers: &[String], items: &[Value]) -> Vec<Vec<Value
 }
 
 fn record_create_row(headers: &[String], item: &Value) -> Vec<Value> {
-    let mut rows = vec![Value::default(); headers.len()];
-
-    for (i, header) in headers.iter().enumerate() {
-        let value = record_lookup_value(item, header);
-        rows[i] = value;
-    }
-
-    rows
-}
-
-fn record_lookup_value(item: &Value, header: &str) -> Value {
-    match item {
-        Value::Record { .. } => {
-            let path = PathMember::String {
-                val: header.to_owned(),
-                span: NuSpan::unknown(),
-                optional: false,
-            };
-
-            item.clone()
-                .follow_cell_path(&[path], false)
-                .unwrap_or_else(|_| unknown_error_value())
-        }
-        item => item.clone(),
+    if let Value::Record { val, .. } = item {
+        headers
+            .iter()
+            .map(|col| val.get(col).cloned().unwrap_or_else(unknown_error_value))
+            .collect()
+    } else {
+        // should never reach here due to `get_columns` above which will return
+        // empty columns if any value in the list is not a record
+        vec![Value::default(); headers.len()]
     }
 }
 

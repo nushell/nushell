@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nu_protocol::{
-    ast::Block,
+    ast::{Block, RangeInclusion},
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},
     Example, PipelineData, Signature, Span, Type, Value,
 };
@@ -143,7 +143,8 @@ pub fn check_example_evaluates_to_expected_output(
     // you need to define its equality in the Value struct
     if let Some(expected) = example.result.as_ref() {
         assert_eq!(
-            &result, expected,
+            DebuggableValue(&result),
+            DebuggableValue(expected),
             "The example result differs from the expected value",
         )
     }
@@ -183,4 +184,103 @@ fn eval(
 ) -> Value {
     let (block, delta) = parse(contents, engine_state);
     eval_block(block, input, cwd, engine_state, delta)
+}
+
+pub struct DebuggableValue<'a>(pub &'a Value);
+
+impl PartialEq for DebuggableValue<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<'a> std::fmt::Debug for DebuggableValue<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.0 {
+            Value::Bool { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Int { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Float { val, .. } => {
+                write!(f, "{:?}f", val)
+            }
+            Value::Filesize { val, .. } => {
+                write!(f, "Filesize({:?})", val)
+            }
+            Value::Duration { val, .. } => {
+                let duration = std::time::Duration::from_nanos(*val as u64);
+                write!(f, "Duration({:?})", duration)
+            }
+            Value::Date { val, .. } => {
+                write!(f, "Date({:?})", val)
+            }
+            Value::Range { val, .. } => match val.inclusion {
+                RangeInclusion::Inclusive => write!(
+                    f,
+                    "Range({:?}..{:?}, step: {:?})",
+                    val.from, val.to, val.incr
+                ),
+                RangeInclusion::RightExclusive => write!(
+                    f,
+                    "Range({:?}..<{:?}, step: {:?})",
+                    val.from, val.to, val.incr
+                ),
+            },
+            Value::String { val, .. } => {
+                write!(f, "{:?}", val)
+            }
+            Value::Record { val, .. } => {
+                write!(f, "{{")?;
+                let mut first = true;
+                for (col, value) in val.into_iter() {
+                    if !first {
+                        write!(f, ", ")?;
+                    }
+                    first = false;
+                    write!(f, "{:?}: {:?}", col, DebuggableValue(value))?;
+                }
+                write!(f, "}}")
+            }
+            Value::List { vals, .. } => {
+                write!(f, "[")?;
+                for (i, value) in vals.iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{:?}", DebuggableValue(value))?;
+                }
+                write!(f, "]")
+            }
+            Value::Block { val, .. } => {
+                write!(f, "Block({:?})", val)
+            }
+            Value::Closure { val, .. } => {
+                write!(f, "Closure({:?})", val)
+            }
+            Value::Nothing { .. } => {
+                write!(f, "Nothing")
+            }
+            Value::Error { error, .. } => {
+                write!(f, "Error({:?})", error)
+            }
+            Value::Binary { val, .. } => {
+                write!(f, "Binary({:?})", val)
+            }
+            Value::CellPath { val, .. } => {
+                write!(f, "CellPath({:?})", val.to_string())
+            }
+            Value::CustomValue { val, .. } => {
+                write!(f, "CustomValue({:?})", val)
+            }
+            Value::LazyRecord { val, .. } => {
+                let rec = val.collect().map_err(|_| std::fmt::Error)?;
+                write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
+            }
+            Value::MatchPattern { val, .. } => {
+                write!(f, "MatchPattern({:?})", val)
+            }
+        }
+    }
 }

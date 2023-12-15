@@ -3,7 +3,7 @@ use itertools::Itertools;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span, Type,
+    record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Type,
     Value,
 };
 use serde::de::Deserialize;
@@ -81,12 +81,12 @@ fn convert_yaml_value_to_nu_value(
     span: Span,
     val_span: Span,
 ) -> Result<Value, ShellError> {
-    let err_not_compatible_number = ShellError::UnsupportedInput(
-        "Expected a nu-compatible number in YAML input".to_string(),
-        "value originates from here".into(),
-        span,
-        val_span,
-    );
+    let err_not_compatible_number = ShellError::UnsupportedInput {
+        msg: "Expected a nu-compatible number in YAML input".to_string(),
+        input: "value originates from here".into(),
+        msg_span: span,
+        input_span: val_span,
+    };
     Ok(match v {
         serde_yaml::Value::Bool(b) => Value::bool(*b, span),
         serde_yaml::Value::Number(n) if n.is_i64() => {
@@ -109,12 +109,12 @@ fn convert_yaml_value_to_nu_value(
 
             for (k, v) in t {
                 // A ShellError that we re-use multiple times in the Mapping scenario
-                let err_unexpected_map = ShellError::UnsupportedInput(
-                    format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
-                    "value originates from here".into(),
-                    span,
-                    val_span,
-                );
+                let err_unexpected_map = ShellError::UnsupportedInput {
+                    msg: format!("Unexpected YAML:\nKey: {k:?}\nValue: {v:?}"),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: val_span,
+                };
                 match (k, v) {
                     (serde_yaml::Value::Number(k), _) => {
                         collected.insert(
@@ -198,14 +198,13 @@ pub fn from_yaml_string_to_value(
     let mut documents = vec![];
 
     for document in serde_yaml::Deserializer::from_str(&s) {
-        let v: serde_yaml::Value = serde_yaml::Value::deserialize(document).map_err(|x| {
-            ShellError::UnsupportedInput(
-                format!("Could not load YAML: {x}"),
-                "value originates from here".into(),
-                span,
-                val_span,
-            )
-        })?;
+        let v: serde_yaml::Value =
+            serde_yaml::Value::deserialize(document).map_err(|x| ShellError::UnsupportedInput {
+                msg: format!("Could not load YAML: {x}"),
+                input: "value originates from here".into(),
+                msg_span: span,
+                input_span: val_span,
+            })?;
         documents.push(convert_yaml_value_to_nu_value(&v, span, val_span)?);
     }
 
@@ -221,30 +220,22 @@ pub fn get_examples() -> Vec<Example<'static>> {
         Example {
             example: "'a: 1' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::test_record(Record {
-                cols: vec!["a".to_string()],
-                vals: vec![Value::test_int(1)],
+            result: Some(Value::test_record(record! {
+                "a" => Value::test_int(1),
             })),
         },
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
             description: "Converts yaml formatted string to table",
-            result: Some(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(1)],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["b".to_string()],
-                        vals: vec![Value::list(
-                            vec![Value::test_int(1), Value::test_int(2)],
-                            Span::test_data(),
-                        )],
-                    }),
-                ],
-                Span::test_data(),
-            )),
+            result: Some(Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                }),
+                Value::test_record(record! {
+                    "b" => Value::test_list(
+                        vec![Value::test_int(1), Value::test_int(2)],),
+                }),
+            ])),
         },
     ]
 }
@@ -274,17 +265,15 @@ mod test {
             TestCase {
                 description: "Double Curly Braces With Quotes",
                 input: r#"value: "{{ something }}""#,
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                expected: Ok(Value::test_record(record! {
+                    "value" => Value::test_string("{{ something }}"),
                 })),
             },
             TestCase {
                 description: "Double Curly Braces Without Quotes",
                 input: r#"value: {{ something }}"#,
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["value".to_string()],
-                    vals: vec![Value::test_string("{{ something }}")],
+                expected: Ok(Value::test_record(record! {
+                    "value" => Value::test_string("{{ something }}"),
                 })),
             },
         ];
@@ -335,19 +324,16 @@ mod test {
                 Span::test_data(),
             );
 
-            let expected: Result<Value, ShellError> = Ok(Value::list(
-                vec![
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("b"), Value::test_string("c")],
-                    }),
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_string("g"), Value::test_string("h")],
-                    }),
-                ],
-                Span::test_data(),
-            ));
+            let expected: Result<Value, ShellError> = Ok(Value::test_list(vec![
+                Value::test_record(record! {
+                    "a" => Value::test_string("b"),
+                    "b" => Value::test_string("c"),
+                }),
+                Value::test_record(record! {
+                    "a" => Value::test_string("g"),
+                    "b" => Value::test_string("h"),
+                }),
+            ]));
 
             // Unfortunately the eq function for Value doesn't compare well enough to detect
             // ordering errors in List columns or values.
@@ -364,16 +350,16 @@ mod test {
                 let actual_record = actual_vals[jj].as_record().unwrap();
                 let expected_record = expected_vals[jj].as_record().unwrap();
 
-                let actual_columns = &actual_record.cols;
-                let expected_columns = &expected_record.cols;
-                assert_eq!(
-                    expected_columns, actual_columns,
+                let actual_columns = actual_record.columns();
+                let expected_columns = expected_record.columns();
+                assert!(
+                    expected_columns.eq(actual_columns),
                     "record {jj}, iteration {ii}"
                 );
 
-                let actual_vals = &actual_record.vals;
-                let expected_vals = &expected_record.vals;
-                assert_eq!(expected_vals, actual_vals, "record {jj}, iteration {ii}")
+                let actual_vals = actual_record.values();
+                let expected_vals = expected_record.values();
+                assert!(expected_vals.eq(actual_vals), "record {jj}, iteration {ii}")
             }
         }
     }
@@ -388,37 +374,32 @@ mod test {
         let test_cases: Vec<TestCase> = vec![
             TestCase {
                 input: "Key: !Value ${TEST}-Test-role",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value ${TEST}-Test-role")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value ${TEST}-Test-role"),
                 })),
             },
             TestCase {
                 input: "Key: !Value test-${TEST}",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value test-${TEST}")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value test-${TEST}"),
                 })),
             },
             TestCase {
                 input: "Key: !Value",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!Value")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!Value"),
                 })),
             },
             TestCase {
                 input: "Key: !True",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!True")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!True"),
                 })),
             },
             TestCase {
                 input: "Key: !123",
-                expected: Ok(Value::test_record(Record {
-                    cols: vec!["Key".to_string()],
-                    vals: vec![Value::test_string("!123")],
+                expected: Ok(Value::test_record(record! {
+                    "Key" => Value::test_string("!123"),
                 })),
             },
         ];

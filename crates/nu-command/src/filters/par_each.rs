@@ -45,7 +45,7 @@ impl Command for ParEach {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the closure to run",
+                "The closure to run.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -107,14 +107,12 @@ impl Command for ParEach {
                 .num_threads(num_threads)
                 .build()
             {
-                Err(e) => Err(e).map_err(|e| {
-                    ShellError::GenericError(
-                        "Error creating thread pool".into(),
-                        e.to_string(),
-                        Some(Span::unknown()),
-                        None,
-                        Vec::new(),
-                    )
+                Err(e) => Err(e).map_err(|e| ShellError::GenericError {
+                    error: "Error creating thread pool".into(),
+                    msg: e.to_string(),
+                    span: Some(Span::unknown()),
+                    help: None,
+                    inner: vec![],
                 }),
                 Ok(pool) => Ok(pool),
             }
@@ -128,7 +126,7 @@ impl Command for ParEach {
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();
         let block_id = capture_block.block_id;
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let span = call.head;
         let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;

@@ -27,7 +27,7 @@ impl Command for HelpCommands {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command to get help on",
+                "The name of command to get help on.",
             )
             .named(
                 "find",
@@ -114,10 +114,9 @@ pub fn help_commands(
                     .into_pipeline_data(),
             )
         } else {
-            Err(ShellError::CommandNotFound(span(&[
-                rest[0].span,
-                rest[rest.len() - 1].span,
-            ])))
+            Err(ShellError::CommandNotFound {
+                span: span(&[rest[0].span, rest[rest.len() - 1].span]),
+            })
         }
     }
 }
@@ -134,7 +133,7 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> Vec<Value> {
         let usage = sig.usage;
         let search_terms = sig.search_terms;
 
-        let command_type = format!("{:?}", decl.command_type()).to_lowercase();
+        let command_type = format!("{:?}", decl.command_type()).to_ascii_lowercase();
 
         // Build table of parameters
         let param_table = {

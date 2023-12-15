@@ -40,16 +40,14 @@ const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 /// Nushell.
 #[derive(Debug)]
 pub enum PipelineData {
-    // Note: the PipelineMetadata is boxed everywhere because the DataSource::Profiling caused
-    // stack overflow on Windows CI when testing virtualenv
-    Value(Value, Option<Box<PipelineMetadata>>),
-    ListStream(ListStream, Option<Box<PipelineMetadata>>),
+    Value(Value, Option<PipelineMetadata>),
+    ListStream(ListStream, Option<PipelineMetadata>),
     ExternalStream {
         stdout: Option<RawStream>,
         stderr: Option<RawStream>,
         exit_code: Option<ListStream>,
         span: Span,
-        metadata: Option<Box<PipelineMetadata>>,
+        metadata: Option<PipelineMetadata>,
         trim_end_newline: bool,
     },
     Empty,
@@ -64,11 +62,10 @@ pub struct PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
-    Profiling(Vec<Value>),
 }
 
 impl PipelineData {
-    pub fn new_with_metadata(metadata: Option<Box<PipelineMetadata>>, span: Span) -> PipelineData {
+    pub fn new_with_metadata(metadata: Option<PipelineMetadata>, span: Span) -> PipelineData {
         PipelineData::Value(Value::nothing(span), metadata)
     }
 
@@ -93,7 +90,7 @@ impl PipelineData {
         PipelineData::Empty
     }
 
-    pub fn metadata(&self) -> Option<Box<PipelineMetadata>> {
+    pub fn metadata(&self) -> Option<PipelineMetadata> {
         match self {
             PipelineData::ListStream(_, x) => x.clone(),
             PipelineData::ExternalStream { metadata: x, .. } => x.clone(),
@@ -102,7 +99,7 @@ impl PipelineData {
         }
     }
 
-    pub fn set_metadata(mut self, metadata: Option<Box<PipelineMetadata>>) -> Self {
+    pub fn set_metadata(mut self, metadata: Option<PipelineMetadata>) -> Self {
         match &mut self {
             PipelineData::ListStream(_, x) => *x = metadata,
             PipelineData::ExternalStream { metadata: x, .. } => *x = metadata,
@@ -354,7 +351,7 @@ impl PipelineData {
     pub fn collect_string_strict(
         self,
         span: Span,
-    ) -> Result<(String, Span, Option<Box<PipelineMetadata>>), ShellError> {
+    ) -> Result<(String, Span, Option<PipelineMetadata>), ShellError> {
         match self {
             PipelineData::Empty => Ok((String::new(), span, None)),
             PipelineData::Value(Value::String { val, .. }, metadata) => Ok((val, span, metadata)),
@@ -669,28 +666,28 @@ impl PipelineData {
                     match (&val.to, &val.from) {
                         (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
                             if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                                return Err(ShellError::GenericError(
-                                    "Cannot create range".into(),
-                                    "Infinity is not allowed when converting to json".into(),
-                                    Some(span),
-                                    Some("Consider removing infinity".into()),
-                                    vec![],
-                                ));
+                                return Err(ShellError::GenericError {
+                                    error: "Cannot create range".into(),
+                                    msg: "Infinity is not allowed when converting to json".into(),
+                                    span: Some(span),
+                                    help: Some("Consider removing infinity".into()),
+                                    inner: vec![],
+                                });
                             }
                         }
                         (Value::Int { val, .. }, _) => {
                             if *val == i64::MAX || *val == i64::MIN {
-                                return Err(ShellError::GenericError(
-                                    "Cannot create range".into(),
-                                    "Unbounded ranges are not allowed when converting to json"
+                                return Err(ShellError::GenericError {
+                                    error: "Cannot create range".into(),
+                                    msg: "Unbounded ranges are not allowed when converting to json"
                                         .into(),
-                                    Some(span),
-                                    Some(
+                                    span: Some(span),
+                                    help: Some(
                                         "Consider using ranges with valid start and end point."
                                             .into(),
                                     ),
-                                    vec![],
-                                ));
+                                    inner: vec![],
+                                });
                             }
                         }
                         _ => (),
@@ -926,7 +923,7 @@ pub trait IntoPipelineData {
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<Box<PipelineMetadata>>>,
+        metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData;
 }
 
@@ -940,7 +937,7 @@ where
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<Box<PipelineMetadata>>>,
+        metadata: impl Into<Option<PipelineMetadata>>,
     ) -> PipelineData {
         PipelineData::Value(self.into(), metadata.into())
     }
@@ -950,7 +947,7 @@ pub trait IntoInterruptiblePipelineData {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData;
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<Box<PipelineMetadata>>>,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData;
 }
@@ -973,7 +970,7 @@ where
 
     fn into_pipeline_data_with_metadata(
         self,
-        metadata: impl Into<Option<Box<PipelineMetadata>>>,
+        metadata: impl Into<Option<PipelineMetadata>>,
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData {
         PipelineData::ListStream(

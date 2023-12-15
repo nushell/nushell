@@ -1,6 +1,6 @@
 use log::info;
 use procfs::process::{FDInfo, Io, Process, Stat, Status};
-use procfs::{ProcError, ProcessCgroup};
+use procfs::{ProcError, ProcessCGroups, WithCurrentSystemInfo};
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -25,7 +25,7 @@ impl ProcessTask {
         }
     }
 
-    pub fn cgroups(&self) -> Result<Vec<ProcessCgroup>, ProcError> {
+    pub fn cgroups(&self) -> Result<ProcessCGroups, ProcError> {
         match self {
             ProcessTask::Process(x) => x.cgroups(),
             _ => Err(ProcError::Other("not supported".to_string())),
@@ -218,7 +218,7 @@ impl ProcessInfo {
     /// Memory size in number of bytes
     pub fn mem_size(&self) -> u64 {
         match self.curr_proc.stat() {
-            Ok(p) => p.rss_bytes(),
+            Ok(p) => p.rss_bytes().get(),
             Err(_) => 0,
         }
     }

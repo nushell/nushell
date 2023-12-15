@@ -76,15 +76,15 @@ fn command(
 
     let mut ctx = SQLContext::new();
     ctx.register("df", &df.df);
-    let df_sql = ctx.execute(&sql_query).map_err(|e| {
-        ShellError::GenericError(
-            "Dataframe Error".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
-    })?;
+    let df_sql = ctx
+        .execute(&sql_query)
+        .map_err(|e| ShellError::GenericError {
+            error: "Dataframe Error".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        })?;
     let lazy = NuLazyFrame::new(false, df_sql);
 
     let eager = lazy.collect(call.head)?;

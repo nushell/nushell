@@ -95,12 +95,12 @@ fn collect_binary(input: PipelineData, span: Span) -> Result<Vec<u8>, ShellError
             }
             Some(Value::Error { error, .. }) => return Err(*error),
             Some(x) => {
-                return Err(ShellError::UnsupportedInput(
-                    "Expected binary from pipeline".to_string(),
-                    "value originates from here".into(),
-                    span,
-                    x.span(),
-                ))
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Expected binary from pipeline".to_string(),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: x.span(),
+                })
             }
             None => break,
         }
@@ -117,13 +117,11 @@ fn from_ods(
     let span = input.span();
     let bytes = collect_binary(input, head)?;
     let buf: Cursor<Vec<u8>> = Cursor::new(bytes);
-    let mut ods = Ods::<_>::new(buf).map_err(|_| {
-        ShellError::UnsupportedInput(
-            "Could not load ODS file".to_string(),
-            "value originates from here".into(),
-            head,
-            span.unwrap_or(head),
-        )
+    let mut ods = Ods::<_>::new(buf).map_err(|_| ShellError::UnsupportedInput {
+        msg: "Could not load ODS file".to_string(),
+        input: "value originates from here".into(),
+        msg_span: head,
+        input_span: span.unwrap_or(head),
     })?;
 
     let mut dict = IndexMap::new();
@@ -160,12 +158,12 @@ fn from_ods(
 
             dict.insert(sheet_name, Value::list(sheet_output, head));
         } else {
-            return Err(ShellError::UnsupportedInput(
-                "Could not load sheet".to_string(),
-                "value originates from here".into(),
-                head,
-                span.unwrap_or(head),
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Could not load sheet".to_string(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: span.unwrap_or(head),
+            });
         }
     }
 

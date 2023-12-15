@@ -96,7 +96,7 @@ fn test_signature_chained() {
 }
 
 #[test]
-#[should_panic(expected = "There may be duplicate short flags, such as -h")]
+#[should_panic(expected = "There may be duplicate short flags for '-n'")]
 fn test_signature_same_short() {
     // Creating signature with same short name should panic
     Signature::new("new_signature")
@@ -110,7 +110,7 @@ fn test_signature_same_short() {
 }
 
 #[test]
-#[should_panic(expected = "There may be duplicate name flags, such as --help")]
+#[should_panic(expected = "There may be duplicate name flags for '--name'")]
 fn test_signature_same_name() {
     // Creating signature with same short name should panic
     Signature::new("new-signature")

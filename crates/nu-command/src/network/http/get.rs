@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the contents from",
+                "The URL to fetch the contents from.",
             )
             .named(
                 "user",
@@ -171,7 +171,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure);
+    let client = http_client(args.insecure, engine_state, stack);
     let mut request = client.get(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

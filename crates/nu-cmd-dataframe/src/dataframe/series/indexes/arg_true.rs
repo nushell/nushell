@@ -67,13 +67,13 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let columns = df.as_ref().get_column_names();
     if columns.len() > 1 {
-        return Err(ShellError::GenericError(
-            "Error using as series".into(),
-            "dataframe has more than one column".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Error using as series".into(),
+            msg: "dataframe has more than one column".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     match columns.first() {
@@ -85,25 +85,23 @@ fn command(
                 .lazy()
                 .select(&[expression])
                 .collect()
-                .map_err(|err| {
-                    ShellError::GenericError(
-                        "Error creating index column".into(),
-                        err.to_string(),
-                        Some(call.head),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|err| ShellError::GenericError {
+                    error: "Error creating index column".into(),
+                    msg: err.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
                 })?;
 
             let value = NuDataFrame::dataframe_into_value(res, call.head);
             Ok(PipelineData::Value(value, None))
         }
-        _ => Err(ShellError::UnsupportedInput(
-            "Expected the dataframe to have a column".to_string(),
-            "".to_string(),
-            call.head,
-            call.head,
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "Expected the dataframe to have a column".to_string(),
+            input: "".to_string(),
+            msg_span: call.head,
+            input_span: call.head,
+        }),
     }
 }
 

@@ -7,6 +7,7 @@ use nu_protocol::{
     record, Category, Config, DataSource, Example, IntoPipelineData, PipelineData,
     PipelineMetadata, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -180,7 +181,7 @@ fn get_theme_from_asset_file(
     let th = asset
         .themes
         .into_iter()
-        .find(|n| n.name.to_lowercase() == theme_name.to_lowercase()) // case insensitive search
+        .find(|n| n.name.eq_ignore_case(theme_name)) // case insensitive search
         .unwrap_or_default();
 
     Ok(convert_html_theme_to_hash_map(is_dark, &th))
@@ -289,11 +290,9 @@ fn to_html(
             })
             .collect();
         return Ok(
-            Value::list(result, head).into_pipeline_data_with_metadata(Box::new(
-                PipelineMetadata {
-                    data_source: DataSource::HtmlThemes,
-                },
-            )),
+            Value::list(result, head).into_pipeline_data_with_metadata(PipelineMetadata {
+                data_source: DataSource::HtmlThemes,
+            }),
         );
     } else {
         let theme_span = match &theme {
@@ -305,13 +304,13 @@ fn to_html(
         let color_hm = match color_hm {
             Ok(c) => c,
             _ => {
-                return Err(ShellError::GenericError(
-                    "Error finding theme name".to_string(),
-                    "Error finding theme name".to_string(),
-                    Some(theme_span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "Error finding theme name".into(),
+                    msg: "Error finding theme name".into(),
+                    span: Some(theme_span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -404,15 +403,15 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
 
     for row in table {
         let span = row.span();
-        if let Value::Record { .. } = row {
+        if let Value::Record { val: row, .. } = row {
             output_string.push_str("<tr>");
             for header in &headers {
-                let data = row.get_data_by_key(header);
+                let data = row
+                    .get(header)
+                    .cloned()
+                    .unwrap_or_else(|| Value::nothing(span));
                 output_string.push_str("<td>");
-                output_string.push_str(&html_value(
-                    data.unwrap_or_else(|| Value::nothing(span)),
-                    config,
-                ));
+                output_string.push_str(&html_value(data, config));
                 output_string.push_str("</td>");
             }
             output_string.push_str("</tr>");

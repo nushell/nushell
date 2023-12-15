@@ -152,38 +152,34 @@ fn command(
     let mut res = df
         .as_ref()
         .melt(&id_col_string, &val_col_string)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error calculating melt".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error calculating melt".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?;
 
     if let Some(name) = &variable_name {
-        res.rename("variable", &name.item).map_err(|e| {
-            ShellError::GenericError(
-                "Error renaming column".into(),
-                e.to_string(),
-                Some(name.span),
-                None,
-                Vec::new(),
-            )
-        })?;
+        res.rename("variable", &name.item)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error renaming column".into(),
+                msg: e.to_string(),
+                span: Some(name.span),
+                help: None,
+                inner: vec![],
+            })?;
     }
 
     if let Some(name) = &value_name {
-        res.rename("value", &name.item).map_err(|e| {
-            ShellError::GenericError(
-                "Error renaming column".into(),
-                e.to_string(),
-                Some(name.span),
-                None,
-                Vec::new(),
-            )
-        })?;
+        res.rename("value", &name.item)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error renaming column".into(),
+                msg: e.to_string(),
+                span: Some(name.span),
+                help: None,
+                inner: vec![],
+            })?;
     }
 
     Ok(PipelineData::Value(
@@ -198,50 +194,50 @@ fn check_column_datatypes<T: AsRef<str>>(
     col_span: Span,
 ) -> Result<(), ShellError> {
     if cols.is_empty() {
-        return Err(ShellError::GenericError(
-            "Merge error".into(),
-            "empty column list".into(),
-            Some(col_span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Merge error".into(),
+            msg: "empty column list".into(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     // Checking if they are same type
     if cols.len() > 1 {
         for w in cols.windows(2) {
-            let l_series = df.column(w[0].as_ref()).map_err(|e| {
-                ShellError::GenericError(
-                    "Error selecting columns".into(),
-                    e.to_string(),
-                    Some(col_span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            let l_series = df
+                .column(w[0].as_ref())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error selecting columns".into(),
+                    msg: e.to_string(),
+                    span: Some(col_span),
+                    help: None,
+                    inner: vec![],
+                })?;
 
-            let r_series = df.column(w[1].as_ref()).map_err(|e| {
-                ShellError::GenericError(
-                    "Error selecting columns".into(),
-                    e.to_string(),
-                    Some(col_span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            let r_series = df
+                .column(w[1].as_ref())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error selecting columns".into(),
+                    msg: e.to_string(),
+                    span: Some(col_span),
+                    help: None,
+                    inner: vec![],
+                })?;
 
             if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::GenericError(
-                    "Merge error".into(),
-                    "found different column types in list".into(),
-                    Some(col_span),
-                    Some(format!(
+                return Err(ShellError::GenericError {
+                    error: "Merge error".into(),
+                    msg: "found different column types in list".into(),
+                    span: Some(col_span),
+                    help: Some(format!(
                         "datatypes {} and {} are incompatible",
                         l_series.dtype(),
                         r_series.dtype()
                     )),
-                    Vec::new(),
-                ));
+                    inner: vec![],
+                });
             }
         }
     }

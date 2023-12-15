@@ -28,8 +28,8 @@ pub fn evaluate_commands(
     let (block, delta) = {
         if let Some(ref t_mode) = table_mode {
             let mut config = engine_state.get_config().clone();
-            config.table_mode = t_mode.as_string()?;
-            engine_state.set_config(&config);
+            config.table_mode = t_mode.as_string()?.parse().unwrap_or_default();
+            engine_state.set_config(config);
         }
 
         let mut working_set = StateWorkingSet::new(engine_state);
@@ -55,7 +55,7 @@ pub fn evaluate_commands(
         Ok(pipeline_data) => {
             let mut config = engine_state.get_config().clone();
             if let Some(t_mode) = table_mode {
-                config.table_mode = t_mode.as_string()?;
+                config.table_mode = t_mode.as_string()?.parse().unwrap_or_default();
             }
             crate::eval_file::print_table_or_error(engine_state, stack, pipeline_data, &mut config)
         }

@@ -26,9 +26,9 @@ impl Command for Kill {
             .required(
                 "pid",
                 SyntaxShape::Int,
-                "process id of process that is to be killed",
+                "Process id of process that is to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "rest of processes to kill")
+            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
@@ -92,27 +92,23 @@ impl Command for Kill {
                         left_message: "force".to_string(),
                         left_span: call
                             .get_named_arg("force")
-                            .ok_or_else(|| {
-                                ShellError::GenericError(
-                                    "Flag error".into(),
-                                    "flag force not found".into(),
-                                    Some(call.head),
-                                    None,
-                                    Vec::new(),
-                                )
+                            .ok_or_else(|| ShellError::GenericError {
+                                error: "Flag error".into(),
+                                msg: "flag force not found".into(),
+                                span: Some(call.head),
+                                help: None,
+                                inner: vec![],
                             })?
                             .span,
                         right_message: "signal".to_string(),
                         right_span: span(&[
                             call.get_named_arg("signal")
-                                .ok_or_else(|| {
-                                    ShellError::GenericError(
-                                        "Flag error".into(),
-                                        "flag signal not found".into(),
-                                        Some(call.head),
-                                        None,
-                                        Vec::new(),
-                                    )
+                                .ok_or_else(|| ShellError::GenericError {
+                                    error: "Flag error".into(),
+                                    msg: "flag signal not found".into(),
+                                    span: Some(call.head),
+                                    help: None,
+                                    inner: vec![],
                                 })?
                                 .span,
                             signal_span,
@@ -138,36 +134,32 @@ impl Command for Kill {
                 .stderr(Stdio::null());
         }
 
-        let output = cmd.output().map_err(|e| {
-            ShellError::GenericError(
-                "failed to execute shell command".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        let output = cmd.output().map_err(|e| ShellError::GenericError {
+            error: "failed to execute shell command".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?;
 
         if !quiet && !output.status.success() {
-            return Err(ShellError::GenericError(
-                "process didn't terminate successfully".into(),
-                String::from_utf8(output.stderr).unwrap_or_default(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "process didn't terminate successfully".into(),
+                msg: String::from_utf8(output.stderr).unwrap_or_default(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
         }
 
         let val = String::from(
             String::from_utf8(output.stdout)
-                .map_err(|e| {
-                    ShellError::GenericError(
-                        "failed to convert output to string".into(),
-                        e.to_string(),
-                        Some(call.head),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|e| ShellError::GenericError {
+                    error: "failed to convert output to string".into(),
+                    msg: e.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
                 })?
                 .trim_end(),
         );

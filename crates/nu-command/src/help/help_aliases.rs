@@ -26,7 +26,7 @@ impl Command for HelpAliases {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of alias to get help on",
+                "The name of alias to get help on.",
             )
             .named(
                 "find",
@@ -119,15 +119,15 @@ pub fn help_aliases(
         }
 
         let Some(alias) = engine_state.find_decl(name.as_bytes(), &[]) else {
-            return Err(ShellError::AliasNotFound(span(
-                &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
-            )));
+            return Err(ShellError::AliasNotFound {
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let Some(alias) = engine_state.get_decl(alias).as_alias() else {
-            return Err(ShellError::AliasNotFound(span(
-                &rest.iter().map(|r| r.span).collect::<Vec<Span>>(),
-            )));
+            return Err(ShellError::AliasNotFound {
+                span: span(&rest.iter().map(|r| r.span).collect::<Vec<Span>>()),
+            });
         };
 
         let alias_expansion =

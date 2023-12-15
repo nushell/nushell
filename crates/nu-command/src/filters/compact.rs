@@ -1,7 +1,7 @@
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::Call, engine::Command, engine::EngineState, engine::Stack, Category, Example,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call, engine::Command, engine::EngineState, engine::Stack, record, Category, Example,
+    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,10 +27,15 @@ impl Command for Compact {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
+            .switch(
+                "empty",
+                "also compact empty items like \"\", {}, and []",
+                Some('e'),
+            )
             .rest(
                 "columns",
                 SyntaxShape::Any,
-                "the columns to compact from the table",
+                "The columns to compact from the table.",
             )
             .category(Category::Filters)
     }
@@ -46,34 +51,43 @@ impl Command for Compact {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        compact(engine_state, stack, call, input)
+        let empty = call.has_flag("empty");
+        compact(engine_state, stack, call, input, empty)
     }
 
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Filter out all records where 'Hello' is null (returns nothing)",
+                description: "Filter out all records where 'Hello' is null",
                 example: r#"[["Hello" "World"]; [null 3]] | compact Hello"#,
-                result: Some(Value::list(vec![], Span::test_data())),
+                result: Some(Value::test_list(vec![])),
             },
             Example {
-                description: "Filter out all records where 'World' is null (Returns the table)",
+                description: "Filter out all records where 'World' is null",
                 example: r#"[["Hello" "World"]; [null 3]] | compact World"#,
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["Hello".into(), "World".into()],
-                        vals: vec![Value::nothing(Span::test_data()), Value::test_int(3)],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "Hello" => Value::nothing(Span::test_data()),
+                    "World" => Value::test_int(3),
+                })])),
             },
             Example {
-                description: "Filter out all instances of nothing from a list (Returns [1,2])",
+                description: "Filter out all instances of null from a list",
                 example: r#"[1, null, 2] | compact"#,
-                result: Some(Value::list(
-                    vec![Value::test_int(1), Value::test_int(2)],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])),
+            },
+            Example {
+                description: "Filter out all instances of null and empty items from a list",
+                example: r#"[1, null, 2, "", 3, [], 4, {}, 5] | compact --empty"#,
+                result: Some(Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(5),
+                ])),
             },
         ]
     }
@@ -84,6 +98,7 @@ pub fn compact(
     stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    compact_empties: bool,
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
@@ -93,18 +108,41 @@ pub fn compact(
                 match item {
                     // Nothing is filtered out
                     Value::Nothing { .. } => false,
-                    Value::Record { .. } => {
+                    Value::Record { val, .. } => {
                         for column in columns.iter() {
-                            match item.get_data_by_key(column) {
+                            match val.get(column) {
                                 None => return false,
                                 Some(x) => {
                                     if let Value::Nothing { .. } = x {
                                         return false;
                                     }
+                                    if compact_empties {
+                                        if let Value::String { val, .. } = x {
+                                            if val.is_empty() {
+                                                return false;
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+
+                        if compact_empties && val.is_empty() {
+                            return false;
+                        }
                         // No defined columns contained Nothing
+                        true
+                    }
+                    Value::List { vals, .. } => {
+                        if compact_empties && vals.is_empty() {
+                            return false;
+                        }
+                        true
+                    }
+                    Value::String { val, .. } => {
+                        if compact_empties && val.is_empty() {
+                            return false;
+                        }
                         true
                     }
                     // Any non-Nothing, non-record should be kept

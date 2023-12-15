@@ -2,8 +2,8 @@ use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, Record,
-    ShellError, Signature, Span, SyntaxShape, Type, Value,
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -37,7 +37,7 @@ not supported."#
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
-                "Filter condition",
+                "Filter condition.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -59,7 +59,7 @@ not supported."#
         let span = call.head;
 
         let metadata = input.metadata();
-        let mut stack = stack.captures_to_stack(&closure.captures);
+        let mut stack = stack.captures_to_stack(closure.captures);
         let block = engine_state.get_block(closure.block_id).clone();
 
         let orig_env_vars = stack.env_vars.clone();
@@ -102,8 +102,7 @@ not supported."#
                     Err(err) => Some(Value::error(err, span)),
                 }
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -111,20 +110,17 @@ not supported."#
             Example {
                 description: "Filter rows of a table according to a condition",
                 example: "[{a: 1} {a: 2}] | where a > 1",
-                result: Some(Value::list (
-                    vec![Value::test_record(Record {
-                        cols: vec!["a".to_string()],
-                        vals: vec![Value::test_int(2)],
+                result: Some(Value::test_list(
+                    vec![Value::test_record(record! {
+                        "a" => Value::test_int(2),
                     })],
-                    Span::test_data(),
                 )),
             },
             Example {
                 description: "Filter items of a list according to a condition",
                 example: "[1 2] | where {|x| $x > 1}",
-                result: Some(Value::list (
+                result: Some(Value::test_list(
                     vec![Value::test_int(2)],
-                    Span::test_data(),
                 )),
             },
             Example {

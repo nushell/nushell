@@ -7,7 +7,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::path::PathBuf;
-use uu_cp::{BackupMode, UpdateMode};
+use uu_cp::{BackupMode, CopyMode, UpdateMode};
 
 // TODO: related to uucore::error::set_exit_code(EXIT_ERR)
 // const EXIT_ERR: i32 = 1;
@@ -46,10 +46,15 @@ impl Command for UCp {
                 Some('f'),
             )
             .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch(
+                "update",
+                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                Some('u')
+            )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST")
+            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -76,6 +81,11 @@ impl Command for UCp {
                 example: "cp *.txt dir_a",
                 result: None,
             },
+            Example {
+                description: "Copy only if source file is newer than target file",
+                example: "cp -u a b",
+                result: None,
+            },
         ]
     }
 
@@ -87,6 +97,11 @@ impl Command for UCp {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let interactive = call.has_flag("interactive");
+        let (update, copy_mode) = if call.has_flag("update") {
+            (UpdateMode::ReplaceIfOlder, CopyMode::Update)
+        } else {
+            (UpdateMode::ReplaceAll, CopyMode::Copy)
+        };
         let force = call.has_flag("force");
         let no_clobber = call.has_flag("no-clobber");
         let progress = call.has_flag("progress");
@@ -120,34 +135,34 @@ impl Command for UCp {
             })
             .collect();
         if paths.is_empty() {
-            return Err(ShellError::GenericError(
-                "Missing file operand".into(),
-                "Missing file operand".into(),
-                Some(call.head),
-                Some("Please provide source and destination paths".into()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing file operand".into(),
+                msg: "Missing file operand".into(),
+                span: Some(call.head),
+                help: Some("Please provide source and destination paths".into()),
+                inner: vec![],
+            });
         }
 
         if paths.len() == 1 {
-            return Err(ShellError::GenericError(
-                "Missing destination path".into(),
-                format!("Missing destination path operand after {}", paths[0].item),
-                Some(paths[0].span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing destination path".into(),
+                msg: format!("Missing destination path operand after {}", paths[0].item),
+                span: Some(paths[0].span),
+                help: None,
+                inner: vec![],
+            });
         }
         let target = paths.pop().expect("Should not be reached?");
         let target_path = PathBuf::from(&target.item);
         if target.item.ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
-            return Err(ShellError::GenericError(
-                "is not a directory".into(),
-                "is not a directory".into(),
-                Some(target.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "is not a directory".into(),
+                msg: "is not a directory".into(),
+                span: Some(target.span),
+                help: None,
+                inner: vec![],
+            });
         };
 
         // paths now contains the sources
@@ -158,33 +173,45 @@ impl Command for UCp {
         for p in paths {
             let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound(p.span));
+                return Err(ShellError::FileNotFound { span: p.span });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
                 match v {
                     Ok(path) => {
                         if !recursive && path.is_dir() {
-                            return Err(ShellError::GenericError(
-                                "could_not_copy_directory".into(),
-                                "resolves to a directory (not copied)".into(),
-                                Some(p.span),
-                                Some("Directories must be copied using \"--recursive\"".into()),
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "could_not_copy_directory".into(),
+                                msg: "resolves to a directory (not copied)".into(),
+                                span: Some(p.span),
+                                help: Some(
+                                    "Directories must be copied using \"--recursive\"".into(),
+                                ),
+                                inner: vec![],
+                            });
                         };
                         app_vals.push(path)
                     }
                     Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob(
-                            format!("error {} in path {}", e.error(), e.path().display()),
-                            p.span,
-                        ));
+                        return Err(ShellError::ErrorExpandingGlob {
+                            msg: format!("error {} in path {}", e.error(), e.path().display()),
+                            span: p.span,
+                        });
                     }
                 }
             }
             sources.append(&mut app_vals);
         }
+
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
+        for src in sources.iter_mut() {
+            if !src.is_absolute() {
+                *src = nu_path::expand_path_with(&src, &cwd);
+            }
+        }
+
+        let target_path = nu_path::expand_path_with(&target_path, &cwd);
 
         let options = uu_cp::Options {
             overwrite,
@@ -198,7 +225,7 @@ impl Command for UCp {
             backup: BackupMode::NoBackup,
             copy_contents: false,
             cli_dereference: false,
-            copy_mode: uu_cp::CopyMode::Copy,
+            copy_mode,
             no_target_dir: false,
             one_file_system: false,
             parents: false,
@@ -207,7 +234,7 @@ impl Command for UCp {
             attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
-            update: UpdateMode::ReplaceAll,
+            update,
         };
 
         if let Err(error) = uu_cp::copy(&sources, &target_path, &options) {
@@ -215,13 +242,13 @@ impl Command for UCp {
                 // code should still be EXIT_ERR as does GNU cp
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
-                    return Err(ShellError::GenericError(
-                        format!("{}", error),
-                        format!("{}", error),
-                        None,
-                        None,
-                        Vec::new(),
-                    ))
+                    return Err(ShellError::GenericError {
+                        error: format!("{}", error),
+                        msg: format!("{}", error),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    })
                 }
             };
             // TODO: What should we do in place of set_exit_code?

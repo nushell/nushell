@@ -115,6 +115,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             Complete,
             External,
+            Exec,
             NuCheck,
             Sys,
         };
@@ -138,16 +139,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Explain,
             Inspect,
             Metadata,
-            Profile,
             TimeIt,
             View,
             ViewFiles,
             ViewSource,
             ViewSpan,
         };
-
-        #[cfg(unix)]
-        bind_command! { Exec }
 
         #[cfg(windows)]
         bind_command! { RegistryQuery }
@@ -172,7 +169,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             EncodeBase64,
             DetectColumns,
             Parse,
-            Size,
             Split,
             SplitChars,
             SplitColumn,
@@ -190,11 +186,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrIndexOf,
             StrLength,
             StrReverse,
-            StrSize,
+            StrStats,
             StrStartsWith,
             StrSubstring,
             StrTrim,
             StrUpcase,
+            Format,
             FormatDate,
             FormatDuration,
             FormatFilesize,
@@ -205,6 +202,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Cd,
             Ls,
             Mkdir,
+            UMkdir,
+            Mktemp,
             Mv,
             Cp,
             UCp,
@@ -220,16 +219,22 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         bind_command! {
             Ansi,
+            AnsiLink,
             AnsiStrip,
             Clear,
             Du,
             Input,
             InputList,
             InputListen,
+            IsTerminal,
             Kill,
             Sleep,
             TermSize,
+            Whoami,
         };
+
+        #[cfg(unix)]
+        bind_command! { ULimit };
 
         // Date
         bind_command! {
@@ -382,7 +387,6 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Seq,
             SeqDate,
             SeqChar,
-            Unfold, // deprecated
             Generate,
         };
 
@@ -402,6 +406,20 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             LetEnv,
             DateFormat,
+        };
+
+        // Stor
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            Stor,
+            StorCreate,
+            StorDelete,
+            StorExport,
+            StorImport,
+            StorInsert,
+            StorOpen,
+            StorReset,
+            StorUpdate,
         };
 
         working_set.render()

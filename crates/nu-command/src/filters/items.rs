@@ -22,7 +22,7 @@ impl Command for Items {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -49,11 +49,10 @@ impl Command for Items {
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
         let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let orig_env_vars = stack.env_vars.clone();
         let orig_env_hidden = stack.env_hidden.clone();
         let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
         let redirect_stderr = call.redirect_stderr;
 
         let input_span = input.span().unwrap_or(call.head);
@@ -80,11 +79,11 @@ impl Command for Items {
                 &mut stack,
                 &block,
                 PipelineData::empty(),
-                redirect_stdout,
+                true,
                 redirect_stderr,
             ) {
                 Ok(v) => Some(v.into_value(span)),
-                Err(ShellError::Break(_)) => None,
+                Err(ShellError::Break { .. }) => None,
                 Err(error) => {
                     let error = chain_error_with_input(error, false, input_span);
                     Some(Value::error(error, span))

@@ -1,6 +1,6 @@
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::TrimStrategy;
 use nu_protocol::{Config, FooterMode, ShellError, Span, Value};
+use nu_protocol::{TableMode, TrimStrategy};
 
 use crate::{
     clean_charset, colorize_space_str, string_wrap, NuTableConfig, TableOutput, TableTheme,
@@ -17,9 +17,10 @@ pub fn create_nu_table_config(
     comp: &StyleComputer,
     out: &TableOutput,
     expand: bool,
+    mode: TableMode,
 ) -> NuTableConfig {
     NuTableConfig {
-        theme: load_theme_from_config(config),
+        theme: load_theme(mode),
         with_footer: with_footer(config, out.with_header, out.table.count_rows()),
         with_index: out.with_index,
         with_header: out.with_header,
@@ -152,13 +153,13 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::GenericError(
-                format!("error converting string [{}] to f64", &val),
-                "".to_string(),
-                None,
-                Some(e.to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("error converting string [{}] to f64", &val),
+                msg: "".into(),
+                span: None,
+                help: Some(e.to_string()),
+                inner: vec![],
+            });
         }
     };
     Ok(format!("{val_float:.precision$}"))
@@ -173,25 +174,24 @@ fn is_cfg_trim_keep_words(config: &Config) -> bool {
     )
 }
 
-pub fn load_theme_from_config(config: &Config) -> TableTheme {
-    match config.table_mode.as_str() {
-        "basic" => TableTheme::basic(),
-        "thin" => TableTheme::thin(),
-        "light" => TableTheme::light(),
-        "compact" => TableTheme::compact(),
-        "with_love" => TableTheme::with_love(),
-        "compact_double" => TableTheme::compact_double(),
-        "rounded" => TableTheme::rounded(),
-        "reinforced" => TableTheme::reinforced(),
-        "heavy" => TableTheme::heavy(),
-        "none" => TableTheme::none(),
-        "psql" => TableTheme::psql(),
-        "markdown" => TableTheme::markdown(),
-        "dots" => TableTheme::dots(),
-        "restructured" => TableTheme::restructured(),
-        "ascii_rounded" => TableTheme::ascii_rounded(),
-        "basic_compact" => TableTheme::basic_compact(),
-        _ => TableTheme::rounded(),
+pub fn load_theme(mode: TableMode) -> TableTheme {
+    match mode {
+        TableMode::Basic => TableTheme::basic(),
+        TableMode::Thin => TableTheme::thin(),
+        TableMode::Light => TableTheme::light(),
+        TableMode::Compact => TableTheme::compact(),
+        TableMode::WithLove => TableTheme::with_love(),
+        TableMode::CompactDouble => TableTheme::compact_double(),
+        TableMode::Rounded => TableTheme::rounded(),
+        TableMode::Reinforced => TableTheme::reinforced(),
+        TableMode::Heavy => TableTheme::heavy(),
+        TableMode::None => TableTheme::none(),
+        TableMode::Psql => TableTheme::psql(),
+        TableMode::Markdown => TableTheme::markdown(),
+        TableMode::Dots => TableTheme::dots(),
+        TableMode::Restructured => TableTheme::restructured(),
+        TableMode::AsciiRounded => TableTheme::ascii_rounded(),
+        TableMode::BasicCompact => TableTheme::basic_compact(),
     }
 }
 

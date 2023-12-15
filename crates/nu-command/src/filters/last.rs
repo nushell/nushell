@@ -21,15 +21,6 @@ impl Command for Last {
         Signature::build("last")
             .input_output_types(vec![
                 (
-                    // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
-                    // TODO: This is too permissive; if we could express this
-                    // using a type parameter style it would be List<T> ->
-                    // List<T>.
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter it would be List<T> -> T.
                     Type::List(Box::new(Type::Any)),
@@ -40,7 +31,7 @@ impl Command for Last {
             .optional(
                 "rows",
                 SyntaxShape::Int,
-                "starting from the back, the number of rows to return",
+                "Starting from the back, the number of rows to return.",
             )
             .category(Category::Filters)
     }
@@ -86,7 +77,7 @@ impl Command for Last {
         // It has the same issue.
         let return_single_element = rows.is_none();
         let rows_desired: usize = match rows {
-            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue(head)),
+            Some(i) if i < 0 => return Err(ShellError::NeedsPositiveValue { span: head }),
             Some(x) => x as usize,
             None => 1,
         };
@@ -96,9 +87,7 @@ impl Command for Last {
 
         // early exit for `last 0`
         if rows_desired == 0 {
-            return Ok(Vec::<Value>::new()
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata));
+            return Ok(Vec::<Value>::new().into_pipeline_data_with_metadata(metadata, ctrlc));
         }
 
         match input {
@@ -118,12 +107,12 @@ impl Command for Last {
 
                 if return_single_element {
                     if let Some(last) = buf.pop_back() {
-                        Ok(last.into_pipeline_data().set_metadata(metadata))
+                        Ok(last.into_pipeline_data_with_metadata(metadata))
                     } else {
                         Ok(PipelineData::empty().set_metadata(metadata))
                     }
                 } else {
-                    Ok(buf.into_pipeline_data(ctrlc).set_metadata(metadata))
+                    Ok(buf.into_pipeline_data_with_metadata(metadata, ctrlc))
                 }
             }
             PipelineData::Value(val, _) => {
@@ -143,8 +132,7 @@ impl Command for Last {
                                 .rev()
                                 .take(rows_desired)
                                 .rev()
-                                .into_pipeline_data(ctrlc)
-                                .set_metadata(metadata))
+                                .into_pipeline_data_with_metadata(metadata, ctrlc))
                         }
                     }
                     Value::Binary { val, .. } => {

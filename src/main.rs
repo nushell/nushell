@@ -24,6 +24,7 @@ use log::Level;
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_cmd_base::util::get_init_cwd;
+use nu_lsp::LanguageServer;
 use nu_protocol::{
     engine::EngineState, eval_const::create_nu_constant, report_error_new, util::BufferedReader,
     PipelineData, RawStream, Span, Value, NU_VARIABLE_ID,
@@ -78,6 +79,43 @@ fn main() -> Result<()> {
     // TODO: make this conditional in the future
     ctrlc_protection(&mut engine_state, &ctrlc);
     sigquit_protection(&mut engine_state);
+
+    // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
+    // Set default NU_LIB_DIRS and NU_PLUGIN_DIRS here before the env.nu is processed. If
+    // the env.nu file exists, these values will be overwritten, if it does not exist, or
+    // there is an error reading it, these values will be used.
+    let nushell_config_path = if let Some(mut path) = nu_path::config_dir() {
+        path.push("nushell");
+        path
+    } else {
+        // Not really sure what to default this to if nu_path::config_dir() returns None
+        std::path::PathBuf::new()
+    };
+
+    let mut default_nu_lib_dirs_path = nushell_config_path.clone();
+    default_nu_lib_dirs_path.push("scripts");
+    engine_state.add_env_var(
+        "NU_LIB_DIRS".to_string(),
+        Value::test_string(default_nu_lib_dirs_path.to_string_lossy()),
+    );
+
+    let mut default_nu_plugin_dirs_path = nushell_config_path;
+    default_nu_plugin_dirs_path.push("plugins");
+    engine_state.add_env_var(
+        "NU_PLUGIN_DIRS".to_string(),
+        Value::test_string(default_nu_plugin_dirs_path.to_string_lossy()),
+    );
+    // End: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
+
+    // This is the real secret sauce to having an in-memory sqlite db. You must
+    // start a connection to the memory database in main so it will exist for the
+    // lifetime of the program. If it's created with how MEMORY_DB is defined
+    // you'll be able to access this open connection from anywhere in the program
+    // by using the identical connection string.
+    #[cfg(feature = "sqlite")]
+    let db = nu_command::open_connection_in_memory_custom()?;
+    #[cfg(feature = "sqlite")]
+    db.last_insert_rowid();
 
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
@@ -191,6 +229,10 @@ fn main() -> Result<()> {
         load_standard_library(&mut engine_state)?;
     }
 
+    if parsed_nu_cli_args.lsp {
+        return LanguageServer::initialize_stdio_connection()?.serve_requests(engine_state, ctrlc);
+    }
+
     // IDE commands
     if let Some(ide_goto_def) = parsed_nu_cli_args.ide_goto_def {
         ide::goto_def(&mut engine_state, &script_name, &ide_goto_def);
@@ -223,6 +265,7 @@ fn main() -> Result<()> {
         match testbin.item.as_str() {
             "echo_env" => test_bins::echo_env(true),
             "echo_env_stderr" => test_bins::echo_env(false),
+            "echo_env_mixed" => test_bins::echo_env_mixed(),
             "cococo" => test_bins::cococo(),
             "meow" => test_bins::meow(),
             "meowb" => test_bins::meowb(),

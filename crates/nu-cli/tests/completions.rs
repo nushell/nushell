@@ -59,6 +59,29 @@ fn extern_completer() -> NuCompleter {
     NuCompleter::new(std::sync::Arc::new(engine), stack)
 }
 
+#[fixture]
+fn custom_completer() -> NuCompleter {
+    // Create a new engine
+    let (dir, _, mut engine, mut stack) = new_engine();
+
+    // Add record value as example
+    let record = r#"
+        let external_completer = {|spans| 
+            $spans
+        }
+
+        $env.config.completions.external = {
+            enable: true
+            max_results: 100
+            completer: $external_completer
+        }
+    "#;
+    assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack, dir).is_ok());
+
+    // Instantiate a new completer
+    NuCompleter::new(std::sync::Arc::new(engine), stack)
+}
+
 #[test]
 fn variables_dollar_sign_with_varialblecompletion() {
     let (_, _, engine, stack) = new_engine();
@@ -122,14 +145,14 @@ fn dotnu_completions() {
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
     assert_eq!(1, suggestions.len());
-    assert_eq!("custom_completion.nu", suggestions.get(0).unwrap().value);
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
 }
 
 #[test]
@@ -141,7 +164,7 @@ fn external_completer_trailing_space() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
     assert_eq!("", suggestions.get(2).unwrap().value);
 }
@@ -153,7 +176,7 @@ fn external_completer_no_trailing_space() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(2, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("alias", suggestions.get(1).unwrap().value);
 }
 
@@ -164,7 +187,7 @@ fn external_completer_pass_flags() {
 
     let suggestions = run_external_completion(block, &input);
     assert_eq!(3, suggestions.len());
-    assert_eq!("gh", suggestions.get(0).unwrap().value);
+    assert_eq!("gh", suggestions.first().unwrap().value);
     assert_eq!("api", suggestions.get(1).unwrap().value);
     assert_eq!("--", suggestions.get(2).unwrap().value);
 }
@@ -795,7 +818,7 @@ fn run_external_completion(block: &str, input: &str) -> Vec<Suggestion> {
     // Change config adding the external completer
     let mut config = engine_state.get_config().clone();
     config.external_completer = Some(latest_block_id);
-    engine_state.set_config(&config);
+    engine_state.set_config(config);
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(std::sync::Arc::new(engine_state), stack);
@@ -935,6 +958,34 @@ fn extern_custom_completion_short_flag(mut extern_completer: NuCompleter) {
 fn extern_complete_flags(mut extern_completer: NuCompleter) {
     let suggestions = extern_completer.complete("spam -", 6);
     let expected: Vec<String> = vec!["--foo".into(), "-b".into(), "-f".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_before_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo  bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_on_word_left_boundary(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 8);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_next_to_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar", 11);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into()];
+    match_suggestions(expected, suggestions);
+}
+
+#[rstest]
+fn custom_completer_triggers_cursor_after_word(mut custom_completer: NuCompleter) {
+    let suggestions = custom_completer.complete("cmd foo bar ", 12);
+    let expected: Vec<String> = vec!["cmd".into(), "foo".into(), "bar".into(), "".into()];
     match_suggestions(expected, suggestions);
 }
 

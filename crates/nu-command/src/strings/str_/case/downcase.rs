@@ -2,10 +2,9 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::ast::CellPath;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::record;
 use nu_protocol::Category;
-use nu_protocol::{
-    Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
-};
+use nu_protocol::{Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -30,7 +29,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, convert strings at the given cell paths",
+                "For a data structure input, convert strings at the given cell paths.",
             )
             .category(Category::Strings)
     }
@@ -68,24 +67,18 @@ impl Command for SubCommand {
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_string("test"), Value::test_string("ABC")],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_string("test"),
+                    "ColB" => Value::test_string("ABC"),
+                })])),
             },
             Example {
                 description: "Downcase contents",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
-                result: Some(Value::list(
-                    vec![Value::test_record(Record {
-                        cols: vec!["ColA".to_string(), "ColB".to_string()],
-                        vals: vec![Value::test_string("test"), Value::test_string("abc")],
-                    })],
-                    Span::test_data(),
-                )),
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "ColA" => Value::test_string("test"),
+                    "ColB" => Value::test_string("abc"),
+                })])),
             },
         ]
     }
@@ -121,7 +114,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::string(val.to_ascii_lowercase(), head),
+        Value::String { val, .. } => Value::string(val.to_lowercase(), head),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {

@@ -15,7 +15,7 @@ impl Command for ExprOtherwise {
     }
 
     fn usage(&self) -> &str {
-        "completes a when expression."
+        "Completes a when expression."
     }
 
     fn signature(&self) -> Signature {

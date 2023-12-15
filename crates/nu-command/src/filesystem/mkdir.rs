@@ -23,7 +23,7 @@ impl Command for Mkdir {
             .rest(
                 "rest",
                 SyntaxShape::Directory,
-                "the name(s) of the path(s) to create",
+                "The name(s) of the path(s) to create.",
             )
             .switch("verbose", "print created path(s).", Some('v'))
             .category(Category::FileSystem)
@@ -69,12 +69,13 @@ impl Command for Mkdir {
             let dir_res = std::fs::create_dir_all(&dir);
 
             if let Err(reason) = dir_res {
-                return Err(ShellError::CreateNotPossible(
-                    format!("failed to create directory: {reason}"),
-                    call.positional_nth(i)
+                return Err(ShellError::CreateNotPossible {
+                    msg: format!("failed to create directory: {reason}"),
+                    span: call
+                        .positional_nth(i)
                         .expect("already checked through directories")
                         .span,
-                ));
+                });
             }
 
             if is_verbose {

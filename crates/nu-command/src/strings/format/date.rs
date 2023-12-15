@@ -25,13 +25,14 @@ impl Command for FormatDate {
             .input_output_types(vec![
                 (Type::Date, Type::String),
                 (Type::String, Type::String),
+                (Type::Nothing, Type::Table(vec![])),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,
-                "the desired format date",
+                "The desired format date.",
             )
             .category(Category::Date)
     }
@@ -157,7 +158,10 @@ fn format_helper(value: Value, formatter: &str, formatter_span: Span, head_span:
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), head_span),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head_span,
+            },
             head_span,
         ),
     }
@@ -175,7 +179,10 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             }
         }
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), span),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span,
+            },
             span,
         ),
     }

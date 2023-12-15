@@ -29,7 +29,7 @@ impl Command for Encode {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("encode")
             .input_output_types(vec![(Type::String, Type::Binary)])
-            .required("encoding", SyntaxShape::String, "the text encoding to use")
+            .required("encoding", SyntaxShape::String, "The text encoding to use.")
             .switch(
                 "ignore-errors",
                 "when a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`)",
@@ -113,12 +113,12 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             }
             // This should be more precise, but due to difficulties in getting spans
             // from PipelineData::ListStream, this is as it is.
-            _ => Err(ShellError::UnsupportedInput(
-                "non-string input".into(),
-                "value originates from here".into(),
-                head,
-                input.span().unwrap_or(head),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "non-string input".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: input.span().unwrap_or(head),
+            }),
         }
     }
 }

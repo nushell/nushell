@@ -1,6 +1,8 @@
+use core::slice;
+
 use indexmap::map::IndexMap;
 use nu_protocol::ast::Call;
-use nu_protocol::{IntoPipelineData, PipelineData, Record, ShellError, Span, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Span, Value};
 
 pub fn run_with_function(
     call: &Call,
@@ -49,12 +51,12 @@ fn helper_for_tables(
         }
     }
     if column_totals.keys().len() == 0 {
-        return Err(ShellError::UnsupportedInput(
-            "Unable to give a result with this input".to_string(),
-            "value originates from here".into(),
-            name,
-            val_span,
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "Unable to give a result with this input".to_string(),
+            input: "value originates from here".into(),
+            msg_span: name,
+            input_span: val_span,
+        });
     }
 
     Ok(Value::record(column_totals.into_iter().collect(), name))
@@ -81,21 +83,14 @@ pub fn calculate(
             _ => mf(vals, span, name),
         },
         PipelineData::Value(Value::Record { val: record, .. }, ..) => {
-            let new_vals: Result<Vec<Value>, ShellError> = record
-                .vals
-                .into_iter()
-                .map(|val| mf(&[val], span, name))
-                .collect();
-            match new_vals {
-                Ok(vec) => Ok(Value::record(
-                    Record {
-                        cols: record.cols,
-                        vals: vec,
-                    },
-                    span,
-                )),
-                Err(err) => Err(err),
-            }
+            let mut record = record;
+            record
+                .iter_mut()
+                .try_for_each(|(_, val)| -> Result<(), ShellError> {
+                    *val = mf(slice::from_ref(val), span, name)?;
+                    Ok(())
+                })?;
+            Ok(Value::record(record, span))
         }
         PipelineData::Value(Value::Range { val, .. }, ..) => {
             let new_vals: Result<Vec<Value>, ShellError> = val
@@ -107,13 +102,13 @@ pub fn calculate(
         }
         PipelineData::Value(val, ..) => mf(&[val], span, name),
         PipelineData::Empty { .. } => Err(ShellError::PipelineEmpty { dst_span: name }),
-        val => Err(ShellError::UnsupportedInput(
-            "Only ints, floats, lists, records, or ranges are supported".into(),
-            "value originates from here".into(),
-            name,
-            // This requires both the ListStream and Empty match arms to be above it.
-            val.span()
+        val => Err(ShellError::UnsupportedInput {
+            msg: "Only ints, floats, lists, records, or ranges are supported".into(),
+            input: "value originates from here".into(),
+            msg_span: name,
+            input_span: val
+                .span()
                 .expect("non-Empty non-ListStream PipelineData had no span"),
-        )),
+        }),
     }
 }

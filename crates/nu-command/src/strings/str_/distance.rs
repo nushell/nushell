@@ -3,7 +3,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    levenshtein_distance, Category, Example, PipelineData, Record, ShellError, Signature, Span,
+    levenshtein_distance, record, Category, Example, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -36,12 +36,12 @@ impl Command for SubCommand {
             .required(
                 "compare-string",
                 SyntaxShape::String,
-                "the first string to compare",
+                "The first string to compare.",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .category(Category::Strings)
     }
@@ -80,25 +80,21 @@ impl Command for SubCommand {
         Example {
             description: "Compute edit distance between strings in table and another string, using cell paths",
             example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
-            result: Some(Value::list (
+            result: Some(Value::test_list (
                 vec![
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(4)],
-                    })
-                ],
-                 Span::test_data(),
-            )),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(4),
+                    })])),
         },
         Example {
             description: "Compute edit distance between strings in record and another string, using cell paths",
             example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
             result: Some(
-                    Value::test_record(Record {
-                        cols: vec!["a".to_string(), "b".to_string()],
-                        vals: vec![Value::test_int(1), Value::test_int(4)],
-                    })
-                ),
+                    Value::test_record(record! {
+                        "a" => Value::test_int(1),
+                        "b" => Value::test_int(4),
+                    })),
         }]
     }
 }

@@ -109,47 +109,50 @@ fn to_xml_entry<W: Write>(
         return to_xml_text(val.as_str(), span, writer);
     }
 
-    if !matches!(entry, Value::Record { .. }) {
-        return Err(ShellError::CantConvert {
+    if let Value::Record { val: record, .. } = &entry {
+        // If key is not found it is assumed to be nothing. This way
+        // user can write a tag like {tag: a content: [...]} instead
+        // of longer {tag: a attributes: {} content: [...]}
+        let tag = record
+            .get(COLUMN_TAG_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let attrs = record
+            .get(COLUMN_ATTRS_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+        let content = record
+            .get(COLUMN_CONTENT_NAME)
+            .cloned()
+            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+
+        let content_span = content.span();
+        let tag_span = tag.span();
+        match (tag, attrs, content) {
+            (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
+                // Strings can not appear on top level of document
+                if top_level {
+                    return Err(ShellError::CantConvert {
+                        to_type: "XML".into(),
+                        from_type: entry.get_type().to_string(),
+                        span: entry_span,
+                        help: Some("Strings can not be a root element of document".into()),
+                    });
+                }
+                to_xml_text(val.as_str(), content_span, writer)
+            }
+            (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
+                entry_span, tag_name, tag_span, attrs, children, top_level, writer,
+            ),
+            _ => Ok(()),
+        }
+    } else {
+        Err(ShellError::CantConvert {
             to_type: "XML".into(),
             from_type: entry.get_type().to_string(),
             span: entry_span,
             help: Some("Xml entry expected to be a record".into()),
-        });
-    };
-
-    // If key is not found it is assumed to be nothing. This way
-    // user can write a tag like {tag: a content: [...]} instead
-    // of longer {tag: a attributes: {} content: [...]}
-    let tag = entry
-        .get_data_by_key(COLUMN_TAG_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let attrs = entry
-        .get_data_by_key(COLUMN_ATTRS_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-    let content = entry
-        .get_data_by_key(COLUMN_CONTENT_NAME)
-        .unwrap_or_else(|| Value::nothing(Span::unknown()));
-
-    let content_span = content.span();
-    let tag_span = tag.span();
-    match (tag, attrs, content) {
-        (Value::Nothing { .. }, Value::Nothing { .. }, Value::String { val, .. }) => {
-            // Strings can not appear on top level of document
-            if top_level {
-                return Err(ShellError::CantConvert {
-                    to_type: "XML".into(),
-                    from_type: entry.get_type().to_string(),
-                    span: entry_span,
-                    help: Some("Strings can not be a root element of document".into()),
-                });
-            }
-            to_xml_text(val.as_str(), content_span, writer)
-        }
-        (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
-            entry_span, tag_name, tag_span, attrs, children, top_level, writer,
-        ),
-        _ => Ok(()),
+        })
     }
 }
 
@@ -387,7 +390,7 @@ fn to_xml(
         let s = if let Ok(s) = String::from_utf8(b) {
             s
         } else {
-            return Err(ShellError::NonUtf8(head));
+            return Err(ShellError::NonUtf8 { span: head });
         };
         Ok(Value::string(s, head).into_pipeline_data())
     })

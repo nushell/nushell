@@ -43,13 +43,13 @@ fn gather_env_vars(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::GenericError(
-                format!("Environment variable was not captured: {env_str}"),
-                "".to_string(),
-                None,
-                Some(msg.into()),
-                Vec::new(),
-            ),
+            &ShellError::GenericError {
+                error: format!("Environment variable was not captured: {env_str}"),
+                msg: "".into(),
+                span: None,
+                help: Some(msg.into()),
+                inner: vec![],
+            },
         );
     }
 
@@ -75,15 +75,15 @@ fn gather_env_vars(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::GenericError(
-                    "Current directory is not a valid utf-8 path".to_string(),
-                    "".to_string(),
-                    None,
-                    Some(format!(
+                &ShellError::GenericError {
+                    error: "Current directory is not a valid utf-8 path".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(format!(
                         "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
                     )),
-                    Vec::new(),
-                ),
+                    inner: vec![],
+                },
             );
         }
     }
@@ -111,7 +111,7 @@ fn gather_env_vars(
             let name = if let Some(Token {
                 contents: TokenContents::Item,
                 span,
-            }) = parts.get(0)
+            }) = parts.first()
             {
                 let mut working_set = StateWorkingSet::new(engine_state);
                 let bytes = working_set.get_span_contents(*span);

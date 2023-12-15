@@ -44,7 +44,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, convert data at the given cell paths",
+                "For a data structure input, convert data at the given cell paths.",
             )
             .category(Category::Conversions)
     }
@@ -187,12 +187,14 @@ pub fn action(input: &Value, _args: &Arguments, span: Span) -> Value {
             let val = if cfg!(target_endian = "little") {
                 match val.iter().rposition(|&x| x != 0) {
                     Some(idx) => &val[..idx + 1],
-                    None => &val,
+
+                    // all 0s should just return a single 0 byte
+                    None => &[0],
                 }
             } else {
                 match val.iter().position(|&x| x != 0) {
                     Some(idx) => &val[idx..],
-                    None => &val,
+                    None => &[0],
                 }
             };
 

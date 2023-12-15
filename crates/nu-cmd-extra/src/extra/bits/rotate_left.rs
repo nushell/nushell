@@ -63,12 +63,12 @@ impl Command for BitsRol {
         let bytes_len = get_number_bytes(number_bytes.as_ref());
         if let NumberBytes::Invalid = bytes_len {
             if let Some(val) = number_bytes {
-                return Err(ShellError::UnsupportedInput(
-                    "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
-                    "value originates from here".to_string(),
-                    head,
-                    val.span,
-                ));
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Only 1, 2, 4, 8, or 'auto' bytes are supported as word sizes".to_string(),
+                    input: "value originates from here".to_string(),
+                    msg_span: head,
+                    input_span: val.span,
+                });
             }
         }
         // This doesn't match explicit nulls
@@ -108,15 +108,15 @@ where
     match rotate_result {
         Ok(val) => Value::int(val, span),
         Err(_) => Value::error(
-            ShellError::GenericError(
-                "Rotate left result beyond the range of 64 bit signed number".to_string(),
-                format!(
+            ShellError::GenericError {
+                error: "Rotate left result beyond the range of 64 bit signed number".into(),
+                msg: format!(
                     "{val} of the specified number of bytes rotate left {bits} bits exceed limit"
                 ),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }

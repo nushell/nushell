@@ -19,7 +19,7 @@ impl Command for ExportEnv {
             .required(
                 "block",
                 SyntaxShape::Block,
-                "the block to run to set the environment",
+                "The block to run to set the environment.",
             )
             .category(Category::Env)
     }
@@ -37,7 +37,7 @@ impl Command for ExportEnv {
     ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, caller_stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
-        let mut callee_stack = caller_stack.captures_to_stack(&capture_block.captures);
+        let mut callee_stack = caller_stack.captures_to_stack(capture_block.captures);
 
         let _ = eval_block(
             engine_state,
