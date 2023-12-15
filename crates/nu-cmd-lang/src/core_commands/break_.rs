@@ -27,7 +27,7 @@ impl Command for Break {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::Break(call.head))
+        Err(ShellError::Break { span: call.head })
     }
 
     fn examples(&self) -> Vec<Example> {

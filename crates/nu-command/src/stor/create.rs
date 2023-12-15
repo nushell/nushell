@@ -31,11 +31,11 @@ impl Command for StorCreate {
                 Some('c'),
             )
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
-        "Create a table in the in-memory sqlite database"
+        "Create a table in the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {

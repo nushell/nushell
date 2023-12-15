@@ -37,11 +37,11 @@ impl Command for StorUpdate {
                 Some('w'),
             )
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
-        "Update information in a specified table in the in-memory sqlite database"
+        "Update information in a specified table in the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -110,3 +110,52 @@ fn no_search_term_duplicates() {
         failures.join("\n")
     );
 }
+
+#[test]
+fn usage_end_period() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let usage = cmd.usage();
+
+        if !usage.ends_with('.') {
+            failures.push(format!("{cmd_name}: \"{usage}\""));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command usage does not end with a period:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn usage_start_uppercase() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let usage = cmd.usage();
+
+        // Check lowercase to allow usage to contain removed syntax like:
+        //
+        // "`let-env FOO = ...` …"
+        if usage.starts_with(|u: char| u.is_lowercase()) {
+            failures.push(format!("{cmd_name}: \"{usage}\""));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command usage does not start with an uppercase letter:\n{}",
+        failures.join("\n")
+    );
+}

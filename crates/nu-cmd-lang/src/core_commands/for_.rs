@@ -113,10 +113,10 @@ impl Command for For {
                         redirect_stdout,
                         redirect_stderr,
                     ) {
-                        Err(ShellError::Break(_)) => {
+                        Err(ShellError::Break { .. }) => {
                             break;
                         }
-                        Err(ShellError::Continue(_)) => {
+                        Err(ShellError::Continue { .. }) => {
                             continue;
                         }
                         Err(err) => {
@@ -159,10 +159,10 @@ impl Command for For {
                         redirect_stdout,
                         redirect_stderr,
                     ) {
-                        Err(ShellError::Break(_)) => {
+                        Err(ShellError::Break { .. }) => {
                             break;
                         }
-                        Err(ShellError::Continue(_)) => {
+                        Err(ShellError::Continue { .. }) => {
                             continue;
                         }
                         Err(err) => {

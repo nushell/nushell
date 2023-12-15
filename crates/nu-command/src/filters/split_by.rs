@@ -23,7 +23,7 @@ impl Command for SplitBy {
     }
 
     fn usage(&self) -> &str {
-        "Split a record into groups"
+        "Split a record into groups."
     }
 
     fn run(

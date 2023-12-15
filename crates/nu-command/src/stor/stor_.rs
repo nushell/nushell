@@ -15,7 +15,7 @@ impl Command for Stor {
 
     fn signature(&self) -> Signature {
         Signature::build("stor")
-            .category(Category::Strings)
+            .category(Category::Database)
             .input_output_types(vec![(Type::Nothing, Type::String)])
     }
 

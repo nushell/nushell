@@ -16,7 +16,7 @@ impl Command for LazyFetch {
     }
 
     fn usage(&self) -> &str {
-        "collects the lazyframe to the selected rows."
+        "Collects the lazyframe to the selected rows."
     }
 
     fn signature(&self) -> Signature {

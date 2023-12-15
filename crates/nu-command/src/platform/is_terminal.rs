@@ -23,7 +23,7 @@ impl Command for IsTerminal {
     }
 
     fn usage(&self) -> &str {
-        "Check if stdin, stdout, or stderr is a terminal"
+        "Check if stdin, stdout, or stderr is a terminal."
     }
 
     fn examples(&self) -> Vec<Example> {
