@@ -39,35 +39,6 @@ impl NushellPrompt {
         }
     }
 
-    pub fn update_prompt_left(&mut self, prompt_string: Option<String>) {
-        self.left_prompt_string = prompt_string;
-    }
-
-    pub fn update_prompt_right(
-        &mut self,
-        prompt_string: Option<String>,
-        render_right_prompt_on_last_line: bool,
-    ) {
-        self.right_prompt_string = prompt_string;
-        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
-    }
-
-    pub fn update_prompt_indicator(&mut self, prompt_indicator_string: Option<String>) {
-        self.default_prompt_indicator = prompt_indicator_string;
-    }
-
-    pub fn update_prompt_vi_insert(&mut self, prompt_vi_insert_string: Option<String>) {
-        self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
-    }
-
-    pub fn update_prompt_vi_normal(&mut self, prompt_vi_normal_string: Option<String>) {
-        self.default_vi_normal_prompt_indicator = prompt_vi_normal_string;
-    }
-
-    pub fn update_prompt_multiline(&mut self, prompt_multiline_indicator_string: Option<String>) {
-        self.default_multiline_indicator = prompt_multiline_indicator_string;
-    }
-
     pub fn update_all_prompt_strings(
         &mut self,
         left_prompt_string: Option<String>,
@@ -86,6 +57,32 @@ impl NushellPrompt {
 
         self.default_vi_insert_prompt_indicator = prompt_vi_insert_string;
         self.default_vi_normal_prompt_indicator = prompt_vi_normal_string;
+
+        self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
+    }
+
+    pub fn overlay_all_prompt_strings(
+        &mut self,
+        left_prompt_string: Option<String>,
+        right_prompt_string: Option<String>,
+        prompt_indicator_string: Option<String>,
+        prompt_multiline_indicator_string: Option<String>,
+        prompt_vi: (Option<String>, Option<String>),
+        render_right_prompt_on_last_line: bool,
+    ) {
+        let (prompt_vi_insert_string, prompt_vi_normal_string) = prompt_vi;
+
+        self.left_prompt_string = left_prompt_string.or(self.left_prompt_string.take());
+        self.right_prompt_string = right_prompt_string.or(self.right_prompt_string.take());
+        self.default_prompt_indicator =
+            prompt_indicator_string.or(self.default_prompt_indicator.take());
+        self.default_multiline_indicator =
+            prompt_multiline_indicator_string.or(self.default_multiline_indicator.take());
+
+        self.default_vi_insert_prompt_indicator =
+            prompt_vi_insert_string.or(self.default_vi_insert_prompt_indicator.take());
+        self.default_vi_normal_prompt_indicator =
+            prompt_vi_normal_string.or(self.default_vi_normal_prompt_indicator.take());
 
         self.render_right_prompt_on_last_line = render_right_prompt_on_last_line;
     }
