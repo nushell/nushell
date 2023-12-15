@@ -39,7 +39,7 @@ impl Command for Input {
                 (Type::Nothing, Type::Binary),
             ])
             .allow_variants_without_examples(true)
-            .optional("prompt", SyntaxShape::String, "prompt to show the user")
+            .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
                 "bytes-until-any",
                 SyntaxShape::String,

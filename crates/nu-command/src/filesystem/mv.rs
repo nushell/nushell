@@ -33,12 +33,12 @@ impl Command for Mv {
             .required(
                 "source",
                 SyntaxShape::GlobPattern,
-                "the location to move files/directories from",
+                "The location to move files/directories from.",
             )
             .required(
                 "destination",
                 SyntaxShape::Filepath,
-                "the location to move files/directories to",
+                "The location to move files/directories to.",
             )
             .switch(
                 "verbose",

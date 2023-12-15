@@ -17,7 +17,6 @@ use nu_protocol::{
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
@@ -2011,7 +2010,7 @@ pub fn parse_module_file_or_dir(
         };
 
     if module_path.is_dir() {
-        let Some(dir_contents) = module_path.read_dir() else {
+        if module_path.read_dir().is_none() {
             working_set.error(ParseError::ModuleNotFound(path_span));
             return None;
         };
@@ -2033,54 +2032,13 @@ pub fn parse_module_file_or_dir(
             return None;
         }
 
-        let mut paths = vec![];
-
-        for entry_path in dir_contents {
-            if (entry_path.is_file()
-                && entry_path.extension() == Some(OsStr::new("nu"))
-                && entry_path.file_stem() != Some(OsStr::new("mod")))
-                || (entry_path.is_dir() && entry_path.clone().join("mod.nu").exists())
-            {
-                if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
-                    working_set.error(ParseError::InvalidModuleFileName(
-                        module_path.path().to_string_lossy().to_string(),
-                        module_name,
-                        path_span,
-                    ));
-                    return None;
-                }
-
-                paths.push(entry_path);
-            }
-        }
-
-        paths.sort();
-
-        let mut submodules = vec![];
-
-        for p in paths {
-            if let Some(submodule_id) = parse_module_file_or_dir(
-                working_set,
-                p.path().to_string_lossy().as_bytes(),
-                path_span,
-                None,
-            ) {
-                let submodule_name = working_set.get_module(submodule_id).name();
-                submodules.push((submodule_name, submodule_id));
-            }
-        }
-
         if let Some(module_id) = parse_module_file(
             working_set,
             mod_nu_path,
             path_span,
             name_override.or(Some(module_name)),
         ) {
-            let mut module = working_set.get_module(module_id).clone();
-
-            for (submodule_name, submodule_id) in submodules {
-                module.add_submodule(submodule_name, submodule_id);
-            }
+            let module = working_set.get_module(module_id).clone();
 
             let module_name = String::from_utf8_lossy(&module.name).to_string();
 

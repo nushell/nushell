@@ -28,7 +28,7 @@ impl Command for Help {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command, alias or module to get help on",
+                "The name of command, alias or module to get help on.",
             )
             .named(
                 "find",

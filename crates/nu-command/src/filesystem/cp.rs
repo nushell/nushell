@@ -39,8 +39,8 @@ impl Command for Cp {
     fn signature(&self) -> Signature {
         Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
-            .required("destination", SyntaxShape::Filepath, "the place to copy to")
+            .required("source", SyntaxShape::GlobPattern, "The place to copy from.")
+            .required("destination", SyntaxShape::Filepath, "The place to copy to.")
             .switch(
                 "recursive",
                 "copy recursively through subdirectories",

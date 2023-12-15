@@ -22,7 +22,7 @@ impl Command for Items {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

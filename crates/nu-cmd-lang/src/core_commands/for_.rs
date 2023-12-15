@@ -25,14 +25,14 @@ impl Command for For {
             .required(
                 "var_name",
                 SyntaxShape::VarWithOptType,
-                "name of the looping variable",
+                "Name of the looping variable.",
             )
             .required(
                 "range",
                 SyntaxShape::Keyword(b"in".to_vec(), Box::new(SyntaxShape::Any)),
-                "range of the loop",
+                "Range of the loop.",
             )
-            .required("block", SyntaxShape::Block, "the block to run")
+            .required("block", SyntaxShape::Block, "The block to run.")
             .switch(
                 "numbered",
                 "return a numbered item ($it.index and $it.item)",

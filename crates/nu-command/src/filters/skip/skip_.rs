@@ -25,7 +25,7 @@ impl Command for Skip {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .optional("n", SyntaxShape::Int, "the number of elements to skip")
+            .optional("n", SyntaxShape::Int, "The number of elements to skip.")
             .category(Category::Filters)
     }
 

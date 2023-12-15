@@ -44,7 +44,7 @@ impl Command for Rm {
             .required(
                 "filename",
                 SyntaxShape::GlobPattern,
-                "the file or files you want to remove",
+                "The file or files you want to remove.",
             )
             .switch(
                 "trash",
@@ -68,7 +68,7 @@ impl Command for Rm {
             .rest(
                 "rest",
                 SyntaxShape::GlobPattern,
-                "additional file path(s) to remove",
+                "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
     }

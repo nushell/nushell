@@ -38,11 +38,11 @@ impl Command for RegistryQuery {
                 "do not expand %ENV% placeholders in REG_EXPAND_SZ",
                 Some('u'),
             )
-            .required("key", SyntaxShape::String, "registry key to query")
+            .required("key", SyntaxShape::String, "Registry key to query.")
             .optional(
                 "value",
                 SyntaxShape::String,
-                "optionally supply a registry value to query",
+                "Optionally supply a registry value to query.",
             )
             .category(Category::System)
     }

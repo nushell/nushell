@@ -64,7 +64,7 @@ impl Command for Find {
                 Some('c'),
             )
             .switch("invert", "invert the match", Some('v'))
-            .rest("rest", SyntaxShape::Any, "terms to search")
+            .rest("rest", SyntaxShape::Any, "Terms to search.")
             .category(Category::Filters)
     }
 

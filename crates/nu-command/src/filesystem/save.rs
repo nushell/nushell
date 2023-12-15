@@ -42,7 +42,7 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
-            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .required("filename", SyntaxShape::Filepath, "The filename to use.")
             .named(
                 "stderr",
                 SyntaxShape::Filepath,
