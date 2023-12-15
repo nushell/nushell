@@ -533,6 +533,21 @@ impl Command for ULimit {
                 example: "ulimit --core-size 102400",
                 result: None,
             },
+            Example {
+                description: "Set stack size soft limit",
+                example: "ulimit -s -S 10240",
+                result: None,
+            },
+            Example {
+                description: "Set virtual memory size hard limit",
+                example: "ulimit -v -H 10240",
+                result: None,
+            },
+            Example {
+                description: "Set core size limit to unlimited",
+                example: "ulimit -c unlimited",
+                result: None,
+            },
         ]
     }
 
