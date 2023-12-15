@@ -1246,13 +1246,10 @@ mod tests {
             Field::new(field_name_1, DataType::Boolean),
         ];
         let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
-        let comparison_owned_record = Value::record(
-            Record {
-                cols: vec![field_name_0.to_owned(), field_name_1.to_owned()],
-                vals: vec![Value::int(1, span), Value::bool(true, span)],
-            },
-            span,
-        );
+        let comparison_owned_record = Value::record(record!(
+            field_name_0 => Value::int(1, span),
+            field_name_1 => Value::bool(true, span),
+        ));
         assert_eq!(
             any_value_to_value(&test_owned_struct, span)?,
             comparison_owned_record.clone()
