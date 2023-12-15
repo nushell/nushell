@@ -267,7 +267,11 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config);
+            .with_cursor_config(cursor_config)
+            .with_transient_prompt(prompt_update::transient_prompt(
+                engine_reference.clone(),
+                stack,
+            ));
         perf(
             "reedline builder",
             start_time,
@@ -419,11 +423,8 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        // Now we compute the prompt after running the hooks
         let config = &engine_state.get_config().clone();
-        prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
-        let transient_prompt =
-            prompt_update::make_transient_prompt(config, engine_state, stack, &nu_prompt);
+        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
         perf(
             "update_prompt",
             start_time,
@@ -436,8 +437,7 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        line_editor = line_editor.with_transient_prompt(transient_prompt);
-        let input = line_editor.read_line(&nu_prompt);
+        let input = line_editor.read_line(prompt);
         let shell_integration = config.shell_integration;
 
         match input {
