@@ -25,7 +25,7 @@ impl Command for Ast {
             .required(
                 "pipeline",
                 SyntaxShape::String,
-                "the pipeline to print the ast for",
+                "The pipeline to print the ast for.",
             )
             .switch("json", "serialize to json", Some('j'))
             .switch("minify", "minify the nuon or json output", Some('m'))

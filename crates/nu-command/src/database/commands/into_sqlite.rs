@@ -25,7 +25,7 @@ impl Command for IntoSqliteDb {
             .required(
                 "file_name",
                 SyntaxShape::String,
-                "Specify the filename to save the database to",
+                "Specify the filename to save the database to.",
             )
             .named(
                 "table_name",

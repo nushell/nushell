@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::Any,
-                "the value that denotes what separates the list",
+                "The value that denotes what separates the list.",
             )
             .switch(
                 "regex", 

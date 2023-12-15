@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "a character or regex that denotes what separates rows",
+                "A character or regex that denotes what separates rows.",
             )
             .named(
                 "number",

@@ -39,7 +39,7 @@ impl Command for GroupBy {
                     SyntaxShape::Closure(None),
                     SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 ]),
-                "the path to the column to group on",
+                "The path to the column to group on.",
             )
             .category(Category::Filters)
     }

@@ -59,7 +59,7 @@ impl Command for Transpose {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the names to give columns once transposed",
+                "The names to give columns once transposed.",
             )
             .category(Category::Filters)
     }

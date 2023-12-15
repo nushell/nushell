@@ -17,7 +17,7 @@ impl Command for Exit {
             .optional(
                 "exit_code",
                 SyntaxShape::Int,
-                "Exit code to return immediately with",
+                "Exit code to return immediately with.",
             )
             .category(Category::Shells)
     }

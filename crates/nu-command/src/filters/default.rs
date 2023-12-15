@@ -22,9 +22,13 @@ impl Command for Default {
             .required(
                 "default value",
                 SyntaxShape::Any,
-                "the value to use as a default",
+                "The value to use as a default.",
             )
-            .optional("column name", SyntaxShape::String, "the name of the column")
+            .optional(
+                "column name",
+                SyntaxShape::String,
+                "The name of the column.",
+            )
             .category(Category::Filters)
     }
 

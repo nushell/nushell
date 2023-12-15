@@ -24,7 +24,7 @@ impl Command for Group {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("group_size", SyntaxShape::Int, "the size of each group")
+            .required("group_size", SyntaxShape::Int, "The size of each group.")
             .category(Category::Filters)
     }
 

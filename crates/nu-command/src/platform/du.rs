@@ -38,7 +38,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
