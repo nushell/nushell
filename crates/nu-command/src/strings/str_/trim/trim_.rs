@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",
+                "For a data structure input, trim strings at the given cell paths.",
             )
             .named(
                 "char",

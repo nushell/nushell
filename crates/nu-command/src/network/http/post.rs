@@ -24,8 +24,8 @@ impl Command for SubCommand {
         Signature::build("http post")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("URL", SyntaxShape::String, "the URL to post to")
-            .required("data", SyntaxShape::Any, "the contents of the post body")
+            .required("URL", SyntaxShape::String, "The URL to post to.")
+            .required("data", SyntaxShape::Any, "The contents of the post body.")
             .named(
                 "user",
                 SyntaxShape::Any,

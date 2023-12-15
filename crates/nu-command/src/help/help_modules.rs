@@ -32,7 +32,7 @@ are also available in the current scope. Commands/aliases that were imported und
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of module to get help on",
+                "The name of module to get help on.",
             )
             .named(
                 "find",

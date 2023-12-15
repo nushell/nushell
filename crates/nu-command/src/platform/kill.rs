@@ -26,9 +26,9 @@ impl Command for Kill {
             .required(
                 "pid",
                 SyntaxShape::Int,
-                "process id of process that is to be killed",
+                "Process id of process that is to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "rest of processes to kill")
+            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);

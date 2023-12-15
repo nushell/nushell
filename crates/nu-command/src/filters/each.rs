@@ -46,7 +46,7 @@ with 'transpose' first."#
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the closure to run",
+                "The closure to run.",
             )
             .switch("keep-empty", "keep empty result cells", Some('k'))
             .allow_variants_without_examples(true)

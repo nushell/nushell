@@ -35,7 +35,7 @@ impl Command for Compact {
             .rest(
                 "columns",
                 SyntaxShape::Any,
-                "the columns to compact from the table",
+                "The columns to compact from the table.",
             )
             .category(Category::Filters)
     }

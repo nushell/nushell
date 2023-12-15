@@ -45,7 +45,7 @@ impl Command for EncodeBase64 {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, encode data at the given cell paths",
+                "For a data structure input, encode data at the given cell paths.",
             )
             .category(Category::Hash)
     }

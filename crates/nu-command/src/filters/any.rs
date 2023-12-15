@@ -23,7 +23,7 @@ impl Command for Any {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "a closure that must evaluate to a boolean",
+                "A closure that must evaluate to a boolean.",
             )
             .category(Category::Filters)
     }

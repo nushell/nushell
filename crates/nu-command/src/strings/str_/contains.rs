@@ -39,11 +39,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .required("string", SyntaxShape::String, "the substring to find")
+            .required("string", SyntaxShape::String, "The substring to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .switch("not", "does not contain", Some('n'))

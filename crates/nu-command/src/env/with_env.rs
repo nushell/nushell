@@ -21,12 +21,12 @@ impl Command for WithEnv {
             .required(
                 "variable",
                 SyntaxShape::Any,
-                "the environment variable to temporarily set",
+                "The environment variable to temporarily set.",
             )
             .required(
                 "block",
                 SyntaxShape::Closure(None),
-                "the block to run once the variable is set",
+                "The block to run once the variable is set.",
             )
             .category(Category::Env)
     }

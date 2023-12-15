@@ -32,7 +32,7 @@ impl Command for FormatDate {
             .optional(
                 "format string",
                 SyntaxShape::String,
-                "the desired format date",
+                "The desired format date.",
             )
             .category(Category::Date)
     }
