@@ -29,7 +29,7 @@ use std::{
     env::temp_dir,
     io::{self, IsTerminal, Write},
     path::Path,
-    sync::atomic::Ordering,
+    sync::{atomic::Ordering, Arc, RwLock},
     time::Instant,
 };
 use sysinfo::SystemExt;
@@ -68,7 +68,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let mut nu_prompt = NushellPrompt::new();
+    let nu_prompt = Arc::new(RwLock::new(NushellPrompt::new()));
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -269,6 +269,7 @@ pub fn evaluate_repl(
             .with_ansi_colors(config.use_ansi_coloring)
             .with_cursor_config(cursor_config)
             .with_transient_prompt(prompt_update::transient_prompt(
+                Arc::clone(&nu_prompt),
                 engine_reference.clone(),
                 stack,
             ));
@@ -424,7 +425,7 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         let config = &engine_state.get_config().clone();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        prompt_update::update_prompt(config, engine_state, stack, Arc::clone(&nu_prompt));
         perf(
             "update_prompt",
             start_time,
@@ -437,7 +438,14 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        let input = line_editor.read_line(prompt);
+        let input = {
+            line_editor.read_line(
+                &nu_prompt
+                    .read()
+                    .expect("Could not lock on prompt to pass to read_line")
+                    .to_owned(),
+            )
+        };
         let shell_integration = config.shell_integration;
 
         match input {
