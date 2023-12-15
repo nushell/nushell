@@ -147,26 +147,26 @@ pub(crate) fn update_prompt(
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
 }
 
-/// Construct the transient prompt
+/// Construct the transient prompt based on the normal nu_prompt
 pub(crate) fn make_transient_prompt(
-    nu_prompt: &NushellPrompt,
+    config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
+    nu_prompt: &NushellPrompt,
 ) -> Box<dyn Prompt> {
-    let mut prompt = nu_prompt.clone();
-    let config = engine_state.get_config();
+    let mut nu_prompt = nu_prompt.clone();
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
-        prompt.update_prompt_left(Some(s))
+        nu_prompt.update_prompt_left(Some(s))
     }
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
     {
-        prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
+        nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
     }
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
-        prompt.update_prompt_indicator(Some(s))
+        nu_prompt.update_prompt_indicator(Some(s))
     }
     if let Some(s) = get_prompt_string(
         TRANSIENT_PROMPT_INDICATOR_VI_INSERT,
@@ -174,7 +174,7 @@ pub(crate) fn make_transient_prompt(
         engine_state,
         stack,
     ) {
-        prompt.update_prompt_vi_insert(Some(s))
+        nu_prompt.update_prompt_vi_insert(Some(s))
     }
     if let Some(s) = get_prompt_string(
         TRANSIENT_PROMPT_INDICATOR_VI_NORMAL,
@@ -182,7 +182,7 @@ pub(crate) fn make_transient_prompt(
         engine_state,
         stack,
     ) {
-        prompt.update_prompt_vi_normal(Some(s))
+        nu_prompt.update_prompt_vi_normal(Some(s))
     }
 
     if let Some(s) = get_prompt_string(
@@ -191,8 +191,8 @@ pub(crate) fn make_transient_prompt(
         engine_state,
         stack,
     ) {
-        prompt.update_prompt_multiline(Some(s))
+        nu_prompt.update_prompt_multiline(Some(s))
     }
 
-    Box::new(prompt)
+    Box::new(nu_prompt)
 }

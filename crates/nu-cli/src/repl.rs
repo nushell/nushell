@@ -421,6 +421,8 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
         let config = &engine_state.get_config().clone();
         prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        let transient_prompt =
+            prompt_update::make_transient_prompt(config, engine_state, stack, &nu_prompt);
         perf(
             "update_prompt",
             start_time,
@@ -433,13 +435,8 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        let input =
-            {
-                line_editor = line_editor.with_transient_prompt(
-                    prompt_update::make_transient_prompt(&nu_prompt, engine_state, stack),
-                );
-                line_editor.read_line(&nu_prompt)
-            };
+        line_editor = line_editor.with_transient_prompt(transient_prompt);
+        let input = line_editor.read_line(&nu_prompt);
         let shell_integration = config.shell_integration;
 
         match input {
