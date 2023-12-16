@@ -149,19 +149,19 @@ fn limit_set_invalid5() {
             cwd: dirs.test(), pipeline(
                 format!(
                 "
-                    let hard = (ulimit -c | first | get hard)
-                    match hard {
-                        \"unlimited\" => {
+                    let hard = (ulimit -c | first | get hard);
+                    match $hard {{
+                        \"unlimited\" => {{
                             ulimit -c -S 0;
                             ulimit -c {max};
                             ulimit -c
                             | first
                             | get soft
-                        },
-                        _ => {
+                        }},
+                        _ => {{
                             echo \"unlimited\"
-                        }
-                    }
+                        }}
+                    }}
                 ").as_str()
         ));
 
