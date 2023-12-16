@@ -77,7 +77,11 @@ fn main() -> Result<()> {
 
     let ctrlc = Arc::new(AtomicBool::new(false));
     // TODO: make this conditional in the future
-    ctrlc_protection(&mut engine_state, &ctrlc);
+    // This block sets up Ctrl-C signal handling to safely handle user interrupts.
+    // Consider making this configurable in future versions.
+    if cfg!(feature = "ctrlc-protection") {
+        ctrlc_protection(&mut engine_state, &ctrlc);
+    }
     sigquit_protection(&mut engine_state);
 
     // Begin: Default NU_LIB_DIRS, NU_PLUGIN_DIRS
