@@ -146,6 +146,9 @@ fn dotnu_completions() {
 
     assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
     assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 
     // Test use completion
@@ -154,6 +157,9 @@ fn dotnu_completions() {
 
     assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
     assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 
     // Test overlay use completion
@@ -162,6 +168,9 @@ fn dotnu_completions() {
 
     assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    #[cfg(windows)]
+    assert_eq!("directory_completion\\", suggestions.get(1).unwrap().value);
+    #[cfg(not(windows))]
     assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 }
 
