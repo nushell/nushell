@@ -139,12 +139,14 @@ fn limit_set_invalid4() {
 
 #[test]
 fn limit_set_invalid5() {
+    use nix::sys::resource::rlim_t;
+
+    let max = (rlim_t::MAX / 1024) + 1;
+
     Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
         let actual = nu!(
             cwd: dirs.test(),
-            "
-                ulimit -c 20000000000000000
-            "
+            format!("ulimit -c {max}")
         );
 
         assert!(actual.err.contains("Multiple overflow"));
