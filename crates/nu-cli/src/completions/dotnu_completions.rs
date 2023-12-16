@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::{
-    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR, Path},
+    path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
     sync::Arc,
 };
 
