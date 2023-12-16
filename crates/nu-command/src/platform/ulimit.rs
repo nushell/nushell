@@ -338,14 +338,7 @@ fn set_limits(
     call_span: Span,
 ) -> Result<(), ShellError> {
     let (mut soft_limit, mut hard_limit) = getrlimit(res.resource)?;
-    let new_limit = parse_limit(
-        limit_value,
-        res.multiplier,
-        soft,
-        soft_limit,
-        hard_limit,
-        call_span,
-    )?;
+    let new_limit = parse_limit(limit_value, res, soft, soft_limit, hard_limit, call_span)?;
 
     if hard {
         hard_limit = new_limit;
@@ -427,7 +420,7 @@ fn getrlimit(res: Resource) -> Result<(rlim_t, rlim_t), ShellError> {
 /// Parse user input
 fn parse_limit(
     limit_value: &Value,
-    multiplier: rlim_t,
+    res: &ResourceInfo,
     soft: bool,
     soft_limit: rlim_t,
     hard_limit: rlim_t,
@@ -442,12 +435,30 @@ fn parse_limit(
                 help: Some(e.to_string()),
             })?;
 
-            let (limit, overflow) = value.overflowing_mul(multiplier);
+            let (limit, overflow) = value.overflowing_mul(res.multiplier);
             if overflow {
                 Ok(RLIM_INFINITY)
             } else {
                 Ok(limit)
             }
+        }
+        Value::Filesize { val, internal_span } => {
+            if res.multiplier != 1024 {
+                return Err(ShellError::TypeMismatch {
+                    err_message: format!(
+                        "filesize is not compatible with resource {:?}",
+                        res.resource
+                    ),
+                    span: *internal_span,
+                });
+            }
+
+            rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
+                to_type: "rlim_t".into(),
+                from_type: "i64".into(),
+                span: *internal_span,
+                help: Some(e.to_string()),
+            })
         }
         Value::String { val, internal_span } => {
             if val == "unlimited" {
@@ -470,7 +481,7 @@ fn parse_limit(
         }
         _ => Err(ShellError::TypeMismatch {
             err_message: format!(
-                "string or int required, you provide {}",
+                "string, int or filesize required, you provide {}",
                 limit_value.get_type()
             ),
             span: limit_value.span(),
