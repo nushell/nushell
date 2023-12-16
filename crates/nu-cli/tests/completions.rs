@@ -153,6 +153,13 @@ fn dotnu_completions() {
 
     assert_eq!(1, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+
+    // Test overlay use completion
+    let completion_str = "overlay use ".to_string();
+    let suggestions = completer.complete(&completion_str, completion_str.len());
+
+    assert_eq!(1, suggestions.len());
+    assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
 }
 
 #[test]
