@@ -91,7 +91,7 @@ fn variables_dollar_sign_with_varialblecompletion() {
     let target_dir = "$ ";
     let suggestions = completer.complete(target_dir, target_dir.len());
 
-    assert_eq!(7, suggestions.len());
+    assert_eq!(8, suggestions.len());
 }
 
 #[rstest]
@@ -218,6 +218,7 @@ fn file_completions() {
     let expected_paths: Vec<String> = vec![
         folder(dir.join("another")),
         file(dir.join("custom_completion.nu")),
+        folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
@@ -333,6 +334,7 @@ fn command_ls_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -343,6 +345,7 @@ fn command_ls_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -365,6 +368,7 @@ fn command_open_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -375,6 +379,7 @@ fn command_open_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -398,6 +403,7 @@ fn command_rm_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -408,6 +414,7 @@ fn command_rm_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -431,6 +438,7 @@ fn command_cp_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -441,6 +449,7 @@ fn command_cp_with_globcompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -464,6 +473,7 @@ fn command_save_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -474,6 +484,7 @@ fn command_save_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -497,6 +508,7 @@ fn command_touch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -507,6 +519,7 @@ fn command_touch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -530,6 +543,7 @@ fn command_watch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -540,6 +554,7 @@ fn command_watch_with_filecompletion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -635,6 +650,7 @@ fn folder_with_directorycompletions() {
     // Create the expected values
     let expected_paths: Vec<String> = vec![
         folder(dir.join("another")),
+        folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
@@ -849,6 +865,7 @@ fn unknown_command_completion() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -859,6 +876,7 @@ fn unknown_command_completion() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
@@ -909,6 +927,7 @@ fn filecompletions_triggers_after_cursor() {
     let expected_paths: Vec<String> = vec![
         "another\\".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion\\".to_string(),
         "nushell".to_string(),
         "test_a\\".to_string(),
         "test_b\\".to_string(),
@@ -919,6 +938,7 @@ fn filecompletions_triggers_after_cursor() {
     let expected_paths: Vec<String> = vec![
         "another/".to_string(),
         "custom_completion.nu".to_string(),
+        "directory_completion/".to_string(),
         "nushell".to_string(),
         "test_a/".to_string(),
         "test_b/".to_string(),
