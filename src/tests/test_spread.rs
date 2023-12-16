@@ -124,6 +124,20 @@ fn spread_internal_args() -> TestResult {
         f 1 2 3 ...[5 6]"#,
         "[1, 2, 3, null, [5, 6]]",
     )
+    .unwrap();
+    run_test(
+        r#"
+        def f [--flag: int ...x] { [$flag $x] | to nuon }
+        f 2 ...[foo] 4 --flag 5 6 ...[7 8]"#,
+        "[5, [2, foo, 4, 6, 7, 8]]",
+    )
+    .unwrap();
+    run_test(
+        r#"
+        def f [a b? --flag: int ...x] { [$a $b $flag $x] | to nuon }
+        f 1 ...[foo] 4 --flag 5 6 ...[7 8]"#,
+        "[1, null, 5, [foo, 4, 6, 7, 8]]",
+    )
 }
 
 #[test]
