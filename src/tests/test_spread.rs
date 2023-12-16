@@ -99,7 +99,12 @@ fn spread_type_record() -> TestResult {
 
 #[test]
 fn spread_external_args() -> TestResult {
-    run_test(r#"^echo ...[1 "foo"] 2 ...[3 "bar"]"#, "1 foo 2 3 bar").unwrap();
+    run_test(
+        r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#,
+        "1 foo 2 3 bar",
+    )
+    .unwrap();
+    // exec doesn't have rest parameters but allows unknown arguments
     run_test(r#"exec echo "foo" ...[5 6]"#, "foo 5 6")
 }
 
@@ -131,8 +136,9 @@ fn bad_spread_internal_args() -> TestResult {
     )
     .unwrap();
     fail_test(
-        r#"def f [a b?] { echo a b c d }
-                 f ...[5 6]"#,
+        r#"
+        def f [a b?] { echo a b c d }
+        f ...[5 6]"#,
         "unexpected spread argument",
     )
 }
@@ -140,7 +146,7 @@ fn bad_spread_internal_args() -> TestResult {
 #[test]
 fn spread_non_list_args() -> TestResult {
     fail_test(r#"echo ...(1)"#, "cannot spread value").unwrap();
-    fail_test(r#"^echo ...(1)"#, "cannot spread value")
+    fail_test(r#"nu --testbin cococo ...(1)"#, "cannot spread value")
 }
 
 #[test]
