@@ -7,9 +7,9 @@ fn limit_set_soft1() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                let soft = (ulimit -s | first | get soft | into string);
+                let soft = (ulimit -s | first | get soft);
                 ulimit -s -H $soft;
-                let hard = (ulimit -s | first | get hard | into string);
+                let hard = (ulimit -s | first | get hard);
                 $soft == $hard
             "
         ));
@@ -24,9 +24,9 @@ fn limit_set_soft2() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                let soft = (ulimit -s | first | get soft | into string);
+                let soft = (ulimit -s | first | get soft);
                 ulimit -s -H soft;
-                let hard = (ulimit -s | first | get hard | into string);
+                let hard = (ulimit -s | first | get hard);
                 $soft == $hard
             "
         ));
@@ -41,9 +41,9 @@ fn limit_set_hard1() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                let hard = (ulimit -s | first | get hard | into string);
+                let hard = (ulimit -s | first | get hard);
                 ulimit -s $hard;
-                let soft = (ulimit -s | first | get soft | into string);
+                let soft = (ulimit -s | first | get soft);
                 $soft == $hard
            "
         ));
@@ -58,9 +58,9 @@ fn limit_set_hard2() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             "
-                let hard = (ulimit -s | first | get hard | into string);
+                let hard = (ulimit -s | first | get hard);
                 ulimit -s hard;
-                let soft = (ulimit -s | first | get soft | into string);
+                let soft = (ulimit -s | first | get soft);
                 $soft == $hard
             "
         ));
@@ -79,7 +79,7 @@ fn limit_set_invalid1() {
             match $hard {
                 \"unlimited\" => { echo \"unlimited\" },
                 $x => {
-                    let new = ($x + 1 | into string);
+                    let new = $x + 1;
                     ulimit -s $new
                 }
             }
@@ -99,10 +99,54 @@ fn limit_set_invalid2() {
         let actual = nu!(
             cwd: dirs.test(),
             "
+                let val = -100;
+                ulimit -c $val
+            "
+        );
+
+        assert!(actual.err.contains("can't convert i64 to rlim_t"));
+    });
+}
+
+#[test]
+fn limit_set_invalid3() {
+    Playground::setup("limit_set_invalid3", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "
                 ulimit -c abcd
             "
         );
 
-        assert!(actual.err.contains("Can't convert to rlim_t."));
+        assert!(actual
+            .err
+            .contains("Only unlimited, soft and hard are supported for strings"));
+    });
+}
+#[test]
+fn limit_set_invalid4() {
+    Playground::setup("limit_set_invalid4", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "
+                ulimit -c 100.0
+            "
+        );
+
+        assert!(actual.err.contains("string or int required"));
+    });
+}
+
+#[test]
+fn limit_set_invalid5() {
+    Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "
+                ulimit -c 20000000000000000
+            "
+        );
+
+        assert!(actual.err.contains("Multiple overflow"));
     });
 }

@@ -4,7 +4,7 @@ use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 
@@ -331,13 +331,21 @@ fn fill_record(
 
 /// Set limits
 fn set_limits(
-    spanned_limit: &Spanned<String>,
+    limit_value: &Value,
     res: &ResourceInfo,
     soft: bool,
     hard: bool,
+    call_span: Span,
 ) -> Result<(), ShellError> {
     let (mut soft_limit, mut hard_limit) = getrlimit(res.resource)?;
-    let new_limit = parse_limit(spanned_limit, res.multiplier, soft, soft_limit, hard_limit)?;
+    let new_limit = parse_limit(
+        limit_value,
+        res.multiplier,
+        soft,
+        soft_limit,
+        hard_limit,
+        call_span,
+    )?;
 
     if hard {
         hard_limit = new_limit;
@@ -418,45 +426,59 @@ fn getrlimit(res: Resource) -> Result<(rlim_t, rlim_t), ShellError> {
 
 /// Parse user input
 fn parse_limit(
-    spanned_limit: &Spanned<String>,
+    limit_value: &Value,
     multiplier: rlim_t,
     soft: bool,
     soft_limit: rlim_t,
     hard_limit: rlim_t,
+    call_span: Span,
 ) -> Result<rlim_t, ShellError> {
-    let limit = &spanned_limit.item;
-    let span = spanned_limit.span;
-
-    if limit.eq("unlimited") {
-        Ok(RLIM_INFINITY)
-    } else if limit.eq("soft") {
-        if soft {
-            Ok(hard_limit)
-        } else {
-            Ok(soft_limit)
-        }
-    } else if limit.eq("hard") {
-        Ok(hard_limit)
-    } else {
-        let v = limit
-            .parse::<rlim_t>()
-            .map_err(|e| ShellError::CantConvert {
+    match limit_value {
+        Value::Int { val, internal_span } => {
+            let value = rlim_t::try_from(*val).map_err(|e| ShellError::CantConvert {
                 to_type: "rlim_t".into(),
-                from_type: "String".into(),
-                span,
+                from_type: "i64".into(),
+                span: *internal_span,
                 help: Some(e.to_string()),
             })?;
 
-        let (value, overflow) = v.overflowing_mul(multiplier);
-        if overflow {
-            return Err(ShellError::OperatorOverflow {
-                msg: "Multiple overflow".into(),
-                span,
-                help: String::new(),
-            });
-        } else {
-            Ok(value)
+            let (limit, overflow) = value.overflowing_mul(multiplier);
+            if overflow {
+                return Err(ShellError::OperatorOverflow {
+                    msg: "Multiple overflow".into(),
+                    span: *internal_span,
+                    help: String::new(),
+                });
+            }
+
+            Ok(limit)
         }
+        Value::String { val, internal_span } => {
+            if val == "unlimited" {
+                Ok(RLIM_INFINITY)
+            } else if val == "soft" {
+                if soft {
+                    Ok(hard_limit)
+                } else {
+                    Ok(soft_limit)
+                }
+            } else if val == "hard" {
+                Ok(hard_limit)
+            } else {
+                return Err(ShellError::IncorrectValue {
+                    msg: "Only unlimited, soft and hard are supported for strings".into(),
+                    val_span: *internal_span,
+                    call_span,
+                });
+            }
+        }
+        _ => Err(ShellError::TypeMismatch {
+            err_message: format!(
+                "string or int required, you provide {}",
+                limit_value.get_type()
+            ),
+            span: limit_value.span(),
+        }),
     }
 }
 
@@ -481,7 +503,7 @@ impl Command for ULimit {
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))
-            .optional("limit", SyntaxShape::String, "Limit value.")
+            .optional("limit", SyntaxShape::Any, "Limit value.")
             .category(Category::Platform);
 
         for res in RESOURCE_ARRAY.iter() {
@@ -508,12 +530,12 @@ impl Command for ULimit {
             soft = true;
         }
 
-        if let Some(spanned_limit) = call.opt::<Spanned<String>>(engine_state, stack, 0)? {
+        if let Some(limit_value) = call.opt::<Value>(engine_state, stack, 0)? {
             let mut set_default_limit = true;
 
             for res in RESOURCE_ARRAY.iter() {
                 if call.has_flag(res.name) {
-                    set_limits(&spanned_limit, res, soft, hard)?;
+                    set_limits(&limit_value, res, soft, hard, call.head)?;
 
                     if set_default_limit {
                         set_default_limit = false;
@@ -524,7 +546,7 @@ impl Command for ULimit {
             // Set `RLIMIT_FSIZE` limit if no resource flag provided.
             if set_default_limit {
                 let res = ResourceInfo::default();
-                set_limits(&spanned_limit, &res, hard, soft)?;
+                set_limits(&limit_value, &res, hard, soft, call.head)?;
             }
 
             Ok(PipelineData::Empty)
