@@ -144,22 +144,25 @@ fn dotnu_completions() {
     let completion_str = "source-env ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(1, suggestions.len());
+    assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 
     // Test use completion
     let completion_str = "use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(1, suggestions.len());
+    assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 
     // Test overlay use completion
     let completion_str = "overlay use ".to_string();
     let suggestions = completer.complete(&completion_str, completion_str.len());
 
-    assert_eq!(1, suggestions.len());
+    assert_eq!(2, suggestions.len());
     assert_eq!("custom_completion.nu", suggestions.first().unwrap().value);
+    assert_eq!("directory_completion/", suggestions.get(1).unwrap().value);
 }
 
 #[test]
