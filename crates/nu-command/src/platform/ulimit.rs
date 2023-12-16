@@ -444,14 +444,10 @@ fn parse_limit(
 
             let (limit, overflow) = value.overflowing_mul(multiplier);
             if overflow {
-                return Err(ShellError::OperatorOverflow {
-                    msg: "Multiple overflow".into(),
-                    span: *internal_span,
-                    help: String::new(),
-                });
+                Ok(RLIM_INFINITY)
+            } else {
+                Ok(limit)
             }
-
-            Ok(limit)
         }
         Value::String { val, internal_span } => {
             if val == "unlimited" {

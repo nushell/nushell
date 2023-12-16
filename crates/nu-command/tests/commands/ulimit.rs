@@ -146,10 +146,25 @@ fn limit_set_invalid5() {
 
     Playground::setup("limit_set_invalid5", |dirs, _sandbox| {
         let actual = nu!(
-            cwd: dirs.test(),
-            format!("ulimit -c {max}")
-        );
+            cwd: dirs.test(), pipeline(
+                format!(
+                "
+                    let hard = (ulimit -c | first | get hard)
+                    match hard {
+                        \"unlimited\" => {
+                            ulimit -c -S 0;
+                            ulimit -c {max};
+                            ulimit -c
+                            | first
+                            | get soft
+                        },
+                        _ => {
+                            echo \"unlimited\"
+                        }
+                    }
+                ").as_str()
+        ));
 
-        assert!(actual.err.contains("Multiple overflow"));
+        assert!(actual.out.eq("unlimited"));
     });
 }
