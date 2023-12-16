@@ -100,11 +100,10 @@ fn spread_type_record() -> TestResult {
 
 #[test]
 fn spread_external_args() -> TestResult {
-    run_test(
-        r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#,
+    assert_eq!(
+        nu!(r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#).out,
         "1 foo 2 3 bar",
-    )
-    .unwrap();
+    );
     // exec doesn't have rest parameters but allows unknown arguments
     run_test(r#"exec echo "foo" ...[5 6]"#, "foo 5 6")
 }
