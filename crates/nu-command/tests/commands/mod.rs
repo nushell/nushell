@@ -7,6 +7,7 @@ mod break_;
 mod cal;
 mod cd;
 mod compact;
+mod complete;
 mod config_env_default;
 mod config_nu_default;
 mod continue_;
