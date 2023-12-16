@@ -134,7 +134,7 @@ fn limit_set_invalid4() {
             "
         );
 
-        assert!(actual.err.contains("string or int required"));
+        assert!(actual.err.contains("string, int or filesize required"));
     });
 }
 
@@ -166,5 +166,52 @@ fn limit_set_invalid5() {
         ));
 
         assert!(actual.out.eq("unlimited"));
+    });
+}
+
+#[test]
+fn limit_set_filesize1() {
+    Playground::setup("limit_set_filesize1", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                let hard = (ulimit -c | first | get hard);
+                match $hard {
+                    \"unlimited\" => {
+                        ulimit -c 1Mib;
+                        ulimit -c
+                        | first
+                        | get soft
+                    },
+                    $x if $x >= 1024 * 1024 => {
+                        ulimit -c 1Mib;
+                        ulimit -c
+                        | first
+                        | get soft
+                    }
+                    _ => {
+                        echo \"hard limit too small\"
+                    }
+                }
+            "
+        ));
+
+        assert!(actual.out.eq("1024") || actual.out.eq("hard limit too small"));
+    });
+}
+
+#[test]
+fn limit_set_filesize2() {
+    Playground::setup("limit_set_filesize2", |dirs, _sandbox| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "
+                ulimit -n 10Kib
+            "
+        );
+
+        assert!(actual
+            .err
+            .contains("filesize is not compatible with resource RLIMIT_NOFILE"));
     });
 }
