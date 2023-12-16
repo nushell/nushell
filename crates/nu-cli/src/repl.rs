@@ -54,7 +54,8 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -68,7 +69,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let nu_prompt = Arc::new(RwLock::new(NushellPrompt::new()));
+    let nu_prompt = Arc::new(RwLock::new(NushellPrompt::new(config.shell_integration)));
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
