@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::ast::{CellPath, MatchPattern, PathMember};
+use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
@@ -528,35 +528,6 @@ impl FromValue for Spanned<Closure> {
             Value::Closure { val, .. } => Ok(Spanned { item: val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for Spanned<MatchPattern> {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        let span = v.span();
-        match v {
-            Value::MatchPattern { val, .. } => Ok(Spanned { item: *val, span }),
-            v => Err(ShellError::CantConvert {
-                to_type: "Match pattern".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for MatchPattern {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::MatchPattern { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert {
-                to_type: "Match pattern".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,
