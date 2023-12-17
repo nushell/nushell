@@ -131,8 +131,7 @@ impl<'a> StyleComputer<'a> {
             Value::Closure { .. }
             | Value::CustomValue { .. }
             | Value::Error { .. }
-            | Value::LazyRecord { .. }
-            | Value::MatchPattern { .. } => TextStyle::basic_left(),
+            | Value::LazyRecord { .. } => TextStyle::basic_left(),
         }
     }
 

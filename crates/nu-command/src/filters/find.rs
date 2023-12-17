@@ -516,7 +516,6 @@ fn value_should_be_printed(
             Err(_) => false,
         },
         Value::Binary { .. } => false,
-        Value::MatchPattern { .. } => false,
     });
     if invert {
         match_found = !match_found;
