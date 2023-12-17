@@ -28,8 +28,8 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
-const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 
 fn get_prompt_string(
     prompt: &str,
@@ -160,19 +160,19 @@ struct TransientPrompt {
 }
 
 impl TransientPrompt {
-    fn new_prompt(&self) -> NushellPrompt {
+    fn new_prompt(&self, shell_integration: bool) -> NushellPrompt {
         if let Ok(prompt) = self.prompt_lock.read() {
             prompt.clone()
         } else {
-            NushellPrompt::new()
+            NushellPrompt::new(shell_integration)
         }
     }
 }
 
 impl Prompt for TransientPrompt {
     fn render_prompt_left(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
+        let config = self.engine_state.get_config();
+        let mut nu_prompt = self.new_prompt(config.shell_integration);
         let mut stack = self.stack.clone();
         if let Some(s) = get_prompt_string(
             TRANSIENT_PROMPT_COMMAND,
@@ -182,12 +182,17 @@ impl Prompt for TransientPrompt {
         ) {
             nu_prompt.update_prompt_left(Some(s))
         }
-        nu_prompt.render_prompt_left().to_string().into()
+        let left_prompt = nu_prompt.render_prompt_left();
+        if config.shell_integration {
+            format!("{PRE_PROMPT_MARKER}{left_prompt}{POST_PROMPT_MARKER}").into()
+        } else {
+            left_prompt.to_string().into()
+        }
     }
 
     fn render_prompt_right(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
+        let config = self.engine_state.get_config();
+        let mut nu_prompt = self.new_prompt(config.shell_integration);
         let mut stack = self.stack.clone();
         if let Some(s) = get_prompt_string(
             TRANSIENT_PROMPT_COMMAND_RIGHT,
@@ -201,8 +206,8 @@ impl Prompt for TransientPrompt {
     }
 
     fn render_prompt_indicator(&self, prompt_mode: reedline::PromptEditMode) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
+        let config = self.engine_state.get_config();
+        let mut nu_prompt = self.new_prompt(config.shell_integration);
         let mut stack = self.stack.clone();
         if let Some(s) = get_prompt_string(
             TRANSIENT_PROMPT_INDICATOR,
@@ -235,8 +240,8 @@ impl Prompt for TransientPrompt {
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<str> {
-        let mut nu_prompt = self.new_prompt();
-        let config = &self.engine_state.get_config().clone();
+        let config = self.engine_state.get_config();
+        let mut nu_prompt = self.new_prompt(config.shell_integration);
         let mut stack = self.stack.clone();
         if let Some(s) = get_prompt_string(
             TRANSIENT_PROMPT_MULTILINE_INDICATOR,
@@ -256,7 +261,7 @@ impl Prompt for TransientPrompt {
         &self,
         history_search: reedline::PromptHistorySearch,
     ) -> Cow<str> {
-        NushellPrompt::new()
+        NushellPrompt::new(self.engine_state.get_config().shell_integration)
             .render_prompt_history_search_indicator(history_search)
             .to_string()
             .into()
