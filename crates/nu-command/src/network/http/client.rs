@@ -512,16 +512,18 @@ pub fn request_handle_response_status(
         Ok(v) => v,
         Err(_) => return Ok(()),
     };
-    if let RedirectMode::Manual | RedirectMode::Follow = redirect_mode {
-        return Ok(());
+    match redirect_mode {
+        RedirectMode::Error => (),
+        _ => return Ok(()),
     }
-    if response.status() < 300 || response.status() >= 400 {
+    if !(300..400).contains(&response.status()) {
         return Ok(());
     }
     Err(ShellError::NetworkFailure {
         msg: format!(
-            "Redirect encountered when redirect mode was 'error' (Status {})",
-            response.status()
+            "Redirect encountered when redirect handling mode was 'error' ({} {})",
+            response.status(),
+            response.status_text()
         ),
         span,
     })
