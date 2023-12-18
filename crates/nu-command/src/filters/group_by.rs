@@ -291,15 +291,11 @@ fn group_closure(
         None => row.as_string(),
     });
 
-    let grouper = &Some(block);
+    let grouper = block;
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for (idx, value) in value_list.into_pipeline_data().into_iter().enumerate() {
-        let group_key = if let Some(ref grouper) = grouper {
-            grouper(idx, &value)
-        } else {
-            value.as_string()
-        };
+        let group_key = grouper(idx, &value);
 
         let group = groups.entry(group_key?).or_default();
         group.push(value);
