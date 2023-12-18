@@ -69,7 +69,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let mut nu_prompt = NushellPrompt::new();
+    let mut nu_prompt = NushellPrompt::new(config.shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
