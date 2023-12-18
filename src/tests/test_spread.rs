@@ -177,3 +177,15 @@ fn explain_spread_args() -> TestResult {
         r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
     )
 }
+
+#[test]
+fn disallow_implicit_spread_for_externals() {
+    // This one should fail at parse time
+    assert!(nu!(r#"nu --testbin cococo [1]"#)
+        .err
+        .contains("nu::parser::external_list_arg"));
+    // This one should fail at runtime
+    assert!(nu!(r#"nu --testbin cococo ([1])"#)
+        .err
+        .contains("nu::shell::external_list_arg"));
+}

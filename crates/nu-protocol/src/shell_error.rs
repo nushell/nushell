@@ -1300,6 +1300,18 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
         span: Span,
     },
+
+    /// Cannot directly pass list to external command
+    ///
+    /// ## Resolution
+    ///
+    /// Lists are no longer explicitly spread when passed to external commands. Use the spread operator instead.
+    #[error("Cannot directly pass list to external command")]
+    #[diagnostic(
+        code(nu::shell::external_list_arg),
+        help("Lists are no longer automatically spread when passed to external commands. Use the spread operator instead.")
+    )]
+    ExternalListArg(#[label = "cannot pass to an external"] Span),
 }
 
 // TODO: Implement as From trait

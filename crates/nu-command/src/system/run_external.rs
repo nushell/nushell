@@ -150,13 +150,20 @@ pub fn create_external_command(
                 _ => return Err(ShellError::CannotSpreadAsList { span: arg.span }),
             }
         } else {
-            spanned_args.push(value_as_spanned(val)?);
-            match arg.expr {
-                // refer to `parse_dollar_expr` function
-                // the expression type of $variable_name, $"($variable_name)"
-                // will be Expr::StringInterpolation, Expr::FullCellPath
-                Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
-                _ => arg_keep_raw.push(false),
+            match val {
+                Value::List { .. } => return Err(ShellError::ExternalListArg(arg.span)),
+                _ => {
+                    spanned_args.push(value_as_spanned(val)?);
+                    match arg.expr {
+                        // refer to `parse_dollar_expr` function
+                        // the expression type of $variable_name, $"($variable_name)"
+                        // will be Expr::StringInterpolation, Expr::FullCellPath
+                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
+                            arg_keep_raw.push(true)
+                        }
+                        _ => arg_keep_raw.push(false),
+                    }
+                }
             }
         }
     }
