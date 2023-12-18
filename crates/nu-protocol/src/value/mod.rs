@@ -7,7 +7,7 @@ mod record;
 mod stream;
 mod unit;
 
-use crate::ast::{Bits, Boolean, CellPath, Comparison, MatchPattern, PathMember};
+use crate::ast::{Bits, Boolean, CellPath, Comparison, PathMember};
 use crate::ast::{Math, Operator};
 use crate::engine::{Closure, EngineState};
 use crate::ShellError;
@@ -150,12 +150,6 @@ pub enum Value {
         // please use .span() instead of matching this span value
         internal_span: Span,
     },
-    MatchPattern {
-        val: Box<MatchPattern>,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        internal_span: Span,
-    },
 }
 
 impl Clone for Value {
@@ -223,10 +217,6 @@ impl Clone for Value {
                 internal_span: *internal_span,
             },
             Value::CustomValue { val, internal_span } => val.clone_value(*internal_span),
-            Value::MatchPattern { val, internal_span } => Value::MatchPattern {
-                val: val.clone(),
-                internal_span: *internal_span,
-            },
         }
     }
 }
@@ -507,18 +497,6 @@ impl Value {
         }
     }
 
-    pub fn as_match_pattern(&self) -> Result<&MatchPattern, ShellError> {
-        match self {
-            Value::MatchPattern { val, .. } => Ok(val.as_ref()),
-            x => Err(ShellError::CantConvert {
-                to_type: "match-pattern".into(),
-                from_type: x.get_type().to_string(),
-                span: self.span(),
-                help: None,
-            }),
-        }
-    }
-
     /// Get the span for the current value
     pub fn span(&self) -> Span {
         match self {
@@ -539,7 +517,6 @@ impl Value {
             | Value::CellPath { internal_span, .. }
             | Value::CustomValue { internal_span, .. }
             | Value::LazyRecord { internal_span, .. }
-            | Value::MatchPattern { internal_span, .. }
             | Value::Error { internal_span, .. } => *internal_span,
         }
     }
@@ -563,8 +540,7 @@ impl Value {
             | Value::Nothing { internal_span, .. }
             | Value::Binary { internal_span, .. }
             | Value::CellPath { internal_span, .. }
-            | Value::CustomValue { internal_span, .. }
-            | Value::MatchPattern { internal_span, .. } => *internal_span = new_span,
+            | Value::CustomValue { internal_span, .. } => *internal_span = new_span,
             Value::Error { .. } => (),
         }
 
@@ -621,7 +597,6 @@ impl Value {
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
             Value::CustomValue { val, .. } => Type::Custom(val.typetag_name().into()),
-            Value::MatchPattern { .. } => Type::MatchPattern,
         }
     }
 
@@ -727,7 +702,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::MatchPattern { val, .. } => format!("<Pattern: {:?}>", val),
         }
     }
 
@@ -782,7 +756,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::MatchPattern { .. } => "<Pattern>".into(),
         }
     }
 
@@ -890,7 +863,6 @@ impl Value {
             Value::Binary { val, .. } => format!("{val:?}"),
             Value::CellPath { val, .. } => val.to_string(),
             Value::CustomValue { val, .. } => val.value_string(),
-            Value::MatchPattern { val, .. } => format!("<Pattern {:?}>", val),
         }
     }
 
@@ -1834,13 +1806,6 @@ impl Value {
         }
     }
 
-    pub fn match_pattern(val: MatchPattern, span: Span) -> Value {
-        Value::MatchPattern {
-            val: Box::new(val),
-            internal_span: span,
-        }
-    }
-
     /// Note: Only use this for test data, *not* live data, as it will point into unknown source
     /// when used in errors.
     pub fn test_bool(val: bool) -> Value {
@@ -1942,12 +1907,6 @@ impl Value {
     pub fn test_lazy_record(val: Box<dyn for<'a> LazyRecord<'a>>) -> Value {
         Value::lazy_record(val, Span::test_data())
     }
-
-    /// Note: Only use this for test data, *not* live data, as it will point into unknown source
-    /// when used in errors.
-    pub fn test_match_pattern(val: MatchPattern) -> Value {
-        Value::match_pattern(val, Span::test_data())
-    }
 }
 
 impl Default for Value {
@@ -1992,7 +1951,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Int { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2013,7 +1971,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Float { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2034,7 +1991,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Filesize { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2055,7 +2011,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Duration { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2076,7 +2031,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Date { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2097,7 +2051,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Range { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2118,7 +2071,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::String { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2139,7 +2091,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2179,7 +2130,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::List { vals: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2200,7 +2150,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Block { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2221,7 +2170,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Closure { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2242,7 +2190,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Nothing { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2263,7 +2210,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Error { .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2284,7 +2230,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::Binary { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2305,7 +2250,6 @@ impl PartialOrd for Value {
                 Value::Binary { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::CellPath { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2326,7 +2270,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Greater),
                 Value::CellPath { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::CustomValue { val: lhs, .. }, rhs) => lhs.partial_cmp(rhs),
             (Value::LazyRecord { val, .. }, rhs) => {
@@ -2336,27 +2279,6 @@ impl PartialOrd for Value {
                     None
                 }
             }
-            (Value::MatchPattern { .. }, rhs) => match rhs {
-                Value::Bool { .. } => Some(Ordering::Greater),
-                Value::Int { .. } => Some(Ordering::Greater),
-                Value::Float { .. } => Some(Ordering::Greater),
-                Value::Filesize { .. } => Some(Ordering::Greater),
-                Value::Duration { .. } => Some(Ordering::Greater),
-                Value::Date { .. } => Some(Ordering::Greater),
-                Value::Range { .. } => Some(Ordering::Greater),
-                Value::String { .. } => Some(Ordering::Greater),
-                Value::Record { .. } => Some(Ordering::Greater),
-                Value::LazyRecord { .. } => Some(Ordering::Greater),
-                Value::List { .. } => Some(Ordering::Greater),
-                Value::Block { .. } => Some(Ordering::Greater),
-                Value::Closure { .. } => Some(Ordering::Greater),
-                Value::Nothing { .. } => Some(Ordering::Greater),
-                Value::Error { .. } => Some(Ordering::Greater),
-                Value::Binary { .. } => Some(Ordering::Greater),
-                Value::CellPath { .. } => Some(Ordering::Greater),
-                Value::CustomValue { .. } => Some(Ordering::Greater),
-                Value::MatchPattern { .. } => None,
-            },
         }
     }
 }

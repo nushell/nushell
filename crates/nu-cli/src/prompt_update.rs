@@ -26,8 +26,8 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
-const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
+pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 
 fn get_prompt_string(
     prompt: &str,

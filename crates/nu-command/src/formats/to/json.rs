@@ -127,10 +127,7 @@ pub fn value_to_json_value(v: &Value) -> Result<nu_json::Value, ShellError> {
 
         Value::List { vals, .. } => nu_json::Value::Array(json_list(vals)?),
         Value::Error { error, .. } => return Err(*error.clone()),
-        Value::Closure { .. }
-        | Value::Block { .. }
-        | Value::Range { .. }
-        | Value::MatchPattern { .. } => nu_json::Value::Null,
+        Value::Closure { .. } | Value::Block { .. } | Value::Range { .. } => nu_json::Value::Null,
         Value::Binary { val, .. } => {
             nu_json::Value::Array(val.iter().map(|x| nu_json::Value::U64(*x as u64)).collect())
         }

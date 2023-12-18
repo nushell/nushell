@@ -54,7 +54,8 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -763,7 +764,7 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorSty
     }
 }
 
-pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
+fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
