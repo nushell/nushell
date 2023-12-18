@@ -174,7 +174,7 @@ pub fn group_by(
                 Value::CellPath { val, .. } => group_cell_path(val, values)?,
                 Value::Block { .. } | Value::Closure { .. } => {
                     let block: Option<Closure> = call.opt(engine_state, stack, 0)?;
-                    group_closure(&values, span, block, stack, engine_state, call)?
+                    group_closure(values, span, block, stack, engine_state, call)?
                 }
 
                 _ => {
@@ -233,7 +233,7 @@ pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value
 
 // TODO: refactor this, it's a bit of a mess
 fn group_closure(
-    values: &[Value],
+    values: Vec<Value>,
     span: Span,
     block: Option<Closure>,
     stack: &mut Stack,
@@ -252,7 +252,7 @@ fn group_closure(
                 engine_state,
                 &mut stack,
                 block,
-                value.clone().into_pipeline_data(),
+                value.into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             );
