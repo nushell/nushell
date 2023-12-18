@@ -5,9 +5,15 @@ use thiserror::Error;
 
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
-    #[error("{0} is deprecated, use {1} instead")]
-    DeprecatedWarning(String, String, #[label = "deprecated"] Span),
+    #[error("Deprecated: {0}")]
+    DeprecatedWarning(
+        String,
+        String,
+        #[label = "`{0}` is deprecated. Please use `{1}` instead, more info: https://www.nushell.sh/book/custom_commands.html"]
+        Span,
+    ),
 }
+
 impl ParseWarning {
     pub fn span(&self) -> Span {
         match self {

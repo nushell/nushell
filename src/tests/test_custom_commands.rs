@@ -139,6 +139,13 @@ fn custom_flag2() -> TestResult {
 }
 
 #[test]
+fn deprecated_boolean_flag() {
+    let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
+    assert!(actual.err.contains("Deprecated"));
+    assert_eq!(actual.out, "aaa");
+}
+
+#[test]
 fn simple_var_closing() -> TestResult {
     run_test("let $x = 10; def foo [] { $x }; foo", "10")
 }

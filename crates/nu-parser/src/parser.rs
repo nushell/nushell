@@ -3495,7 +3495,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         if syntax_shape == SyntaxShape::Boolean {
                                             working_set.warning(ParseWarning::DeprecatedWarning(
                                                 "--flag: bool".to_string(),
-                                                "barely --flag".to_string(),
+                                                "--flag".to_string(),
                                                 span,
                                             ));
                                         }
