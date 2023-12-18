@@ -773,7 +773,7 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorSty
     }
 }
 
-pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
+fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
