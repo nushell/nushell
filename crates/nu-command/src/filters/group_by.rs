@@ -231,7 +231,6 @@ pub fn group_no_grouper(values: Vec<Value>) -> Result<IndexMap<String, Vec<Value
     Ok(groups)
 }
 
-// TODO: refactor this, it's a bit of a mess
 fn group_closure(
     values: Vec<Value>,
     span: Span,
@@ -241,8 +240,7 @@ fn group_closure(
     call: &Call,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let error_key = "error";
-    let mut keys: Vec<Result<String, ShellError>> = vec![];
-    let value_list = Value::list(values.to_vec(), span);
+    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     if let Some(capture_block) = &block {
         let block = engine_state.get_block(capture_block.block_id);
@@ -253,16 +251,21 @@ fn group_closure(
                 engine_state,
                 &mut stack,
                 block,
-                value.into_pipeline_data(),
+                value.clone().into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
             );
 
-            match pipeline {
+            let group_key = match pipeline {
                 Ok(s) => {
-                    let collection: Vec<Value> = s.into_iter().collect();
+                    let mut s = s.into_iter();
 
-                    if collection.len() > 1 {
+                    let key = match s.next() {
+                        Some(Value::Error { .. }) | None => error_key.into(),
+                        Some(return_value) => return_value.as_string()?,
+                    };
+
+                    if s.next().is_some() {
                         return Err(ShellError::GenericError {
                             error: "expected one value from the block".into(),
                             msg: "requires a table with one value for grouping".into(),
@@ -272,27 +275,13 @@ fn group_closure(
                         });
                     }
 
-                    let value = match collection.first() {
-                        Some(Value::Error { .. }) | None => Value::string(error_key, span),
-                        Some(return_value) => return_value.clone(),
-                    };
+                    key
+                }
+                Err(_) => error_key.into(),
+            };
 
-                    keys.push(value.as_string());
-                }
-                Err(_) => {
-                    keys.push(Ok(error_key.into()));
-                }
-            }
+            groups.entry(group_key).or_default().push(value);
         }
-    }
-
-    let map = keys;
-    let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
-
-    for (idx, value) in value_list.into_pipeline_data().into_iter().enumerate() {
-        let group_key = map.get(idx).cloned().unwrap_or_else(|| value.as_string())?;
-        let group = groups.entry(group_key).or_default();
-        group.push(value);
     }
 
     Ok(groups)
