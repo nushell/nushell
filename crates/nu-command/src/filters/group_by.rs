@@ -244,10 +244,11 @@ fn group_closure(
     let mut keys: Vec<Result<String, ShellError>> = vec![];
     let value_list = Value::list(values.to_vec(), span);
 
-    for value in values {
-        if let Some(capture_block) = &block {
+    if let Some(capture_block) = &block {
+        let block = engine_state.get_block(capture_block.block_id);
+
+        for value in values {
             let mut stack = stack.captures_to_stack(capture_block.captures.clone());
-            let block = engine_state.get_block(capture_block.block_id);
             let pipeline = eval_block(
                 engine_state,
                 &mut stack,
