@@ -285,18 +285,17 @@ fn group_closure(
         }
     }
     let map = keys;
-    let block = Box::new(move |idx: usize, row: &Value| match map.get(idx) {
+    let block = |idx: usize, row: &Value| match map.get(idx) {
         Some(Ok(key)) => Ok(key.clone()),
         Some(Err(reason)) => Err(reason.clone()),
         None => row.as_string(),
-    });
+    };
 
     let grouper = block;
     let mut groups: IndexMap<String, Vec<Value>> = IndexMap::new();
 
     for (idx, value) in value_list.into_pipeline_data().into_iter().enumerate() {
         let group_key = grouper(idx, &value);
-
         let group = groups.entry(group_key?).or_default();
         group.push(value);
     }
