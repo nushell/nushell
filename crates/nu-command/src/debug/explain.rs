@@ -201,7 +201,6 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 arg_value.push(Value::record(record, inner_expr.span));
             }
             Argument::Spread(inner_expr) => {
-                // todo test this out
                 let arg_type = "spread";
                 let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
                 let arg_value_name = debug_string_without_formatting(&evaluated_expression);

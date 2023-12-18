@@ -169,3 +169,11 @@ fn spread_non_list_args() {
 fn spread_args_type() -> TestResult {
     fail_test(r#"def f [...x: int] {}; f ...["abc"]"#, "expected int")
 }
+
+#[test]
+fn explain_spread_args() -> TestResult {
+    run_test(
+        r#"(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type | to nuon"#,
+        r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
+    )
+}
