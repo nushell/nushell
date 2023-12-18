@@ -5897,12 +5897,8 @@ pub fn discover_captures_in_expr(
         Expr::ExternalCall(head, args, _) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
-            for arg in args {
-                match arg {
-                    ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
-                        discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
-                    }
-                }
+            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
         Expr::Filepath(_) => {}

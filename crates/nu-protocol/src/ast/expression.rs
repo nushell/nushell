@@ -188,13 +188,9 @@ impl Expression {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
-                for arg in args {
-                    match arg {
-                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
-                            if expr.has_in_variable(working_set) {
-                                return true;
-                            }
-                        }
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    if expr.has_in_variable(working_set) {
+                        return true;
                     }
                 }
                 false
@@ -405,12 +401,8 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args, _) => {
                 head.replace_in_variable(working_set, new_var_id);
-                for arg in args {
-                    match arg {
-                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
-                            expr.replace_in_variable(working_set, new_var_id)
-                        }
-                    }
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    expr.replace_in_variable(working_set, new_var_id);
                 }
             }
             Expr::Filepath(_) => {}
@@ -585,12 +577,8 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args, _) => {
                 head.replace_span(working_set, replaced, new_span);
-                for arg in args {
-                    match arg {
-                        ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) => {
-                            expr.replace_span(working_set, replaced, new_span)
-                        }
-                    }
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    expr.replace_span(working_set, replaced, new_span);
                 }
             }
             Expr::Filepath(_) => {}

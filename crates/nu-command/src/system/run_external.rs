@@ -138,8 +138,12 @@ pub fn create_external_command(
         if spread {
             match val {
                 Value::List { vals, .. } => {
+                    // turn all the strings in the array into params.
+                    // Example: one_arg may be something like ["ls" "-a"]
+                    // convert it to "ls" "-a"
                     for val in vals {
                         spanned_args.push(value_as_spanned(val)?);
+                        // for arguments in list, it's always treated as a whole arguments
                         arg_keep_raw.push(true);
                     }
                 }
