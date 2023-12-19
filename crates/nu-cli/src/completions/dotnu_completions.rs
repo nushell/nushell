@@ -5,7 +5,7 @@ use nu_protocol::{
 };
 use reedline::Suggestion;
 use std::{
-    path::{is_separator, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
+    path::{is_separator, Path, MAIN_SEPARATOR as SEP, MAIN_SEPARATOR_STR},
     sync::Arc,
 };
 
@@ -91,16 +91,21 @@ impl Completer for DotNuCompletion {
         // and transform them into suggestions
         let output: Vec<Suggestion> = search_dirs
             .into_iter()
-            .flat_map(|it| {
-                file_path_completion(span, &partial, &it, options)
+            .flat_map(|search_dir| {
+                let completions = file_path_completion(span, &partial, &search_dir, options);
+                completions
                     .into_iter()
-                    .filter(|it| {
+                    .filter(move |it| {
                         // Different base dir, so we list the .nu files or folders
                         if !is_current_folder {
                             it.1.ends_with(".nu") || it.1.ends_with(SEP)
                         } else {
-                            // Lib dirs, so we filter only the .nu files
-                            it.1.ends_with(".nu")
+                            // Lib dirs, so we filter only the .nu files or directory modules
+                            if it.1.ends_with(SEP) {
+                                Path::new(&search_dir).join(&it.1).join("mod.nu").exists()
+                            } else {
+                                it.1.ends_with(".nu")
+                            }
                         }
                     })
                     .map(move |x| Suggestion {
