@@ -347,7 +347,8 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
         } else {
             return false;
         }
-
+        // hidden_attribute have to be checked because it determines if the file is hidden or not
+        // in Windows, while Linux software use the dot prefix to determine if the file is hidden
         hidden_attributes
             || dir
                 .as_ref()
