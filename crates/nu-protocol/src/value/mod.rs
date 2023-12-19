@@ -20,8 +20,9 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::locale::get_system_locale_string;
-use nu_utils::{get_system_locale, IgnoreCaseExt};
+use nu_utils::{
+    contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
+};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -789,7 +790,20 @@ impl Value {
 
     /// Convert Value into a debug string
     pub fn debug_value(&self) -> String {
-        format!("{self:#?}")
+        match self {
+            Value::String { val, .. } => {
+                if contains_emoji(val) {
+                    // This has to be an emoji, so let's display the code points that make it up.
+                    format!(
+                        "{:#?}",
+                        Value::string(val.escape_unicode().to_string(), self.span())
+                    )
+                } else {
+                    format!("{self:#?}")
+                }
+            }
+            _ => format!("{self:#?}"),
+        }
     }
 
     /// Convert Value into a parsable string (quote strings)
