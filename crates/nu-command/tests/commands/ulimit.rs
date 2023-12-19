@@ -93,6 +93,7 @@ fn limit_set_invalid1() {
     });
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 #[test]
 fn limit_set_invalid2() {
     Playground::setup("limit_set_invalid2", |dirs, _sandbox| {
