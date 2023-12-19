@@ -20,8 +20,7 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::locale::get_system_locale_string;
-use nu_utils::{get_system_locale, IgnoreCaseExt};
+use nu_utils::{get_system_locale, is_emoji, locale::get_system_locale_string, IgnoreCaseExt};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -789,27 +788,13 @@ impl Value {
 
     /// Convert Value into a debug string
     pub fn debug_value(&self) -> String {
-        // Let's do some special handling for emojis
-        const ZERO_WIDTH_JOINER: &str = "\u{200d}";
-        const VARIATION_SELECTOR_16: &str = "\u{fe0f}";
-        const SKIN_TONES: [&str; 5] = [
-            "\u{1f3fb}", // Light Skin Tone
-            "\u{1f3fc}", // Medium-Light Skin Tone
-            "\u{1f3fd}", // Medium Skin Tone
-            "\u{1f3fe}", // Medium-Dark Skin Tone
-            "\u{1f3ff}", // Dark Skin Tone
-        ];
-
         match self {
             Value::String { val, .. } => {
-                if val.contains(ZERO_WIDTH_JOINER)
-                    || val.contains(VARIATION_SELECTOR_16)
-                    || SKIN_TONES.iter().any(|skin_tone| val.contains(skin_tone))
-                {
+                if is_emoji(val) {
                     // This has to be an emoji, so let's display the code points that make it up.
                     format!(
                         "{:#?}",
-                        Value::test_string(val.escape_unicode().to_string())
+                        Value::string(val.escape_unicode().to_string(), self.span())
                     )
                 } else {
                     format!("{self:#?}")
