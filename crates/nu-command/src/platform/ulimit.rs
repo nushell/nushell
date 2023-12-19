@@ -233,7 +233,7 @@ static RESOURCE_ARRAY: Lazy<Vec<ResourceInfo>> = Lazy::new(|| {
             "Maximum number of pseudo-terminals",
             'P',
             1,
-            Resource::RLIMIT_NPTY,
+            Resource::RLIMIT_NPTS,
         ),
     ];
 

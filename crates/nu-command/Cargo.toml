@@ -106,7 +106,7 @@ libc = "0.2"
 umask = "2.1"
 nix = { version = "0.27", default-features = false, features = ["user", "resource"] }
 
-[target.'cfg(all(unix, not(target_os = "macos"), not(target_os = "android"), not(target_os = "ios"), not(target_os = "netbsd")))'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
 procfs = "0.16.0"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies.trash]
