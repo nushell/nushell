@@ -20,7 +20,9 @@ pub use custom_value::CustomValue;
 use fancy_regex::Regex;
 pub use from_value::FromValue;
 pub use lazy_record::LazyRecord;
-use nu_utils::{get_system_locale, is_emoji, locale::get_system_locale_string, IgnoreCaseExt};
+use nu_utils::{
+    contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
+};
 use num_format::ToFormattedString;
 pub use range::*;
 pub use record::Record;
@@ -790,7 +792,7 @@ impl Value {
     pub fn debug_value(&self) -> String {
         match self {
             Value::String { val, .. } => {
-                if is_emoji(val) {
+                if contains_emoji(val) {
                     // This has to be an emoji, so let's display the code points that make it up.
                     format!(
                         "{:#?}",

@@ -15,4 +15,4 @@ pub use casing::IgnoreCaseExt;
 pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
-pub use emoji::is_emoji;
+pub use emoji::contains_emoji;
