@@ -2,7 +2,7 @@ use crate::{
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
-    parse_patterns::{parse_match_pattern, parse_pattern},
+    parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
@@ -4475,10 +4475,6 @@ pub fn parse_value(
         _ => {}
     }
 
-    if matches!(shape, SyntaxShape::MatchPattern) {
-        return parse_match_pattern(working_set, span);
-    }
-
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
@@ -4516,7 +4512,6 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::MatchPattern => parse_match_pattern(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span)
@@ -5960,7 +5955,6 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::MatchPattern(_) => {}
         Expr::MatchBlock(match_block) => {
             for match_ in match_block {
                 discover_captures_in_pattern(&match_.0, seen);

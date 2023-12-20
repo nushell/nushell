@@ -264,10 +264,6 @@ pub fn flatten_expression(
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
         }
-        Expr::MatchPattern(pattern) => {
-            // FIXME: do nicer flattening later
-            flatten_pattern(pattern)
-        }
         Expr::MatchBlock(matches) => {
             let mut output = vec![];
 

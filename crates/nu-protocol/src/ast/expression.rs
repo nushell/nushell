@@ -221,7 +221,6 @@ impl Expression {
                 }
                 false
             }
-            Expr::MatchPattern(_) => false,
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
             Expr::Range(left, middle, right, ..) => {
@@ -407,7 +406,6 @@ impl Expression {
             Expr::Nothing => {}
             Expr::GlobPattern(_) => {}
             Expr::Int(_) => {}
-            Expr::MatchPattern(_) => {}
             Expr::MatchBlock(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_in_variable(working_set, new_var_id),
             Expr::List(list) => {
@@ -576,7 +574,6 @@ impl Expression {
             Expr::Garbage => {}
             Expr::Nothing => {}
             Expr::GlobPattern(_) => {}
-            Expr::MatchPattern(_) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
