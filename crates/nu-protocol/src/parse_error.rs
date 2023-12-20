@@ -485,7 +485,10 @@ pub enum ParseError {
     ),
 
     #[error("Unexpected spread argument.")]
-    #[diagnostic(code(nu::parser::unexpected_spread_arg), help("Usage: {0}"))]
+    #[diagnostic(
+        code(nu::parser::unexpected_spread_arg),
+        help("This command does not have a rest parameter. Usage: {0}")
+    )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
 
