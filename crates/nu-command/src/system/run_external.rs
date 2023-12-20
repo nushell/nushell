@@ -134,7 +134,8 @@ pub fn create_external_command(
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
     for (arg, spread) in call.rest_iter(1) {
-        // Eventually,
+        // TODO: Disallow automatic spreading entirely later. This match block will
+        // have to be refactored, and lists will have to be disallowed in the parser too
         match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
                 if !spread {
@@ -152,8 +153,8 @@ pub fn create_external_command(
                 // turn all the strings in the array into params.
                 // Example: one_arg may be something like ["ls" "-a"]
                 // convert it to "ls" "-a"
-                for val in vals {
-                    spanned_args.push(value_as_spanned(val)?);
+                for v in vals {
+                    spanned_args.push(value_as_spanned(v)?);
                     // for arguments in list, it's always treated as a whole arguments
                     arg_keep_raw.push(true);
                 }
