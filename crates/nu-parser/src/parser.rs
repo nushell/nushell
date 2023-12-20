@@ -272,8 +272,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
     if contents.starts_with(b"$") || contents.starts_with(b"(") {
         ExternalArgument::Regular(parse_dollar_expr(working_set, span))
     } else if contents.starts_with(b"[") {
-        working_set.error(ParseError::ExternalListArg(span));
-        ExternalArgument::Regular(garbage(span))
+        ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
     } else if contents.len() > 3
         && contents.starts_with(b"...")
         && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')

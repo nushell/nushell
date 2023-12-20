@@ -487,14 +487,6 @@ pub enum ParseError {
     #[error("Unexpected spread argument.")]
     #[diagnostic(code(nu::parser::unexpected_spread_arg), help("Usage: {0}"))]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
-
-    /// The second span is the list's actual span. The first just points to the start of the list
-    #[error("Cannot directly pass list to external command")]
-    #[diagnostic(
-        code(nu::parser::external_list_arg),
-        help("Lists are no longer automatically spread when passed to external commands. Use the spread operator instead."))
-    ]
-    ExternalListArg(#[label = "cannot pass to an external"] Span),
 }
 
 impl ParseError {
@@ -582,7 +574,6 @@ impl ParseError {
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectionInLetMut(s, _) => *s,
             ParseError::UnexpectedSpreadArg(_, s) => *s,
-            ParseError::ExternalListArg(s) => *s,
         }
     }
 }

@@ -134,25 +134,34 @@ pub fn create_external_command(
     let mut spanned_args = vec![];
     let mut arg_keep_raw = vec![];
     for (arg, spread) in call.rest_iter(1) {
-        let val = eval_expression(engine_state, stack, arg)?;
-        if spread {
-            match val {
-                Value::List { vals, .. } => {
-                    // turn all the strings in the array into params.
-                    // Example: one_arg may be something like ["ls" "-a"]
-                    // convert it to "ls" "-a"
-                    for val in vals {
-                        spanned_args.push(value_as_spanned(val)?);
-                        // for arguments in list, it's always treated as a whole arguments
-                        arg_keep_raw.push(true);
-                    }
+        // Eventually,
+        match eval_expression(engine_state, stack, arg)? {
+            Value::List { vals, .. } => {
+                if !spread {
+                    nu_protocol::report_error_new(
+                        engine_state,
+                        &ShellError::GenericError(
+                            "Automatically spreading lists deprecated".into(),
+                            "Spreading lists automatically when calling external commands is deprecated in 0.91. Use the spread operator instead.".into(),
+                            Some(arg.span),
+                            Some("Put a '...' before the argument".into()),
+                            vec![],
+                        ),
+                    );
                 }
-                _ => return Err(ShellError::CannotSpreadAsList { span: arg.span }),
+                // turn all the strings in the array into params.
+                // Example: one_arg may be something like ["ls" "-a"]
+                // convert it to "ls" "-a"
+                for val in vals {
+                    spanned_args.push(value_as_spanned(val)?);
+                    // for arguments in list, it's always treated as a whole arguments
+                    arg_keep_raw.push(true);
+                }
             }
-        } else {
-            match val {
-                Value::List { .. } => return Err(ShellError::ExternalListArg(arg.span)),
-                _ => {
+            val => {
+                if spread {
+                    return Err(ShellError::CannotSpreadAsList { span: arg.span });
+                } else {
                     spanned_args.push(value_as_spanned(val)?);
                     match arg.expr {
                         // refer to `parse_dollar_expr` function

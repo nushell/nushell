@@ -179,13 +179,11 @@ fn explain_spread_args() -> TestResult {
 }
 
 #[test]
-fn disallow_implicit_spread_for_externals() {
-    // This one should fail at parse time
-    assert!(nu!(r#"nu --testbin cococo [1]"#)
+fn deprecate_implicit_spread_for_externals() {
+    // TODO: When automatic spreading is removed, test that list literals fail at parse time
+    let result = nu!(r#"nu --testbin cococo [1 2]"#);
+    assert!(result
         .err
-        .contains("nu::parser::external_list_arg"));
-    // This one should fail at runtime
-    assert!(nu!(r#"nu --testbin cococo ([1])"#)
-        .err
-        .contains("nu::shell::external_list_arg"));
+        .contains("Automatically spreading lists deprecated"));
+    assert_eq!(result.out, "1 2");
 }
