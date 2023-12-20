@@ -141,13 +141,13 @@ pub fn create_external_command(
                 if !spread {
                     nu_protocol::report_error_new(
                         engine_state,
-                        &ShellError::GenericError(
-                            "Automatically spreading lists deprecated".into(),
-                            "Spreading lists automatically when calling external commands is deprecated in 0.91. Use the spread operator instead.".into(),
-                            Some(arg.span),
-                            Some("Put a '...' before the argument".into()),
-                            vec![],
-                        ),
+                        &ShellError::GenericError {
+                            error: "Automatically spreading lists deprecated".into(),
+                            msg: "Spreading lists automatically when calling external commands is deprecated in 0.91.".into(),
+                            span: Some(arg.span),
+                            help: Some("Use the spread operator (put a '...' before the argument)".into()),
+                            inner: vec![],
+                        },
                     );
                 }
                 // turn all the strings in the array into params.
