@@ -105,7 +105,7 @@ fn spread_external_args() -> TestResult {
         "1 foo 2 3 bar",
     );
     // exec doesn't have rest parameters but allows unknown arguments
-    run_test(r#"exec echo "foo" ...[5 6]"#, "foo 5 6")
+    run_test(r#"exec nu --testbin cococo "foo" ...[5 6]"#, "foo 5 6")
 }
 
 #[test]
