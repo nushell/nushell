@@ -1,6 +1,6 @@
-use nu_engine::eval_expression;
+use nu_engine::{eval_expression, CallExt};
 use nu_protocol::{
-    ast::{Argument, Call},
+    ast::Call,
     engine::{EngineState, Stack},
     FromValue, ShellError, Span, Spanned, Value,
 };
@@ -33,31 +33,17 @@ impl EvaluatedCall {
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
+        let positional =
+            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
+
         let mut named = Vec::with_capacity(call.named_len());
-        let mut positional = Vec::with_capacity(call.positional_len());
+        for (string, _, expr) in call.named_iter() {
+            let value = match expr {
+                None => None,
+                Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
+            };
 
-        for arg in &call.arguments {
-            match arg {
-                Argument::Named((string, _, expr)) => {
-                    let value = match expr {
-                        None => None,
-                        Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
-                    };
-
-                    named.push((string.clone(), value))
-                }
-                Argument::Positional(expr) | Argument::Unknown(expr) => {
-                    positional.push(eval_expression(engine_state, stack, expr)?);
-                }
-                Argument::Spread(expr) => match eval_expression(engine_state, stack, expr)? {
-                    Value::List { vals, .. } => {
-                        for val in vals {
-                            positional.push(val);
-                        }
-                    }
-                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                },
-            }
+            named.push((string.clone(), value))
         }
 
         Ok(Self {
