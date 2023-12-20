@@ -344,6 +344,37 @@ pub fn parse_external_call(
     }
 }
 
+fn ensure_flag_arg_type(
+    working_set: &mut StateWorkingSet,
+    arg_name: String,
+    arg: Expression,
+    arg_shape: &SyntaxShape,
+    long_name_span: Span,
+) -> (Spanned<String>, Expression) {
+    if !type_compatible(&arg.ty, &arg_shape.to_type()) {
+        working_set.error(ParseError::TypeMismatch(
+            arg_shape.to_type(),
+            arg.ty,
+            arg.span,
+        ));
+        (
+            Spanned {
+                item: arg_name,
+                span: long_name_span,
+            },
+            Expression::garbage(arg.span),
+        )
+    } else {
+        (
+            Spanned {
+                item: arg_name,
+                span: long_name_span,
+            },
+            arg,
+        )
+    }
+}
+
 fn parse_long_flag(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -368,25 +399,21 @@ fn parse_long_flag(
                         span.start += long_name_len + 3; //offset by long flag and '='
 
                         let arg = parse_value(working_set, span, arg_shape);
-
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) = ensure_flag_arg_type(
+                            working_set,
+                            long_name,
+                            arg,
+                            arg_shape,
+                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                        );
+                        (Some(arg_name), Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
                         let arg = parse_value(working_set, *arg, arg_shape);
 
                         *spans_idx += 1;
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: arg_span,
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) =
+                            ensure_flag_arg_type(working_set, long_name, arg, arg_shape, arg_span);
+                        (Some(arg_name), Some(val_expression))
                     } else {
                         working_set.error(ParseError::MissingFlagParam(
                             arg_shape.to_string(),
@@ -411,13 +438,14 @@ fn parse_long_flag(
 
                         let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
 
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) = ensure_flag_arg_type(
+                            working_set,
+                            long_name,
+                            arg,
+                            &SyntaxShape::Boolean,
+                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                        );
+                        (Some(arg_name), Some(val_expression))
                     } else {
                         (
                             Some(Spanned {
