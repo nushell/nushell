@@ -48,8 +48,8 @@ impl Command for External {
                 None,
             )
             .switch("trim-end-newline", "trimming end newlines", None)
-            .required("command", SyntaxShape::String, "external command to run")
-            .rest("args", SyntaxShape::Any, "arguments for external command")
+            .required("command", SyntaxShape::String, "External command to run.")
+            .rest("args", SyntaxShape::Any, "Arguments for external command.")
             .category(Category::System)
     }
 
@@ -323,11 +323,11 @@ impl ExternalCommand {
                                 Some(s) => s.clone(),
                                 None => "".to_string(),
                             };
-                            return Err(ShellError::RemovedCommand(
-                                command_name_lower,
+                            return Err(ShellError::RemovedCommand {
+                                removed: command_name_lower,
                                 replacement,
-                                self.name.span,
-                            ));
+                                span: self.name.span,
+                            });
                         }
 
                         let suggestion = suggest_command(&self.name.item, engine_state);
@@ -619,16 +619,16 @@ impl ExternalCommand {
             }
             process
         } else {
-            return Err(ShellError::GenericError(
-                "Current directory not found".to_string(),
-                "did not find PWD environment variable".to_string(),
-                Some(span),
-                Some(concat!(
+            return Err(ShellError::GenericError{
+                error: "Current directory not found".into(),
+                msg: "did not find PWD environment variable".into(),
+                span: Some(span),
+                help: Some(concat!(
                     "The environment variable 'PWD' was not found. ",
                     "It is required to define the current directory when running an external command."
-                ).to_string()),
-                Vec::new(),
-            ));
+                ).into()),
+                inner:Vec::new(),
+            });
         };
 
         process.envs(&self.env_vars);
@@ -945,9 +945,9 @@ mod test {
 
     #[test]
     fn argument_with_inner_quotes_test() {
-        let input = r#"bash -c 'echo a'"#.into();
+        let input = r#"sh -c 'echo a'"#.into();
         let res = remove_quotes(input);
 
-        assert_eq!("bash -c 'echo a'", res)
+        assert_eq!("sh -c 'echo a'", res)
     }
 }

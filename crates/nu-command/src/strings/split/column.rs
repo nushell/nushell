@@ -28,14 +28,14 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "the character or string that denotes what separates columns",
+                "The character or string that denotes what separates columns.",
             )
             .switch("collapse-empty", "remove empty columns", Some('c'))
             .switch("regex", "separator is a regular expression", Some('r'))
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "column names to give the new columns",
+                "Column names to give the new columns.",
             )
             .category(Category::Strings)
     }
@@ -127,14 +127,12 @@ fn split_column(
         let escaped = regex::escape(&separator.item);
         Regex::new(&escaped)
     }
-    .map_err(|err| {
-        ShellError::GenericError(
-            "Error with regular expression".into(),
-            err.to_string(),
-            Some(separator.span),
-            None,
-            Vec::new(),
-        )
+    .map_err(|e| ShellError::GenericError {
+        error: "Error with regular expression".into(),
+        msg: e.to_string(),
+        span: Some(separator.span),
+        help: None,
+        inner: vec![],
     })?;
 
     input.flat_map(

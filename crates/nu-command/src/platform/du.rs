@@ -38,7 +38,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -108,7 +108,10 @@ impl Command for Du {
         let exclude = args.exclude.map_or(Ok(None), move |x| {
             Pattern::new(&x.item)
                 .map(Some)
-                .map_err(|e| ShellError::InvalidGlobPattern(e.msg.to_string(), x.span))
+                .map_err(|e| ShellError::InvalidGlobPattern {
+                    msg: e.msg.into(),
+                    span: x.span,
+                })
         })?;
 
         let include_files = args.all;

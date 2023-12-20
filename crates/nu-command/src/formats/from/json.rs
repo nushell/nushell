@@ -150,18 +150,18 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
                 let label_span = convert_row_column_to_span(row, col, &string_input);
-                Err(ShellError::GenericError(
-                    "Error while parsing JSON text".into(),
-                    "error parsing JSON text".into(),
-                    Some(span),
-                    None,
-                    vec![ShellError::OutsideSpannedLabeledError(
-                        string_input,
-                        "Error while parsing JSON text".into(),
-                        label,
-                        label_span,
-                    )],
-                ))
+                Err(ShellError::GenericError {
+                    error: "Error while parsing JSON text".into(),
+                    msg: "error parsing JSON text".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![ShellError::OutsideSpannedLabeledError {
+                        src: string_input,
+                        error: "Error while parsing JSON text".into(),
+                        msg: label,
+                        span: label_span,
+                    }],
+                })
             }
             x => Err(ShellError::CantConvert {
                 to_type: format!("structured json data ({x})"),

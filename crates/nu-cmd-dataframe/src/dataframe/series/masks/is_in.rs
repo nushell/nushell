@@ -79,14 +79,12 @@ fn command(
     let other = other_df.as_series(other_span)?;
 
     let mut res = is_in(&df, &other)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error finding in other".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error finding in other".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

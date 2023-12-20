@@ -45,13 +45,13 @@ impl Command for KeybindingsListen {
             Ok(v) => Ok(v.into_pipeline_data()),
             Err(e) => {
                 terminal::disable_raw_mode()?;
-                Err(ShellError::GenericError(
-                    "Error with input".to_string(),
-                    "".to_string(),
-                    None,
-                    Some(e.to_string()),
-                    Vec::new(),
-                ))
+                Err(ShellError::GenericError {
+                    error: "Error with input".into(),
+                    msg: "".into(),
+                    span: None,
+                    help: Some(e.to_string()),
+                    inner: vec![],
+                })
             }
         }
     }

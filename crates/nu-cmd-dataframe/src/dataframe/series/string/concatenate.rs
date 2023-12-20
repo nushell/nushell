@@ -78,25 +78,21 @@ fn command(
     let other_df = NuDataFrame::try_from_value(other)?;
 
     let other_series = other_df.as_series(other_span)?;
-    let other_chunked = other_series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "The concatenate only with string columns".into(),
-            e.to_string(),
-            Some(other_span),
-            None,
-            Vec::new(),
-        )
+    let other_chunked = other_series.utf8().map_err(|e| ShellError::GenericError {
+        error: "The concatenate only with string columns".into(),
+        msg: e.to_string(),
+        span: Some(other_span),
+        help: None,
+        inner: vec![],
     })?;
 
     let series = df.as_series(call.head)?;
-    let chunked = series.utf8().map_err(|e| {
-        ShellError::GenericError(
-            "The concatenate only with string columns".into(),
-            e.to_string(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        )
+    let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+        error: "The concatenate only with string columns".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
     })?;
 
     let mut res = chunked.concat(other_chunked);

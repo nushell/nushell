@@ -40,10 +40,10 @@ impl Command for Watch {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
         .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
-            .required("path", SyntaxShape::Filepath, "the path to watch. Can be a file or directory")
+            .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
             .required("closure",
             SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order")
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.")
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,

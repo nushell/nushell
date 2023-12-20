@@ -944,14 +944,6 @@ pub enum ShellError {
         span: Span,
     },
 
-    // These three are unused. Remove?
-    #[error("No file to be removed")]
-    NoFileToBeRemoved(),
-    #[error("No file to be moved")]
-    NoFileToBeMoved(),
-    #[error("No file to be copied")]
-    NoFileToBeCopied(),
-
     /// Error while trying to read a file
     ///
     /// ## Resolution
@@ -1070,33 +1062,44 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
-    #[error("{0}")]
+    #[error("{error}")]
     #[diagnostic()]
-    GenericError(
-        String,
-        String,
-        #[label("{1}")] Option<Span>,
-        #[help] Option<String>,
-        #[related] Vec<ShellError>,
-    ),
+    GenericError {
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Option<Span>,
+        #[help]
+        help: Option<String>,
+        #[related]
+        inner: Vec<ShellError>,
+    },
 
     /// This is a generic error type used for different situations.
-    #[error("{1}")]
+    #[error("{error}")]
     #[diagnostic()]
-    OutsideSpannedLabeledError(#[source_code] String, String, String, #[label("{2}")] Span),
+    OutsideSpannedLabeledError {
+        #[source_code]
+        src: String,
+        error: String,
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Attempted to use a command that has been removed from Nushell.
     ///
     /// ## Resolution
     ///
     /// Check the help for the new suggested command and update your script accordingly.
-    #[error("Removed command: {0}")]
+    #[error("Removed command: {removed}")]
     #[diagnostic(code(nu::shell::removed_command))]
-    RemovedCommand(
-        String,
-        String,
-        #[label = "'{0}' has been removed from Nushell. Please use '{1}' instead."] Span,
-    ),
+    RemovedCommand {
+        removed: String,
+        replacement: String,
+        #[label("'{removed}' has been removed from Nushell. Please use '{replacement}' instead.")]
+        span: Span,
+    },
 
     /// Non-Unicode input received.
     ///
@@ -1107,32 +1110,38 @@ pub enum ShellError {
     #[diagnostic(code(nu::shell::non_unicode_input))]
     NonUnicodeInput,
 
-    /// Unexpected abbr component.
-    ///
-    /// ## Resolution
-    ///
-    /// Check the path abbreviation to ensure that it is valid.
-    #[error("Unexpected abbr component `{0}`.")]
-    #[diagnostic(code(nu::shell::unexpected_path_abbreviateion))]
-    UnexpectedAbbrComponent(String),
-
     // It should be only used by commands accepts block, and accept inputs from pipeline.
     /// Failed to eval block with specific pipeline input.
     #[error("Eval block failed with pipeline input")]
     #[diagnostic(code(nu::shell::eval_block_with_input))]
-    EvalBlockWithInput(#[label("source value")] Span, #[related] Vec<ShellError>),
+    EvalBlockWithInput {
+        #[label("source value")]
+        span: Span,
+        #[related]
+        sources: Vec<ShellError>,
+    },
 
     /// Break event, which may become an error if used outside of a loop
     #[error("Break used outside of loop")]
-    Break(#[label = "used outside of loop"] Span),
+    Break {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Continue event, which may become an error if used outside of a loop
     #[error("Continue used outside of loop")]
-    Continue(#[label = "used outside of loop"] Span),
+    Continue {
+        #[label("used outside of loop")]
+        span: Span,
+    },
 
     /// Return event, which may become an error if used outside of a function
     #[error("Return used outside of function")]
-    Return(#[label = "used outside of function"] Span, Box<Value>),
+    Return {
+        #[label("used outside of function")]
+        span: Span,
+        value: Box<Value>,
+    },
 
     /// The code being executed called itself too many times.
     ///
@@ -1203,7 +1212,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_constant),
         help("Only a subset of expressions are allowed constants during parsing. Try using the 'const' command or typing the value literally.")
     )]
-    NotAConstant(#[label = "Value is not a parse-time constant"] Span),
+    NotAConstant {
+        #[label("Value is not a parse-time constant")]
+        span: Span,
+    },
 
     /// Tried running a command that is not const-compatible
     ///
@@ -1216,7 +1228,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_const_command),
         help("Only a subset of builtin commands, and custom commands built only from those commands, can run at parse time.")
     )]
-    NotAConstCommand(#[label = "This command cannot run at parse time."] Span),
+    NotAConstCommand {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
 
     /// Tried getting a help message at parse time.
     ///
@@ -1228,7 +1243,10 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::not_a_const_help),
         help("Help messages are currently not supported to be constants.")
     )]
-    NotAConstHelp(#[label = "Cannot get help message at parse time."] Span),
+    NotAConstHelp {
+        #[label("This command cannot run at parse time.")]
+        span: Span,
+    },
 
     /// Invalid glob pattern
     ///
@@ -1240,7 +1258,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         code(nu::shell::invalid_glob_pattern),
         help("Refer to xxx for help on nushell glob patterns.")
     )]
-    InvalidGlobPattern(String, #[label = "{0}"] Span),
+    InvalidGlobPattern {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Error expanding glob pattern
     ///
@@ -1253,7 +1275,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         help("Correct glob pattern or file access issue")
     )]
     //todo: add error detail
-    ErrorExpandingGlob(String, #[label = "{0}"] Span),
+    ErrorExpandingGlob {
+        msg: String,
+        #[label("{msg}")]
+        span: Span,
+    },
 
     /// Tried spreading a non-list inside a list or command call.
     ///

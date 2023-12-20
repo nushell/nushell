@@ -33,12 +33,12 @@ impl Command for Join {
             .required(
                 "right-table",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "The right table in the join",
+                "The right table in the join.",
             )
             .required(
                 "left-on",
                 SyntaxShape::String,
-                "Name of column in input (left) table to join on",
+                "Name of column in input (left) table to join on.",
             )
             .optional(
                 "right-on",
@@ -54,7 +54,7 @@ impl Command for Join {
     }
 
     fn usage(&self) -> &str {
-        "Join two tables"
+        "Join two tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {

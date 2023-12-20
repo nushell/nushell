@@ -42,7 +42,7 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
-            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .required("filename", SyntaxShape::Filepath, "The filename to use.")
             .named(
                 "stderr",
                 SyntaxShape::Filepath,
@@ -323,16 +323,16 @@ fn prepare_path(
     let path = &path.item;
 
     if !(force || append) && path.exists() {
-        Err(ShellError::GenericError(
-            "Destination file already exists".into(),
-            format!(
+        Err(ShellError::GenericError {
+            error: "Destination file already exists".into(),
+            msg: format!(
                 "Destination file '{}' already exists",
                 path.to_string_lossy()
             ),
-            Some(span),
-            Some("you can use -f, --force to force overwriting the destination".into()),
-            Vec::new(),
-        ))
+            span: Some(span),
+            help: Some("you can use -f, --force to force overwriting the destination".into()),
+            inner: vec![],
+        })
     } else {
         Ok((path, span))
     }
@@ -347,14 +347,12 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
         _ => std::fs::File::create(path),
     };
 
-    file.map_err(|err| {
-        ShellError::GenericError(
-            "Permission denied".into(),
-            err.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
+    file.map_err(|e| ShellError::GenericError {
+        error: "Permission denied".into(),
+        msg: e.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     })
 }
 
@@ -380,13 +378,13 @@ fn get_files(
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
             if path == stderr_path {
-                Err(ShellError::GenericError(
-                    "input and stderr input to same file".to_string(),
-                    "can't save both input and stderr input to the same file".to_string(),
-                    Some(stderr_path_span),
-                    Some("you should use `o+e> file` instead".to_string()),
-                    vec![],
-                ))
+                Err(ShellError::GenericError {
+                    error: "input and stderr input to same file".into(),
+                    msg: "can't save both input and stderr input to the same file".into(),
+                    span: Some(stderr_path_span),
+                    help: Some("you should use `o+e> file` instead".into()),
+                    inner: vec![],
+                })
             } else {
                 open_file(stderr_path, stderr_path_span, append || err_append)
             }

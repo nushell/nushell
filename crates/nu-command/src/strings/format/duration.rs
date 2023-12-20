@@ -40,12 +40,12 @@ impl Command for FormatDuration {
             .required(
                 "format value",
                 SyntaxShape::String,
-                "the unit in which to display the duration",
+                "The unit in which to display the duration.",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, format duration at the given cell paths",
+                "For a data structure input, format duration at the given cell paths.",
             )
             .category(Category::Strings)
     }

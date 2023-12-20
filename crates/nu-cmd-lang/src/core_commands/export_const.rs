@@ -20,11 +20,11 @@ impl Command for ExportConst {
         Signature::build("export const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("const_name", SyntaxShape::VarWithOptType, "constant name")
+            .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by constant value",
+                "Equals sign followed by constant value.",
             )
             .category(Category::Core)
     }

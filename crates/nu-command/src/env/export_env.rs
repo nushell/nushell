@@ -19,7 +19,7 @@ impl Command for ExportEnv {
             .required(
                 "block",
                 SyntaxShape::Block,
-                "the block to run to set the environment",
+                "The block to run to set the environment.",
             )
             .category(Category::Env)
     }

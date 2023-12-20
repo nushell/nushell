@@ -104,14 +104,12 @@ impl NuLazyFrame {
         self.lazy
             .expect("No empty lazy for collect")
             .collect()
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error collecting lazy frame".to_string(),
-                    e.to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error collecting lazy frame".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })
             .map(|df| NuDataFrame {
                 df,

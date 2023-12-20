@@ -26,7 +26,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "optionally operate by cell path",
+                "Optionally operate by cell path.",
             )
             .category(Category::Network)
     }

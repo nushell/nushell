@@ -24,7 +24,7 @@ impl<D: HashDigest> Default for GenericDigest<D> {
     fn default() -> Self {
         Self {
             name: format!("hash {}", D::name()),
-            usage: format!("Hash a value using the {} hash algorithm", D::name()),
+            usage: format!("Hash a value using the {} hash algorithm.", D::name()),
             phantom: PhantomData,
         }
     }
@@ -68,7 +68,7 @@ where
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                format!("optionally {} hash data by cell path", D::name()),
+                format!("Optionally {} hash data by cell path.", D::name()),
             )
     }
 

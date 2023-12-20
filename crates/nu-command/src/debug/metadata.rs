@@ -25,7 +25,7 @@ impl Command for Metadata {
             .optional(
                 "expression",
                 SyntaxShape::Any,
-                "the expression you want metadata for",
+                "The expression you want metadata for.",
             )
             .category(Category::Debug)
     }

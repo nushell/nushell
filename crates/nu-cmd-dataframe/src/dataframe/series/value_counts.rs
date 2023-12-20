@@ -70,15 +70,15 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let res = series.value_counts(false, false).map_err(|e| {
-        ShellError::GenericError(
-            "Error calculating value counts values".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-slice command can only be used with string columns".into()),
-            Vec::new(),
-        )
-    })?;
+    let res = series
+        .value_counts(false, false)
+        .map_err(|e| ShellError::GenericError {
+            error: "Error calculating value counts values".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: Some("The str-slice command can only be used with string columns".into()),
+            inner: vec![],
+        })?;
 
     Ok(PipelineData::Value(
         NuDataFrame::dataframe_into_value(res, call.head),

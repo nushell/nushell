@@ -44,24 +44,49 @@ fn insert_into_list() {
 }
 
 #[test]
-fn insert_into_list_begin() {
+fn insert_at_start_of_list() {
     let actual = nu!("[1, 2, 3] | insert 0 abc | to json -r");
 
     assert_eq!(actual.out, r#"["abc",1,2,3]"#);
 }
 
 #[test]
-fn insert_into_list_end() {
+fn insert_at_end_of_list() {
     let actual = nu!("[1, 2, 3] | insert 3 abc | to json -r");
 
     assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
 }
 
 #[test]
-fn insert_past_end_list() {
-    let actual = nu!("[1, 2, 3] | insert 5 abc | to json -r");
+fn insert_past_end_of_list() {
+    let actual = nu!("[1, 2, 3] | insert 5 abc");
 
-    assert_eq!(actual.out, r#"[1,2,3,null,null,"abc"]"#);
+    assert!(actual
+        .err
+        .contains("can't insert at index (the next available index is 3)"));
+}
+
+#[test]
+fn insert_into_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 1 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,"abc",2,3]"#);
+}
+
+#[test]
+fn insert_at_end_of_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 3 abc | to json -r");
+
+    assert_eq!(actual.out, r#"[1,2,3,"abc"]"#);
+}
+
+#[test]
+fn insert_past_end_of_list_stream() {
+    let actual = nu!("[1, 2, 3] | every 1 | insert 5 abc");
+
+    assert!(actual
+        .err
+        .contains("can't insert at index (the next available index is 3)"));
 }
 
 #[test]
@@ -90,14 +115,82 @@ fn lazy_record_test_values() {
 
 #[test]
 fn deep_cell_path_creates_all_nested_records() {
-    let actual = nu!(r#"{a: {}} | insert a.b.c 0 | get a.b.c"#);
+    let actual = nu!("{a: {}} | insert a.b.c 0 | get a.b.c");
     assert_eq!(actual.out, "0");
 }
 
 #[test]
 fn inserts_all_rows_in_table_in_record() {
     let actual = nu!(
-        r#"{table: [[col]; [{a: 1}], [{a: 1}]]} | insert table.col.b 2 | get table.col.b | to nuon"#
+        "{table: [[col]; [{a: 1}], [{a: 1}]]} | insert table.col.b 2 | get table.col.b | to nuon"
     );
     assert_eq!(actual.out, "[2, 2]");
+}
+
+#[test]
+fn list_replacement_closure() {
+    let actual = nu!("[1, 2] | insert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | insert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | insert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[1, 2] | insert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+}
+
+#[test]
+fn record_replacement_closure() {
+    let actual = nu!("{ a: text } | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: text } | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "{a: text, b: TEXT}");
+
+    let actual = nu!("{ a: { b: 1 } } | insert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 1}}");
+
+    let actual = nu!("{ a: { b: 1 } } | insert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "{a: {b: 1, c: 0}}");
+}
+
+#[test]
+fn table_replacement_closure() {
+    let actual = nu!("[[a]; [text]] | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c {|r| $r.a.b } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 1}]]");
+
+    let actual = nu!("[[b]; [1]] | wrap a | insert a.c { default 0 } | to nuon");
+    assert_eq!(actual.out, "[[a]; [{b: 1, c: 0}]]");
+}
+
+#[test]
+fn list_stream_replacement_closure() {
+    let actual = nu!("[1, 2] | every 1 | insert 1 {|i| $i + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual = nu!("[1, 2] | every 1 | insert 1 { $in + 1 } | to nuon");
+    assert_eq!(actual.out, "[1, 3, 2]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | insert 2 {|i| if $i == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual =
+        nu!("[1, 2] | every 1 | insert 2 { if $in == null { 0 } else { $in + 1 } } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 0]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | insert b {|r| $r.a | str upcase } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
+
+    let actual = nu!("[[a]; [text]] | every 1 | insert b { default TEXT } | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }

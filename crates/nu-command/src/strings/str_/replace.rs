@@ -44,12 +44,12 @@ impl Command for SubCommand {
                     Type::List(Box::new(Type::String)),
                 ),
             ])
-            .required("find", SyntaxShape::String, "the pattern to find")
-            .required("replace", SyntaxShape::String, "the replacement string")
+            .required("find", SyntaxShape::String, "The pattern to find.")
+            .required("replace", SyntaxShape::String, "The replacement string.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, operate on strings at the given cell paths",
+                "For a data structure input, operate on strings at the given cell paths.",
             )
             .switch("all", "replace all occurrences of the pattern", Some('a'))
             .switch(

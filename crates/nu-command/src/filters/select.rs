@@ -34,7 +34,7 @@ impl Command for Select {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the columns to select from the table",
+                "The columns to select from the table.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -215,13 +215,13 @@ fn select(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Select only allows row numbers for rows".into(),
-                        "extra after row number".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Select only allows row numbers for rows".into(),
+                        msg: "extra after row number".into(),
+                        span: Some(*span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 unique_rows.insert(*val);
             }

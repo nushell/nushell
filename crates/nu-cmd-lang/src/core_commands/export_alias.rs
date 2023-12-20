@@ -19,11 +19,11 @@ impl Command for ExportAlias {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export alias")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("name", SyntaxShape::String, "name of the alias")
+            .required("name", SyntaxShape::String, "Name of the alias.")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::Expression)),
-                "equals sign followed by value",
+                "Equals sign followed by value.",
             )
             .category(Category::Core)
     }

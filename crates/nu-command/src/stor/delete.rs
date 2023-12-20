@@ -31,11 +31,11 @@ impl Command for StorDelete {
                 Some('w'),
             )
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
-        "Delete a table or specified rows in the in-memory sqlite database"
+        "Delete a table or specified rows in the in-memory sqlite database."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -112,15 +112,14 @@ impl Command for StorDelete {
                 };
 
                 // dbg!(&sql_stmt);
-                conn.execute(&sql_stmt, []).map_err(|err| {
-                    ShellError::GenericError(
-                        "Failed to open SQLite connection in memory from delete".into(),
-                        err.to_string(),
-                        Some(Span::test_data()),
-                        None,
-                        Vec::new(),
-                    )
-                })?;
+                conn.execute(&sql_stmt, [])
+                    .map_err(|err| ShellError::GenericError {
+                        error: "Failed to open SQLite connection in memory from delete".into(),
+                        msg: err.to_string(),
+                        span: Some(Span::test_data()),
+                        help: None,
+                        inner: vec![],
+                    })?;
             }
         }
         // dbg!(db.clone());

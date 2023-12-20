@@ -102,15 +102,14 @@ impl SQLiteDatabase {
     pub fn query(&self, sql: &Spanned<String>, call_span: Span) -> Result<Value, ShellError> {
         let conn = open_sqlite_db(&self.path, call_span)?;
 
-        let stream = run_sql_query(conn, sql, self.ctrlc.clone()).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to query SQLite database".into(),
-                e.to_string(),
-                Some(sql.span),
-                None,
-                Vec::new(),
-            )
-        })?;
+        let stream =
+            run_sql_query(conn, sql, self.ctrlc.clone()).map_err(|e| ShellError::GenericError {
+                error: "Failed to query SQLite database".into(),
+                msg: e.to_string(),
+                span: Some(sql.span),
+                help: None,
+                inner: vec![],
+            })?;
 
         Ok(stream)
     }
@@ -119,14 +118,12 @@ impl SQLiteDatabase {
         if self.path == PathBuf::from(MEMORY_DB) {
             open_connection_in_memory_custom()
         } else {
-            Connection::open(&self.path).map_err(|e| {
-                ShellError::GenericError(
-                    "Failed to open SQLite database from open_connection".into(),
-                    e.to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                )
+            Connection::open(&self.path).map_err(|e| ShellError::GenericError {
+                error: "Failed to open SQLite database from open_connection".into(),
+                msg: e.to_string(),
+                span: None,
+                help: None,
+                inner: vec![],
             })
         }
     }
@@ -362,14 +359,12 @@ impl CustomValue for SQLiteDatabase {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         let db = open_sqlite_db(&self.path, span)?;
-        read_entire_sqlite_db(db, span, self.ctrlc.clone()).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        read_entire_sqlite_db(db, span, self.ctrlc.clone()).map_err(|e| ShellError::GenericError {
+            error: "Failed to read from SQLite database".into(),
+            msg: e.to_string(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })
     }
 
@@ -386,13 +381,13 @@ impl CustomValue for SQLiteDatabase {
         let db = open_sqlite_db(&self.path, span)?;
 
         read_single_table(db, _column_name, span, self.ctrlc.clone()).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to read from SQLite database".into(),
-                e.to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+            ShellError::GenericError {
+                error: "Failed to read from SQLite database".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }
         })
     }
 
@@ -410,14 +405,12 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
         open_connection_in_memory_custom()
     } else {
         let path = path.to_string_lossy().to_string();
-        Connection::open(path).map_err(|e| {
-            ShellError::GenericError(
-                "Failed to open SQLite database".into(),
-                e.to_string(),
-                Some(call_span),
-                None,
-                Vec::new(),
-            )
+        Connection::open(path).map_err(|e| ShellError::GenericError {
+            error: "Failed to open SQLite database".into(),
+            msg: e.to_string(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
         })
     }
 }
@@ -611,25 +604,21 @@ mod test {
 
 pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let flags = OpenFlags::default();
-    Connection::open_with_flags(MEMORY_DB, flags).map_err(|err| {
-        ShellError::GenericError(
-            "Failed to open SQLite custom connection in memory".into(),
-            err.to_string(),
-            Some(Span::test_data()),
-            None,
-            Vec::new(),
-        )
+    Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite custom connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
     })
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    Connection::open_in_memory().map_err(|err| {
-        ShellError::GenericError(
-            "Failed to open SQLite standard connection in memory".into(),
-            err.to_string(),
-            Some(Span::test_data()),
-            None,
-            Vec::new(),
-        )
+    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
+        error: "Failed to open SQLite standard connection in memory".into(),
+        msg: e.to_string(),
+        span: Some(Span::test_data()),
+        help: None,
+        inner: vec![],
     })
 }

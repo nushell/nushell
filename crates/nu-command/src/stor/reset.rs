@@ -17,11 +17,11 @@ impl Command for StorReset {
         Signature::build("stor reset")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {
-        "Reset the in-memory database by dropping all tables"
+        "Reset the in-memory database by dropping all tables."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -49,15 +49,14 @@ impl Command for StorReset {
         let db = Box::new(SQLiteDatabase::new(std::path::Path::new(MEMORY_DB), None));
 
         if let Ok(conn) = db.open_connection() {
-            db.drop_all_tables(&conn).map_err(|err| {
-                ShellError::GenericError(
-                    "Failed to open SQLite connection in memory from reset".into(),
-                    err.to_string(),
-                    Some(Span::test_data()),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            db.drop_all_tables(&conn)
+                .map_err(|err| ShellError::GenericError {
+                    error: "Failed to open SQLite connection in memory from reset".into(),
+                    msg: err.to_string(),
+                    span: Some(Span::test_data()),
+                    help: None,
+                    inner: vec![],
+                })?;
         }
         // dbg!(db.clone());
         Ok(Value::custom_value(db, span).into_pipeline_data())

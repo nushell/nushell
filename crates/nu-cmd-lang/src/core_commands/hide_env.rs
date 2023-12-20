@@ -20,7 +20,7 @@ impl Command for HideEnv {
             .rest(
                 "name",
                 SyntaxShape::String,
-                "environment variable names to hide",
+                "Environment variable names to hide.",
             )
             .switch(
                 "ignore-errors",

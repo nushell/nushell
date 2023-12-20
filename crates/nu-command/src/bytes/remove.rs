@@ -35,11 +35,11 @@ impl Command for BytesRemove {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .required("pattern", SyntaxShape::Binary, "the pattern to find")
+            .required("pattern", SyntaxShape::Binary, "The pattern to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, remove bytes from data at the given cell paths",
+                "For a data structure input, remove bytes from data at the given cell paths.",
             )
             .switch("end", "remove from end of binary", Some('e'))
             .switch("all", "remove occurrences of finding binary", Some('a'))

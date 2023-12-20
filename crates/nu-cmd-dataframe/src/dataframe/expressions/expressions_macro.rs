@@ -319,7 +319,7 @@ macro_rules! lazy_expr_command {
 expr_command!(
     ExprList,
     "dfr implode",
-    "Aggregates a group to a Series",
+    "Aggregates a group to a Series.",
     vec![Example {
         description: "",
         example: "",
@@ -334,7 +334,7 @@ expr_command!(
 expr_command!(
     ExprAggGroups,
     "dfr agg-groups",
-    "creates an agg_groups expression",
+    "Creates an agg_groups expression.",
     vec![Example {
         description: "",
         example: "",
@@ -349,7 +349,7 @@ expr_command!(
 expr_command!(
     ExprCount,
     "dfr count",
-    "creates a count expression",
+    "Creates a count expression.",
     vec![Example {
         description: "",
         example: "",
@@ -364,7 +364,7 @@ expr_command!(
 expr_command!(
     ExprNot,
     "dfr expr-not",
-    "creates a not expression",
+    "Creates a not expression.",
     vec![Example {
         description: "Creates a not expression",
         example: "(dfr col a) > 2) | dfr expr-not",
@@ -379,7 +379,7 @@ expr_command!(
 lazy_expr_command!(
     ExprMax,
     "dfr max",
-    "Creates a max expression or aggregates columns to their max value",
+    "Creates a max expression or aggregates columns to their max value.",
     vec![
         Example {
             description: "Max value from columns in a dataframe",
@@ -424,7 +424,7 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprMin,
     "dfr min",
-    "Creates a min expression or aggregates columns to their min value",
+    "Creates a min expression or aggregates columns to their min value.",
     vec![
         Example {
             description: "Min value from columns in a dataframe",
@@ -469,7 +469,7 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprSum,
     "dfr sum",
-    "Creates a sum expression for an aggregation or aggregates columns to their sum value",
+    "Creates a sum expression for an aggregation or aggregates columns to their sum value.",
     vec![
         Example {
             description: "Sums all columns in a dataframe",
@@ -514,7 +514,7 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprMean,
     "dfr mean",
-    "Creates a mean expression for an aggregation or aggregates columns to their mean value",
+    "Creates a mean expression for an aggregation or aggregates columns to their mean value.",
     vec![
         Example {
             description: "Mean value from columns in a dataframe",
@@ -559,7 +559,7 @@ lazy_expr_command!(
 expr_command!(
     ExprMedian,
     "dfr median",
-    "Creates a median expression for an aggregation",
+    "Creates a median expression for an aggregation.",
     vec![Example {
         description: "Median aggregation for a group-by",
         example: r#"[[a b]; [one 2] [one 4] [two 1]]
@@ -590,7 +590,7 @@ expr_command!(
 lazy_expr_command!(
     ExprStd,
     "dfr std",
-    "Creates a std expression for an aggregation of std value from columns in a dataframe",
+    "Creates a std expression for an aggregation of std value from columns in a dataframe.",
     vec![
         Example {
             description: "Std value from columns in a dataframe",
@@ -636,7 +636,7 @@ lazy_expr_command!(
 lazy_expr_command!(
     ExprVar,
     "dfr var",
-    "Create a var expression for an aggregation",
+    "Create a var expression for an aggregation.",
     vec![
         Example {
             description:
