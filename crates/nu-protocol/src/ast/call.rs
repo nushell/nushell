@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::Expression;
-use crate::{DeclId, ShellError, Span, Spanned, Value};
+use crate::{DeclId, Span, Spanned};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
@@ -191,32 +191,6 @@ impl Call {
             .collect::<Vec<_>>();
         let spread_start = args.iter().position(|(_, spread)| *spread).unwrap_or(start);
         args.into_iter().skip(start.min(spread_start))
-    }
-
-    // TODO maybe this should go elsewhere (eval?), since it's not the responsibility of the call itself
-    pub fn rest_iter_flattened<F>(
-        &self,
-        start: usize,
-        mut eval: F,
-    ) -> Result<Vec<Value>, ShellError>
-    where
-        F: FnMut(&Expression) -> Result<Value, ShellError>,
-    {
-        let mut output = Vec::new();
-
-        for (expr, spread) in self.rest_iter(start) {
-            let result = eval(expr)?;
-            if spread {
-                match result {
-                    Value::List { mut vals, .. } => output.append(&mut vals),
-                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
-                }
-            } else {
-                output.push(result);
-            }
-        }
-
-        Ok(output)
     }
 
     pub fn get_parser_info(&self, name: &str) -> Option<&Expression> {

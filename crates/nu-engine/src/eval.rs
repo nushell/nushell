@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{call_ext::CallExt, current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
