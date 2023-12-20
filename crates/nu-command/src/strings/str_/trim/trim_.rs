@@ -134,7 +134,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '=' | str trim",
+                example: "'=== Nu shell ===' | str trim --char '='",
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
@@ -143,17 +143,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell ")),
             },
             Example {
-                description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '='",
-                result: Some(Value::test_string(" Nu shell ")),
-            },
-            Example {
                 description: "Trim whitespace from the end of string",
                 example: "' Nu shell ' | str trim --right",
                 result: Some(Value::test_string(" Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
+                description: "Trim a specific character only from the end of the string",
                 example: "'=== Nu shell ===' | str trim --right --char '='",
                 result: Some(Value::test_string("=== Nu shell ")),
             },
