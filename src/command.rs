@@ -93,23 +93,23 @@ pub(crate) fn parse_commandline_args(
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
-            let commands: Option<Expression> = call.get_flag_expr("commands");
-            let testbin: Option<Expression> = call.get_flag_expr("testbin");
+            let commands = call.get_flag_expr("commands");
+            let testbin = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
-            let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
+            let plugin_file = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
             let no_std_lib = call.get_named_arg("no-std-lib");
-            let config_file: Option<Expression> = call.get_flag_expr("config");
-            let env_file: Option<Expression> = call.get_flag_expr("env-config");
-            let log_level: Option<Expression> = call.get_flag_expr("log-level");
-            let log_target: Option<Expression> = call.get_flag_expr("log-target");
-            let execute: Option<Expression> = call.get_flag_expr("execute");
+            let config_file = call.get_flag_expr("config");
+            let env_file = call.get_flag_expr("env-config");
+            let log_level = call.get_flag_expr("log-level");
+            let log_target = call.get_flag_expr("log-target");
+            let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             // ide flags
             let lsp = call.has_flag("lsp");
-            let include_path: Option<Expression> = call.get_flag_expr("include-path");
+            let include_path = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
@@ -119,7 +119,7 @@ pub(crate) fn parse_commandline_args(
             let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
-                expression: Option<Expression>,
+                expression: Option<&Expression>,
             ) -> Result<Option<Spanned<String>>, ShellError> {
                 if let Some(expr) = expression {
                     let str = expr.as_string();

@@ -164,10 +164,10 @@ impl Call {
         false
     }
 
-    pub fn get_flag_expr(&self, flag_name: &str) -> Option<Expression> {
+    pub fn get_flag_expr(&self, flag_name: &str) -> Option<&Expression> {
         for name in self.named_iter() {
             if flag_name == name.0.item {
-                return name.2.clone();
+                return name.2.as_ref();
             }
         }
 
