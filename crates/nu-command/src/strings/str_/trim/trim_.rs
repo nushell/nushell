@@ -133,9 +133,9 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
+                description: "Trim a specific character (not the whitespace)",
                 example: "'=== Nu shell ===' | str trim --char '='",
-                result: Some(Value::test_string("Nu shell")),
+                result: Some(Value::test_string(" Nu shell ")),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
