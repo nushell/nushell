@@ -9,7 +9,7 @@ pub enum ParseWarning {
     DeprecatedWarning(
         String,
         String,
-        #[label = "`{0}` is deprecated. Please use `{1}` instead, more info: https://www.nushell.sh/book/custom_commands.html"]
+        #[label = "`{0}` is deprecated and will be removed in 0.90. Please use `{1}` instead, more info: https://www.nushell.sh/book/custom_commands.html"]
         Span,
     ),
 }
