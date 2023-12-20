@@ -50,7 +50,7 @@ htmlescape = "0.3"
 human-date-parser = "0.1.1"
 indexmap = "2.1"
 indicatif = "0.17"
-itertools = "0.11"
+itertools = "0.12"
 log = "0.4"
 lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
