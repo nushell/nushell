@@ -76,7 +76,7 @@ impl Command for SubCommand {
                 "redirect-mode",
                 SyntaxShape::String,
                 "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
-                Some('d')
+                Some('R')
             )
             .filter()
             .category(Category::Network)
