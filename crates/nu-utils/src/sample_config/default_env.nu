@@ -85,6 +85,25 @@ $env.ENV_CONVERSIONS = {
     }
 }
 
+# Completions distributed by package managers are sourced from a global vendor
+# completions directory If you want to override the default, you can do so like
+# this:
+#
+# $env.NU_VENDOR_COMPLETIONS_DIR = ...
+#
+# The default is /usr/share/nushell/completions on Linux and MacOS, and
+# %ProgramData%\nushell\completions on Windows
+#
+# There's a similar path for completions installed by the user, which can be
+# overridden like so:
+#
+# $env.NU_COMPLETIONS_DIR = ...
+#
+# The default here is $XDG_DATA_HOME/nushell/completions on Linux, falling back
+# to $HOME/.local/share for $XDG_DATA_HOME if it's not set,
+# $HOME/Library/Application Support/nushell/completions on MacOS, and
+# %RoamingAppData%\nushell\completions on Windows.
+
 # Directories to search for scripts when calling source or use
 # The default for this is $nu.default-config-dir/scripts
 $env.NU_LIB_DIRS = [

@@ -22,6 +22,7 @@ pub(crate) fn read_config_file(
     config_file: Option<Spanned<String>>,
     is_env_config: bool,
 ) {
+    read_vendor_completions(engine_state, stack);
     // Load config startup file
     if let Some(file) = config_file {
         let working_set = StateWorkingSet::new(engine_state);
@@ -121,6 +122,23 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
     }
 
     info!("read_loginshell_file {}:{}:{}", file!(), line!(), column!());
+}
+
+pub(crate) fn read_vendor_completions(engine_state: &mut EngineState, stack: &mut Stack) {
+    nu_path::vendor_completions_dirs()
+        .into_iter()
+        .filter_map(|dir| dir.read_dir().ok())
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.path())
+        .filter(|entry| entry.is_file())
+        .filter(|entry| {
+            entry
+                .extension()
+                .filter(|extension| extension.to_str() == Some("nu"))
+                .is_some()
+        })
+        .for_each(|entry| eval_config_contents(entry, engine_state, stack));
 }
 
 pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut Stack) {

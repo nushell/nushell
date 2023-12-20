@@ -2997,8 +2997,10 @@ name = "nu-path"
 version = "0.88.2"
 dependencies = [
  "dirs-next",
+ "dirs-sys-next",
  "omnipath",
  "pwd",
+ "winapi",
 ]
 
 [[package]]
