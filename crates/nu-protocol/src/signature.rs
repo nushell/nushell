@@ -46,6 +46,7 @@ pub enum Category {
     Conversions,
     Core,
     Custom(String),
+    Database,
     Date,
     Debug,
     Default,
@@ -57,6 +58,7 @@ pub enum Category {
     Formats,
     Generators,
     Hash,
+    History,
     Math,
     Misc,
     Network,
@@ -78,6 +80,7 @@ impl std::fmt::Display for Category {
             Category::Conversions => "conversions",
             Category::Core => "core",
             Category::Custom(name) => name,
+            Category::Database => "database",
             Category::Date => "date",
             Category::Debug => "debug",
             Category::Default => "default",
@@ -89,6 +92,7 @@ impl std::fmt::Display for Category {
             Category::Formats => "formats",
             Category::Generators => "generators",
             Category::Hash => "hash",
+            Category::History => "history",
             Category::Math => "math",
             Category::Misc => "misc",
             Category::Network => "network",
@@ -469,7 +473,8 @@ impl Signature {
         let s = short.map(|c| {
             debug_assert!(
                 !self.get_shorts().contains(&c),
-                "There may be duplicate short flags, such as -h"
+                "There may be duplicate short flags for '-{}'",
+                c
             );
             c
         });
@@ -478,7 +483,8 @@ impl Signature {
             let name: String = name.into();
             debug_assert!(
                 !self.get_names().contains(&name.as_str()),
-                "There may be duplicate name flags, such as --help"
+                "There may be duplicate name flags for '--{}'",
+                name
             );
             name
         };
@@ -694,13 +700,13 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        Err(ShellError::GenericError(
-            "Internal error: can't run custom command with 'run', use block_id".to_string(),
-            "".to_string(),
-            None,
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Internal error: can't run custom command with 'run', use block_id".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
     }
 
     fn get_block_id(&self) -> Option<BlockId> {

@@ -121,22 +121,22 @@ fn action(
 
                 ActionType::Decode => match hex_decode(val.as_ref()) {
                     Ok(decoded_value) => Value::binary(decoded_value, command_span),
-                    Err(HexDecodingError::InvalidLength(len)) => Value::error(ShellError::GenericError(
-                            "value could not be hex decoded".to_string(),
-                            format!("invalid hex input length: {len}. The length should be even"),
-                            Some(command_span),
-                            None,
-                            Vec::new(),
-                        ),
+                    Err(HexDecodingError::InvalidLength(len)) => Value::error(ShellError::GenericError {
+                            error: "value could not be hex decoded".into(),
+                            msg: format!("invalid hex input length: {len}. The length should be even"),
+                            span: Some(command_span),
+                            help: None,
+                            inner: vec![],
+                        },
                         command_span,
                     ),
-                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::error(ShellError::GenericError(
-                            "value could not be hex decoded".to_string(),
-                            format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
-                            Some(command_span),
-                            None,
-                            Vec::new(),
-                        ),
+                    Err(HexDecodingError::InvalidDigit(index, digit)) => Value::error(ShellError::GenericError {
+                            error: "value could not be hex decoded".into(),
+                            msg: format!("invalid hex digit: '{digit}' at index {index}. Only 0-9, A-F, a-f are allowed in hex encoding"),
+                            span: Some(command_span),
+                            help: None,
+                            inner: vec![],
+                        },
                         command_span,
                     ),
                 },

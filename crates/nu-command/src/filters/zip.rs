@@ -30,7 +30,7 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "the other input")
+            .required("other", SyntaxShape::Any, "The other input.")
             .category(Category::Filters)
     }
 
@@ -100,8 +100,7 @@ impl Command for Zip {
             .into_iter()
             .zip(other.into_pipeline_data())
             .map(move |(x, y)| Value::list(vec![x, y], head))
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

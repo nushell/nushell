@@ -26,7 +26,7 @@ impl Command for SkipUntil {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that skipped element must not match",
+                "The predicate that skipped element must not match.",
             )
             .category(Category::Filters)
     }
@@ -113,8 +113,7 @@ impl Command for SkipUntil {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

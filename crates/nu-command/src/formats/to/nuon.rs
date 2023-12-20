@@ -241,12 +241,6 @@ pub fn value_to_string(
                 ))
             }
         }
-        Value::MatchPattern { .. } => Err(ShellError::UnsupportedInput {
-            msg: "match patterns are currently not nuon-compatible".to_string(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",

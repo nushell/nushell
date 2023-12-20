@@ -1,62 +1,27 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
+const SAMPLE_CSV_CONTENT: &str = r#"
+            [[first_name, last_name, rusty_at, type];
+            [Andrés, Robalino, "10/11/2013", A],
+            [JT, Turner, "10/12/2013", B],
+            [Yehuda, Katz, "10/11/2013", A],
+            [JT, Turner, "10/12/2013", B],
+            [Yehuda, Katz, "10/11/2013", A]]
+            "#;
 #[test]
 fn removes_duplicate_rows() {
-    Playground::setup("uniq_test_1", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at,type
-                Andrés,Robalino,10/11/2013,A
-                JT,Turner,10/12/2013,B
-                Yehuda,Katz,10/11/2013,A
-                JT,Turner,10/12/2013,B
-                Yehuda,Katz,10/11/2013,A
-            "#,
-        )]);
+    let actual = nu!(pipeline(&format!("{SAMPLE_CSV_CONTENT} | uniq | length ")));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open los_tres_caballeros.csv
-                | uniq
-                | length
-            "
-        ));
-
-        assert_eq!(actual.out, "3");
-    })
+    assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn uniq_values() {
-    Playground::setup("uniq_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.csv",
-            r#"
-                first_name,last_name,rusty_at,type
-                Andrés,Robalino,10/11/2013,A
-                JT,Turner,10/12/2013,B
-                Yehuda,Katz,10/11/2013,A
-                JT,Turner,10/12/2013,B
-                Yehuda,Katz,10/11/2013,A
-            "#,
-        )]);
+    let actual = nu!(pipeline(&format!(
+        "{SAMPLE_CSV_CONTENT} | select type | uniq | length ",
+    )));
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open los_tres_caballeros.csv
-                | select type
-                | uniq
-                | length
-            "
-        ));
-
-        assert_eq!(actual.out, "2");
-    })
+    assert_eq!(actual.out, "2");
 }
 
 #[test]
@@ -68,10 +33,7 @@ fn uniq_empty() {
 
 #[test]
 fn nested_json_structures() {
-    Playground::setup("uniq_test_3", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "nested_json_structures.json",
-            r#"
+    let sample = r#"
             [
                 {
                   "name": "this is duplicated",
@@ -114,19 +76,11 @@ fn nested_json_structures() {
                   }
                 }
               ]
-            "#,
-        )]);
+            "#;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
-                open nested_json_structures.json
-                | uniq
-                | length
-            "
-        ));
-        assert_eq!(actual.out, "3");
-    })
+    let actual = nu!(pipeline(&format!("'{sample}' | from json | uniq | length")));
+
+    assert_eq!(actual.out, "3");
 }
 
 #[test]

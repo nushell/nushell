@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_parser::{flatten_block, parse, FlatShape};
-use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement};
+use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
@@ -17,10 +17,27 @@ impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, _cursor: usize) -> StyledText {
         trace!("highlighting: {}", line);
 
+        let highlight_resolved_externals =
+            self.engine_state.get_config().highlight_resolved_externals;
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = parse(&mut working_set, None, line.as_bytes(), false);
         let (shapes, global_span_offset) = {
-            let shapes = flatten_block(&working_set, &block);
+            let mut shapes = flatten_block(&working_set, &block);
+            // Highlighting externals has a config point because of concerns that using which to resolve
+            // externals may slow down things too much.
+            if highlight_resolved_externals {
+                for (span, shape) in shapes.iter_mut() {
+                    if *shape == FlatShape::External {
+                        let str_contents =
+                            working_set.get_span_contents(Span::new(span.start, span.end));
+
+                        let str_word = String::from_utf8_lossy(str_contents).to_string();
+                        if which::which(str_word).ok().is_some() {
+                            *shape = FlatShape::ExternalResolved;
+                        }
+                    }
+                }
+            }
             (shapes, self.engine_state.next_span_start())
         };
 
@@ -91,6 +108,7 @@ impl Highlighter for NuHighlighter {
                 FlatShape::InternalCall(_) => add_colored_token(&shape.1, next_token),
                 FlatShape::External => add_colored_token(&shape.1, next_token),
                 FlatShape::ExternalArg => add_colored_token(&shape.1, next_token),
+                FlatShape::ExternalResolved => add_colored_token(&shape.1, next_token),
                 FlatShape::Keyword => add_colored_token(&shape.1, next_token),
                 FlatShape::Literal => add_colored_token(&shape.1, next_token),
                 FlatShape::Operator => add_colored_token(&shape.1, next_token),
@@ -234,11 +252,11 @@ fn find_matching_block_end_in_block(
         for e in &p.elements {
             match e {
                 PipelineElement::Expression(_, e)
-                | PipelineElement::Redirection(_, _, e)
+                | PipelineElement::Redirection(_, _, e, _)
                 | PipelineElement::And(_, e)
                 | PipelineElement::Or(_, e)
                 | PipelineElement::SameTargetRedirection { cmd: (_, e), .. }
-                | PipelineElement::SeparateRedirection { out: (_, e), .. } => {
+                | PipelineElement::SeparateRedirection { out: (_, e, _), .. } => {
                     if e.span.contains(global_cursor_offset) {
                         if let Some(pos) = find_matching_block_end_in_expr(
                             line,
@@ -315,6 +333,7 @@ fn find_matching_block_end_in_expr(
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
+            Expr::Spread(_) => None,
 
             Expr::Table(hdr, rows) => {
                 if expr_last == global_cursor_offset {
@@ -346,9 +365,16 @@ fn find_matching_block_end_in_expr(
                     Some(expr_last)
                 } else {
                     // cursor is inside record
-                    for (k, v) in exprs {
-                        find_in_expr_or_continue!(k);
-                        find_in_expr_or_continue!(v);
+                    for expr in exprs {
+                        match expr {
+                            RecordItem::Pair(k, v) => {
+                                find_in_expr_or_continue!(k);
+                                find_in_expr_or_continue!(v);
+                            }
+                            RecordItem::Spread(_, record) => {
+                                find_in_expr_or_continue!(record);
+                            }
+                        }
                     }
                     None
                 }

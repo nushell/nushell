@@ -4,10 +4,31 @@ use nu_parser::parse;
 use nu_plugin::{EncodingType, PluginResponse};
 use nu_protocol::{engine::EngineState, PipelineData, Span, Value};
 use nu_utils::{get_default_config, get_default_env};
+use std::path::{Path, PathBuf};
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
 }
+
+fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
+    let cwd = engine_state.current_work_dir();
+
+    if path.exists() {
+        match nu_path::canonicalize_with(path, cwd) {
+            Ok(canon_path) => canon_path,
+            Err(_) => path.to_owned(),
+        }
+    } else {
+        path.to_owned()
+    }
+}
+
+fn get_home_path(engine_state: &EngineState) -> PathBuf {
+    nu_path::home_dir()
+        .map(|path| canonicalize_path(engine_state, &path))
+        .unwrap_or_default()
+}
+
 // FIXME: All benchmarks live in this 1 file to speed up build times when benchmarking.
 // When the *_benchmarks functions were in different files, `cargo bench` would build
 // an executable for every single one - incredibly slowly. Would be nice to figure out
@@ -15,10 +36,12 @@ fn load_bench_commands() -> EngineState {
 
 fn parser_benchmarks(c: &mut Criterion) {
     let mut engine_state = load_bench_commands();
-    // parsing config.nu breaks without PWD set
+    let home_path = get_home_path(&engine_state);
+
+    // parsing config.nu breaks without PWD set, so set a valid path
     engine_state.add_env_var(
         "PWD".into(),
-        Value::string("/some/dir".to_string(), Span::test_data()),
+        Value::string(home_path.to_string_lossy(), Span::test_data()),
     );
 
     let default_env = get_default_env().as_bytes();
@@ -41,7 +64,6 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut engine_state = load_bench_commands();
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -56,12 +78,6 @@ fn parser_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut engine_state = load_bench_commands();
-            // parsing config.nu breaks without PWD set
-            engine_state.add_env_var(
-                "PWD".into(),
-                Value::string("/some/dir".to_string(), Span::test_data()),
-            );
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -76,9 +92,17 @@ fn parser_benchmarks(c: &mut Criterion) {
 }
 
 fn eval_benchmarks(c: &mut Criterion) {
+    let mut engine_state = load_bench_commands();
+    let home_path = get_home_path(&engine_state);
+
+    // parsing config.nu breaks without PWD set, so set a valid path
+    engine_state.add_env_var(
+        "PWD".into(),
+        Value::string(home_path.to_string_lossy(), Span::test_data()),
+    );
+
     c.bench_function("eval default_env.nu", |b| {
         b.iter(|| {
-            let mut engine_state = load_bench_commands();
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,
@@ -93,12 +117,6 @@ fn eval_benchmarks(c: &mut Criterion) {
 
     c.bench_function("eval default_config.nu", |b| {
         b.iter(|| {
-            let mut engine_state = load_bench_commands();
-            // parsing config.nu breaks without PWD set
-            engine_state.add_env_var(
-                "PWD".into(),
-                Value::string("/some/dir".to_string(), Span::test_data()),
-            );
             let mut stack = nu_protocol::engine::Stack::new();
             eval_source(
                 &mut engine_state,

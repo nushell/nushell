@@ -101,13 +101,15 @@ impl Command for Complete {
 
                 Ok(Value::record(record, call.head).into_pipeline_data())
             }
-            _ => Err(ShellError::GenericError(
-                "Complete only works with external streams".to_string(),
-                "complete only works on external streams".to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )),
+            // bubble up errors from the previous command
+            PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
+            _ => Err(ShellError::GenericError {
+                error: "Complete only works with external streams".into(),
+                msg: "complete only works on external streams".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }),
         }
     }
 

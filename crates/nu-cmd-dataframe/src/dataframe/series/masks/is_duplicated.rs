@@ -94,14 +94,12 @@ fn command(
     let mut res = df
         .as_ref()
         .is_duplicated()
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error finding duplicates".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error finding duplicates".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

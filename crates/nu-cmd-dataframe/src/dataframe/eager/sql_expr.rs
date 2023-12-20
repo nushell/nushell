@@ -2,8 +2,8 @@ use polars::error::PolarsError;
 use polars::prelude::{col, lit, DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit};
 
 use sqlparser::ast::{
-    BinaryOperator as SQLBinaryOperator, DataType as SQLDataType, Expr as SqlExpr,
-    Function as SQLFunction, Value as SqlValue, WindowType,
+    ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
+    Expr as SqlExpr, Function as SQLFunction, Value as SqlValue, WindowType,
 };
 
 fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
@@ -13,7 +13,7 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         | SQLDataType::Uuid
         | SQLDataType::Clob(_)
         | SQLDataType::Text
-        | SQLDataType::String => DataType::Utf8,
+        | SQLDataType::String(_) => DataType::Utf8,
         SQLDataType::Float(_) => DataType::Float32,
         SQLDataType::Real => DataType::Float32,
         SQLDataType::Double => DataType::Float64,
@@ -31,9 +31,12 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         SQLDataType::Time(_, _) => DataType::Time,
         SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Microseconds, None),
         SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
-        SQLDataType::Array(inner_type) => match inner_type {
-            Some(inner_type) => DataType::List(Box::new(map_sql_polars_datatype(inner_type)?)),
-            None => {
+        SQLDataType::Array(array_type_def) => match array_type_def {
+            ArrayElemTypeDef::AngleBracket(inner_type)
+            | ArrayElemTypeDef::SquareBracket(inner_type) => {
+                DataType::List(Box::new(map_sql_polars_datatype(inner_type)?))
+            }
+            _ => {
                 return Err(PolarsError::ComputeError(
                     "SQL Datatype Array(None) was not supported in polars-sql yet!".into(),
                 ))
@@ -114,7 +117,11 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
             binary_op_(left, right, op)?
         }
         SqlExpr::Function(sql_function) => parse_sql_function(sql_function)?,
-        SqlExpr::Cast { expr, data_type } => cast_(parse_sql_expr(expr)?, data_type)?,
+        SqlExpr::Cast {
+            expr,
+            data_type,
+            format: _,
+        } => cast_(parse_sql_expr(expr)?, data_type)?,
         SqlExpr::Nested(expr) => parse_sql_expr(expr)?,
         SqlExpr::Value(value) => literal_expr(value)?,
         _ => {

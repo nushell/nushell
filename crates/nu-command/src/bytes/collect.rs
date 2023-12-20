@@ -20,7 +20,7 @@ impl Command for BytesCollect {
             .optional(
                 "separator",
                 SyntaxShape::Binary,
-                "optional separator to use when creating binary",
+                "Optional separator to use when creating binary.",
             )
             .category(Category::Bytes)
     }

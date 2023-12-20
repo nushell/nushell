@@ -1,6 +1,6 @@
 # Nushell Config File
 #
-# version = "0.87.1"
+# version = "0.88.2"
 
 # For more information on defining custom themes, see
 # https://www.nushell.sh/book/coloring_and_theming.html
@@ -42,6 +42,7 @@ let dark_theme = {
     shape_directory: cyan
     shape_external: cyan
     shape_externalarg: green_bold
+    shape_external_resolved: light_yellow_bold
     shape_filepath: cyan
     shape_flag: blue_bold
     shape_float: purple_bold
@@ -106,6 +107,7 @@ let light_theme = {
     shape_directory: cyan
     shape_external: cyan
     shape_externalarg: green_bold
+    shape_external_resolved: light_purple_bold
     shape_filepath: cyan
     shape_flag: blue_bold
     shape_float: purple_bold
@@ -233,7 +235,8 @@ $env.config = {
     edit_mode: emacs # emacs, vi
     shell_integration: false # enables terminal shell integration. Off by default, as some terminals have issues with this.
     render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
-    use_kitty_protocol: false # enables keyboard enhancement protocol implemented by kitty console, only if your terminal support this
+    use_kitty_protocol: false # enables keyboard enhancement protocol implemented by kitty console, only if your terminal support this.
+    highlight_resolved_externals: false # true enables highlighting of external commands in the repl resolved by which.
 
     hooks: {
         pre_prompt: [{ null }] # run before the prompt is shown

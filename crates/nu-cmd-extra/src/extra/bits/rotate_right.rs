@@ -112,15 +112,15 @@ where
     match rotate_result {
         Ok(val) => Value::int(val, span),
         Err(_) => Value::error(
-            ShellError::GenericError(
-                "Rotate right result beyond the range of 64 bit signed number".to_string(),
-                format!(
+            ShellError::GenericError {
+                error: "Rotate right result beyond the range of 64 bit signed number".into(),
+                msg: format!(
                     "{val} of the specified number of bytes rotate right {bits} bits exceed limit"
                 ),
-                Some(span),
-                None,
-                Vec::new(),
-            ),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }

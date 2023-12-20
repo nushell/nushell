@@ -111,13 +111,13 @@ pub(crate) fn call_plugin(
 
         encoding.decode_response(&mut buf_read)
     } else {
-        Err(ShellError::GenericError(
-            "Error with stdout reader".into(),
-            "no stdout reader".into(),
-            Some(span),
-            None,
-            Vec::new(),
-        ))
+        Err(ShellError::GenericError {
+            error: "Error with stdout reader".into(),
+            msg: "no stdout reader".into(),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        })
     }
 }
 
@@ -146,17 +146,21 @@ pub fn get_signature(
             }
         };
 
-        ShellError::PluginFailedToLoad(error_msg)
+        ShellError::PluginFailedToLoad { msg: error_msg }
     })?;
 
     let mut stdin_writer = child
         .stdin
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("plugin missing stdin writer".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "plugin missing stdin writer".into(),
+        })?;
     let mut stdout_reader = child
         .stdout
         .take()
-        .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin missing stdout reader".into()))?;
+        .ok_or_else(|| ShellError::PluginFailedToLoad {
+            msg: "Plugin missing stdout reader".into(),
+        })?;
     let encoding = get_plugin_encoding(&mut stdout_reader)?;
 
     // Create message to plugin to indicate that signature is required and
@@ -177,14 +181,16 @@ pub fn get_signature(
     let signatures = match response {
         PluginResponse::Signature(sign) => Ok(sign),
         PluginResponse::Error(err) => Err(err.into()),
-        _ => Err(ShellError::PluginFailedToLoad(
-            "Plugin missing signature".into(),
-        )),
+        _ => Err(ShellError::PluginFailedToLoad {
+            msg: "Plugin missing signature".into(),
+        }),
     }?;
 
     match child.wait() {
         Ok(_) => Ok(signatures),
-        Err(err) => Err(ShellError::PluginFailedToLoad(format!("{err}"))),
+        Err(err) => Err(ShellError::PluginFailedToLoad {
+            msg: format!("{err}"),
+        }),
     }
 }
 
@@ -320,7 +326,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                                 .map(|custom_value| {
                                     Value::custom_value(custom_value, plugin_data.span)
                                 })
-                                .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                                .map_err(|err| ShellError::PluginFailedToDecode {
+                                    msg: err.to_string(),
+                                })
                         }
                     };
 
@@ -339,7 +347,10 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                                         PluginResponse::PluginData(name, PluginData { data, span })
                                     }
                                     Err(err) => PluginResponse::Error(
-                                        ShellError::PluginFailedToEncode(err.to_string()).into(),
+                                        ShellError::PluginFailedToEncode {
+                                            msg: err.to_string(),
+                                        }
+                                        .into(),
                                     ),
                                 },
                                 value => PluginResponse::Value(Box::new(value)),
@@ -353,7 +364,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                 }
                 PluginCall::CollapseCustomValue(plugin_data) => {
                     let response = bincode::deserialize::<Box<dyn CustomValue>>(&plugin_data.data)
-                        .map_err(|err| ShellError::PluginFailedToDecode(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToDecode {
+                            msg: err.to_string(),
+                        })
                         .and_then(|val| val.to_base_value(plugin_data.span))
                         .map(Box::new)
                         .map_err(LabeledError::from)
@@ -438,19 +451,23 @@ fn print_help(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
 
 pub fn get_plugin_encoding(child_stdout: &mut ChildStdout) -> Result<EncodingType, ShellError> {
     let mut length_buf = [0u8; 1];
-    child_stdout.read_exact(&mut length_buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut length_buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     let mut buf = vec![0u8; length_buf[0] as usize];
-    child_stdout.read_exact(&mut buf).map_err(|e| {
-        ShellError::PluginFailedToLoad(format!("unable to get encoding from plugin: {e}"))
-    })?;
+    child_stdout
+        .read_exact(&mut buf)
+        .map_err(|e| ShellError::PluginFailedToLoad {
+            msg: format!("unable to get encoding from plugin: {e}"),
+        })?;
 
     EncodingType::try_from_bytes(&buf).ok_or_else(|| {
         let encoding_for_debug = String::from_utf8_lossy(&buf);
-        ShellError::PluginFailedToLoad(format!(
-            "get unsupported plugin encoding: {encoding_for_debug}"
-        ))
+        ShellError::PluginFailedToLoad {
+            msg: format!("get unsupported plugin encoding: {encoding_for_debug}"),
+        }
     })
 }

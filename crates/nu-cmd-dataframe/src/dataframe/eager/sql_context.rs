@@ -2,7 +2,8 @@ use crate::dataframe::eager::sql_expr::parse_sql_expr;
 use polars::error::{ErrString, PolarsError};
 use polars::prelude::{col, DataFrame, DataType, IntoLazy, LazyFrame};
 use sqlparser::ast::{
-    Expr as SqlExpr, Select, SelectItem, SetExpr, Statement, TableFactor, Value as SQLValue,
+    Expr as SqlExpr, GroupByExpr, Select, SelectItem, SetExpr, Statement, TableFactor,
+    Value as SQLValue,
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
@@ -96,8 +97,13 @@ impl SQLContext {
             .collect::<Result<Vec<_>, PolarsError>>()?;
         // Check for group by
         // After projection since there might be number.
-        let group_by = select_stmt
-            .group_by
+        let group_by = match &select_stmt.group_by {
+                GroupByExpr::All =>
+                  Err(
+                      PolarsError::ComputeError("Group-By Error: Only positive number or expression are supported, not all".into())
+                  )?,
+                GroupByExpr::Expressions(expressions) => expressions
+            }
             .iter()
             .map(
                 |e|match e {

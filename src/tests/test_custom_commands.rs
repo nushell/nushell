@@ -84,6 +84,35 @@ fn custom_switch2() -> TestResult {
 #[test]
 fn custom_switch3() -> TestResult {
     run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=false"#,
+        "false",
+    )
+}
+
+#[test]
+fn custom_switch4() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=true"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_switch5() -> TestResult {
+    run_test(r#"def florb [ --dry-run ] { $dry_run }; florb"#, "false")
+}
+
+#[test]
+fn custom_switch6() -> TestResult {
+    run_test(
+        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run"#,
+        "true",
+    )
+}
+
+#[test]
+fn custom_flag1() -> TestResult {
+    run_test(
         r#"def florb [
             --age: int = 0
             --name = "foobar"
@@ -96,7 +125,7 @@ fn custom_switch3() -> TestResult {
 }
 
 #[test]
-fn custom_switch4() -> TestResult {
+fn custom_flag2() -> TestResult {
     run_test(
         r#"def florb [
             --age: int

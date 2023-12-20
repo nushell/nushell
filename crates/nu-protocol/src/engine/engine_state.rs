@@ -454,11 +454,16 @@ impl EngineState {
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
             .as_ref()
-            .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin file not found".into()))
+            .ok_or_else(|| ShellError::PluginFailedToLoad {
+                msg: "Plugin file not found".into(),
+            })
             .and_then(|plugin_path| {
                 // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path())
-                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                std::fs::File::create(plugin_path.as_path()).map_err(|err| {
+                    ShellError::PluginFailedToLoad {
+                        msg: err.to_string(),
+                    }
+                })
             })
             .and_then(|mut plugin_file| {
                 // Plugin definitions with parsed signature
@@ -510,21 +515,23 @@ impl EngineState {
                             // information when nushell starts
                             format!("register {file_name} {shell_str} {signature}\n\n")
                         })
-                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToLoad {
+                            msg: err.to_string(),
+                        })
                         .and_then(|line| {
-                            plugin_file
-                                .write_all(line.as_bytes())
-                                .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
+                                ShellError::PluginFailedToLoad {
+                                    msg: err.to_string(),
+                                }
+                            })
                         })
                         .and_then(|_| {
-                            plugin_file.flush().map_err(|err| {
-                                ShellError::GenericError(
-                                    "Error flushing plugin file".to_string(),
-                                    format! {"{err}"},
-                                    None,
-                                    None,
-                                    Vec::new(),
-                                )
+                            plugin_file.flush().map_err(|err| ShellError::GenericError {
+                                error: "Error flushing plugin file".into(),
+                                msg: format! {"{err}"},
+                                span: None,
+                                help: None,
+                                inner: vec![],
                             })
                         })
                 })

@@ -10,6 +10,22 @@ pub enum ImportPatternMember {
     List { names: Vec<(Vec<u8>, Span)> },
 }
 
+impl ImportPatternMember {
+    pub fn span(&self) -> Span {
+        let mut spans = vec![];
+        match self {
+            ImportPatternMember::Glob { span } => spans.push(*span),
+            ImportPatternMember::Name { name: _, span } => spans.push(*span),
+            ImportPatternMember::List { names } => {
+                for (_, span) in names {
+                    spans.push(*span);
+                }
+            }
+        }
+        span(&spans)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImportPatternHead {
     pub name: Vec<u8>,
@@ -46,15 +62,7 @@ impl ImportPattern {
         let mut spans = vec![self.head.span];
 
         for member in &self.members {
-            match member {
-                ImportPatternMember::Glob { span } => spans.push(*span),
-                ImportPatternMember::Name { name: _, span } => spans.push(*span),
-                ImportPatternMember::List { names } => {
-                    for (_, span) in names {
-                        spans.push(*span);
-                    }
-                }
-            }
+            spans.push(member.span());
         }
 
         span(&spans)

@@ -18,12 +18,12 @@ impl Command for SplitBy {
     fn signature(&self) -> Signature {
         Signature::build("split-by")
             .input_output_types(vec![(Type::Record(vec![]), Type::Record(vec![]))])
-            .optional("splitter", SyntaxShape::Any, "the splitter value to use")
+            .optional("splitter", SyntaxShape::Any, "The splitter value to use.")
             .category(Category::Filters)
     }
 
     fn usage(&self) -> &str {
-        "Split a record into groups"
+        "Split a record into groups."
     }
 
     fn run(
@@ -102,13 +102,13 @@ pub fn split_by(
             Ok(split(splitter.as_ref(), input, name)?)
         }
         // This uses the same format as the 'requires a column name' error in sort_utils.rs
-        None => Err(ShellError::GenericError(
-            "expected name".into(),
-            "requires a column name for splitting".into(),
-            Some(name),
-            None,
-            Vec::new(),
-        )),
+        None => Err(ShellError::GenericError {
+            error: "expected name".into(),
+            msg: "requires a column name for splitting".into(),
+            span: Some(name),
+            help: None,
+            inner: vec![],
+        }),
     }
 }
 

@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::{EmptyFile, FileWithContentToBeTrimmed};
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
 
@@ -24,10 +24,7 @@ fn regular_columns() {
 
 #[test]
 fn complex_nested_columns() {
-    Playground::setup("select_test_2", |dirs, sandbox| {
-        sandbox.with_files(vec![FileWithContentToBeTrimmed(
-            "los_tres_caballeros.json",
-            r#"
+    let sample = r#"
                 {
                     "nu": {
                         "committers": [
@@ -47,22 +44,19 @@ fn complex_nested_columns() {
                         ]
                     }
                 }
-            "#,
-        )]);
+            "#;
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            r#"
-                open los_tres_caballeros.json
+    let actual = nu!(pipeline(&format!(
+        r#"
+                {sample}
                 | select nu."0xATYKARNU" nu.committers.name nu.releases.version
                 | get nu_releases_version
                 | where $it > "0.8"
                 | get 0
             "#
-        ));
+    )));
 
-        assert_eq!(actual.out, "0.9999999");
-    })
+    assert_eq!(actual.out, "0.9999999");
 }
 
 #[test]

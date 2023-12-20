@@ -20,7 +20,7 @@ impl Command for Window {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("window_size", SyntaxShape::Int, "the size of each window")
+            .required("window_size", SyntaxShape::Int, "The size of each window.")
             .named(
                 "stride",
                 SyntaxShape::Int,
@@ -135,9 +135,7 @@ impl Command for Window {
             remainder,
         };
 
-        Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

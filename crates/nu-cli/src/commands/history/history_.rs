@@ -34,7 +34,7 @@ impl Command for History {
                 "Show long listing of entries for sqlite history",
                 Some('l'),
             )
-            .category(Category::Misc)
+            .category(Category::History)
     }
 
     fn run(
@@ -107,7 +107,7 @@ impl Command for History {
                                 )
                             })
                         })
-                        .ok_or(ShellError::FileNotFound(head))?
+                        .ok_or(ShellError::FileNotFound { span: head })?
                         .into_pipeline_data(ctrlc)),
                     HistoryFileFormat::Sqlite => Ok(history_reader
                         .and_then(|h| {
@@ -119,12 +119,12 @@ impl Command for History {
                                 create_history_record(idx, entry, long, head)
                             })
                         })
-                        .ok_or(ShellError::FileNotFound(head))?
+                        .ok_or(ShellError::FileNotFound { span: head })?
                         .into_pipeline_data(ctrlc)),
                 }
             }
         } else {
-            Err(ShellError::FileNotFound(head))
+            Err(ShellError::FileNotFound { span: head })
         }
     }
 

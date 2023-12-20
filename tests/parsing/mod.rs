@@ -305,6 +305,21 @@ fn parse_function_signature(#[case] phrase: &str) {
 }
 
 #[rstest]
+#[case("def test [ in ] {}")]
+#[case("def test [ in: string ] {}")]
+#[case("def test [ nu: int ] {}")]
+#[case("def test [ env: record<> ] {}")]
+#[case("def test [ --env ] {}")]
+#[case("def test [ --nu: int ] {}")]
+#[case("def test [ --in (-i): list<any> ] {}")]
+#[case("def test [ a: string, b: int, in: table<a: int b: int> ] {}")]
+#[case("def test [ env, in, nu ] {}")]
+fn parse_function_signature_name_is_builtin_var(#[case] phrase: &str) {
+    let actual = nu!(phrase);
+    assert!(actual.err.contains("nu::parser::name_is_builtin_var"))
+}
+
+#[rstest]
 #[case("let a: int = 1")]
 #[case("let a: string = 'qwe'")]
 #[case("let a: nothing = null")]

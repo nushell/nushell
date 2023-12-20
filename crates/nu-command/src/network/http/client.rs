@@ -209,9 +209,9 @@ pub fn send_request(
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-                    "unsupported body input".into(),
-                )));
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                    msg: "unsupported body input".into(),
+                }));
             }
 
             let data = vals
@@ -233,9 +233,9 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-            "unsupported body input".into(),
-        ))),
+        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+            msg: "unsupported body input".into(),
+        })),
     }
 }
 
@@ -363,38 +363,26 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure(
-            format!("Resource moved permanently (301): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
         Error::Status(400, _) => {
-            ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
         }
         Error::Status(403, _) => {
-            ShellError::NetworkFailure(format!("Access forbidden (403) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
         }
-        Error::Status(404, _) => ShellError::NetworkFailure(
-            format!("Requested file not found (404): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
         Error::Status(408, _) => {
-            ShellError::NetworkFailure(format!("Request timeout (408): {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
         }
-        Error::Status(_, _) => ShellError::NetworkFailure(
-            format!(
+        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ),
-            span,
-        ),
+            ), span },
 
         Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure(
-                format!("Cannot make request to {requested_url}, there was an error establishing a connection.",),
-                span,
-            ),
-            t => ShellError::NetworkFailure(t.to_string(), span),
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+            t => ShellError::NetworkFailure { msg: t.to_string(), span },
         },
     }
 }
@@ -415,26 +403,23 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-        ShellError::GenericError(
-            format!("MIME type unknown: {content_type}"),
-            "".to_string(),
-            None,
-            Some("given unknown MIME type".to_string()),
-            Vec::new(),
-        )
-    })?;
+    let content_type =
+        mime::Mime::from_str(content_type).map_err(|_| ShellError::GenericError {
+            error: format!("MIME type unknown: {content_type}"),
+            msg: "".into(),
+            span: None,
+            help: Some("given unknown MIME type".into()),
+            inner: vec![],
+        })?;
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
-                .map_err(|_| {
-                    ShellError::GenericError(
-                        format!("Cannot parse URL: {requested_url}"),
-                        "".to_string(),
-                        None,
-                        Some("cannot parse".to_string()),
-                        Vec::new(),
-                    )
+                .map_err(|_| ShellError::GenericError {
+                    error: format!("Cannot parse URL: {requested_url}"),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("cannot parse".into()),
+                    inner: vec![],
                 })?
                 .path_segments()
                 .and_then(|segments| segments.last())

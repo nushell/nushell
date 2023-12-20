@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers", "procs creators"]
 description = "Nushell system querying"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-system"
 name = "nu-system"
-version = "0.87.1"
+version = "0.88.2"
 edition = "2021"
 license = "MIT"
 
@@ -21,7 +21,7 @@ sysinfo = "0.29"
 nix = { version = "0.27", default-features = false, features = ["fs", "term", "process", "signal"] }
 
 [target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
-procfs = "0.15"
+procfs = "0.16"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 libproc = "0.14"

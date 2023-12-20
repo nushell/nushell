@@ -127,23 +127,23 @@ fn command(
                         if (&0.0..=&1.0).contains(&val) {
                             Ok(*val)
                         } else {
-                            Err(ShellError::GenericError(
-                                "Incorrect value for quantile".to_string(),
-                                "value should be between 0 and 1".to_string(),
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            ))
+                            Err(ShellError::GenericError {
+                                error: "Incorrect value for quantile".into(),
+                                msg: "value should be between 0 and 1".into(),
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            })
                         }
                     }
                     Value::Error { error, .. } => Err(*error.clone()),
-                    _ => Err(ShellError::GenericError(
-                        "Incorrect value for quantile".to_string(),
-                        "value should be a float".to_string(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    )),
+                    _ => Err(ShellError::GenericError {
+                        error: "Incorrect value for quantile".into(),
+                        msg: "value should be a float".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }),
                 }
             })
             .collect::<Result<Vec<f64>, ShellError>>()
@@ -250,14 +250,12 @@ fn command(
     let res = head.chain(tail).collect::<Vec<Series>>();
 
     DataFrame::new(res)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Dataframe Error".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Dataframe Error".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

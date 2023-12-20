@@ -1,7 +1,7 @@
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::expand_path_with;
-use nu_protocol::ast::Call;
+use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
@@ -42,7 +42,7 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
-            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .required("filename", SyntaxShape::Filepath, "The filename to use.")
             .named(
                 "stderr",
                 SyntaxShape::Filepath,
@@ -67,6 +67,24 @@ impl Command for Save {
         let append = call.has_flag("append");
         let force = call.has_flag("force");
         let progress = call.has_flag("progress");
+        let out_append = if let Some(Expression {
+            expr: Expr::Bool(out_append),
+            ..
+        }) = call.get_parser_info("out-append")
+        {
+            *out_append
+        } else {
+            false
+        };
+        let err_append = if let Some(Expression {
+            expr: Expr::Bool(err_append),
+            ..
+        }) = call.get_parser_info("err-append")
+        {
+            *err_append
+        } else {
+            false
+        };
 
         let span = call.head;
         let cwd = current_dir(engine_state, stack)?;
@@ -87,7 +105,7 @@ impl Command for Save {
         match input {
             PipelineData::ExternalStream { stdout: None, .. } => {
                 // Open files to possibly truncate them
-                let _ = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let _ = get_files(&path, stderr_path.as_ref(), append, false, false, force)?;
                 Ok(PipelineData::empty())
             }
             PipelineData::ExternalStream {
@@ -95,7 +113,14 @@ impl Command for Save {
                 stderr,
                 ..
             } => {
-                let (file, stderr_file) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (file, stderr_file) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
 
                 // delegate a thread to redirect stderr to result.
                 let handler = stderr.map(|stderr_stream| match stderr_file {
@@ -127,12 +152,23 @@ impl Command for Save {
             PipelineData::ListStream(ls, _)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
                 for val in ls {
                     file.write_all(&value_to_bytes(val)?)
-                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                        .map_err(|err| ShellError::IOError {
+                            msg: err.to_string(),
+                        })?;
                     file.write_all("\n".as_bytes())
-                        .map_err(|err| ShellError::IOError(err.to_string()))?;
+                        .map_err(|err| ShellError::IOError {
+                            msg: err.to_string(),
+                        })?;
                 }
                 file.flush()?;
 
@@ -143,10 +179,18 @@ impl Command for Save {
                     input_to_bytes(input, Path::new(&path.item), raw, engine_state, stack, span)?;
 
                 // Only open file after successful conversion
-                let (mut file, _) = get_files(&path, stderr_path.as_ref(), append, force)?;
+                let (mut file, _) = get_files(
+                    &path,
+                    stderr_path.as_ref(),
+                    append,
+                    out_append,
+                    err_append,
+                    force,
+                )?;
 
-                file.write_all(&bytes)
-                    .map_err(|err| ShellError::IOError(err.to_string()))?;
+                file.write_all(&bytes).map_err(|err| ShellError::IOError {
+                    msg: err.to_string(),
+                })?;
 
                 file.flush()?;
 
@@ -279,16 +323,16 @@ fn prepare_path(
     let path = &path.item;
 
     if !(force || append) && path.exists() {
-        Err(ShellError::GenericError(
-            "Destination file already exists".into(),
-            format!(
+        Err(ShellError::GenericError {
+            error: "Destination file already exists".into(),
+            msg: format!(
                 "Destination file '{}' already exists",
                 path.to_string_lossy()
             ),
-            Some(span),
-            Some("you can use -f, --force to force overwriting the destination".into()),
-            Vec::new(),
-        ))
+            span: Some(span),
+            help: Some("you can use -f, --force to force overwriting the destination".into()),
+            inner: vec![],
+        })
     } else {
         Ok((path, span))
     }
@@ -303,14 +347,12 @@ fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> 
         _ => std::fs::File::create(path),
     };
 
-    file.map_err(|err| {
-        ShellError::GenericError(
-            "Permission denied".into(),
-            err.to_string(),
-            Some(span),
-            None,
-            Vec::new(),
-        )
+    file.map_err(|e| ShellError::GenericError {
+        error: "Permission denied".into(),
+        msg: e.to_string(),
+        span: Some(span),
+        help: None,
+        inner: vec![],
     })
 }
 
@@ -319,30 +361,32 @@ fn get_files(
     path: &Spanned<PathBuf>,
     stderr_path: Option<&Spanned<PathBuf>>,
     append: bool,
+    out_append: bool,
+    err_append: bool,
     force: bool,
 ) -> Result<(File, Option<File>), ShellError> {
     // First check both paths
-    let (path, path_span) = prepare_path(path, append, force)?;
+    let (path, path_span) = prepare_path(path, append || out_append, force)?;
     let stderr_path_and_span = stderr_path
         .as_ref()
-        .map(|stderr_path| prepare_path(stderr_path, append, force))
+        .map(|stderr_path| prepare_path(stderr_path, append || err_append, force))
         .transpose()?;
 
     // Only if both files can be used open and possibly truncate them
-    let file = open_file(path, path_span, append)?;
+    let file = open_file(path, path_span, append || out_append)?;
 
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
             if path == stderr_path {
-                Err(ShellError::GenericError(
-                    "input and stderr input to same file".to_string(),
-                    "can't save both input and stderr input to the same file".to_string(),
-                    Some(stderr_path_span),
-                    Some("you should use `o+e> file` instead".to_string()),
-                    vec![],
-                ))
+                Err(ShellError::GenericError {
+                    error: "input and stderr input to same file".into(),
+                    msg: "can't save both input and stderr input to the same file".into(),
+                    span: Some(stderr_path_span),
+                    help: Some("you should use `o+e> file` instead".into()),
+                    inner: vec![],
+                })
             } else {
-                open_file(stderr_path, stderr_path_span, append)
+                open_file(stderr_path, stderr_path_span, append || err_append)
             }
         })
         .transpose()?;
@@ -412,7 +456,9 @@ fn stream_to_file(
 
             if let Err(err) = writer.write(&buf) {
                 *process_failed_p = true;
-                return Err(ShellError::IOError(err.to_string()));
+                return Err(ShellError::IOError {
+                    msg: err.to_string(),
+                });
             }
             Ok(())
         })

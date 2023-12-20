@@ -73,7 +73,7 @@ impl Command for Headers {
         let (old_headers, new_headers) = extract_headers(&value, config)?;
         let new_headers = replace_headers(value, &old_headers, &new_headers)?;
 
-        Ok(new_headers.into_pipeline_data().set_metadata(metadata))
+        Ok(new_headers.into_pipeline_data_with_metadata(metadata))
     }
 }
 
@@ -159,14 +159,12 @@ fn extract_headers(
             .iter()
             .map(|value| extract_headers(value, config))
             .next()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "Found empty list".to_string(),
-                    "unable to extract headers".to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Found empty list".into(),
+                msg: "unable to extract headers".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?,
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),

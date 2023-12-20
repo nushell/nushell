@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::ast::{CellPath, MatchPattern, PathMember};
+use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
 use chrono::{DateTime, FixedOffset};
@@ -91,7 +91,7 @@ impl FromValue for Spanned<usize> {
         match v {
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -101,7 +101,7 @@ impl FromValue for Spanned<usize> {
             }
             Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -111,7 +111,7 @@ impl FromValue for Spanned<usize> {
             }
             Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(Spanned {
                         item: val as usize,
@@ -136,21 +136,21 @@ impl FromValue for usize {
         match v {
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
             }
             Value::Filesize { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
             }
             Value::Duration { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(val as usize)
                 }
@@ -300,7 +300,7 @@ impl FromValue for CellPath {
             }),
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue(span))
+                    Err(ShellError::NeedsPositiveValue { span })
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {
@@ -528,35 +528,6 @@ impl FromValue for Spanned<Closure> {
             Value::Closure { val, .. } => Ok(Spanned { item: val, span }),
             v => Err(ShellError::CantConvert {
                 to_type: "Closure".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for Spanned<MatchPattern> {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        let span = v.span();
-        match v {
-            Value::MatchPattern { val, .. } => Ok(Spanned { item: *val, span }),
-            v => Err(ShellError::CantConvert {
-                to_type: "Match pattern".into(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
-        }
-    }
-}
-
-impl FromValue for MatchPattern {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v {
-            Value::MatchPattern { val, .. } => Ok(*val),
-            v => Err(ShellError::CantConvert {
-                to_type: "Match pattern".into(),
                 from_type: v.get_type().to_string(),
                 span: v.span(),
                 help: None,

@@ -37,7 +37,7 @@ not supported."#
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
-                "Filter condition",
+                "Filter condition.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -102,8 +102,7 @@ not supported."#
                     Err(err) => Some(Value::error(err, span)),
                 }
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 
     fn examples(&self) -> Vec<Example> {

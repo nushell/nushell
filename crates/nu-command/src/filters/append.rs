@@ -17,7 +17,11 @@ impl Command for Append {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
             .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::Any)))])
-            .required("row", SyntaxShape::Any, "the row, list, or table to append")
+            .required(
+                "row",
+                SyntaxShape::Any,
+                "The row, list, or table to append.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -118,8 +122,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         Ok(input
             .into_iter()
             .chain(other.into_pipeline_data())
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
     }
 }
 

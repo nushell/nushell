@@ -21,7 +21,7 @@ impl Command for Echo {
     fn signature(&self) -> Signature {
         Signature::build("echo")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .rest("rest", SyntaxShape::Any, "the values to echo")
+            .rest("rest", SyntaxShape::Any, "The values to echo.")
             .category(Category::Core)
     }
 

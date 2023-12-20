@@ -25,7 +25,7 @@ impl Command for Do {
             .required(
                 "closure",
                 SyntaxShape::OneOf(vec![SyntaxShape::Closure(None), SyntaxShape::Any]),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
@@ -53,7 +53,11 @@ impl Command for Do {
                 "keep the environment defined inside the command",
                 None,
             )
-            .rest("rest", SyntaxShape::Any, "the parameter(s) for the closure")
+            .rest(
+                "rest",
+                SyntaxShape::Any,
+                "The parameter(s) for the closure.",
+            )
             .category(Category::Core)
     }
 

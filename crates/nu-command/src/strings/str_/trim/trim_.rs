@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",
+                "For a data structure input, trim strings at the given cell paths.",
             )
             .named(
                 "char",
@@ -88,13 +88,13 @@ impl Command for SubCommand {
         let to_trim = match character.as_ref() {
             Some(v) => {
                 if v.item.chars().count() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Trim only works with single character".into(),
-                        "needs single character".into(),
-                        Some(v.span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Trim only works with single character".into(),
+                        msg: "needs single character".into(),
+                        span: Some(v.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 v.item.chars().next()
             }

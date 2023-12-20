@@ -36,14 +36,14 @@ impl Command for Whoami {
     ) -> Result<PipelineData, ShellError> {
         let output = match uu_whoami::whoami() {
             Ok(username) => username.to_string_lossy().to_string(),
-            Err(err) => {
-                return Err(ShellError::GenericError(
-                    "Failed to get username".into(),
-                    err.to_string(),
-                    Some(call.head),
-                    None,
-                    Vec::new(),
-                ))
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "Failed to get username".into(),
+                    msg: e.to_string(),
+                    span: Some(call.head),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 

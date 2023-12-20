@@ -21,11 +21,7 @@ impl Command for Range {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::Any)),
             )])
-            .required(
-                "rows",
-                SyntaxShape::Range,
-                "range of rows to return: Eg) 4..7 (=> from 4 to 7)",
-            )
+            .required("rows", SyntaxShape::Range, "Range of rows to return.")
             .category(Category::Filters)
     }
 
