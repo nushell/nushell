@@ -18,7 +18,7 @@ bench = false
 
 [dependencies]
 log = "0.4"
-lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { version = "0.16", default-features = false, features = ["nu-ansi-term"] }
 num-format = { version = "0.4" }
 strip-ansi-escapes = "0.2.0"
 sys-locale = "0.3"
