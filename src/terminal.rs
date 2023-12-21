@@ -151,7 +151,7 @@ extern "C" fn sigterm_handler(_signum: libc::c_int) {
     if unsafe { sigaction(Signal::SIGTERM, &default) }.is_err() {
         // Failed to set signal handler to default.
         // This should not be possible, but if it does happen,
-        // then this could result in an infitite loop due to the raise below.
+        // then this could result in an infinite loop due to the raise below.
         // So, we'll just exit immediately if this happens.
         std::process::exit(1);
     };
