@@ -8,7 +8,7 @@ use std::{
 use nix::{
     errno::Errno,
     libc,
-    sys::signal::{self, raise, signal, SaFlags, SigAction, SigHandler, SigSet, Signal},
+    sys::signal::{self, raise, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
     unistd::{self, Pid},
 };
 
@@ -31,13 +31,14 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             };
 
             // SIGINT has special handling
-            signal(Signal::SIGQUIT, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
+            let ignore = SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty());
+            sigaction(Signal::SIGQUIT, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTSTP, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTTIN, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTTOU, &ignore).expect("signal ignore");
 
             // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
-            // signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
+            // sigaction(Signal::SIGCHLD, &ignore).expect("signal ignore");
 
             signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
                 // Safety: can only call async-signal-safe functions here
@@ -45,7 +46,8 @@ pub(crate) fn acquire_terminal(interactive: bool) {
 
                 restore_terminal();
 
-                if signal(Signal::SIGTERM, SigHandler::SigDfl).is_err() {
+                let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+                if sigaction(Signal::SIGTERM, &default).is_err() {
                     // Failed to set signal handler to default.
                     // This should not be possible, but if it does happen,
                     // then this could result in an infitite loop due to the raise below.
