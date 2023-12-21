@@ -1,4 +1,5 @@
 use std::{
+    io::IsTerminal,
     process::{Child, Command},
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -43,27 +44,35 @@ impl ForegroundProcess {
     }
 
     pub fn spawn(&mut self, interactive: bool) -> std::io::Result<ForegroundChild> {
-        let (ref pgrp, ref pcnt) = *self.pipeline_state;
-        let existing_pgrp = pgrp.load(Ordering::SeqCst);
-        fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp, interactive);
-        self.inner
-            .spawn()
-            .map(|child| {
-                fg_process_setup::set_foreground(&child, existing_pgrp, interactive);
-                let _ = pcnt.fetch_add(1, Ordering::SeqCst);
-                if existing_pgrp == 0 {
-                    pgrp.store(child.id(), Ordering::SeqCst);
-                }
-                ForegroundChild {
-                    inner: child,
-                    pipeline_state: self.pipeline_state.clone(),
-                    interactive,
-                }
+        if interactive && std::io::stdin().is_terminal() {
+            let (ref pgrp, ref pcnt) = *self.pipeline_state;
+            let existing_pgrp = pgrp.load(Ordering::SeqCst);
+            fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp);
+            self.inner
+                .spawn()
+                .map(|child| {
+                    fg_process_setup::set_foreground(&child, existing_pgrp);
+                    let _ = pcnt.fetch_add(1, Ordering::SeqCst);
+                    if existing_pgrp == 0 {
+                        pgrp.store(child.id(), Ordering::SeqCst);
+                    }
+                    ForegroundChild {
+                        inner: child,
+                        pipeline_state: self.pipeline_state.clone(),
+                        interactive: true,
+                    }
+                })
+                .map_err(|e| {
+                    fg_process_setup::reset_foreground_id();
+                    e
+                })
+        } else {
+            self.inner.spawn().map(|child| ForegroundChild {
+                inner: child,
+                pipeline_state: self.pipeline_state.clone(),
+                interactive: false,
             })
-            .map_err(|e| {
-                fg_process_setup::reset_foreground_id(interactive);
-                e
-            })
+        }
     }
 }
 
@@ -75,10 +84,12 @@ impl AsMut<Child> for ForegroundChild {
 
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
-        let (ref pgrp, ref pcnt) = *self.pipeline_state;
-        if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
-            pgrp.store(0, Ordering::SeqCst);
-            fg_process_setup::reset_foreground_id(self.interactive)
+        if self.interactive {
+            let (ref pgrp, ref pcnt) = *self.pipeline_state;
+            if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
+                pgrp.store(0, Ordering::SeqCst);
+                fg_process_setup::reset_foreground_id()
+            }
         }
     }
 }
@@ -90,7 +101,6 @@ mod fg_process_setup {
         sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
         unistd::{self, Pid},
     };
-    use std::io::IsTerminal;
     use std::os::unix::prelude::{CommandExt, RawFd};
 
     // TODO: when raising MSRV past 1.63.0, switch to OwnedFd
@@ -105,10 +115,8 @@ mod fg_process_setup {
     pub(super) fn prepare_to_foreground(
         external_command: &mut std::process::Command,
         existing_pgrp: u32,
-        interactive: bool,
     ) {
         let tty = TtyHandle(unistd::dup(nix::libc::STDIN_FILENO).expect("dup"));
-        let interactive = interactive && std::io::stdin().is_terminal();
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -121,9 +129,7 @@ mod fg_process_setup {
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
                 // This has to be done *both* in the parent and here in the child due to race conditions.
-                if interactive {
-                    set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
-                }
+                set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
 
                 // Reset signal handlers for child, sync with `terminal.rs`
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
@@ -144,19 +150,12 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn set_foreground(
-        process: &std::process::Child,
-        existing_pgrp: u32,
-        interactive: bool,
-    ) {
-        // called from the parent shell process - do the stdin tty check here
-        if interactive && std::io::stdin().is_terminal() {
-            set_foreground_pid(
-                Pid::from_raw(process.id() as i32),
-                existing_pgrp,
-                nix::libc::STDIN_FILENO,
-            );
-        }
+    pub(super) fn set_foreground(process: &std::process::Child, existing_pgrp: u32) {
+        set_foreground_pid(
+            Pid::from_raw(process.id() as i32),
+            existing_pgrp,
+            nix::libc::STDIN_FILENO,
+        );
     }
 
     // existing_pgrp is 0 when we don't have an existing foreground process in the pipeline.
@@ -174,20 +173,18 @@ mod fg_process_setup {
     }
 
     /// Reset the foreground process group to the shell
-    pub(super) fn reset_foreground_id(interactive: bool) {
-        if interactive && std::io::stdin().is_terminal() {
-            if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
-                println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
-            }
+    pub(super) fn reset_foreground_id() {
+        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
+            println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
 }
 
 #[cfg(not(unix))]
 mod fg_process_setup {
-    pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32, _: bool) {}
+    pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32) {}
 
-    pub(super) fn set_foreground(_: &std::process::Child, _: u32, _: bool) {}
+    pub(super) fn set_foreground(_: &std::process::Child, _: u32) {}
 
-    pub(super) fn reset_foreground_id(_: bool) {}
+    pub(super) fn reset_foreground_id() {}
 }
