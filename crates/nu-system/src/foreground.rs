@@ -42,6 +42,19 @@ impl ForegroundProcess {
         }
     }
 
+    fn spawn_simple(&mut self) -> io::Result<ForegroundChild> {
+        self.inner.spawn().map(|child| ForegroundChild {
+            inner: child,
+            pipeline_state: None,
+        })
+    }
+
+    #[cfg(not(unix))]
+    pub fn spawn(&mut self, _interactive: bool) -> io::Result<ForegroundChild> {
+        self.spawn_simple()
+    }
+
+    #[cfg(unix)]
     pub fn spawn(&mut self, interactive: bool) -> io::Result<ForegroundChild> {
         if interactive && io::stdin().is_terminal() {
             let (ref pgrp, ref pcnt) = *self.pipeline_state;
@@ -65,10 +78,7 @@ impl ForegroundProcess {
                     e
                 })
         } else {
-            self.inner.spawn().map(|child| ForegroundChild {
-                inner: child,
-                pipeline_state: None,
-            })
+            self.spawn_simple()
         }
     }
 }
@@ -79,6 +89,7 @@ impl AsMut<Child> for ForegroundChild {
     }
 }
 
+#[cfg(unix)]
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
         if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
@@ -175,11 +186,4 @@ mod foreground_pgroup {
             println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
-}
-
-#[cfg(not(unix))]
-mod fg_process_setup {
-    pub(super) fn prepare_command(_: &mut Command, _: u32) {}
-    pub(super) fn set(_: &Child, _: u32) {}
-    pub(super) fn reset() {}
 }
