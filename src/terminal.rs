@@ -20,16 +20,16 @@ pub(crate) fn acquire_terminal(interactive: bool) {
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
 
+        if unsafe { libc::atexit(restore_terminal) } != 0 {
+            eprintln!("ERROR: failed to set exit function");
+            std::process::exit(1);
+        };
+
         let initial_pgid = take_control();
 
         INITIAL_PGID.store(initial_pgid.into(), Ordering::Relaxed);
 
         unsafe {
-            if libc::atexit(restore_terminal) != 0 {
-                eprintln!("ERROR: failed to set exit function");
-                std::process::exit(1);
-            };
-
             // SIGINT has special handling
             let ignore = SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty());
             sigaction(Signal::SIGQUIT, &ignore).expect("signal ignore");
