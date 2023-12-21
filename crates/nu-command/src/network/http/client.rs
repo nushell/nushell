@@ -36,7 +36,7 @@ pub enum RedirectMode {
 
 // Only panics if the user agent is invalid but we define it statically so either
 // it always or never fails
-pub fn http_client_tmp(
+pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
     engine_state: &EngineState,
@@ -54,31 +54,6 @@ pub fn http_client_tmp(
     if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
         agent_builder = agent_builder.redirects(0);
     }
-
-    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
-        if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
-            agent_builder = agent_builder.proxy(proxy);
-        }
-    };
-
-    agent_builder.build()
-}
-
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-pub fn http_client(
-    allow_insecure: bool,
-    engine_state: &EngineState,
-    stack: &mut Stack,
-) -> ureq::Agent {
-    let tls = native_tls::TlsConnector::builder()
-        .danger_accept_invalid_certs(allow_insecure)
-        .build()
-        .expect("Failed to build network tls");
-
-    let mut agent_builder = ureq::builder()
-        .user_agent("nushell")
-        .tls_connector(std::sync::Arc::new(tls));
 
     if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
         if let Ok(proxy) = ureq::Proxy::new(http_proxy) {

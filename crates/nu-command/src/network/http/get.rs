@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 
 use crate::network::http::client::{
-    http_client_tmp, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
+    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
     request_add_custom_headers, request_handle_response, request_handle_response_status,
     request_set_timeout, send_request, RequestFlags,
 };
@@ -179,7 +179,7 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client_tmp(args.insecure, redirect_mode, engine_state, stack);
+    let client = http_client(args.insecure, redirect_mode, engine_state, stack);
     let mut request = client.get(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
