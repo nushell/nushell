@@ -33,7 +33,11 @@ members = [
 	"crates/nu-cmd-lang",
 	"crates/nu-cmd-dataframe",
 	"crates/nu-command",
+	"crates/nu-color-config",
+	"crates/nu-explore",
+	"crates/nu-json",
 	"crates/nu-lsp",
+	"crates/nu-pretty-hex",
 	"crates/nu-protocol",
 	"crates/nu-plugin",
 	"crates/nu_plugin_inc",
@@ -43,6 +47,8 @@ members = [
 	"crates/nu_plugin_custom_values",
 	"crates/nu_plugin_formats",
 	"crates/nu-std",
+	"crates/nu-table",
+	"crates/nu-term-grid",
 	"crates/nu-utils",
 ]
 
@@ -68,6 +74,7 @@ nu-table = { path = "./crates/nu-table", version = "0.88.2" }
 nu-term-grid = { path = "./crates/nu-term-grid", version = "0.88.2" }
 nu-std = { path = "./crates/nu-std", version = "0.88.2" }
 nu-utils = { path = "./crates/nu-utils", version = "0.88.2" }
+
 nu-ansi-term = "0.49.0"
 reedline = { version = "0.27.0", features = ["bashisms", "sqlite"] }
 
