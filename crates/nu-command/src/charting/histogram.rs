@@ -258,16 +258,16 @@ fn histogram_impl(
         result.push((
             count, // attach count first for easily sorting.
             Value::record(
-                Record {
-                    cols: result_cols.clone(),
-                    vals: vec![
+                Record::from_raw_cols_vals(
+                    result_cols.clone(),
+                    vec![
                         val.into_value(),
                         Value::int(count, span),
                         Value::float(quantile, span),
                         Value::string(percentage, span),
                         Value::string(freq, span),
                     ],
-                },
+                ),
                 span,
             ),
         ));

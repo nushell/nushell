@@ -874,7 +874,7 @@ fn series_to_values(
                         .iter()
                         .map(|field| field.name.to_string())
                         .collect();
-                    let record = Record { cols, vals: vals? };
+                    let record = Record::from_raw_cols_vals(cols, vals?);
                     Ok(Value::record(record, span))
                 })
                 .collect();
@@ -982,10 +982,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 .map(|f| f.name().to_string())
                 .collect();
             Ok(Value::Record {
-                val: Record {
-                    cols: fields,
-                    vals: values?,
-                },
+                val: Record::from_raw_cols_vals(fields, values?),
                 internal_span: span,
             })
         }
@@ -1059,6 +1056,7 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
+    use nu_protocol::record;
     use polars::export::arrow::array::{BooleanArray, PrimitiveArray};
     use polars::prelude::Field;
     use polars_io::prelude::StructArray;
@@ -1249,13 +1247,10 @@ mod tests {
             Field::new(field_name_1, DataType::Boolean),
         ];
         let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
-        let comparison_owned_record = Value::record(
-            Record {
-                cols: vec![field_name_0.to_owned(), field_name_1.to_owned()],
-                vals: vec![Value::int(1, span), Value::bool(true, span)],
-            },
-            span,
-        );
+        let comparison_owned_record = Value::test_record(record!(
+            field_name_0 => Value::int(1, span),
+            field_name_1 => Value::bool(true, span),
+        ));
         assert_eq!(
             any_value_to_value(&test_owned_struct, span)?,
             comparison_owned_record.clone()

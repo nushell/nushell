@@ -158,7 +158,10 @@ impl NuDataFrame {
                         .map(|i| format!("{i}"))
                         .collect::<Vec<String>>();
 
-                    conversion::insert_record(&mut column_values, Record { cols, vals })?
+                    conversion::insert_record(
+                        &mut column_values,
+                        Record::from_raw_cols_vals(cols, vals),
+                    )?
                 }
                 Value::Record { val: record, .. } => {
                     conversion::insert_record(&mut column_values, record)?
