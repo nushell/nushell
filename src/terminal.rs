@@ -8,7 +8,7 @@ use std::{
 use nix::{
     errno::Errno,
     libc,
-    sys::signal::{self, raise, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
+    sys::signal::{killpg, raise, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
     unistd::{self, Pid},
 };
 
@@ -94,13 +94,13 @@ fn take_control() -> Pid {
     // Reset all signal handlers to default
     for sig in Signal::iterator() {
         unsafe {
-            if let Ok(old_act) = signal::sigaction(
+            if let Ok(old_act) = sigaction(
                 sig,
                 &SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty()),
             ) {
                 // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
                 if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
-                    let _ = signal::sigaction(sig, &old_act);
+                    let _ = sigaction(sig, &old_act);
                 }
             }
         }
@@ -122,7 +122,7 @@ fn take_control() -> Pid {
             }
             _ => {
                 // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
-                if signal::killpg(shell_pgid, Signal::SIGTTIN).is_err() {
+                if killpg(shell_pgid, Signal::SIGTTIN).is_err() {
                     eprintln!("ERROR: failed to SIGTTIN ourselves");
                     std::process::exit(1);
                 }
