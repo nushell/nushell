@@ -20,7 +20,7 @@ nu-system = { path = "../nu-system", version = "0.88.2" }
 byte-unit = "4.0"
 chrono = { version = "0.4", features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
-fancy-regex = "0.11"
+fancy-regex = "0.12"
 indexmap = "2.1"
 lru = "0.12"
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
