@@ -214,20 +214,6 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        // Reset the SIGQUIT handler
-        if let Some(sig_quit) = engine_state.get_sig_quit() {
-            sig_quit.store(false, Ordering::SeqCst);
-        }
-        perf(
-            "reset sig_quit",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());

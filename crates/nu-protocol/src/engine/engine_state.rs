@@ -95,8 +95,6 @@ pub struct EngineState {
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
-    #[cfg(not(windows))]
-    sig_quit: Option<Arc<AtomicBool>>,
     config_path: HashMap<String, PathBuf>,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
@@ -152,8 +150,6 @@ impl EngineState {
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
-            #[cfg(not(windows))]
-            sig_quit: None,
             config_path: HashMap::new(),
             history_session_id: 0,
             currently_parsed_cwd: None,
@@ -860,21 +856,6 @@ impl EngineState {
         } else {
             None
         }
-    }
-
-    #[cfg(not(windows))]
-    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
-        &self.sig_quit
-    }
-
-    #[cfg(windows)]
-    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
-        &None
-    }
-
-    #[cfg(not(windows))]
-    pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
-        self.sig_quit = Some(sig_quit)
     }
 
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {
