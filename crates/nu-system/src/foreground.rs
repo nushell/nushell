@@ -113,16 +113,7 @@ mod fg_process_setup {
             // https://manpages.ubuntu.com/manpages/bionic/man7/signal-safety.7.html
             external_command.pre_exec(move || {
                 // When this callback is run, std::process has already done:
-                // - pthread_sigmask(SIG_SETMASK) with an empty sigset
                 // - signal(SIGPIPE, SIG_DFL)
-                // However, we do need TTOU/TTIN blocked again during this setup.
-                let mut sigset = signal::SigSet::empty();
-                sigset.add(signal::Signal::SIGTSTP);
-                sigset.add(signal::Signal::SIGTTOU);
-                sigset.add(signal::Signal::SIGTTIN);
-                sigset.add(signal::Signal::SIGCHLD);
-                signal::sigprocmask(signal::SigmaskHow::SIG_BLOCK, Some(&sigset), None)
-                    .expect("signal mask");
 
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
