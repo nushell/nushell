@@ -11,11 +11,14 @@ use std::{
 /// ## Spawn behavior
 /// ### Unix
 ///
-/// The spawned child process will get its own process group id, and it's going to foreground (by making stdin belong's to child's process group).
-///
+/// For interactive shells, the spawned child process will get its own process group id,
+/// and it will be put in the foreground (by making stdin belong's to child's process group).
 /// On drop, the calling process's group will become the foreground process group once again.
 ///
+/// For non-interactive mode, processes are spawned normally without any signal or foreground process handling.
+///
 /// ### Windows
+///
 /// It does nothing special on windows system, `spawn` is the same as [std::process::Command::spawn](std::process::Command::spawn)
 pub struct ForegroundProcess {
     inner: Command,
@@ -84,7 +87,7 @@ impl Drop for ForegroundChild {
 #[cfg(unix)]
 mod fg_process_setup {
     use nix::{
-        sys::signal,
+        sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
         unistd::{self, Pid},
     };
     use std::io::IsTerminal;
@@ -122,11 +125,19 @@ mod fg_process_setup {
                     set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
                 }
 
-                // Now let the child process have all the signals by resetting with SIG_SETMASK.
-                let mut sigset = signal::SigSet::empty();
-                sigset.add(signal::Signal::SIGTSTP); // for now not really all: we don't support background jobs, so keep this one blocked
-                signal::sigprocmask(signal::SigmaskHow::SIG_SETMASK, Some(&sigset), None)
-                    .expect("signal mask");
+                // Reset signal handlers for child, sync with `terminal.rs`
+                let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+                // SIGINT has special handling
+                sigaction(Signal::SIGQUIT, &default).expect("signal default");
+                // We don't support background jobs, so keep this one blocked?
+                // sigaction(Signal::SIGTSTP, &default).expect("signal default");
+                sigaction(Signal::SIGTTIN, &default).expect("signal default");
+                sigaction(Signal::SIGTTOU, &default).expect("signal default");
+
+                // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
+                // sigaction(Signal::SIGCHLD, &ignore).expect("signal default");
+
+                sigaction(Signal::SIGTERM, &default).expect("signal default");
 
                 Ok(())
             });
