@@ -419,10 +419,7 @@ fn convert_to_value(
                 }
 
                 output.push(Value::record(
-                    Record {
-                        cols: cols.clone(),
-                        vals,
-                    },
+                    Record::from_raw_cols_vals(cols.clone(), vals),
                     span,
                 ));
             }
