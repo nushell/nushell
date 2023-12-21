@@ -1056,6 +1056,7 @@ fn time_from_midnight(nanos: i64, span: Span) -> Result<Value, ShellError> {
 #[cfg(test)]
 mod tests {
     use indexmap::indexmap;
+    use nu_protocol::record;
     use polars::export::arrow::array::{BooleanArray, PrimitiveArray};
     use polars::prelude::Field;
     use polars_io::prelude::StructArray;
@@ -1246,7 +1247,7 @@ mod tests {
             Field::new(field_name_1, DataType::Boolean),
         ];
         let test_owned_struct = AnyValue::StructOwned(Box::new((values, fields.clone())));
-        let comparison_owned_record = Value::record(record!(
+        let comparison_owned_record = Value::test_record(record!(
             field_name_0 => Value::int(1, span),
             field_name_1 => Value::bool(true, span),
         ));
