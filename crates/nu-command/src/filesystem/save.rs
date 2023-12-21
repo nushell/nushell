@@ -152,6 +152,10 @@ impl Command for Save {
             PipelineData::ListStream(ls, _)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
+                // We need to consume the input stream here to prevent an infinite
+                // loop if the input stream and output stream are the same.
+                let values: Vec<Value> = ls.collect();
+
                 let (mut file, _) = get_files(
                     &path,
                     stderr_path.as_ref(),
@@ -160,7 +164,7 @@ impl Command for Save {
                     err_append,
                     force,
                 )?;
-                for val in ls {
+                for val in values.into_iter() {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(|err| ShellError::IOError {
                             msg: err.to_string(),
