@@ -128,7 +128,7 @@ mod foreground_pgroup {
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
-            // `sigprocmask`, `setpgid` and `tcsetpgrp` are async-signal-safe according to:
+            // `sigaction`, `getpid`, `setpgid`, and `tcsetpgrp` are async-signal-safe according to:
             // https://manpages.ubuntu.com/manpages/bionic/man7/signal-safety.7.html
             external_command.pre_exec(move || {
                 // When this callback is run, std::process has already done:
