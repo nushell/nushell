@@ -92,16 +92,12 @@ fn take_control() -> Pid {
     }
 
     // Reset all signal handlers to default
+    let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
     for sig in Signal::iterator() {
-        unsafe {
-            if let Ok(old_act) = sigaction(
-                sig,
-                &SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty()),
-            ) {
-                // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
-                if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
-                    let _ = sigaction(sig, &old_act);
-                }
+        if let Ok(old_act) = unsafe { sigaction(sig, &default) } {
+            // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
+            if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
+                let _ = unsafe { sigaction(sig, &old_act) };
             }
         }
     }
