@@ -5,6 +5,7 @@ use core::fmt;
 use nu_protocol::{PipelineData, ShellError, Span, Value};
 use polars::prelude::{Expr, IntoLazy, LazyFrame, Schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::panic::AssertUnwindSafe;
 
 // Lazyframe wrapper for Nushell operations
 // Polars LazyFrame is behind and Option to allow easy implementation of
@@ -101,20 +102,29 @@ impl NuLazyFrame {
     }
 
     pub fn collect(self, span: Span) -> Result<NuDataFrame, ShellError> {
-        self.lazy
-            .expect("No empty lazy for collect")
-            .collect()
-            .map_err(|e| ShellError::GenericError {
-                error: "Error collecting lazy frame".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })
-            .map(|df| NuDataFrame {
-                df,
-                from_lazy: !self.from_eager,
-            })
+        std::panic::catch_unwind(AssertUnwindSafe(|| {
+            self.lazy
+                .expect("No empty lazy for collect")
+                .collect()
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error collecting lazy frame".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })
+                .map(|df| NuDataFrame {
+                    df,
+                    from_lazy: !self.from_eager,
+                })
+        }))
+        .map_err(|_| ShellError::GenericError {
+            error: "Polars panicked while collecting".into(),
+            msg: "".to_string(),
+            span: None,
+            help: None,
+            inner: Vec::new(),
+        })?
     }
 
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
