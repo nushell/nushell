@@ -46,11 +46,11 @@ impl ForegroundProcess {
         if interactive && io::stdin().is_terminal() {
             let (ref pgrp, ref pcnt) = *self.pipeline_state;
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
-            fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp);
+            foreground_pgroup::prepare_command(&mut self.inner, existing_pgrp);
             self.inner
                 .spawn()
                 .map(|child| {
-                    fg_process_setup::set_foreground(&child, existing_pgrp);
+                    foreground_pgroup::set(&child, existing_pgrp);
                     let _ = pcnt.fetch_add(1, Ordering::SeqCst);
                     if existing_pgrp == 0 {
                         pgrp.store(child.id(), Ordering::SeqCst);
@@ -61,7 +61,7 @@ impl ForegroundProcess {
                     }
                 })
                 .map_err(|e| {
-                    fg_process_setup::reset_foreground_id();
+                    foreground_pgroup::reset();
                     e
                 })
         } else {
@@ -84,7 +84,7 @@ impl Drop for ForegroundChild {
         if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 pgrp.store(0, Ordering::SeqCst);
-                fg_process_setup::reset_foreground_id()
+                foreground_pgroup::reset()
             }
         }
     }
@@ -92,7 +92,7 @@ impl Drop for ForegroundChild {
 
 // It's a simpler version of fish shell's external process handling.
 #[cfg(unix)]
-mod fg_process_setup {
+mod foreground_pgroup {
     use nix::{
         libc,
         sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
@@ -112,7 +112,7 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn prepare_to_foreground(external_command: &mut Command, existing_pgrp: u32) {
+    pub(super) fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
         let tty = TtyHandle(unistd::dup(libc::STDIN_FILENO).expect("dup"));
         unsafe {
             // Safety:
@@ -147,7 +147,7 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn set_foreground(process: &Child, existing_pgrp: u32) {
+    pub(super) fn set(process: &Child, existing_pgrp: u32) {
         set_foreground_pid(
             Pid::from_raw(process.id() as i32),
             existing_pgrp,
@@ -170,7 +170,7 @@ mod fg_process_setup {
     }
 
     /// Reset the foreground process group to the shell
-    pub(super) fn reset_foreground_id() {
+    pub(super) fn reset() {
         if let Err(e) = unistd::tcsetpgrp(libc::STDIN_FILENO, unistd::getpgrp()) {
             println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
@@ -179,9 +179,7 @@ mod fg_process_setup {
 
 #[cfg(not(unix))]
 mod fg_process_setup {
-    pub(super) fn prepare_to_foreground(_: &mut Command, _: u32) {}
-
-    pub(super) fn set_foreground(_: &Child, _: u32) {}
-
-    pub(super) fn reset_foreground_id() {}
+    pub(super) fn prepare_command(_: &mut Command, _: u32) {}
+    pub(super) fn set(_: &Child, _: u32) {}
+    pub(super) fn reset() {}
 }
