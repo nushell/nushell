@@ -40,26 +40,15 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
             // sigaction(Signal::SIGCHLD, &ignore).expect("signal ignore");
 
-            signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
-                // Safety: can only call async-signal-safe functions here
-                // restore_terminal, signal, and raise are all async-signal-safe
-
-                restore_terminal();
-
-                let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
-                if sigaction(Signal::SIGTERM, &default).is_err() {
-                    // Failed to set signal handler to default.
-                    // This should not be possible, but if it does happen,
-                    // then this could result in an infitite loop due to the raise below.
-                    // So, we'll just exit immediately if this happens.
-                    std::process::exit(1);
-                };
-
-                if raise(Signal::SIGTERM).is_err() {
-                    std::process::exit(1);
-                };
-            })
-            .expect("signal hook");
+            sigaction(
+                Signal::SIGTERM,
+                &SigAction::new(
+                    SigHandler::Handler(sigterm_handler),
+                    SaFlags::empty(),
+                    SigSet::empty(),
+                ),
+            )
+            .expect("signal action");
         }
 
         // Put ourselves in our own process group, if not already
@@ -148,9 +137,30 @@ fn take_control() -> Pid {
 #[cfg(unix)]
 extern "C" fn restore_terminal() {
     // Safety: can only call async-signal-safe functions here
-    // tcsetpgrp and getpgrp are async-signal-safe
+    // `tcsetpgrp` and `getpgrp` are async-signal-safe
     let initial_pgid = Pid::from_raw(INITIAL_PGID.load(Ordering::Relaxed));
     if initial_pgid.as_raw() > 0 && initial_pgid != unistd::getpgrp() {
         let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, initial_pgid);
     }
+}
+
+#[cfg(unix)]
+extern "C" fn sigterm_handler(_signum: libc::c_int) {
+    // Safety: can only call async-signal-safe functions here
+    // `restore_terminal`, `sigaction`, and `raise` are all async-signal-safe
+
+    restore_terminal();
+
+    let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+    if unsafe { sigaction(Signal::SIGTERM, &default) }.is_err() {
+        // Failed to set signal handler to default.
+        // This should not be possible, but if it does happen,
+        // then this could result in an infitite loop due to the raise below.
+        // So, we'll just exit immediately if this happens.
+        std::process::exit(1);
+    };
+
+    if raise(Signal::SIGTERM).is_err() {
+        std::process::exit(1);
+    };
 }

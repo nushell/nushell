@@ -90,7 +90,6 @@ time = "0.3"
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
 openssl = { version = "0.10", features = ["vendored"], optional = true }
-signal-hook = { version = "0.3", default-features = false }
 
 [target.'cfg(windows)'.build-dependencies]
 winresource = "0.1"
