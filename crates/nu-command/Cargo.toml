@@ -52,7 +52,7 @@ indexmap = "2.1"
 indicatif = "0.17"
 itertools = "0.12"
 log = "0.4"
-lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { version = "0.16", default-features = false, features = ["nu-ansi-term"] }
 md5 = { package = "md-5", version = "0.10" }
 miette = { version = "5.10", features = ["fancy-no-backtrace"] }
 mime = "0.3"
