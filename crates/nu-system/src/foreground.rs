@@ -31,8 +31,7 @@ pub struct ForegroundProcess {
 /// It can only be created by `ForegroundProcess::spawn`.
 pub struct ForegroundChild {
     inner: Child,
-    pipeline_state: Arc<(AtomicU32, AtomicU32)>,
-    interactive: bool,
+    pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
 }
 
 impl ForegroundProcess {
@@ -58,8 +57,7 @@ impl ForegroundProcess {
                     }
                     ForegroundChild {
                         inner: child,
-                        pipeline_state: self.pipeline_state.clone(),
-                        interactive: true,
+                        pipeline_state: Some(self.pipeline_state.clone()),
                     }
                 })
                 .map_err(|e| {
@@ -69,8 +67,7 @@ impl ForegroundProcess {
         } else {
             self.inner.spawn().map(|child| ForegroundChild {
                 inner: child,
-                pipeline_state: self.pipeline_state.clone(),
-                interactive: false,
+                pipeline_state: None,
             })
         }
     }
@@ -84,8 +81,7 @@ impl AsMut<Child> for ForegroundChild {
 
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
-        if self.interactive {
-            let (ref pgrp, ref pcnt) = *self.pipeline_state;
+        if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 pgrp.store(0, Ordering::SeqCst);
                 fg_process_setup::reset_foreground_id()
