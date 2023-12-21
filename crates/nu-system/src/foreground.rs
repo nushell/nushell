@@ -1,5 +1,5 @@
 use std::{
-    io::IsTerminal,
+    io::{self, IsTerminal},
     process::{Child, Command},
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -43,8 +43,8 @@ impl ForegroundProcess {
         }
     }
 
-    pub fn spawn(&mut self, interactive: bool) -> std::io::Result<ForegroundChild> {
-        if interactive && std::io::stdin().is_terminal() {
+    pub fn spawn(&mut self, interactive: bool) -> io::Result<ForegroundChild> {
+        if interactive && io::stdin().is_terminal() {
             let (ref pgrp, ref pcnt) = *self.pipeline_state;
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
             fg_process_setup::prepare_to_foreground(&mut self.inner, existing_pgrp);
@@ -98,10 +98,14 @@ impl Drop for ForegroundChild {
 #[cfg(unix)]
 mod fg_process_setup {
     use nix::{
+        libc,
         sys::signal::{sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
         unistd::{self, Pid},
     };
-    use std::os::unix::prelude::{CommandExt, RawFd};
+    use std::{
+        os::unix::prelude::{CommandExt, RawFd},
+        process::{Child, Command},
+    };
 
     // TODO: when raising MSRV past 1.63.0, switch to OwnedFd
     struct TtyHandle(RawFd);
@@ -112,11 +116,8 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn prepare_to_foreground(
-        external_command: &mut std::process::Command,
-        existing_pgrp: u32,
-    ) {
-        let tty = TtyHandle(unistd::dup(nix::libc::STDIN_FILENO).expect("dup"));
+    pub(super) fn prepare_to_foreground(external_command: &mut Command, existing_pgrp: u32) {
+        let tty = TtyHandle(unistd::dup(libc::STDIN_FILENO).expect("dup"));
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -150,11 +151,11 @@ mod fg_process_setup {
         }
     }
 
-    pub(super) fn set_foreground(process: &std::process::Child, existing_pgrp: u32) {
+    pub(super) fn set_foreground(process: &Child, existing_pgrp: u32) {
         set_foreground_pid(
             Pid::from_raw(process.id() as i32),
             existing_pgrp,
-            nix::libc::STDIN_FILENO,
+            libc::STDIN_FILENO,
         );
     }
 
@@ -174,7 +175,7 @@ mod fg_process_setup {
 
     /// Reset the foreground process group to the shell
     pub(super) fn reset_foreground_id() {
-        if let Err(e) = nix::unistd::tcsetpgrp(nix::libc::STDIN_FILENO, unistd::getpgrp()) {
+        if let Err(e) = unistd::tcsetpgrp(libc::STDIN_FILENO, unistd::getpgrp()) {
             println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
@@ -182,9 +183,9 @@ mod fg_process_setup {
 
 #[cfg(not(unix))]
 mod fg_process_setup {
-    pub(super) fn prepare_to_foreground(_: &mut std::process::Command, _: u32) {}
+    pub(super) fn prepare_to_foreground(_: &mut Command, _: u32) {}
 
-    pub(super) fn set_foreground(_: &std::process::Child, _: u32) {}
+    pub(super) fn set_foreground(_: &Child, _: u32) {}
 
     pub(super) fn reset_foreground_id() {}
 }
