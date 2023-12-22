@@ -373,10 +373,7 @@ fn prepare_path(
 
 fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
     let file = match (append, path.exists()) {
-        (true, true) => std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path),
+        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => std::fs::File::create(path),
     };
 
