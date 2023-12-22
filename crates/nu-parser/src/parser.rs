@@ -971,6 +971,7 @@ pub fn parse_internal_call(
                         signature.call_signature(),
                         arg_span,
                     ));
+                    call.add_positional(Expression::garbage(arg_span));
                 } else if positional_idx < signature.required_positional.len() {
                     working_set.error(ParseError::MissingPositional(
                         signature.required_positional[positional_idx].name.clone(),
