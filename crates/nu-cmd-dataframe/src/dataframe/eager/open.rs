@@ -1,3 +1,5 @@
+use crate::dataframe::values::NuSchema;
+
 use super::super::values::{NuDataFrame, NuLazyFrame};
 use nu_engine::CallExt;
 use nu_protocol::{
@@ -69,6 +71,12 @@ impl Command for OpenDataFrame {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Columns to be selected from csv file. CSV and Parquet file",
                 None,
+            )
+            .named(
+                "schema",
+                SyntaxShape::Record(vec![]),
+                r#"Polars Schema in format [{name: str}]"#,
+                Some('s')
             )
             .input_output_type(Type::Any, Type::Custom("dataframe".into()))
             .category(Category::Custom("dataframe".into()))
@@ -368,6 +376,10 @@ fn from_csv(
     let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
+    let maybe_schema = call.get_flag(engine_state, stack, "schema")?
+        .map(|schema| NuSchema::try_from(&schema))
+        .transpose()?;
+
     if call.has_flag("lazy") {
         let file: String = call.req(engine_state, stack, 0)?;
         let csv_reader = LazyCsvReader::new(file);
@@ -394,6 +406,11 @@ fn from_csv(
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema  {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,
@@ -451,6 +468,11 @@ fn from_csv(
         };
 
         let csv_reader = csv_reader.has_header(!no_header);
+
+        let csv_reader = match maybe_schema  {
+            Some(schema) => csv_reader.with_schema(Some(schema.into())),
+            None => csv_reader,
+        };
 
         let csv_reader = match infer_schema {
             None => csv_reader,

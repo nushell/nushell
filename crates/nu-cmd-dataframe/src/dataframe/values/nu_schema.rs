@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use nu_protocol::{ShellError, Span, Value, Record};
-use polars::prelude::{DataType, Schema, Field};
+use polars::prelude::{DataType, Schema, Field, SchemaRef};
 
 pub struct NuSchema {
-    schema: Schema,
+    schema: SchemaRef,
 }
 
 impl NuSchema {
     pub fn new(schema: Schema) -> Self {
-        Self { schema }
+        Self { schema: Arc::new(schema) }
     }
 
     pub fn values() -> &'static [&'static str] {
@@ -42,19 +44,19 @@ impl TryFrom<&Value> for NuSchema {
     type Error = ShellError;
     fn try_from(value: &Value) -> Result<Self, Self::Error> {
         let schema = value_to_schema(value, Span::unknown())?;
-        Ok(Self { schema })
-    }
-}
-
-impl AsRef<Schema> for NuSchema {
-    fn as_ref(&self) -> &Schema {
-        &self.schema
+        Ok(Self::new(schema))
     }
 }
 
 impl Into<Value> for NuSchema {
     fn into(self) -> Value {
         schema_to_value(&self.schema)
+    }
+}
+
+impl Into<SchemaRef> for NuSchema {
+    fn into(self) -> SchemaRef {
+        Arc::clone(&self.schema)
     }
 }
 

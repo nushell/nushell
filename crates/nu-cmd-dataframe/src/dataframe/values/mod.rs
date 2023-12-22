@@ -11,3 +11,4 @@ pub use nu_expression::NuExpression;
 pub use nu_lazyframe::NuLazyFrame;
 pub use nu_lazygroupby::NuLazyGroupBy;
 pub use nu_when::NuWhen;
+pub use nu_schema::NuSchema;
