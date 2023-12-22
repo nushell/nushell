@@ -13,7 +13,7 @@ use polars_arrow::util::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
-use super::{utils::DEFAULT_ROWS, NuLazyFrame};
+use super::{utils::DEFAULT_ROWS, NuLazyFrame, nu_schema::NuSchema};
 
 // DataFrameValue is an encapsulation of Nushell Value that can be used
 // to define the PolarsObject Trait. The polars object trait allows to
@@ -502,5 +502,9 @@ impl NuDataFrame {
         }
 
         Some(Ordering::Equal)
+    }
+
+    pub fn schema(&self) -> NuSchema {
+        NuSchema::new(self.df.schema())
     }
 }

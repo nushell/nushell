@@ -3,6 +3,7 @@ mod nu_expression;
 mod nu_lazyframe;
 mod nu_lazygroupby;
 mod nu_when;
+mod nu_schema;
 pub mod utils;
 
 pub use nu_dataframe::{Axis, Column, NuDataFrame};
