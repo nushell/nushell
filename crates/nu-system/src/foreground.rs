@@ -110,21 +110,11 @@ mod foreground_pgroup {
         unistd::{self, Pid},
     };
     use std::{
-        os::unix::prelude::{CommandExt, RawFd},
+        os::unix::prelude::CommandExt,
         process::{Child, Command},
     };
 
-    // TODO: when raising MSRV past 1.63.0, switch to OwnedFd
-    struct TtyHandle(RawFd);
-
-    impl Drop for TtyHandle {
-        fn drop(&mut self) {
-            let _ = unistd::close(self.0);
-        }
-    }
-
     pub(super) fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
-        let tty = TtyHandle(unistd::dup(libc::STDIN_FILENO).expect("dup"));
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -137,7 +127,7 @@ mod foreground_pgroup {
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
                 // This has to be done *both* in the parent and here in the child due to race conditions.
-                set_foreground_pid(unistd::getpid(), existing_pgrp, tty.0);
+                set_foreground_pid(unistd::getpid(), existing_pgrp);
 
                 // Reset signal handlers for child, sync with `terminal.rs`
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
@@ -159,19 +149,15 @@ mod foreground_pgroup {
     }
 
     pub(super) fn set(process: &Child, existing_pgrp: u32) {
-        set_foreground_pid(
-            Pid::from_raw(process.id() as i32),
-            existing_pgrp,
-            libc::STDIN_FILENO,
-        );
+        set_foreground_pid(Pid::from_raw(process.id() as i32), existing_pgrp);
     }
 
     // existing_pgrp is 0 when we don't have an existing foreground process in the pipeline.
     // Conveniently, 0 means "current pid" to setpgid. But not to tcsetpgrp.
-    fn set_foreground_pid(pid: Pid, existing_pgrp: u32, tty: RawFd) {
+    fn set_foreground_pid(pid: Pid, existing_pgrp: u32) {
         let _ = unistd::setpgid(pid, Pid::from_raw(existing_pgrp as i32));
         let _ = unistd::tcsetpgrp(
-            tty,
+            libc::STDIN_FILENO,
             if existing_pgrp == 0 {
                 pid
             } else {
