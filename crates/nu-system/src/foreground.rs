@@ -31,7 +31,7 @@ pub struct ForegroundProcess {
 /// It can only be created by `ForegroundProcess::spawn`.
 pub struct ForegroundChild {
     inner: Child,
-    pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+    _pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
 }
 
 impl ForegroundProcess {
@@ -45,7 +45,7 @@ impl ForegroundProcess {
     fn spawn_simple(&mut self) -> io::Result<ForegroundChild> {
         self.inner.spawn().map(|child| ForegroundChild {
             inner: child,
-            pipeline_state: None,
+            _pipeline_state: None,
         })
     }
 
@@ -70,7 +70,7 @@ impl ForegroundProcess {
                     }
                     ForegroundChild {
                         inner: child,
-                        pipeline_state: Some(self.pipeline_state.clone()),
+                        _pipeline_state: Some(self.pipeline_state.clone()),
                     }
                 })
                 .map_err(|e| {
@@ -92,7 +92,7 @@ impl AsMut<Child> for ForegroundChild {
 #[cfg(unix)]
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
-        if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
+        if let Some((pgrp, pcnt)) = self._pipeline_state.as_deref() {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 pgrp.store(0, Ordering::SeqCst);
                 foreground_pgroup::reset()
