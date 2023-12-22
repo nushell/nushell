@@ -4,8 +4,8 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::fs::File;
 use std::io::Write;
@@ -149,12 +149,41 @@ impl Command for Save {
                     res
                 }
             }
-            PipelineData::ListStream(ls, _)
+            PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
-                // We need to consume the input stream here to prevent an infinite
-                // loop if the input stream and output stream are the same.
-                let values: Vec<Value> = ls.collect();
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::FilePath(input_path),
+                }) = pipeline_metadata
+                {
+                    if path.item == input_path {
+                        return Err(ShellError::GenericError {
+                            error: "pipeline input and output are same file".into(),
+                            msg: format!(
+                                "can't save output to '{}' while it's being reading",
+                                path.item.display()
+                            ),
+                            span: Some(path.span),
+                            help: Some("you should change output path".into()),
+                            inner: vec![],
+                        });
+                    }
+
+                    if let Some(ref err_path) = stderr_path {
+                        if err_path.item == input_path {
+                            return Err(ShellError::GenericError {
+                                error: "pipeline input and stderr are same file".into(),
+                                msg: format!(
+                                    "can't save stderr to '{}' while it's being reading",
+                                    err_path.item.display()
+                                ),
+                                span: Some(err_path.span),
+                                help: Some("you should change stderr path".into()),
+                                inner: vec![],
+                            });
+                        }
+                    }
+                }
 
                 let (mut file, _) = get_files(
                     &path,
@@ -164,7 +193,7 @@ impl Command for Save {
                     err_append,
                     force,
                 )?;
-                for val in values.into_iter() {
+                for val in ls {
                     file.write_all(&value_to_bytes(val)?)
                         .map_err(|err| ShellError::IOError {
                             msg: err.to_string(),
