@@ -118,8 +118,9 @@ mod foreground_pgroup {
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
-            // `sigaction`, `getpid`, `setpgid`, and `tcsetpgrp` are async-signal-safe according to:
+            // `sigaction` and `getpid` are async-signal-safe according to:
             // https://manpages.ubuntu.com/manpages/bionic/man7/signal-safety.7.html
+            // Also, `set_foreground_pid` is async-signal-safe.
             external_command.pre_exec(move || {
                 // When this callback is run, std::process has already done:
                 // - signal(SIGPIPE, SIG_DFL)
@@ -152,18 +153,19 @@ mod foreground_pgroup {
         set_foreground_pid(Pid::from_raw(process.id() as i32), existing_pgrp);
     }
 
-    // existing_pgrp is 0 when we don't have an existing foreground process in the pipeline.
-    // Conveniently, 0 means "current pid" to setpgid. But not to tcsetpgrp.
     fn set_foreground_pid(pid: Pid, existing_pgrp: u32) {
-        let _ = unistd::setpgid(pid, Pid::from_raw(existing_pgrp as i32));
-        let _ = unistd::tcsetpgrp(
-            libc::STDIN_FILENO,
-            if existing_pgrp == 0 {
-                pid
-            } else {
-                Pid::from_raw(existing_pgrp as i32)
-            },
-        );
+        // Safety: needs to be async-signal-safe.
+        // `setpgid` and `tcsetpgrp` are async-signal-safe.
+
+        // `existing_pgrp` is 0 when we don't have an existing foreground process in the pipeline.
+        // A pgrp of 0 means the calling process's pid for `setpgid`. But not for `tcsetpgrp`.
+        let pgrp = if existing_pgrp == 0 {
+            pid
+        } else {
+            Pid::from_raw(existing_pgrp as i32)
+        };
+        let _ = unistd::setpgid(pid, pgrp);
+        let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, pgrp);
     }
 
     /// Reset the foreground process group to the shell
