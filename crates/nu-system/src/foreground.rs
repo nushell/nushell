@@ -1,5 +1,5 @@
 use std::{
-    io::{self, IsTerminal},
+    io,
     process::{Child, Command},
     sync::{
         atomic::{AtomicU32, Ordering},
@@ -23,7 +23,7 @@ use std::{
 /// It does nothing special on Windows systems, `spawn` is the same as [`std::process::Command::spawn`]
 pub struct ForegroundProcess {
     inner: Command,
-    pipeline_state: Arc<(AtomicU32, AtomicU32)>,
+    _pipeline_state: Arc<(AtomicU32, AtomicU32)>,
 }
 
 /// A simple wrapper for `std::process::Child`
@@ -38,7 +38,7 @@ impl ForegroundProcess {
     pub fn new(cmd: Command, pipeline_state: Arc<(AtomicU32, AtomicU32)>) -> Self {
         Self {
             inner: cmd,
-            pipeline_state,
+            _pipeline_state: pipeline_state,
         }
     }
 
@@ -56,8 +56,10 @@ impl ForegroundProcess {
 
     #[cfg(unix)]
     pub fn spawn(&mut self, interactive: bool) -> io::Result<ForegroundChild> {
+        use std::io::IsTerminal;
+
         if interactive && io::stdin().is_terminal() {
-            let (ref pgrp, ref pcnt) = *self.pipeline_state;
+            let (ref pgrp, ref pcnt) = *self._pipeline_state;
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
             foreground_pgroup::prepare_command(&mut self.inner, existing_pgrp);
             self.inner
@@ -70,7 +72,7 @@ impl ForegroundProcess {
                     }
                     ForegroundChild {
                         inner: child,
-                        _pipeline_state: Some(self.pipeline_state.clone()),
+                        _pipeline_state: Some(self._pipeline_state.clone()),
                     }
                 })
                 .map_err(|e| {
