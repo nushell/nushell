@@ -13,14 +13,14 @@ use std::{
 /// ### Unix
 ///
 /// For interactive shells, the spawned child process will get its own process group id,
-/// and it will be put in the foreground (by making stdin belong's to child's process group).
+/// and it will be put in the foreground (by making stdin belong to the child's process group).
 /// On drop, the calling process's group will become the foreground process group once again.
 ///
-/// For non-interactive mode, processes are spawned normally without any signal or foreground process handling.
+/// For non-interactive mode, processes are spawned normally without any foreground process handling.
 ///
 /// ### Windows
 ///
-/// It does nothing special on windows system, `spawn` is the same as [std::process::Command::spawn](std::process::Command::spawn)
+/// It does nothing special on Windows systems, `spawn` is the same as [`std::process::Command::spawn`]
 pub struct ForegroundProcess {
     inner: Command,
     pipeline_state: Arc<(AtomicU32, AtomicU32)>,
@@ -122,8 +122,8 @@ mod foreground_pgroup {
             // https://manpages.ubuntu.com/manpages/bionic/man7/signal-safety.7.html
             // Also, `set_foreground_pid` is async-signal-safe.
             external_command.pre_exec(move || {
-                // When this callback is run, std::process has already done:
-                // - signal(SIGPIPE, SIG_DFL)
+                // When this callback is run, std::process has already:
+                // - reset SIGPIPE to SIG_DFL
 
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
@@ -134,7 +134,7 @@ mod foreground_pgroup {
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
                 // SIGINT has special handling
                 sigaction(Signal::SIGQUIT, &default).expect("signal default");
-                // We don't support background jobs, so keep this one blocked?
+                // We don't support background jobs, so keep SIGTSTP blocked?
                 // sigaction(Signal::SIGTSTP, &default).expect("signal default");
                 sigaction(Signal::SIGTTIN, &default).expect("signal default");
                 sigaction(Signal::SIGTTOU, &default).expect("signal default");
