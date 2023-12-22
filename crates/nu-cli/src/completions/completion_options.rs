@@ -14,6 +14,11 @@ pub enum SortBy {
 /// Describes how suggestions should be matched.
 #[derive(Copy, Clone, Debug)]
 pub enum MatchAlgorithm {
+    /// Only show suggestions which match exactly the given input
+    ///
+    /// Example:
+    /// "git switch" is matched by "git switch"
+    Exact,
     /// Only show suggestions which begin with the given input
     ///
     /// Example:
@@ -33,6 +38,7 @@ impl MatchAlgorithm {
         let haystack = trim_quotes_str(haystack);
         let needle = trim_quotes_str(needle);
         match *self {
+            MatchAlgorithm::Exact => haystack == needle,
             MatchAlgorithm::Prefix => haystack.starts_with(needle),
             MatchAlgorithm::Fuzzy => {
                 let matcher = SkimMatcherV2::default();
@@ -44,6 +50,7 @@ impl MatchAlgorithm {
     /// Returns whether the `needle` search text matches the given `haystack`.
     pub fn matches_u8(&self, haystack: &[u8], needle: &[u8]) -> bool {
         match *self {
+            MatchAlgorithm::Exact => haystack == needle,
             MatchAlgorithm::Prefix => haystack.starts_with(needle),
             MatchAlgorithm::Fuzzy => {
                 let haystack_str = String::from_utf8_lossy(haystack);

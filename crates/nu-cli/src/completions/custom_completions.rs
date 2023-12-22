@@ -163,6 +163,9 @@ fn filter(prefix: &[u8], items: Vec<Suggestion>, options: &CompletionOptions) ->
                     }
                 }
             },
+            MatchAlgorithm::Exact => options
+                .match_algorithm
+                .matches_u8(it.value.as_bytes(), prefix),
             MatchAlgorithm::Fuzzy => options
                 .match_algorithm
                 .matches_u8(it.value.as_bytes(), prefix),

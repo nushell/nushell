@@ -1,4 +1,4 @@
-use crate::completions::{matches, CompletionOptions};
+use crate::completions::{matches, CompletionOptions, MatchAlgorithm};
 use nu_path::home_dir;
 use nu_protocol::{engine::StateWorkingSet, Span};
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
@@ -143,7 +143,16 @@ pub fn complete_item(
         }
     }
 
-    complete_rec(partial.as_slice(), &cwd, options, want_directory, isdir)
+    let options = if isdir {
+        CompletionOptions {
+            match_algorithm: MatchAlgorithm::Exact,
+            ..options.clone()
+        }
+    } else {
+        options.clone()
+    };
+
+    complete_rec(partial.as_slice(), &cwd, &options, want_directory, isdir)
         .into_iter()
         .map(|p| (span, escape_path(original_cwd.apply(&p), want_directory)))
         .collect()
