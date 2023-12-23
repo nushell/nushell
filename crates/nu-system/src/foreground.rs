@@ -1,11 +1,11 @@
 use std::{
     io,
     process::{Child, Command},
-    sync::{
-        atomic::{AtomicU32, Ordering},
-        Arc,
-    },
+    sync::{atomic::AtomicU32, Arc},
 };
+
+#[cfg(unix)]
+use std::{io::IsTerminal, sync::atomic::Ordering};
 
 /// A simple wrapper for `std::process::Command`
 ///
@@ -56,8 +56,6 @@ impl ForegroundProcess {
 
     #[cfg(unix)]
     pub fn spawn(&mut self, interactive: bool) -> io::Result<ForegroundChild> {
-        use std::io::IsTerminal;
-
         if interactive && io::stdin().is_terminal() {
             let (ref pgrp, ref pcnt) = *self._pipeline_state;
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
