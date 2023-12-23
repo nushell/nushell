@@ -357,8 +357,16 @@ fn redirection_with_pipe() {
 
 #[test]
 fn no_duplicate_redirection() {
-    let actual = nu!("echo 3 o> a.txt o> a.txt");
-    assert!(actual.err.contains("Redirection can be set only once"));
-    let actual = nu!("echo 3 e> a.txt e> a.txt");
-    assert!(actual.err.contains("Redirection can be set only once"));
+    Playground::setup("redirection does not accept duplicate", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "echo 3 o> a.txt o> a.txt"
+        );
+        assert!(actual.err.contains("Redirection can be set only once"));
+        let actual = nu!(
+            cwd: dirs.test(),
+            "echo 3 e> a.txt e> a.txt"
+        );
+        assert!(actual.err.contains("Redirection can be set only once"));
+    });
 }
