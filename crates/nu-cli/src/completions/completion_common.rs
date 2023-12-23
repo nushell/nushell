@@ -143,7 +143,9 @@ pub fn complete_item(
         }
     }
 
-    let options = if isdir {
+    let mut target_pathbuf = cwd.clone();
+    target_pathbuf.extend(partial.clone());
+    let options = if isdir && target_pathbuf.exists() {
         CompletionOptions {
             match_algorithm: MatchAlgorithm::Exact,
             ..options.clone()
