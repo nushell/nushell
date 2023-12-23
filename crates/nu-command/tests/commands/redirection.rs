@@ -161,9 +161,14 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
 #[test]
 fn redirection_keep_exit_codes() {
-    let out = nu!("do -i { nu --testbin fail e> a.txt } | complete | get exit_code");
-    // needs to use contains "1", because it complete will output `Some(RawStream)`.
-    assert!(out.out.contains('1'));
+    Playground::setup("redirection preserves exit code", |dirs, _| {
+        let out = nu!(
+            cwd: dirs.test(),
+            "do -i { nu --testbin fail e> a.txt } | complete | get exit_code"
+        );
+        // needs to use contains "1", because it complete will output `Some(RawStream)`.
+        assert!(out.out.contains('1'));
+    });
 }
 
 #[test]
