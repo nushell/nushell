@@ -1,11 +1,13 @@
 mod into_sqlite;
 mod query_db;
 mod schema;
+mod query;
 
 use into_sqlite::IntoSqliteDb;
 use nu_protocol::engine::StateWorkingSet;
 use query_db::QueryDb;
 use schema::SchemaDb;
+use query::Query;
 
 pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
     macro_rules! bind_command {
@@ -18,5 +20,5 @@ pub fn add_commands_decls(working_set: &mut StateWorkingSet) {
         }
 
     // Series commands
-    bind_command!(IntoSqliteDb, QueryDb, SchemaDb);
+    bind_command!(IntoSqliteDb, QueryDb, Query, SchemaDb);
 }
