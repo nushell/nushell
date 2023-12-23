@@ -12,6 +12,27 @@ fn complete_rec(
 ) -> Vec<PathBuf> {
     let mut completions = vec![];
 
+    let options = if let Some(part) = partial.first() {
+        let mut target_pathbuf = cwd.clone().to_path_buf();
+        target_pathbuf.push(part);
+        if target_pathbuf.exists() {
+            CompletionOptions {
+                match_algorithm: MatchAlgorithm::Exact,
+                ..options.clone()
+            }
+        } else {
+            CompletionOptions {
+                match_algorithm: MatchAlgorithm::Prefix,
+                ..options.clone()
+            }
+        }
+    } else {
+        CompletionOptions {
+            match_algorithm: MatchAlgorithm::Prefix,
+            ..options.clone()
+        }
+    };
+
     if let Ok(result) = cwd.read_dir() {
         for entry in result.filter_map(|e| e.ok()) {
             let entry_name = entry.file_name().to_string_lossy().into_owned();
@@ -19,10 +40,10 @@ fn complete_rec(
 
             if !dir || path.is_dir() {
                 match partial.first() {
-                    Some(base) if matches(base, &entry_name, options) => {
+                    Some(base) if matches(base, &entry_name, &options) => {
                         let partial = &partial[1..];
                         if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(partial, &path, options, dir, isdir))
+                            completions.extend(complete_rec(partial, &path, &options, dir, isdir))
                         } else {
                             completions.push(path)
                         }
@@ -142,17 +163,6 @@ pub fn complete_item(
             Component::Normal(c) => partial.push(c.to_string_lossy().into_owned()),
         }
     }
-
-    let mut target_pathbuf = cwd.clone();
-    target_pathbuf.extend(partial.clone());
-    let options = if isdir && target_pathbuf.exists() {
-        CompletionOptions {
-            match_algorithm: MatchAlgorithm::Exact,
-            ..options.clone()
-        }
-    } else {
-        options.clone()
-    };
 
     complete_rec(partial.as_slice(), &cwd, &options, want_directory, isdir)
         .into_iter()
