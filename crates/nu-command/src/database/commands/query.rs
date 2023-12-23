@@ -1,7 +1,7 @@
 use nu_engine::get_full_help;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Value};
+use nu_protocol::{IntoPipelineData, PipelineData, ShellError, Signature, Type, Value};
 
 #[derive(Clone)]
 pub struct Query;
@@ -12,7 +12,7 @@ impl Command for Query {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build(self.name())
+        Signature::build(self.name()).input_output_types(vec![(Type::Nothing, Type::Nothing)])
     }
 
     fn usage(&self) -> &str {
