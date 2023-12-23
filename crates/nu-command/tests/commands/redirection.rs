@@ -363,10 +363,18 @@ fn no_duplicate_redirection() {
             "echo 3 o> a.txt o> a.txt"
         );
         assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(
+            !dirs.test().join("a.txt").exists(),
+            "No file should be created on error"
+        );
         let actual = nu!(
             cwd: dirs.test(),
             "echo 3 e> a.txt e> a.txt"
         );
         assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(
+            !dirs.test().join("a.txt").exists(),
+            "No file should be created on error"
+        );
     });
 }
