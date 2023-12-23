@@ -1,16 +1,21 @@
 use std::{
     io,
     process::{Child, Command},
-    sync::{atomic::AtomicU32, Arc},
 };
 
 #[cfg(unix)]
-use std::{io::IsTerminal, sync::atomic::Ordering};
+use std::{
+    io::IsTerminal,
+    sync::atomic::Ordering,
+    sync::{atomic::AtomicU32, Arc},
+};
 
-/// A simple wrapper for `std::process::Command`
+/// A simple wrapper for [`std::process::Child`]
 ///
-/// ## Spawn behavior
-/// ### Unix
+/// It can only be created by [`ForegroundChild::spawn`].
+///
+/// # Spawn behavior
+/// ## Unix
 ///
 /// For interactive shells, the spawned child process will get its own process group id,
 /// and it will be put in the foreground (by making stdin belong to the child's process group).
@@ -18,49 +23,32 @@ use std::{io::IsTerminal, sync::atomic::Ordering};
 ///
 /// For non-interactive mode, processes are spawned normally without any foreground process handling.
 ///
-/// ### Windows
+/// ## Other systems
 ///
-/// It does nothing special on Windows systems, `spawn` is the same as [`std::process::Command::spawn`]
-pub struct ForegroundProcess {
-    inner: Command,
-    _pipeline_state: Arc<(AtomicU32, AtomicU32)>,
-}
-
-/// A simple wrapper for `std::process::Child`
-///
-/// It can only be created by `ForegroundProcess::spawn`.
+/// It does nothing special on non-unix systems, so `spawn` is the same as [`std::process::Command::spawn`].
 pub struct ForegroundChild {
     inner: Child,
-    _pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
+    #[cfg(unix)]
+    pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
 }
 
-impl ForegroundProcess {
-    pub fn new(cmd: Command, pipeline_state: Arc<(AtomicU32, AtomicU32)>) -> Self {
-        Self {
-            inner: cmd,
-            _pipeline_state: pipeline_state,
-        }
-    }
-
-    fn spawn_simple(&mut self) -> io::Result<ForegroundChild> {
-        self.inner.spawn().map(|child| ForegroundChild {
-            inner: child,
-            _pipeline_state: None,
-        })
-    }
-
+impl ForegroundChild {
     #[cfg(not(unix))]
-    pub fn spawn(&mut self, _interactive: bool) -> io::Result<ForegroundChild> {
-        self.spawn_simple()
+    pub fn spawn(mut command: Command) -> io::Result<Self> {
+        command.spawn().map(|child| Self { inner: child })
     }
 
     #[cfg(unix)]
-    pub fn spawn(&mut self, interactive: bool) -> io::Result<ForegroundChild> {
+    pub fn spawn(
+        mut command: Command,
+        interactive: bool,
+        pipeline_state: &Arc<(AtomicU32, AtomicU32)>,
+    ) -> io::Result<Self> {
         if interactive && io::stdin().is_terminal() {
-            let (ref pgrp, ref pcnt) = *self._pipeline_state;
+            let (pgrp, pcnt) = pipeline_state.as_ref();
             let existing_pgrp = pgrp.load(Ordering::SeqCst);
-            foreground_pgroup::prepare_command(&mut self.inner, existing_pgrp);
-            self.inner
+            foreground_pgroup::prepare_command(&mut command, existing_pgrp);
+            command
                 .spawn()
                 .map(|child| {
                     foreground_pgroup::set(&child, existing_pgrp);
@@ -68,9 +56,9 @@ impl ForegroundProcess {
                     if existing_pgrp == 0 {
                         pgrp.store(child.id(), Ordering::SeqCst);
                     }
-                    ForegroundChild {
+                    Self {
                         inner: child,
-                        _pipeline_state: Some(self._pipeline_state.clone()),
+                        pipeline_state: Some(pipeline_state.clone()),
                     }
                 })
                 .map_err(|e| {
@@ -78,7 +66,10 @@ impl ForegroundProcess {
                     e
                 })
         } else {
-            self.spawn_simple()
+            command.spawn().map(|child| Self {
+                inner: child,
+                pipeline_state: None,
+            })
         }
     }
 }
@@ -92,7 +83,7 @@ impl AsMut<Child> for ForegroundChild {
 #[cfg(unix)]
 impl Drop for ForegroundChild {
     fn drop(&mut self) {
-        if let Some((pgrp, pcnt)) = self._pipeline_state.as_deref() {
+        if let Some((pgrp, pcnt)) = self.pipeline_state.as_deref() {
             if pcnt.fetch_sub(1, Ordering::SeqCst) == 1 {
                 pgrp.store(0, Ordering::SeqCst);
                 foreground_pgroup::reset()
@@ -114,7 +105,7 @@ mod foreground_pgroup {
         process::{Child, Command},
     };
 
-    pub(super) fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
+    pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32) {
         unsafe {
             // Safety:
             // POSIX only allows async-signal-safe functions to be called.
@@ -149,7 +140,7 @@ mod foreground_pgroup {
         }
     }
 
-    pub(super) fn set(process: &Child, existing_pgrp: u32) {
+    pub fn set(process: &Child, existing_pgrp: u32) {
         set_foreground_pid(Pid::from_raw(process.id() as i32), existing_pgrp);
     }
 
@@ -169,7 +160,7 @@ mod foreground_pgroup {
     }
 
     /// Reset the foreground process group to the shell
-    pub(super) fn reset() {
+    pub fn reset() {
         if let Err(e) = unistd::tcsetpgrp(libc::STDIN_FILENO, unistd::getpgrp()) {
             println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
