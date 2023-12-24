@@ -26,9 +26,9 @@ num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "0.39", optional = true }
 polars-io = { version = "0.35", features = ["avro"], optional = true }
-polars-arrow = "0.35"
-polars-ops = "0.35"
-polars-plan = "0.35"
+polars-arrow = { version = "0.35", optional = true }
+polars-ops = { version = "0.35", optional = true }
+polars-plan = { version = "0.35", optional = true }
 
 [dependencies.polars]
 features = [
@@ -65,7 +65,7 @@ optional = true
 version = "0.35"
 
 [features]
-dataframe = ["num", "polars", "polars-io", "sqlparser"]
+dataframe = ["num", "polars", "polars-io", "polars-arrow", "polars-ops", "polars-plan", "sqlparser"]
 default = []
 
 [dev-dependencies]
