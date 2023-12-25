@@ -5305,11 +5305,8 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                     Span::new(colon_span.end, colon_span.end),
                 ));
                 output.push(RecordItem::Pair(
-                    garbage(curr_span),
-                    garbage(Span::new(
-                        colon_span.start,
-                        tokens[tokens.len() - 1].span.end,
-                    )),
+                    garbage(Span::new(curr_span.start, colon_span.end)),
+                    garbage(Span::new(colon_span.end, tokens[tokens.len() - 1].span.end)),
                 ));
                 break;
             }
