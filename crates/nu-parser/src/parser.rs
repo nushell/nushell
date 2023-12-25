@@ -6086,11 +6086,8 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             default_value: None,
         });
 
-        let mut expr = expr.clone();
-        expr.replace_in_variable(working_set, var_id);
-
         let block = Block {
-            pipelines: vec![Pipeline::from_vec(vec![expr])],
+            pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
             signature: Box::new(signature),
             ..Default::default()
         };
