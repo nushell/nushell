@@ -6,9 +6,9 @@ use nu_protocol::{
 };
 
 use crate::network::http::client::{
-    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_handle_response_status,
-    request_set_timeout, send_request,
+    check_response_redirection, http_client, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    RedirectMode,
 };
 
 use super::client::RequestFlags;
@@ -184,7 +184,11 @@ fn helper(
     let span = args.url.span();
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
-    let redirect_mode = http_parse_redirect_mode(args.redirect)?;
+    let redirect_mode = args
+        .redirect
+        .map(RedirectMode::try_from)
+        .transpose()?
+        .unwrap_or_default();
 
     let client = http_client(args.insecure, redirect_mode, engine_state, stack);
     let mut request = client.post(&requested_url);
@@ -201,7 +205,7 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
-    request_handle_response_status(redirect_mode, span, &response)?;
+    check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,

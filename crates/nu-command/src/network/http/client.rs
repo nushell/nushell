@@ -27,11 +27,35 @@ pub enum BodyType {
     Unknown,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Default)]
 pub enum RedirectMode {
+    #[default]
     Follow,
     Error,
     Manual,
+}
+impl FromStr for RedirectMode {
+    type Err = &'static str;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "follow" | "f" => Ok(RedirectMode::Follow),
+            "error" | "e" => Ok(RedirectMode::Error),
+            "manual" | "m" => Ok(RedirectMode::Manual),
+            _ => Err("Invalid redirect handling mode"),
+        }
+    }
+}
+impl TryFrom<Spanned<String>> for RedirectMode {
+    type Error = ShellError;
+    fn try_from(value: Spanned<String>) -> Result<Self, ShellError> {
+        value
+            .item
+            .parse::<RedirectMode>()
+            .map_err(|e| ShellError::TypeMismatch {
+                err_message: e.to_string(),
+                span: value.span,
+            })
+    }
 }
 
 // Only panics if the user agent is invalid but we define it statically so either
@@ -79,19 +103,6 @@ pub fn http_parse_url(
     };
 
     Ok((requested_url, url))
-}
-
-pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
-    mode.map(|v| match &v.item[..] {
-        "follow" | "f" => Ok(RedirectMode::Follow),
-        "error" | "e" => Ok(RedirectMode::Error),
-        "manual" | "m" => Ok(RedirectMode::Manual),
-        _ => Err(ShellError::TypeMismatch {
-            err_message: "Invalid redirect handling mode".to_string(),
-            span: v.span,
-        }),
-    })
-    .unwrap_or(Ok(RedirectMode::Follow))
 }
 
 pub fn response_to_buffer(
@@ -478,30 +489,24 @@ fn transform_response_using_content_type(
     };
 }
 
-pub fn request_handle_response_status(
+pub fn check_response_redirection(
     redirect_mode: RedirectMode,
     span: Span,
     response: &Result<Response, ShellErrorOrRequestError>,
 ) -> Result<(), ShellError> {
-    let response = match response {
-        Ok(v) => v,
-        Err(_) => return Ok(()),
-    };
-    match redirect_mode {
-        RedirectMode::Error => (),
-        _ => return Ok(()),
+    if let Ok(resp) = response {
+        if RedirectMode::Error == redirect_mode && (300..400).contains(&resp.status()) {
+            return Err(ShellError::NetworkFailure {
+                msg: format!(
+                    "Redirect encountered when redirect handling mode was 'error' ({} {})",
+                    resp.status(),
+                    resp.status_text()
+                ),
+                span,
+            });
+        }
     }
-    if !(300..400).contains(&response.status()) {
-        return Ok(());
-    }
-    Err(ShellError::NetworkFailure {
-        msg: format!(
-            "Redirect encountered when redirect handling mode was 'error' ({} {})",
-            response.status(),
-            response.status_text()
-        ),
-        span,
-    })
+    Ok(())
 }
 
 fn request_handle_response_content(
