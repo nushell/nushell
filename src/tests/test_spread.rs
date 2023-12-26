@@ -187,6 +187,6 @@ fn deprecate_implicit_spread_for_externals() {
     let result = nu!(r#"nu --testbin cococo [1 2]"#);
     assert!(result
         .err
-        .contains("Automatically spreading lists deprecated"));
+        .contains("Automatically spreading lists is deprecated"));
     assert_eq!(result.out, "1 2");
 }

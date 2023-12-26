@@ -142,7 +142,7 @@ pub fn create_external_command(
                     nu_protocol::report_error_new(
                         engine_state,
                         &ShellError::GenericError {
-                            error: "Automatically spreading lists deprecated".into(),
+                            error: "Automatically spreading lists is deprecated".into(),
                             msg: "Spreading lists automatically when calling external commands is deprecated and will be removed in 0.91.".into(),
                             span: Some(arg.span),
                             help: Some("Use the spread operator (put a '...' before the argument)".into()),

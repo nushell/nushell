@@ -484,10 +484,10 @@ pub enum ParseError {
         #[label("...and here")] Option<Span>,
     ),
 
-    #[error("Unexpected spread argument.")]
+    #[error("This command does not have a ...rest parameter")]
     #[diagnostic(
         code(nu::parser::unexpected_spread_arg),
-        help("This command does not have a rest parameter. Usage: {0}")
+        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
     )]
     UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
