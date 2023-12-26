@@ -1,4 +1,4 @@
-use crate::{ast::Expression, engine::StateWorkingSet, Span, VarId};
+use crate::{ast::Expression, engine::StateWorkingSet, Span};
 use serde::{Deserialize, Serialize};
 use std::ops::{Index, IndexMut};
 
@@ -85,30 +85,6 @@ impl PipelineElement {
                 out: (_, out_expr, _),
                 err: (_, err_expr, _),
             } => out_expr.has_in_variable(working_set) || err_expr.has_in_variable(working_set),
-        }
-    }
-
-    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
-        match self {
-            PipelineElement::Expression(_, expression)
-            | PipelineElement::Redirection(_, _, expression, _)
-            | PipelineElement::And(_, expression)
-            | PipelineElement::Or(_, expression)
-            | PipelineElement::SameTargetRedirection {
-                cmd: (_, expression),
-                ..
-            } => expression.replace_in_variable(working_set, new_var_id),
-            PipelineElement::SeparateRedirection {
-                out: (_, out_expr, _),
-                err: (_, err_expr, _),
-            } => {
-                if out_expr.has_in_variable(working_set) {
-                    out_expr.replace_in_variable(working_set, new_var_id)
-                }
-                if err_expr.has_in_variable(working_set) {
-                    err_expr.replace_in_variable(working_set, new_var_id)
-                }
-            }
         }
     }
 
