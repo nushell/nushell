@@ -336,14 +336,24 @@ fn is_hidden_dir(dir: impl AsRef<Path>) -> bool {
     #[cfg(windows)]
     {
         use std::os::windows::fs::MetadataExt;
+        let hidden_attributes: bool;
 
         if let Ok(metadata) = dir.as_ref().metadata() {
             let attributes = metadata.file_attributes();
             // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
-            (attributes & 0x2) != 0
+            hidden_attributes = (attributes & 0x2) != 0;
         } else {
-            false
+            return false;
         }
+        // Besides checking the hidden attribute, also check if the file name starts
+        // with "." (dot), because many Linux programs, when used on Windows,
+        //  still use the Linux convention of the dot file.
+        hidden_attributes
+            || dir
+                .as_ref()
+                .file_name()
+                .map(|name| name.to_string_lossy().starts_with('.'))
+                .unwrap_or(false)
     }
 
     #[cfg(not(windows))]
