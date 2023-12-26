@@ -1006,6 +1006,7 @@ pub fn parse_internal_call(
                         Span::new(spans[spans_idx].start, spans[spans_idx].start),
                         signature.call_signature(),
                     ));
+                    call.add_positional(Expression::garbage(arg_span));
                 } else {
                     let rest_shape = match &signature.rest_positional {
                         Some(arg) => arg.shape.clone(),
