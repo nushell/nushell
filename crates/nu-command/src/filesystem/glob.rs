@@ -21,7 +21,7 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::String, "the glob expression")
+            .required("glob", SyntaxShape::String, "The glob expression.")
             .named(
                 "depth",
                 SyntaxShape::Int,
@@ -42,12 +42,6 @@ impl Command for Glob {
                 "no-symlink",
                 "Whether to filter out symlinks from the returned paths",
                 Some('S'),
-            )
-            .named(
-                "not",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "DEPRECATED OPTION: Patterns to exclude from the results",
-                Some('n'),
             )
             .named(
                 "exclude",
@@ -80,7 +74,7 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                    "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
@@ -147,35 +141,7 @@ impl Command for Glob {
         let no_files = call.has_flag("no-file");
         let no_symlinks = call.has_flag("no-symlink");
 
-        if call.has_flag("not") {
-            nu_protocol::report_error_new(
-                engine_state,
-                &ShellError::GenericError(
-                    "Deprecated option".into(),
-                    "`glob --not {list<string>}` is deprecated and will be removed in 0.88.".into(),
-                    Some(call.head),
-                    Some("Please use `glob --exclude {list<string>}` instead.".into()),
-                    vec![],
-                ),
-            );
-        }
-
-        let not_flag: Option<Value> = call.get_flag(engine_state, stack, "not")?;
-        let exclude_flag: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
-
-        let paths_to_exclude = match (not_flag, exclude_flag) {
-            (Some(not_flag), Some(exclude_flag)) => {
-                return Err(ShellError::IncompatibleParameters {
-                    left_message: "Cannot pass --not".into(),
-                    left_span: not_flag.span(),
-                    right_message: "and --exclude".into(),
-                    right_span: exclude_flag.span(),
-                })
-            }
-            (Some(not_flag), None) => Some(not_flag),
-            (None, Some(exclude_flag)) => Some(exclude_flag),
-            (None, None) => None,
-        };
+        let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 
         let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
             None => (vec![], span),
@@ -192,13 +158,13 @@ impl Command for Glob {
         };
 
         if glob_pattern.item.is_empty() {
-            return Err(ShellError::GenericError(
-                "glob pattern must not be empty".to_string(),
-                "glob pattern is empty".to_string(),
-                Some(glob_pattern.span),
-                Some("add characters to the glob pattern".to_string()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "glob pattern must not be empty".into(),
+                msg: "glob pattern is empty".into(),
+                span: Some(glob_pattern.span),
+                help: Some("add characters to the glob pattern".into()),
+                inner: vec![],
+            });
         }
 
         let folder_depth = if let Some(depth) = depth {
@@ -210,13 +176,13 @@ impl Command for Glob {
         let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
             Ok(p) => p.partition(),
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "error with glob pattern".to_string(),
-                    format!("{e}"),
-                    Some(glob_pattern.span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "error with glob pattern".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -229,13 +195,13 @@ impl Command for Glob {
                 std::path::PathBuf::new() // user should get empty list not an error
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "error in canonicalize".to_string(),
-                    format!("{e}"),
-                    Some(glob_pattern.span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: "error in canonicalize".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
@@ -250,14 +216,12 @@ impl Command for Glob {
                     },
                 )
                 .not(np)
-                .map_err(|err| {
-                    ShellError::GenericError(
-                        "error with glob's not pattern".to_string(),
-                        format!("{err}"),
-                        Some(not_pattern_span),
-                        None,
-                        Vec::new(),
-                    )
+                .map_err(|err| ShellError::GenericError {
+                    error: "error with glob's not pattern".into(),
+                    msg: format!("{err}"),
+                    span: Some(not_pattern_span),
+                    help: None,
+                    inner: vec![],
                 })?
                 .flatten();
             let result = glob_to_value(ctrlc, glob_results, no_dirs, no_files, no_symlinks, span)?;

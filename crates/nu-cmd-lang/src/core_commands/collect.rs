@@ -20,7 +20,7 @@ impl Command for Collect {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run once the stream is collected",
+                "The closure to run once the stream is collected.",
             )
             .switch(
                 "keep-env",

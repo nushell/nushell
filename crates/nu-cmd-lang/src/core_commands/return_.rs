@@ -20,7 +20,11 @@ impl Command for Return {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("return")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional("return_value", SyntaxShape::Any, "optional value to return")
+            .optional(
+                "return_value",
+                SyntaxShape::Any,
+                "Optional value to return.",
+            )
             .category(Category::Core)
     }
 
@@ -42,12 +46,15 @@ impl Command for Return {
     ) -> Result<PipelineData, ShellError> {
         let return_value: Option<Value> = call.opt(engine_state, stack, 0)?;
         if let Some(value) = return_value {
-            Err(ShellError::Return(call.head, Box::new(value)))
+            Err(ShellError::Return {
+                span: call.head,
+                value: Box::new(value),
+            })
         } else {
-            Err(ShellError::Return(
-                call.head,
-                Box::new(Value::nothing(call.head)),
-            ))
+            Err(ShellError::Return {
+                span: call.head,
+                value: Box::new(Value::nothing(call.head)),
+            })
         }
     }
 

@@ -63,12 +63,12 @@ impl Command for SubCommand {
             .required(
                 "range",
                 SyntaxShape::Any,
-                "the indexes to substring [start end]",
+                "The indexes to substring [start end].",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, turn strings at the given cell paths into substrings",
+                "For a data structure input, turn strings at the given cell paths into substrings.",
             )
             .category(Category::Strings)
     }

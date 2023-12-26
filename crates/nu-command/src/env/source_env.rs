@@ -24,7 +24,7 @@ impl Command for SourceEnv {
             .required(
                 "filename",
                 SyntaxShape::String, // type is string to avoid automatically canonicalizing the path
-                "the filepath to the script file to source the environment from",
+                "The filepath to the script file to source the environment from.",
             )
             .category(Category::Core)
     }
@@ -55,7 +55,9 @@ impl Command for SourceEnv {
         )? {
             PathBuf::from(&path)
         } else {
-            return Err(ShellError::FileNotFound(source_filename.span));
+            return Err(ShellError::FileNotFound {
+                span: source_filename.span,
+            });
         };
 
         if let Some(parent) = file_path.parent() {

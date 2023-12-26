@@ -151,14 +151,12 @@ fn command_eager(
 
         df.as_mut()
             .with_column(series)
-            .map_err(|e| {
-                ShellError::GenericError(
-                    "Error adding column to dataframe".into(),
-                    e.to_string(),
-                    Some(column_span),
-                    None,
-                    Vec::new(),
-                )
+            .map_err(|e| ShellError::GenericError {
+                error: "Error adding column to dataframe".into(),
+                msg: e.to_string(),
+                span: Some(column_span),
+                help: None,
+                inner: vec![],
             })
             .map(|df| {
                 PipelineData::Value(

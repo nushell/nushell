@@ -8,6 +8,7 @@ use nu_protocol::{
     Value,
 };
 use polars::prelude::{DataType, IntoSeries};
+use polars_ops::prelude::{cum_max, cum_min, cum_sum};
 
 enum CumType {
     Min,
@@ -21,13 +22,13 @@ impl CumType {
             "min" => Ok(Self::Min),
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
-            _ => Err(ShellError::GenericError(
-                "Wrong operation".into(),
-                "Operation not valid for cumulative".into(),
-                Some(span),
-                Some("Allowed values: max, min, sum".into()),
-                Vec::new(),
-            )),
+            _ => Err(ShellError::GenericError {
+                error: "Wrong operation".into(),
+                msg: "Operation not valid for cumulative".into(),
+                span: Some(span),
+                help: Some("Allowed values: max, min, sum".into()),
+                inner: vec![],
+            }),
         }
     }
 
@@ -108,21 +109,28 @@ fn command(
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(_) = series.dtype() {
-        return Err(ShellError::GenericError(
-            "Found object series".into(),
-            "Series of type object cannot be used for cumulative operation".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Found object series".into(),
+            msg: "Series of type object cannot be used for cumulative operation".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let cum_type = CumType::from_str(&cum_type.item, cum_type.span)?;
     let mut res = match cum_type {
-        CumType::Max => series.cummax(reverse),
-        CumType::Min => series.cummin(reverse),
-        CumType::Sum => series.cumsum(reverse),
-    };
+        CumType::Max => cum_max(&series, reverse),
+        CumType::Min => cum_min(&series, reverse),
+        CumType::Sum => cum_sum(&series, reverse),
+    }
+    .map_err(|e| ShellError::GenericError {
+        error: "Error creating cumulative".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: None,
+        inner: vec![],
+    })?;
 
     let name = format!("{}_{}", series.name(), cum_type.to_str());
     res.rename(&name);

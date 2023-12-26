@@ -35,6 +35,10 @@ pub fn evaluate_commands(
         let mut working_set = StateWorkingSet::new(engine_state);
 
         let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
+        if let Some(warning) = working_set.parse_warnings.first() {
+            report_error(&working_set, warning);
+        }
+
         if let Some(err) = working_set.parse_errors.first() {
             report_error(&working_set, err);
 

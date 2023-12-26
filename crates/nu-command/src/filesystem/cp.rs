@@ -39,8 +39,8 @@ impl Command for Cp {
     fn signature(&self) -> Signature {
         Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
-            .required("destination", SyntaxShape::Filepath, "the place to copy to")
+            .required("source", SyntaxShape::GlobPattern, "The place to copy from.")
+            .required("destination", SyntaxShape::Filepath, "The place to copy to.")
             .switch(
                 "recursive",
                 "copy recursively through subdirectories",
@@ -88,10 +88,10 @@ impl Command for Cp {
         let path_last_char = destination.as_os_str().to_string_lossy().chars().last();
         let is_directory = path_last_char == Some('/') || path_last_char == Some('\\');
         if is_directory && !destination.exists() {
-            return Err(ShellError::DirectoryNotFound(
-                dst.span,
-                destination.to_string_lossy().to_string(),
-            ));
+            return Err(ShellError::DirectoryNotFound {
+                dir: destination.to_string_lossy().to_string(),
+                span: dst.span,
+            });
         }
         let ctrlc = engine_state.ctrlc.clone();
         let span = call.head;
@@ -100,40 +100,40 @@ impl Command for Cp {
         let sources: Vec<_> = match arg_glob(&src, &current_dir_path) {
             Ok(files) => files.collect(),
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    e.to_string(),
-                    "invalid pattern".to_string(),
-                    Some(src.span),
-                    None,
-                    Vec::new(),
-                ))
+                return Err(ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: "invalid pattern".into(),
+                    span: Some(src.span),
+                    help: None,
+                    inner: vec![],
+                })
             }
         };
 
         if sources.is_empty() {
-            return Err(ShellError::FileNotFound(src.span));
+            return Err(ShellError::FileNotFound { span: src.span });
         }
 
         if sources.len() > 1 && !destination.is_dir() {
-            return Err(ShellError::GenericError(
-                "Destination must be a directory when copying multiple files".into(),
-                "is not a directory".into(),
-                Some(dst.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Destination must be a directory when copying multiple files".into(),
+                msg: "is not a directory".into(),
+                span: Some(dst.span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         let any_source_is_dir = sources.iter().any(|f| matches!(f, Ok(f) if f.is_dir()));
 
         if any_source_is_dir && !recursive {
-            return Err(ShellError::GenericError(
-                "Directories must be copied using \"--recursive\"".into(),
-                "resolves to a directory (not copied)".into(),
-                Some(src.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Directories must be copied using \"--recursive\"".into(),
+                msg: "resolves to a directory (not copied)".into(),
+                span: Some(src.span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         let mut result = Vec::new();
@@ -170,15 +170,15 @@ impl Command for Cp {
                         }
 
                         let res = if src == dst {
-                            let message = format!("src and dst identical: {:?} (not copied)", src);
+                            let msg = format!("src and dst identical: {:?} (not copied)", src);
 
-                            return Err(ShellError::GenericError(
-                                "Copy aborted".into(),
-                                message,
-                                Some(span),
-                                None,
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "Copy aborted".into(),
+                                msg,
+                                span: Some(span),
+                                help: None,
+                                inner: vec![],
+                            });
                         } else if interactive && dst.exists() {
                             if progress {
                                 interactive_copy(
@@ -210,25 +210,23 @@ impl Command for Cp {
                     match entry.file_name() {
                         Some(name) => destination.join(name),
                         None => {
-                            return Err(ShellError::GenericError(
-                                "Copy aborted. Not a valid path".into(),
-                                "not a valid path".into(),
-                                Some(dst.span),
-                                None,
-                                Vec::new(),
-                            ))
+                            return Err(ShellError::GenericError {
+                                error: "Copy aborted. Not a valid path".into(),
+                                msg: "not a valid path".into(),
+                                span: Some(dst.span),
+                                help: None,
+                                inner: vec![],
+                            })
                         }
                     }
                 };
 
-                std::fs::create_dir_all(&destination).map_err(|e| {
-                    ShellError::GenericError(
-                        e.to_string(),
-                        e.to_string(),
-                        Some(dst.span),
-                        None,
-                        Vec::new(),
-                    )
+                std::fs::create_dir_all(&destination).map_err(|e| ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: e.to_string(),
+                    span: Some(dst.span),
+                    help: None,
+                    inner: vec![],
                 })?;
 
                 let not_follow_symlink = call.has_flag("no-symlink");
@@ -271,14 +269,12 @@ impl Command for Cp {
                     }
 
                     if s.is_dir() && !d.exists() {
-                        std::fs::create_dir_all(&d).map_err(|e| {
-                            ShellError::GenericError(
-                                e.to_string(),
-                                e.to_string(),
-                                Some(dst.span),
-                                None,
-                                Vec::new(),
-                            )
+                        std::fs::create_dir_all(&d).map_err(|e| ShellError::GenericError {
+                            error: e.to_string(),
+                            msg: e.to_string(),
+                            span: Some(dst.span),
+                            help: None,
+                            inner: vec![],
                         })?;
                     }
                     if s.is_symlink() && not_follow_symlink {
@@ -374,7 +370,13 @@ fn interactive_copy(
     );
     if let Err(e) = interaction {
         Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, Vec::new()),
+            ShellError::GenericError {
+                error: e.to_string(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         )
     } else if !confirmed {
@@ -506,15 +508,15 @@ fn copy_symlink(
     let target_path = read_link(src.as_path());
     let target_path = match target_path {
         Ok(p) => p,
-        Err(err) => {
+        Err(e) => {
             return Value::error(
-                ShellError::GenericError(
-                    err.to_string(),
-                    err.to_string(),
-                    Some(span),
-                    None,
-                    vec![],
-                ),
+                ShellError::GenericError {
+                    error: e.to_string(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                },
                 span,
             )
         }
@@ -542,7 +544,13 @@ fn copy_symlink(
             Value::string(msg, span)
         }
         Err(e) => Value::error(
-            ShellError::GenericError(e.to_string(), e.to_string(), Some(span), None, vec![]),
+            ShellError::GenericError {
+                error: e.to_string(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
             span,
         ),
     }
@@ -563,26 +571,50 @@ fn convert_io_error(error: std::io::Error, src: PathBuf, dst: PathBuf, span: Spa
     let shell_error = match error.kind() {
         ErrorKind::NotFound => {
             if std::path::Path::new(&dst).exists() {
-                ShellError::FileNotFoundCustom(message_src, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_src,
+                    span,
+                }
             } else {
-                ShellError::FileNotFoundCustom(message_dst, span)
+                ShellError::FileNotFoundCustom {
+                    msg: message_dst,
+                    span,
+                }
             }
         }
         ErrorKind::PermissionDenied => match std::fs::metadata(&dst) {
             Ok(meta) => {
                 if meta.permissions().readonly() {
-                    ShellError::PermissionDeniedError(message_dst, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_dst,
+                        span,
+                    }
                 } else {
-                    ShellError::PermissionDeniedError(message_src, span)
+                    ShellError::PermissionDeniedError {
+                        msg: message_src,
+                        span,
+                    }
                 }
             }
-            Err(_) => ShellError::PermissionDeniedError(message_dst, span),
+            Err(_) => ShellError::PermissionDeniedError {
+                msg: message_dst,
+                span,
+            },
         },
-        ErrorKind::Interrupted => ShellError::IOInterrupted(message_src, span),
-        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError(message_src, span),
+        ErrorKind::Interrupted => ShellError::IOInterrupted {
+            msg: message_src,
+            span,
+        },
+        ErrorKind::OutOfMemory => ShellError::OutOfMemoryError {
+            msg: message_src,
+            span,
+        },
         // TODO: handle ExecutableFileBusy etc. when io_error_more is stabilized
         // https://github.com/rust-lang/rust/issues/86442
-        _ => ShellError::IOErrorSpanned(message_src, span),
+        _ => ShellError::IOErrorSpanned {
+            msg: message_src,
+            span,
+        },
     };
 
     Value::error(shell_error, span)

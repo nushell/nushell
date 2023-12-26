@@ -90,11 +90,11 @@ pub fn eval_hook(
                 if let Some(err) = working_set.parse_errors.first() {
                     report_error(&working_set, err);
 
-                    return Err(ShellError::UnsupportedConfigValue(
-                        "valid source code".into(),
-                        "source code with syntax errors".into(),
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "valid source code".into(),
+                        value: "source code with syntax errors".into(),
                         span,
-                    ));
+                    });
                 }
 
                 (output, working_set.render(), vars)
@@ -164,11 +164,11 @@ pub fn eval_hook(
                             {
                                 val
                             } else {
-                                return Err(ShellError::UnsupportedConfigValue(
-                                    "boolean output".to_string(),
-                                    "other PipelineData variant".to_string(),
-                                    other_span,
-                                ));
+                                return Err(ShellError::UnsupportedConfigValue {
+                                    expected: "boolean output".to_string(),
+                                    value: "other PipelineData variant".to_string(),
+                                    span: other_span,
+                                });
                             }
                         }
                         Err(err) => {
@@ -176,11 +176,11 @@ pub fn eval_hook(
                         }
                     }
                 } else {
-                    return Err(ShellError::UnsupportedConfigValue(
-                        "block".to_string(),
-                        format!("{}", condition.get_type()),
-                        other_span,
-                    ));
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "block".to_string(),
+                        value: format!("{}", condition.get_type()),
+                        span: other_span,
+                    });
                 }
             } else {
                 // always run the hook
@@ -222,11 +222,11 @@ pub fn eval_hook(
                             if let Some(err) = working_set.parse_errors.first() {
                                 report_error(&working_set, err);
 
-                                return Err(ShellError::UnsupportedConfigValue(
-                                    "valid source code".into(),
-                                    "source code with syntax errors".into(),
-                                    source_span,
-                                ));
+                                return Err(ShellError::UnsupportedConfigValue {
+                                    expected: "valid source code".into(),
+                                    value: "source code with syntax errors".into(),
+                                    span: source_span,
+                                });
                             }
 
                             (output, working_set.render(), vars)
@@ -277,11 +277,11 @@ pub fn eval_hook(
                         )?;
                     }
                     other => {
-                        return Err(ShellError::UnsupportedConfigValue(
-                            "block or string".to_string(),
-                            format!("{}", other.get_type()),
-                            source_span,
-                        ));
+                        return Err(ShellError::UnsupportedConfigValue {
+                            expected: "block or string".to_string(),
+                            value: format!("{}", other.get_type()),
+                            span: source_span,
+                        });
                     }
                 }
             }
@@ -293,11 +293,11 @@ pub fn eval_hook(
             output = run_hook_block(engine_state, stack, val.block_id, input, arguments, span)?;
         }
         other => {
-            return Err(ShellError::UnsupportedConfigValue(
-                "string, block, record, or list of commands".into(),
-                format!("{}", other.get_type()),
-                other.span(),
-            ));
+            return Err(ShellError::UnsupportedConfigValue {
+                expected: "string, block, record, or list of commands".into(),
+                value: format!("{}", other.get_type()),
+                span: other.span(),
+            });
         }
     }
 

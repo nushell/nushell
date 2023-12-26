@@ -48,16 +48,20 @@ pub struct LabeledError {
 impl From<LabeledError> for ShellError {
     fn from(error: LabeledError) -> Self {
         match error.span {
-            Some(span) => {
-                ShellError::GenericError(error.label, error.msg, Some(span), None, Vec::new())
-            }
-            None => ShellError::GenericError(
-                error.label,
-                "".to_string(),
-                None,
-                Some(error.msg),
-                Vec::new(),
-            ),
+            Some(span) => ShellError::GenericError {
+                error: error.label,
+                msg: error.msg,
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            },
+            None => ShellError::GenericError {
+                error: error.label,
+                msg: "".into(),
+                span: None,
+                help: Some(error.msg),
+                inner: vec![],
+            },
         }
     }
 }
@@ -65,9 +69,12 @@ impl From<LabeledError> for ShellError {
 impl From<ShellError> for LabeledError {
     fn from(error: ShellError) -> Self {
         match error {
-            ShellError::GenericError(label, msg, span, _help, _related) => {
-                LabeledError { label, msg, span }
-            }
+            ShellError::GenericError {
+                error: label,
+                msg,
+                span,
+                ..
+            } => LabeledError { label, msg, span },
             ShellError::CantConvert {
                 to_type: expected,
                 from_type: input,
@@ -78,22 +85,22 @@ impl From<ShellError> for LabeledError {
                 msg: format!("can't convert from {input} to {expected}"),
                 span: Some(span),
             },
-            ShellError::DidYouMean(suggestion, span) => LabeledError {
+            ShellError::DidYouMean { suggestion, span } => LabeledError {
                 label: "Name not found".into(),
                 msg: format!("did you mean '{suggestion}'?"),
                 span: Some(span),
             },
-            ShellError::PluginFailedToLoad(msg) => LabeledError {
+            ShellError::PluginFailedToLoad { msg } => LabeledError {
                 label: "Plugin failed to load".into(),
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToEncode(msg) => LabeledError {
+            ShellError::PluginFailedToEncode { msg } => LabeledError {
                 label: "Plugin failed to encode".into(),
                 msg,
                 span: None,
             },
-            ShellError::PluginFailedToDecode(msg) => LabeledError {
+            ShellError::PluginFailedToDecode { msg } => LabeledError {
                 label: "Plugin failed to decode".into(),
                 msg,
                 span: None,

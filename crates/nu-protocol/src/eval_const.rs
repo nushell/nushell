@@ -1,10 +1,8 @@
 use crate::{
-    ast::{
-        eval_operator, Bits, Block, Boolean, Call, Comparison, Expr, Expression, Math, Operator,
-        PipelineElement,
-    },
+    ast::{Assignment, Block, Call, Expr, Expression, PipelineElement},
     engine::{EngineState, StateWorkingSet},
-    record, HistoryFileFormat, PipelineData, Range, Record, ShellError, Span, Value,
+    eval_base::Eval,
+    record, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::path::{Path, PathBuf};
@@ -32,7 +30,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get config directory".into()),
+                ShellError::IOError {
+                    msg: "Could not get config directory".into(),
+                },
                 span,
             )
         },
@@ -49,7 +49,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get config directory".into()),
+                ShellError::IOError {
+                    msg: "Could not get config directory".into(),
+                },
                 span,
             )
         },
@@ -66,7 +68,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find environment path".into()),
+                ShellError::IOError {
+                    msg: "Could not find environment path".into(),
+                },
                 span,
             )
         },
@@ -88,7 +92,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(canon_hist_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find history path".into()),
+                ShellError::IOError {
+                    msg: "Could not find history path".into(),
+                },
                 span,
             )
         },
@@ -103,7 +109,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(canon_login_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not find login shell path".into()),
+                ShellError::IOError {
+                    msg: "Could not find login shell path".into(),
+                },
                 span,
             )
         },
@@ -123,7 +131,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
                 Value::string(plugin_path.to_string_lossy(), span)
             } else {
                 Value::error(
-                    ShellError::IOError("Could not get plugin signature location".into()),
+                    ShellError::IOError {
+                        msg: "Could not get plugin signature location".into(),
+                    },
                     span,
                 )
             },
@@ -136,7 +146,12 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             let canon_home_path = canonicalize_path(engine_state, &path);
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
-            Value::error(ShellError::IOError("Could not get home path".into()), span)
+            Value::error(
+                ShellError::IOError {
+                    msg: "Could not get home path".into(),
+                },
+                span,
+            )
         },
     );
 
@@ -178,7 +193,9 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
             Value::string(current_exe.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::IOError("Could not get current executable path".to_string()),
+                ShellError::IOError {
+                    msg: "Could not get current executable path".to_string(),
+                },
                 span,
             )
         },
@@ -195,13 +212,13 @@ fn eval_const_call(
     let decl = working_set.get_decl(call.decl_id);
 
     if !decl.is_const() {
-        return Err(ShellError::NotAConstCommand(call.head));
+        return Err(ShellError::NotAConstCommand { span: call.head });
     }
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
         // It would require re-implementing get_full_help() for const evaluation. Assuming that
         // getting help messages at parse-time is rare enough, we can simply disallow it.
-        return Err(ShellError::NotAConstHelp(call.head));
+        return Err(ShellError::NotAConstHelp { span: call.head });
     }
 
     decl.run_const(working_set, call, input)
@@ -216,7 +233,7 @@ pub fn eval_const_subexpression(
     for pipeline in block.pipelines.iter() {
         for element in pipeline.elements.iter() {
             let PipelineElement::Expression(_, expr) = element else {
-                return Err(ShellError::NotAConstant(span));
+                return Err(ShellError::NotAConstant { span });
             };
 
             input = eval_constant_with_input(working_set, expr, input)?
@@ -242,232 +259,140 @@ pub fn eval_constant_with_input(
 }
 
 /// Evaluate a constant value at parse time
-///
-/// Based off eval_expression() in the engine
 pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    match &expr.expr {
-        Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
-        Expr::Int(i) => Ok(Value::int(*i, expr.span)),
-        Expr::Float(f) => Ok(Value::float(*f, expr.span)),
-        Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-        Expr::Filepath(path) => Ok(Value::string(path.clone(), expr.span)),
-        Expr::Var(var_id) => match working_set.get_variable(*var_id).const_val.as_ref() {
-            Some(val) => Ok(val.clone()),
-            None => Err(ShellError::NotAConstant(expr.span)),
-        },
-        Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
-        Expr::FullCellPath(cell_path) => {
-            let value = eval_constant(working_set, &cell_path.head)?;
-
-            match value.follow_cell_path(&cell_path.tail, false) {
-                Ok(val) => Ok(val),
-                // TODO: Better error conversion
-                Err(shell_error) => Err(ShellError::GenericError(
-                    "Error when following cell path".to_string(),
-                    format!("{shell_error:?}"),
-                    Some(expr.span),
-                    None,
-                    vec![],
-                )),
-            }
-        }
-        Expr::DateTime(dt) => Ok(Value::date(*dt, expr.span)),
-        Expr::List(x) => {
-            let mut output = vec![];
-            for expr in x {
-                output.push(eval_constant(working_set, expr)?);
-            }
-            Ok(Value::list(output, expr.span))
-        }
-        Expr::Record(fields) => {
-            let mut record = Record::new();
-            for (col, val) in fields {
-                // avoid duplicate cols.
-                let col_name = value_as_string(eval_constant(working_set, col)?, expr.span)?;
-                record.insert(col_name, eval_constant(working_set, val)?);
-            }
-
-            Ok(Value::record(record, expr.span))
-        }
-        Expr::Table(headers, vals) => {
-            let mut output_headers = vec![];
-            for expr in headers {
-                let header = value_as_string(eval_constant(working_set, expr)?, expr.span)?;
-                if let Some(idx) = output_headers
-                    .iter()
-                    .position(|existing| existing == &header)
-                {
-                    return Err(ShellError::ColumnDefinedTwice {
-                        second_use: expr.span,
-                        first_use: headers[idx].span,
-                    });
-                } else {
-                    output_headers.push(header);
-                }
-            }
-
-            let mut output_rows = vec![];
-            for val in vals {
-                let mut row = vec![];
-                for expr in val {
-                    row.push(eval_constant(working_set, expr)?);
-                }
-                // length equality already ensured in parser
-                output_rows.push(Value::record(
-                    Record::from_raw_cols_vals(output_headers.clone(), row),
-                    expr.span,
-                ));
-            }
-            Ok(Value::list(output_rows, expr.span))
-        }
-        Expr::Keyword(_, _, expr) => eval_constant(working_set, expr),
-        Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
-        Expr::Nothing => Ok(Value::nothing(expr.span)),
-        Expr::ValueWithUnit(expr, unit) => {
-            if let Ok(Value::Int { val, .. }) = eval_constant(working_set, expr) {
-                unit.item.to_value(val, unit.span)
-            } else {
-                Err(ShellError::NotAConstant(expr.span))
-            }
-        }
-        Expr::Call(call) => {
-            Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(expr.span))
-        }
-        Expr::Subexpression(block_id) => {
-            let block = working_set.get_block(*block_id);
-            Ok(
-                eval_const_subexpression(working_set, block, PipelineData::empty(), expr.span)?
-                    .into_value(expr.span),
-            )
-        }
-        Expr::Range(from, next, to, operator) => {
-            let from = if let Some(f) = from {
-                eval_constant(working_set, f)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-
-            let next = if let Some(s) = next {
-                eval_constant(working_set, s)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-
-            let to = if let Some(t) = to {
-                eval_constant(working_set, t)?
-            } else {
-                Value::Nothing {
-                    internal_span: expr.span,
-                }
-            };
-            Ok(Value::Range {
-                val: Box::new(Range::new(expr.span, from, next, to, operator)?),
-                internal_span: expr.span,
-            })
-        }
-        Expr::UnaryNot(expr) => {
-            let lhs = eval_constant(working_set, expr)?;
-            match lhs {
-                Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
-                _ => Err(ShellError::TypeMismatch {
-                    err_message: "bool".to_string(),
-                    span: expr.span,
-                }),
-            }
-        }
-        Expr::BinaryOp(lhs, op, rhs) => {
-            let op_span = op.span;
-            let op = eval_operator(op)?;
-
-            match op {
-                Operator::Boolean(boolean) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    match boolean {
-                        Boolean::And => {
-                            if lhs.is_false() {
-                                Ok(Value::bool(false, expr.span))
-                            } else {
-                                let rhs = eval_constant(working_set, rhs)?;
-                                lhs.and(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Or => {
-                            if lhs.is_true() {
-                                Ok(Value::bool(true, expr.span))
-                            } else {
-                                let rhs = eval_constant(working_set, rhs)?;
-                                lhs.or(op_span, &rhs, expr.span)
-                            }
-                        }
-                        Boolean::Xor => {
-                            let rhs = eval_constant(working_set, rhs)?;
-                            lhs.xor(op_span, &rhs, expr.span)
-                        }
-                    }
-                }
-                Operator::Math(math) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-
-                    match math {
-                        Math::Plus => lhs.add(op_span, &rhs, expr.span),
-                        Math::Minus => lhs.sub(op_span, &rhs, expr.span),
-                        Math::Multiply => lhs.mul(op_span, &rhs, expr.span),
-                        Math::Divide => lhs.div(op_span, &rhs, expr.span),
-                        Math::Append => lhs.append(op_span, &rhs, expr.span),
-                        Math::Modulo => lhs.modulo(op_span, &rhs, expr.span),
-                        Math::FloorDivision => lhs.floor_div(op_span, &rhs, expr.span),
-                        Math::Pow => lhs.pow(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Comparison(comparison) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-                    match comparison {
-                        Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
-                        Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
-                        Comparison::GreaterThan => lhs.gt(op_span, &rhs, expr.span),
-                        Comparison::GreaterThanOrEqual => lhs.gte(op_span, &rhs, expr.span),
-                        Comparison::Equal => lhs.eq(op_span, &rhs, expr.span),
-                        Comparison::NotEqual => lhs.ne(op_span, &rhs, expr.span),
-                        Comparison::In => lhs.r#in(op_span, &rhs, expr.span),
-                        Comparison::NotIn => lhs.not_in(op_span, &rhs, expr.span),
-                        Comparison::StartsWith => lhs.starts_with(op_span, &rhs, expr.span),
-                        Comparison::EndsWith => lhs.ends_with(op_span, &rhs, expr.span),
-                        // RegEx comparison is not a constant
-                        _ => Err(ShellError::NotAConstant(expr.span)),
-                    }
-                }
-                Operator::Bits(bits) => {
-                    let lhs = eval_constant(working_set, lhs)?;
-                    let rhs = eval_constant(working_set, rhs)?;
-                    match bits {
-                        Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
-                        Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
-                        Bits::BitXor => lhs.bit_xor(op_span, &rhs, expr.span),
-                        Bits::ShiftLeft => lhs.bit_shl(op_span, &rhs, expr.span),
-                        Bits::ShiftRight => lhs.bit_shr(op_span, &rhs, expr.span),
-                    }
-                }
-                Operator::Assignment(_) => Err(ShellError::NotAConstant(expr.span)),
-            }
-        }
-        Expr::Block(block_id) => Ok(Value::block(*block_id, expr.span)),
-        _ => Err(ShellError::NotAConstant(expr.span)),
-    }
+    <EvalConst as Eval>::eval(working_set, &mut (), expr)
 }
 
-/// Get the value as a string
-pub fn value_as_string(value: Value, span: Span) -> Result<String, ShellError> {
-    match value {
-        Value::String { val, .. } => Ok(val),
-        _ => Err(ShellError::NotAConstant(span)),
+struct EvalConst;
+
+impl Eval for EvalConst {
+    type State<'a> = &'a StateWorkingSet<'a>;
+
+    type MutState = ();
+
+    fn eval_filepath(
+        _: &StateWorkingSet,
+        _: &mut (),
+        path: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Ok(Value::string(path, span))
+    }
+
+    fn eval_directory(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_var(
+        working_set: &StateWorkingSet,
+        _: &mut (),
+        var_id: VarId,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        match working_set.get_variable(var_id).const_val.as_ref() {
+            Some(val) => Ok(val.clone()),
+            None => Err(ShellError::NotAConstant { span }),
+        }
+    }
+
+    fn eval_call(
+        working_set: &StateWorkingSet,
+        _: &mut (),
+        call: &Call,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        // TODO: eval.rs uses call.head for the span rather than expr.span
+        Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
+    }
+
+    fn eval_external_call(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: &Expression,
+        _: &[Expression],
+        _: bool,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        // TODO: It may be more helpful to give not_a_const_command error
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_subexpression(
+        working_set: &StateWorkingSet,
+        _: &mut (),
+        block_id: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        let block = working_set.get_block(block_id);
+        Ok(
+            eval_const_subexpression(working_set, block, PipelineData::empty(), span)?
+                .into_value(span),
+        )
+    }
+
+    fn regex_match(
+        _: &StateWorkingSet,
+        _op_span: Span,
+        _: &Value,
+        _: &Value,
+        _: bool,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span: expr_span })
+    }
+
+    fn eval_assignment(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: &Expression,
+        _: &Expression,
+        _: Assignment,
+        _op_span: Span,
+        expr_span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span: expr_span })
+    }
+
+    fn eval_row_condition_or_closure(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: usize,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_string_interpolation(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: &[Expression],
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn eval_glob_pattern(
+        _: &StateWorkingSet,
+        _: &mut (),
+        _: String,
+        span: Span,
+    ) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span })
+    }
+
+    fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
+        Err(ShellError::NotAConstant { span: expr.span })
     }
 }

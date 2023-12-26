@@ -33,7 +33,7 @@ impl Command for UMkdir {
             .rest(
                 "rest",
                 SyntaxShape::Directory,
-                "the name(s) of the path(s) to create",
+                "The name(s) of the path(s) to create.",
             )
             .switch(
                 "verbose",
@@ -50,11 +50,11 @@ impl Command for UMkdir {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let path = current_dir(engine_state, stack)?;
+        let cwd = current_dir(engine_state, stack)?;
         let mut directories = call
             .rest::<String>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| path.join(dir))
+            .map(|dir| nu_path::expand_path_with(dir, &cwd))
             .peekable();
 
         let is_verbose = call.has_flag("verbose");
@@ -68,13 +68,13 @@ impl Command for UMkdir {
 
         for dir in directories {
             if let Err(error) = mkdir(&dir, IS_RECURSIVE, DEFAULT_MODE, is_verbose) {
-                return Err(ShellError::GenericError(
-                    format!("{}", error),
-                    format!("{}", error),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: format!("{}", error),
+                    msg: format!("{}", error),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
 

@@ -21,11 +21,11 @@ impl Command for Use {
         Signature::build("use")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("module", SyntaxShape::String, "Module or module file")
+            .required("module", SyntaxShape::String, "Module or module file.")
             .rest(
                 "members",
                 SyntaxShape::Any,
-                "Which members of the module to import",
+                "Which members of the module to import.",
             )
             .category(Category::Core)
     }
@@ -58,13 +58,13 @@ This command is a parser keyword. For details, check:
             ..
         }) = call.get_parser_info("import_pattern")
         else {
-            return Err(ShellError::GenericError(
-                "Unexpected import".into(),
-                "import pattern not supported".into(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Unexpected import".into(),
+                msg: "import pattern not supported".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
         };
 
         if let Some(module_id) = import_pattern.head.id {
@@ -131,16 +131,16 @@ This command is a parser keyword. For details, check:
                 redirect_env(engine_state, caller_stack, &callee_stack);
             }
         } else {
-            return Err(ShellError::GenericError(
-                format!(
+            return Err(ShellError::GenericError {
+                error: format!(
                     "Could not import from '{}'",
                     String::from_utf8_lossy(&import_pattern.head.name)
                 ),
-                "module does not exist".to_string(),
-                Some(import_pattern.head.span),
-                None,
-                Vec::new(),
-            ));
+                msg: "module does not exist".to_string(),
+                span: Some(import_pattern.head.span),
+                help: None,
+                inner: vec![],
+            });
         }
 
         Ok(PipelineData::empty())

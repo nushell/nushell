@@ -23,7 +23,7 @@ impl Command for StrJoin {
             .optional(
                 "separator",
                 SyntaxShape::String,
-                "optional separator to use when creating string",
+                "Optional separator to use when creating string.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Strings)

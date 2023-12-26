@@ -26,25 +26,33 @@ pub enum BodyType {
     Unknown,
 }
 
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
-pub fn http_client(allow_insecure: bool) -> ureq::Agent {
+pub fn http_client(
+    allow_insecure: bool,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<ureq::Agent, ShellError> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .expect("Failed to build network tls");
+        .map_err(|e| ShellError::GenericError {
+            error: format!("Failed to build network tls: {}", e),
+            msg: String::new(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
 
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
         .tls_connector(std::sync::Arc::new(tls));
 
-    if let Some(http_proxy) = retrieve_http_proxy_from_env() {
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
         if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
             agent_builder = agent_builder.proxy(proxy);
         }
     };
 
-    agent_builder.build()
+    Ok(agent_builder.build())
 }
 
 pub fn http_parse_url(
@@ -205,9 +213,9 @@ pub fn send_request(
         }
         Value::List { vals, .. } if body_type == BodyType::Form => {
             if vals.len() % 2 != 0 {
-                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-                    "unsupported body input".into(),
-                )));
+                return Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+                    msg: "unsupported body input".into(),
+                }));
             }
 
             let data = vals
@@ -229,9 +237,9 @@ pub fn send_request(
             let data = value_to_json_value(&body)?;
             send_cancellable_request(&request_url, Box::new(|| request.send_json(data)), ctrl_c)
         }
-        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError(
-            "unsupported body input".into(),
-        ))),
+        _ => Err(ShellErrorOrRequestError::ShellError(ShellError::IOError {
+            msg: "unsupported body input".into(),
+        })),
     }
 }
 
@@ -359,38 +367,26 @@ pub fn request_add_custom_headers(
 
 fn handle_response_error(span: Span, requested_url: &str, response_err: Error) -> ShellError {
     match response_err {
-        Error::Status(301, _) => ShellError::NetworkFailure(
-            format!("Resource moved permanently (301): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(301, _) => ShellError::NetworkFailure { msg: format!("Resource moved permanently (301): {requested_url:?}"), span },
         Error::Status(400, _) => {
-            ShellError::NetworkFailure(format!("Bad request (400) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Bad request (400) to {requested_url:?}"), span }
         }
         Error::Status(403, _) => {
-            ShellError::NetworkFailure(format!("Access forbidden (403) to {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Access forbidden (403) to {requested_url:?}"), span }
         }
-        Error::Status(404, _) => ShellError::NetworkFailure(
-            format!("Requested file not found (404): {requested_url:?}"),
-            span,
-        ),
+        Error::Status(404, _) => ShellError::NetworkFailure { msg: format!("Requested file not found (404): {requested_url:?}"), span },
         Error::Status(408, _) => {
-            ShellError::NetworkFailure(format!("Request timeout (408): {requested_url:?}"), span)
+            ShellError::NetworkFailure { msg: format!("Request timeout (408): {requested_url:?}"), span }
         }
-        Error::Status(_, _) => ShellError::NetworkFailure(
-            format!(
+        Error::Status(_, _) => ShellError::NetworkFailure { msg: format!(
                 "Cannot make request to {:?}. Error is {:?}",
                 requested_url,
                 response_err.to_string()
-            ),
-            span,
-        ),
+            ), span },
 
         Error::Transport(t) => match t {
-            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure(
-                format!("Cannot make request to {requested_url}, there was an error establishing a connection.",),
-                span,
-            ),
-            t => ShellError::NetworkFailure(t.to_string(), span),
+            t if t.kind() == ErrorKind::ConnectionFailed => ShellError::NetworkFailure { msg: format!("Cannot make request to {requested_url}, there was an error establishing a connection.",), span },
+            t => ShellError::NetworkFailure { msg: t.to_string(), span },
         },
     }
 }
@@ -411,26 +407,23 @@ fn transform_response_using_content_type(
     resp: Response,
     content_type: &str,
 ) -> Result<PipelineData, ShellError> {
-    let content_type = mime::Mime::from_str(content_type).map_err(|_| {
-        ShellError::GenericError(
-            format!("MIME type unknown: {content_type}"),
-            "".to_string(),
-            None,
-            Some("given unknown MIME type".to_string()),
-            Vec::new(),
-        )
-    })?;
+    let content_type =
+        mime::Mime::from_str(content_type).map_err(|_| ShellError::GenericError {
+            error: format!("MIME type unknown: {content_type}"),
+            msg: "".into(),
+            span: None,
+            help: Some("given unknown MIME type".into()),
+            inner: vec![],
+        })?;
     let ext = match (content_type.type_(), content_type.subtype()) {
         (mime::TEXT, mime::PLAIN) => {
             let path_extension = url::Url::parse(requested_url)
-                .map_err(|_| {
-                    ShellError::GenericError(
-                        format!("Cannot parse URL: {requested_url}"),
-                        "".to_string(),
-                        None,
-                        Some("cannot parse".to_string()),
-                        Vec::new(),
-                    )
+                .map_err(|_| ShellError::GenericError {
+                    error: format!("Cannot parse URL: {requested_url}"),
+                    msg: "".into(),
+                    span: None,
+                    help: Some("cannot parse".into()),
+                    inner: vec![],
                 })?
                 .path_segments()
                 .and_then(|segments| segments.last())
@@ -645,10 +638,18 @@ pub fn request_handle_response_headers(
     }
 }
 
-fn retrieve_http_proxy_from_env() -> Option<String> {
-    std::env::vars()
-        .find(|(key, _)| key == "http_proxy")
-        .or(std::env::vars().find(|(key, _)| key == "HTTP_PROXY"))
-        .or(std::env::vars().find(|(key, _)| key == "ALL_PROXY"))
-        .map(|(_, value)| value)
+fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
+    let proxy_value: Option<Value> = stack
+        .get_env_var(engine_state, "http_proxy")
+        .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
+        .or(stack.get_env_var(engine_state, "https_proxy"))
+        .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
+        .or(stack.get_env_var(engine_state, "ALL_PROXY"));
+    match proxy_value {
+        Some(value) => match value.as_string() {
+            Ok(proxy) => Some(proxy),
+            _ => None,
+        },
+        _ => None,
+    }
 }

@@ -4,6 +4,7 @@ use crate::{
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 
@@ -62,6 +63,7 @@ pub struct PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
+    FilePath(PathBuf),
 }
 
 impl PipelineData {
@@ -666,28 +668,28 @@ impl PipelineData {
                     match (&val.to, &val.from) {
                         (Value::Float { val, .. }, _) | (_, Value::Float { val, .. }) => {
                             if *val == f64::INFINITY || *val == f64::NEG_INFINITY {
-                                return Err(ShellError::GenericError(
-                                    "Cannot create range".into(),
-                                    "Infinity is not allowed when converting to json".into(),
-                                    Some(span),
-                                    Some("Consider removing infinity".into()),
-                                    vec![],
-                                ));
+                                return Err(ShellError::GenericError {
+                                    error: "Cannot create range".into(),
+                                    msg: "Infinity is not allowed when converting to json".into(),
+                                    span: Some(span),
+                                    help: Some("Consider removing infinity".into()),
+                                    inner: vec![],
+                                });
                             }
                         }
                         (Value::Int { val, .. }, _) => {
                             if *val == i64::MAX || *val == i64::MIN {
-                                return Err(ShellError::GenericError(
-                                    "Cannot create range".into(),
-                                    "Unbounded ranges are not allowed when converting to json"
+                                return Err(ShellError::GenericError {
+                                    error: "Cannot create range".into(),
+                                    msg: "Unbounded ranges are not allowed when converting to json"
                                         .into(),
-                                    Some(span),
-                                    Some(
+                                    span: Some(span),
+                                    help: Some(
                                         "Consider using ranges with valid start and end point."
                                             .into(),
                                     ),
-                                    vec![],
-                                ));
+                                    inner: vec![],
+                                });
                             }
                         }
                         _ => (),
@@ -859,10 +861,13 @@ pub fn print_if_stream(
     // NOTE: currently we don't need anything from stderr
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
 
-    thread::Builder::new()
-        .name("stderr consumer".to_string())
-        .spawn(move || stderr_stream.map(|x| x.into_bytes()))
-        .expect("could not create thread");
+    if let Some(stderr_stream) = stderr_stream {
+        thread::Builder::new()
+            .name("stderr consumer".to_string())
+            .spawn(move || stderr_stream.into_bytes())
+            .expect("could not create thread");
+    }
+
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;

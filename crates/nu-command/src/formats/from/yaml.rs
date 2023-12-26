@@ -350,16 +350,16 @@ mod test {
                 let actual_record = actual_vals[jj].as_record().unwrap();
                 let expected_record = expected_vals[jj].as_record().unwrap();
 
-                let actual_columns = &actual_record.cols;
-                let expected_columns = &expected_record.cols;
-                assert_eq!(
-                    expected_columns, actual_columns,
+                let actual_columns = actual_record.columns();
+                let expected_columns = expected_record.columns();
+                assert!(
+                    expected_columns.eq(actual_columns),
                     "record {jj}, iteration {ii}"
                 );
 
-                let actual_vals = &actual_record.vals;
-                let expected_vals = &expected_record.vals;
-                assert_eq!(expected_vals, actual_vals, "record {jj}, iteration {ii}")
+                let actual_vals = actual_record.values();
+                let expected_vals = expected_record.values();
+                assert!(expected_vals.eq(actual_vals), "record {jj}, iteration {ii}")
             }
         }
     }

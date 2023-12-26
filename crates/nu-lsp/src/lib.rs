@@ -1,11 +1,19 @@
-use std::{fs::File, io::Cursor, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
     CompletionItem, CompletionParams, CompletionResponse, CompletionTextEdit, GotoDefinitionParams,
     GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location, MarkupContent, MarkupKind,
-    OneOf, Range, ServerCapabilities, TextEdit, Url,
+    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::NuCompleter;
@@ -17,6 +25,9 @@ use nu_protocol::{
 use reedline::Completer;
 use ropey::Rope;
 
+mod diagnostics;
+mod notification;
+
 #[derive(Debug)]
 enum Id {
     Variable(VarId),
@@ -27,6 +38,7 @@ enum Id {
 pub struct LanguageServer {
     connection: Connection,
     io_threads: Option<IoThreads>,
+    ropes: BTreeMap<PathBuf, Rope>,
 }
 
 impl LanguageServer {
@@ -42,11 +54,19 @@ impl LanguageServer {
         Ok(Self {
             connection,
             io_threads,
+            ropes: BTreeMap::new(),
         })
     }
 
-    pub fn serve_requests(self, engine_state: EngineState) -> Result<()> {
-        let server_capabilities = serde_json::to_value(&ServerCapabilities {
+    pub fn serve_requests(
+        mut self,
+        engine_state: EngineState,
+        ctrlc: Arc<AtomicBool>,
+    ) -> Result<()> {
+        let server_capabilities = serde_json::to_value(ServerCapabilities {
+            text_document_sync: Some(lsp_types::TextDocumentSyncCapability::Kind(
+                TextDocumentSyncKind::INCREMENTAL,
+            )),
             definition_provider: Some(OneOf::Left(true)),
             hover_provider: Some(lsp_types::HoverProviderCapability::Simple(true)),
             completion_provider: Some(lsp_types::CompletionOptions::default()),
@@ -56,10 +76,22 @@ impl LanguageServer {
 
         let _initialization_params = self
             .connection
-            .initialize(server_capabilities)
+            .initialize_while(server_capabilities, || !ctrlc.load(Ordering::SeqCst))
             .into_diagnostic()?;
 
-        for msg in &self.connection.receiver {
+        while !ctrlc.load(Ordering::SeqCst) {
+            let msg = match self
+                .connection
+                .receiver
+                .recv_timeout(Duration::from_secs(1))
+            {
+                Ok(msg) => msg,
+                Err(crossbeam_channel::RecvTimeoutError::Timeout) => {
+                    continue;
+                }
+                Err(_) => break,
+            };
+
             match msg {
                 Message::Request(request) => {
                     if self
@@ -71,25 +103,39 @@ impl LanguageServer {
                     }
 
                     let mut engine_state = engine_state.clone();
-                    match request.method.as_str() {
-                        GotoDefinition::METHOD => {
-                            self.handle_lsp_request(
-                                &mut engine_state,
-                                request,
-                                Self::goto_definition,
-                            )?;
+                    let resp = match request.method.as_str() {
+                        GotoDefinition::METHOD => Self::handle_lsp_request(
+                            &mut engine_state,
+                            request,
+                            |engine_state, params| self.goto_definition(engine_state, params),
+                        ),
+                        HoverRequest::METHOD => Self::handle_lsp_request(
+                            &mut engine_state,
+                            request,
+                            |engine_state, params| self.hover(engine_state, params),
+                        ),
+                        Completion::METHOD => Self::handle_lsp_request(
+                            &mut engine_state,
+                            request,
+                            |engine_state, params| self.complete(engine_state, params),
+                        ),
+                        _ => {
+                            continue;
                         }
-                        HoverRequest::METHOD => {
-                            self.handle_lsp_request(&mut engine_state, request, Self::hover)?;
-                        }
-                        Completion::METHOD => {
-                            self.handle_lsp_request(&mut engine_state, request, Self::complete)?;
-                        }
-                        _ => {}
-                    }
+                    };
+
+                    self.connection
+                        .sender
+                        .send(Message::Response(resp))
+                        .into_diagnostic()?;
                 }
                 Message::Response(_) => {}
-                Message::Notification(_) => {}
+                Message::Notification(notification) => {
+                    if let Some(updated_file) = self.handle_lsp_notification(notification) {
+                        let mut engine_state = engine_state.clone();
+                        self.publish_diagnostics_for_file(updated_file, &mut engine_state)?;
+                    }
+                }
             }
         }
 
@@ -101,41 +147,36 @@ impl LanguageServer {
     }
 
     fn handle_lsp_request<P, H, R>(
-        &self,
         engine_state: &mut EngineState,
         req: lsp_server::Request,
-        param_handler: H,
-    ) -> Result<()>
+        mut param_handler: H,
+    ) -> Response
     where
         P: serde::de::DeserializeOwned,
-        H: Fn(&mut EngineState, &P) -> Option<R>,
+        H: FnMut(&mut EngineState, &P) -> Option<R>,
         R: serde::ser::Serialize,
     {
-        let resp = {
-            match serde_json::from_value::<P>(req.params) {
-                Ok(params) => Response {
-                    id: req.id,
-                    result: param_handler(engine_state, &params)
-                        .and_then(|response| serde_json::to_value(response).ok()),
-                    error: None,
-                },
+        match serde_json::from_value::<P>(req.params) {
+            Ok(params) => Response {
+                id: req.id,
+                result: Some(
+                    param_handler(engine_state, &params)
+                        .and_then(|response| serde_json::to_value(response).ok())
+                        .unwrap_or(serde_json::Value::Null),
+                ),
+                error: None,
+            },
 
-                Err(err) => Response {
-                    id: req.id,
-                    result: None,
-                    error: Some(ResponseError {
-                        code: 1,
-                        message: err.to_string(),
-                        data: None,
-                    }),
-                },
-            }
-        };
-
-        self.connection
-            .sender
-            .send(Message::Response(resp))
-            .into_diagnostic()
+            Err(err) => Response {
+                id: req.id,
+                result: None,
+                error: Some(ResponseError {
+                    code: 1,
+                    message: err.to_string(),
+                    data: None,
+                }),
+            },
+        }
     }
 
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
@@ -158,79 +199,84 @@ impl LanguageServer {
         lsp_types::Range { start, end }
     }
 
-    fn lsp_position_to_location(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
+    pub fn lsp_position_to_location(position: &lsp_types::Position, rope_of_file: &Rope) -> usize {
         let line_idx = rope_of_file.line_to_char(position.line as usize);
         line_idx + position.character as usize
     }
 
     fn find_id(
         working_set: &mut StateWorkingSet,
-        file_path: &str,
-        file: &[u8],
+        path: &Path,
+        file: &Rope,
         location: usize,
     ) -> Option<(Id, usize, Span)> {
-        let file_id = working_set.add_file(file_path.to_string(), file);
-        let offset = working_set.get_span_for_file(file_id).start;
-        let block = parse(working_set, Some(file_path), file, false);
+        let file_path = path.to_string_lossy();
+
+        // TODO: think about passing down the rope into the working_set
+        let contents = file.bytes().collect::<Vec<u8>>();
+        let block = parse(working_set, Some(&file_path), &contents, false);
         let flattened = flatten_block(working_set, &block);
 
+        let offset = working_set.get_span_for_filename(&file_path)?.start;
         let location = location + offset;
-        for item in flattened {
-            if location >= item.0.start && location < item.0.end {
-                match &item.1 {
+
+        for (span, shape) in flattened {
+            if location >= span.start && location < span.end {
+                match &shape {
                     FlatShape::Variable(var_id) | FlatShape::VarDecl(var_id) => {
-                        return Some((Id::Variable(*var_id), offset, item.0));
+                        return Some((Id::Variable(*var_id), offset, span));
                     }
                     FlatShape::InternalCall(decl_id) => {
-                        return Some((Id::Declaration(*decl_id), offset, item.0));
+                        return Some((Id::Declaration(*decl_id), offset, span));
                     }
-                    _ => return Some((Id::Value(item.1), offset, item.0)),
+                    _ => return Some((Id::Value(shape), offset, span)),
                 }
             }
         }
         None
     }
 
-    fn read_in_file<'a>(
-        engine_state: &'a mut EngineState,
-        file_path: &str,
-    ) -> Result<(Vec<u8>, StateWorkingSet<'a>)> {
-        let file = std::fs::read(file_path).into_diagnostic()?;
+    fn rope<'a, 'b: 'a>(&'b self, file_url: &Url) -> Option<(&'a Rope, &'a PathBuf)> {
+        let file_path = file_url.to_file_path().ok()?;
 
-        engine_state.start_in_file(Some(file_path));
+        self.ropes
+            .get_key_value(&file_path)
+            .map(|(path, rope)| (rope, path))
+    }
+
+    fn read_in_file<'a>(
+        &mut self,
+        engine_state: &'a mut EngineState,
+        file_url: &Url,
+    ) -> Option<(&Rope, &PathBuf, StateWorkingSet<'a>)> {
+        let (file, path) = self.rope(file_url)?;
+
+        // TODO: AsPath thingy
+        engine_state.start_in_file(Some(&path.to_string_lossy()));
 
         let working_set = StateWorkingSet::new(engine_state);
 
-        Ok((file, working_set))
+        Some((file, path, working_set))
     }
 
     fn goto_definition(
+        &mut self,
         engine_state: &mut EngineState,
         params: &GotoDefinitionParams,
     ) -> Option<GotoDefinitionResponse> {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
-        let file_path = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_file_path()
-            .ok()?;
-
-        let file_path = file_path.to_string_lossy();
-
-        let (file, mut working_set) = Self::read_in_file(engine_state, &file_path).ok()?;
-        let rope_of_file = Rope::from_reader(Cursor::new(&file)).ok()?;
+        let (file, path, mut working_set) = self.read_in_file(
+            engine_state,
+            &params.text_document_position_params.text_document.uri,
+        )?;
 
         let (id, _, _) = Self::find_id(
             &mut working_set,
-            &file_path,
-            &file,
-            Self::lsp_position_to_location(
-                &params.text_document_position_params.position,
-                &rope_of_file,
-            ),
+            path,
+            file,
+            Self::lsp_position_to_location(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -242,7 +288,7 @@ impl LanguageServer {
                             if span.start >= *file_start && span.start < *file_end {
                                 return Some(GotoDefinitionResponse::Scalar(Location {
                                     uri: Url::from_file_path(file_path).ok()?,
-                                    range: Self::span_to_range(span, &rope_of_file, *file_start),
+                                    range: Self::span_to_range(span, file, *file_start),
                                 }));
                             }
                         }
@@ -261,44 +307,30 @@ impl LanguageServer {
                                 .text_document
                                 .uri
                                 .clone(),
-                            range: Self::span_to_range(
-                                &var.declaration_span,
-                                &rope_of_file,
-                                *file_start,
-                            ),
+                            range: Self::span_to_range(&var.declaration_span, file, *file_start),
                         }));
                     }
                 }
             }
-            _ => {}
+            Id::Value(_) => {}
         }
         None
     }
 
-    fn hover(engine_state: &mut EngineState, params: &HoverParams) -> Option<Hover> {
+    fn hover(&mut self, engine_state: &mut EngineState, params: &HoverParams) -> Option<Hover> {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
-        let file_path = params
-            .text_document_position_params
-            .text_document
-            .uri
-            .to_file_path()
-            .ok()?;
-
-        let file_path = file_path.to_string_lossy();
-
-        let (file, mut working_set) = Self::read_in_file(engine_state, &file_path).ok()?;
-        let rope_of_file = Rope::from_reader(Cursor::new(&file)).ok()?;
+        let (file, path, mut working_set) = self.read_in_file(
+            engine_state,
+            &params.text_document_position_params.text_document.uri,
+        )?;
 
         let (id, _, _) = Self::find_id(
             &mut working_set,
-            &file_path,
-            &file,
-            Self::lsp_position_to_location(
-                &params.text_document_position_params.position,
-                &rope_of_file,
-            ),
+            path,
+            file,
+            Self::lsp_position_to_location(&params.text_document_position_params.position, file),
         )?;
 
         match id {
@@ -315,11 +347,22 @@ impl LanguageServer {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
 
-                let mut description = "```\n### Signature\n```\n".to_string();
+                let mut description = String::new();
+
+                // First description
+                description.push_str(&format!("{}\n", decl.usage().replace('\r', "")));
+
+                // Additional description
+                if !decl.extra_usage().is_empty() {
+                    description.push_str(&format!("\n{}\n", decl.extra_usage()));
+                }
+
+                // Usage
+                description.push_str("### Usage \n```\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
-                    description.push_str(" {flags}")
+                    description.push_str(" {flags}");
                 }
                 for required_arg in &signature.required_positional {
                     description.push_str(&format!(" <{}>", required_arg.name));
@@ -331,6 +374,39 @@ impl LanguageServer {
                     description.push_str(&format!(" <...{}>", arg.name));
                 }
                 description.push_str("\n```\n");
+
+                // Flags
+                if !signature.named.is_empty() {
+                    description.push_str("\n### Flags\n\n");
+                    let mut first = true;
+                    for named in &signature.named {
+                        if first {
+                            first = false;
+                        } else {
+                            description.push('\n');
+                        }
+                        description.push_str("  ");
+                        if let Some(short_flag) = &named.short {
+                            description.push_str(&format!("`-{short_flag}`"));
+                        }
+                        if !named.long.is_empty() {
+                            if named.short.is_some() {
+                                description.push_str(", ");
+                            }
+                            description.push_str(&format!("`--{}`", named.long));
+                        }
+                        if let Some(arg) = &named.arg {
+                            description.push_str(&format!(" `<{}>`", arg.to_type()));
+                        }
+                        if !named.desc.is_empty() {
+                            description.push_str(&format!(" - {}", named.desc));
+                        }
+                        description.push('\n');
+                    }
+                    description.push('\n');
+                }
+
+                // Parameters
                 if !signature.required_positional.is_empty()
                     || !signature.optional_positional.is_empty()
                     || signature.rest_positional.is_some()
@@ -338,10 +414,10 @@ impl LanguageServer {
                     description.push_str("\n### Parameters\n\n");
                     let mut first = true;
                     for required_arg in &signature.required_positional {
-                        if !first {
-                            description.push_str("\\\n");
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -354,10 +430,10 @@ impl LanguageServer {
                         description.push('\n');
                     }
                     for optional_arg in &signature.optional_positional {
-                        if !first {
-                            description.push_str("\\\n");
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -371,7 +447,7 @@ impl LanguageServer {
                     }
                     if let Some(arg) = &signature.rest_positional {
                         if !first {
-                            description.push_str("\\\n");
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             " `...{}: {}`",
@@ -385,56 +461,24 @@ impl LanguageServer {
                     }
                     description.push('\n');
                 }
-                if !signature.named.is_empty() {
-                    description.push_str("\n### Flags\n\n");
-                    let mut first = true;
-                    for named in &signature.named {
-                        if !first {
-                            description.push_str("\\\n");
-                        } else {
-                            first = false;
-                        }
-                        description.push_str("  ");
-                        if let Some(short_flag) = &named.short {
-                            description.push_str(&format!("`-{}`", short_flag));
-                        }
-                        if !named.long.is_empty() {
-                            if named.short.is_some() {
-                                description.push_str(", ")
-                            }
-                            description.push_str(&format!("`--{}`", named.long));
-                        }
-                        if let Some(arg) = &named.arg {
-                            description.push_str(&format!(" `<{}>`", arg.to_type()))
-                        }
-                        if !named.desc.is_empty() {
-                            description.push_str(&format!(" - {}", named.desc));
-                        }
-                    }
-                    description.push('\n');
-                }
+
+                // Input/output types
                 if !signature.input_output_types.is_empty() {
-                    description.push_str("\n### Input/output\n");
+                    description.push_str("\n### Input/output types\n");
                     description.push_str("\n```\n");
                     for input_output in &signature.input_output_types {
                         description
-                            .push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
+                            .push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
                     }
                     description.push_str("\n```\n");
                 }
-                description.push_str(&format!(
-                    "### Usage\n  {}\n",
-                    decl.usage().replace('\r', "")
-                ));
-                if !decl.extra_usage().is_empty() {
-                    description
-                        .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
-                }
+
+                // Examples
                 if !decl.examples().is_empty() {
-                    description.push_str("### Example(s)\n```\n");
+                    description.push_str("### Example(s)\n");
                     for example in decl.examples() {
                         description.push_str(&format!(
-                            "```\n  {}\n```\n  {}\n\n",
+                            "  {}\n```\n  {}\n```\n",
                             example.description, example.example
                         ));
                     }
@@ -489,27 +533,23 @@ impl LanguageServer {
     }
 
     fn complete(
+        &mut self,
         engine_state: &mut EngineState,
         params: &CompletionParams,
     ) -> Option<CompletionResponse> {
         let cwd = std::env::current_dir().expect("Could not get current working directory.");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
 
-        let file_path = params
-            .text_document_position
-            .text_document
-            .uri
-            .to_file_path()
-            .ok()?;
-
-        let file_path = file_path.to_string_lossy();
-        let rope_of_file = Rope::from_reader(File::open(file_path.as_ref()).ok()?).ok()?;
+        let (rope_of_file, _, _) = self.read_in_file(
+            engine_state,
+            &params.text_document_position.text_document.uri,
+        )?;
 
         let stack = Stack::new();
         let mut completer = NuCompleter::new(Arc::new(engine_state.clone()), stack);
 
         let location =
-            Self::lsp_position_to_location(&params.text_document_position.position, &rope_of_file);
+            Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
         let results = completer.complete(&rope_of_file.to_string(), location);
         if results.is_empty() {
             None
@@ -545,15 +585,19 @@ mod tests {
     use super::*;
     use assert_json_diff::assert_json_eq;
     use lsp_types::{
-        notification::{Exit, Initialized, Notification},
+        notification::{
+            DidChangeTextDocument, DidOpenTextDocument, Exit, Initialized, Notification,
+        },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
-        CompletionParams, GotoDefinitionParams, InitializeParams, InitializedParams,
-        TextDocumentIdentifier, TextDocumentPositionParams, Url,
+        CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
+        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, Url, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
 
-    fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
+    pub fn initialize_language_server() -> (Connection, Receiver<Result<()>>) {
         use std::sync::mpsc;
         let (client_connection, server_connection) = Connection::memory();
         let lsp_server = LanguageServer::initialize_connection(server_connection, None).unwrap();
@@ -562,7 +606,7 @@ mod tests {
         std::thread::spawn(move || {
             let engine_state = nu_cmd_lang::create_default_context();
             let engine_state = nu_command::add_shell_command_context(engine_state);
-            send.send(lsp_server.serve_requests(engine_state))
+            send.send(lsp_server.serve_requests(engine_state, Arc::new(AtomicBool::new(false))))
         });
 
         client_connection
@@ -640,8 +684,8 @@ mod tests {
                             character: 0,
                         },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -651,16 +695,91 @@ mod tests {
             .receiver
             .recv_timeout(std::time::Duration::from_secs(2))
             .unwrap();
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
 
-        assert!(matches!(
-            resp,
-            Message::Response(response) if response.result.is_none()
-        ));
+        assert_json_eq!(result, serde_json::json!(null));
     }
 
-    fn goto_definition(uri: Url, line: u32, character: u32) -> Message {
-        let (client_connection, _recv) = initialize_language_server();
+    pub fn open(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
+        let text = std::fs::read_to_string(uri.to_file_path().unwrap()).unwrap();
 
+        client_connection
+            .sender
+            .send(Message::Notification(lsp_server::Notification {
+                method: DidOpenTextDocument::METHOD.to_string(),
+                params: serde_json::to_value(DidOpenTextDocumentParams {
+                    text_document: TextDocumentItem {
+                        uri,
+                        language_id: String::from("nu"),
+                        version: 1,
+                        text,
+                    },
+                })
+                .unwrap(),
+            }))
+            .unwrap();
+
+        let notification = client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+
+        if let Message::Notification(n) = notification {
+            n
+        } else {
+            panic!();
+        }
+    }
+
+    pub fn update(
+        client_connection: &Connection,
+        uri: Url,
+        text: String,
+        range: Option<Range>,
+    ) -> lsp_server::Notification {
+        client_connection
+            .sender
+            .send(lsp_server::Message::Notification(
+                lsp_server::Notification {
+                    method: DidChangeTextDocument::METHOD.to_string(),
+                    params: serde_json::to_value(DidChangeTextDocumentParams {
+                        text_document: lsp_types::VersionedTextDocumentIdentifier {
+                            uri,
+                            version: 2,
+                        },
+                        content_changes: vec![TextDocumentContentChangeEvent {
+                            range,
+                            range_length: None,
+                            text,
+                        }],
+                    })
+                    .unwrap(),
+                },
+            ))
+            .unwrap();
+
+        let notification = client_connection
+            .receiver
+            .recv_timeout(Duration::from_secs(2))
+            .unwrap();
+
+        if let Message::Notification(n) = notification {
+            n
+        } else {
+            panic!();
+        }
+    }
+
+    fn goto_definition(
+        client_connection: &Connection,
+        uri: Url,
+        line: u32,
+        character: u32,
+    ) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -671,8 +790,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -686,13 +805,17 @@ mod tests {
 
     #[test]
     fn goto_definition_of_variable() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = goto_definition(script.clone(), 2, 12);
+        open(&client_connection, script.clone());
+
+        let resp = goto_definition(&client_connection, script.clone(), 2, 12);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -713,13 +836,17 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = goto_definition(script.clone(), 4, 1);
+        open(&client_connection, script.clone());
+
+        let resp = goto_definition(&client_connection, script.clone(), 4, 1);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -740,13 +867,17 @@ mod tests {
 
     #[test]
     fn goto_definition_of_command_parameter() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("goto");
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = goto_definition(script.clone(), 1, 14);
+        open(&client_connection, script.clone());
+
+        let resp = goto_definition(&client_connection, script.clone(), 1, 14);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -765,9 +896,7 @@ mod tests {
         );
     }
 
-    fn hover(uri: Url, line: u32, character: u32) -> Message {
-        let (client_connection, _recv) = initialize_language_server();
-
+    pub fn hover(client_connection: &Connection, uri: Url, line: u32, character: u32) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -778,7 +907,7 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
                 })
                 .unwrap(),
             }))
@@ -792,13 +921,17 @@ mod tests {
 
     #[test]
     fn hover_on_variable() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = hover(script.clone(), 2, 0);
+        open(&client_connection, script.clone());
+
+        let resp = hover(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -815,13 +948,17 @@ mod tests {
 
     #[test]
     fn hover_on_command() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("hover");
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = hover(script.clone(), 3, 0);
+        open(&client_connection, script.clone());
+
+        let resp = hover(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -833,15 +970,13 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "```\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
+                    "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
     }
 
-    fn complete(uri: Url, line: u32, character: u32) -> Message {
-        let (client_connection, _recv) = initialize_language_server();
-
+    fn complete(client_connection: &Connection, uri: Url, line: u32, character: u32) -> Message {
         client_connection
             .sender
             .send(Message::Request(lsp_server::Request {
@@ -852,8 +987,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                     context: None,
                 })
                 .unwrap(),
@@ -868,13 +1003,17 @@ mod tests {
 
     #[test]
     fn complete_on_variable() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = complete(script, 2, 9);
+        open(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {
@@ -900,13 +1039,17 @@ mod tests {
 
     #[test]
     fn complete_command_with_space() {
+        let (client_connection, _recv) = initialize_language_server();
+
         let mut script = fixtures();
         script.push("lsp");
         script.push("completion");
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let resp = complete(script, 0, 8);
+        open(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
             response.result
         } else {

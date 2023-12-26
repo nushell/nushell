@@ -248,7 +248,13 @@ mod test {
                 span,
             ),
             Value::nothing(span),
-            Value::error(ShellError::DidYouMean("what?".to_string(), span), span),
+            Value::error(
+                ShellError::DidYouMean {
+                    suggestion: "what?".to_string(),
+                    span,
+                },
+                span,
+            ),
             Value::cell_path(
                 CellPath {
                     members: vec![PathMember::Int {

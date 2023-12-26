@@ -25,7 +25,7 @@ impl Command for IntoSqliteDb {
             .required(
                 "file_name",
                 SyntaxShape::String,
-                "Specify the filename to save the database to",
+                "Specify the filename to save the database to.",
             )
             .named(
                 "table_name",
@@ -155,25 +155,23 @@ fn action(
                 format!("CREATE TABLE IF NOT EXISTS [{table_name}] ({table_columns_creation})");
 
             // prepare the string as a sqlite statement
-            let mut stmt = conn.prepare(&create_statement).map_err(|e| {
-                ShellError::GenericError(
-                    "Failed to prepare SQLite statement".into(),
-                    e.to_string(),
-                    Some(file.span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            let mut stmt =
+                conn.prepare(&create_statement)
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Failed to prepare SQLite statement".into(),
+                        msg: e.to_string(),
+                        span: Some(file.span),
+                        help: None,
+                        inner: vec![],
+                    })?;
 
             // execute the statement
-            stmt.execute([]).map_err(|e| {
-                ShellError::GenericError(
-                    "Failed to execute SQLite statement".into(),
-                    e.to_string(),
-                    Some(file.span),
-                    None,
-                    Vec::new(),
-                )
+            stmt.execute([]).map_err(|e| ShellError::GenericError {
+                error: "Failed to execute SQLite statement".into(),
+                msg: e.to_string(),
+                span: Some(file.span),
+                help: None,
+                inner: vec![],
             })?;
 
             // use normal sql to create the table
@@ -187,25 +185,23 @@ fn action(
             let insert_statement = format!("INSERT INTO [{table_name}] VALUES {table_values}");
 
             // prepare the string as a sqlite statement
-            let mut stmt = conn.prepare(&insert_statement).map_err(|e| {
-                ShellError::GenericError(
-                    "Failed to prepare SQLite statement".into(),
-                    e.to_string(),
-                    Some(file.span),
-                    None,
-                    Vec::new(),
-                )
-            })?;
+            let mut stmt =
+                conn.prepare(&insert_statement)
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Failed to prepare SQLite statement".into(),
+                        msg: e.to_string(),
+                        span: Some(file.span),
+                        help: None,
+                        inner: vec![],
+                    })?;
 
             // execute the statement
-            stmt.execute([]).map_err(|e| {
-                ShellError::GenericError(
-                    "Failed to execute SQLite statement".into(),
-                    e.to_string(),
-                    Some(file.span),
-                    None,
-                    Vec::new(),
-                )
+            stmt.execute([]).map_err(|e| ShellError::GenericError {
+                error: "Failed to execute SQLite statement".into(),
+                msg: e.to_string(),
+                span: Some(file.span),
+                help: None,
+                inner: vec![],
             })?;
 
             // and we're done
@@ -262,9 +258,8 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

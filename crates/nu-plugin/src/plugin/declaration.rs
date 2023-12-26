@@ -87,13 +87,13 @@ impl Command for PluginDeclaration {
 
         let mut child = plugin_cmd.spawn().map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError(
-                format!("Unable to spawn plugin for {}", decl.name()),
-                format!("{err}"),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+            ShellError::GenericError {
+                error: format!("Unable to spawn plugin for {}", decl.name()),
+                msg: format!("{err}"),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }
         })?;
 
         let input = input.into_value(call.head);
@@ -109,16 +109,16 @@ impl Command for PluginDeclaration {
                     }
                     _ => {
                         let custom_value_name = val.value_string();
-                        return Err(ShellError::GenericError(
-                            format!(
+                        return Err(ShellError::GenericError {
+                            error: format!(
                                 "Plugin {} can not handle the custom value {}",
                                 self.name, custom_value_name
                             ),
-                            format!("custom value {custom_value_name}"),
-                            Some(span),
-                            None,
-                            Vec::new(),
-                        ));
+                            msg: format!("custom value {custom_value_name}"),
+                            span: Some(span),
+                            help: None,
+                            inner: vec![],
+                        });
                     }
                 }
             }
@@ -136,22 +136,22 @@ impl Command for PluginDeclaration {
             let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
-                    return Err(ShellError::PluginFailedToLoad(
-                        "Plugin missing stdout reader".into(),
-                    ))
+                    return Err(ShellError::PluginFailedToLoad {
+                        msg: "Plugin missing stdout reader".into(),
+                    })
                 }
             };
             get_plugin_encoding(stdout_reader)?
         };
         let response = call_plugin(&mut child, plugin_call, &encoding, call.head).map_err(|err| {
             let decl = engine_state.get_decl(call.decl_id);
-            ShellError::GenericError(
-                format!("Unable to decode call for {}", decl.name()),
-                err.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+            ShellError::GenericError {
+                error: format!("Unable to decode call for {}", decl.name()),
+                msg: err.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }
         });
 
         let pipeline_data = match response {
@@ -172,13 +172,13 @@ impl Command for PluginDeclaration {
                 None,
             )),
             Ok(PluginResponse::Error(err)) => Err(err.into()),
-            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
-                "Plugin missing value".into(),
-                "Received a signature from plugin instead of value".into(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )),
+            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError {
+                error: "Plugin missing value".into(),
+                msg: "Received a signature from plugin instead of value".into(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            }),
             Err(err) => Err(err),
         };
 

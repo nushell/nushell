@@ -1,6 +1,6 @@
 use nu_protocol::{
     engine::{EngineState, StateWorkingSet},
-    Category, Span,
+    Category, PositionalArg, Span,
 };
 use quickcheck_macros::quickcheck;
 
@@ -26,6 +26,92 @@ fn quickcheck_parse(data: String) -> bool {
         }
     }
     true
+}
+
+#[test]
+fn arguments_end_period() {
+    fn ends_period(cmd_name: &str, ty: &str, arg: PositionalArg, failures: &mut Vec<String>) {
+        let arg_name = arg.name;
+        let desc = arg.desc;
+        if !desc.ends_with('.') {
+            failures.push(format!(
+                "{cmd_name} {ty} argument \"{arg_name}\": \"{desc}\""
+            ));
+        }
+    }
+
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let signature = cmd.signature();
+
+        for arg in signature.required_positional {
+            ends_period(&cmd_name, "required", arg, &mut failures);
+        }
+
+        for arg in signature.optional_positional {
+            ends_period(&cmd_name, "optional", arg, &mut failures);
+        }
+
+        if let Some(arg) = signature.rest_positional {
+            ends_period(&cmd_name, "rest", arg, &mut failures);
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command argument description does not end with a period:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn arguments_start_uppercase() {
+    fn starts_uppercase(cmd_name: &str, ty: &str, arg: PositionalArg, failures: &mut Vec<String>) {
+        let arg_name = arg.name;
+        let desc = arg.desc;
+
+        // Check lowercase to allow usage to contain syntax like:
+        //
+        // "`as` keyword …"
+        if desc.starts_with(|u: char| u.is_lowercase()) {
+            failures.push(format!(
+                "{cmd_name} {ty} argument \"{arg_name}\": \"{desc}\""
+            ));
+        }
+    }
+
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let signature = cmd.signature();
+
+        for arg in signature.required_positional {
+            starts_uppercase(&cmd_name, "required", arg, &mut failures);
+        }
+
+        for arg in signature.optional_positional {
+            starts_uppercase(&cmd_name, "optional", arg, &mut failures);
+        }
+
+        if let Some(arg) = signature.rest_positional {
+            starts_uppercase(&cmd_name, "rest", arg, &mut failures);
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command argument description does not end with a period:\n{}",
+        failures.join("\n")
+    );
 }
 
 #[test]
@@ -107,6 +193,55 @@ fn no_search_term_duplicates() {
     assert!(
         failures.is_empty(),
         "Duplication in search terms:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn usage_end_period() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let usage = cmd.usage();
+
+        if !usage.ends_with('.') {
+            failures.push(format!("{cmd_name}: \"{usage}\""));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command usage does not end with a period:\n{}",
+        failures.join("\n")
+    );
+}
+
+#[test]
+fn usage_start_uppercase() {
+    let ctx = crate::create_default_context();
+    let decls = ctx.get_decls_sorted(true);
+    let mut failures = Vec::new();
+
+    for (name_bytes, decl_id) in decls {
+        let cmd = ctx.get_decl(decl_id);
+        let cmd_name = String::from_utf8_lossy(&name_bytes);
+        let usage = cmd.usage();
+
+        // Check lowercase to allow usage to contain syntax like:
+        //
+        // "`let-env FOO = ...` …"
+        if usage.starts_with(|u: char| u.is_lowercase()) {
+            failures.push(format!("{cmd_name}: \"{usage}\""));
+        }
+    }
+
+    assert!(
+        failures.is_empty(),
+        "Command usage does not start with an uppercase letter:\n{}",
         failures.join("\n")
     );
 }

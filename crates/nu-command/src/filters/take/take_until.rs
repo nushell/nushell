@@ -26,7 +26,7 @@ impl Command for TakeUntil {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that element(s) must not match",
+                "The predicate that element(s) must not match.",
             )
             .category(Category::Filters)
     }
@@ -75,6 +75,7 @@ impl Command for TakeUntil {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let span = call.head;
 
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
@@ -109,7 +110,7 @@ impl Command for TakeUntil {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

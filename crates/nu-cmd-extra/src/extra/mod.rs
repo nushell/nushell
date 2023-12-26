@@ -65,7 +65,7 @@ pub fn add_extra_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command!(platform::ansi::Gradient);
 
         bind_command!(
-            strings::format::Format,
+            strings::format::FormatPattern,
             strings::encode_decode::EncodeHex,
             strings::encode_decode::DecodeHex,
             strings::str_::case::Str,

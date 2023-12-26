@@ -25,7 +25,7 @@ impl Command for Decode {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("decode")
             .input_output_types(vec![(Type::Binary, Type::String)])
-            .optional("encoding", SyntaxShape::String, "the text encoding to use")
+            .optional("encoding", SyntaxShape::String, "The text encoding to use.")
             .category(Category::Strings)
     }
 

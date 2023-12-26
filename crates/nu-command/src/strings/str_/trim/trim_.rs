@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",
+                "For a data structure input, trim strings at the given cell paths.",
             )
             .named(
                 "char",
@@ -88,13 +88,13 @@ impl Command for SubCommand {
         let to_trim = match character.as_ref() {
             Some(v) => {
                 if v.item.chars().count() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Trim only works with single character".into(),
-                        "needs single character".into(),
-                        Some(v.span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Trim only works with single character".into(),
+                        msg: "needs single character".into(),
+                        span: Some(v.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 v.item.chars().next()
             }
@@ -133,9 +133,9 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '=' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                description: "Trim a specific character (not the whitespace)",
+                example: "'=== Nu shell ===' | str trim --char '='",
+                result: Some(Value::test_string(" Nu shell ")),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
@@ -143,17 +143,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell ")),
             },
             Example {
-                description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '='",
-                result: Some(Value::test_string(" Nu shell ")),
-            },
-            Example {
                 description: "Trim whitespace from the end of string",
                 example: "' Nu shell ' | str trim --right",
                 result: Some(Value::test_string(" Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
+                description: "Trim a specific character only from the end of the string",
                 example: "'=== Nu shell ===' | str trim --right --char '='",
                 result: Some(Value::test_string("=== Nu shell ")),
             },

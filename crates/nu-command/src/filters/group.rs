@@ -24,7 +24,7 @@ impl Command for Group {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("group_size", SyntaxShape::Int, "the size of each group")
+            .required("group_size", SyntaxShape::Int, "The size of each group.")
             .category(Category::Filters)
     }
 
@@ -70,9 +70,7 @@ impl Command for Group {
             span: call.head,
         };
 
-        Ok(each_group_iterator
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+        Ok(each_group_iterator.into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

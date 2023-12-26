@@ -22,7 +22,10 @@ fn complete_rec(
                     Some(base) if matches(base, &entry_name, options) => {
                         let partial = &partial[1..];
                         if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(partial, &path, options, dir, isdir))
+                            completions.extend(complete_rec(partial, &path, options, dir, isdir));
+                            if entry_name.eq(base) {
+                                break;
+                            }
                         } else {
                             completions.push(path)
                         }

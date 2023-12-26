@@ -1243,9 +1243,9 @@ fn overlay_use_main_def_known_external() {
 #[test]
 fn overlay_use_main_not_exported() {
     let inp = &[
-        r#"module spam { def main [] { "spam" } }"#,
-        "overlay use spam",
-        "spam",
+        r#"module foo { def main [] { "foo" } }"#,
+        "overlay use foo",
+        "foo",
     ];
 
     let actual = nu!(&inp.join("; "));
