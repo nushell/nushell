@@ -23,6 +23,7 @@ mod random;
 mod removed;
 mod shells;
 mod sort_utils;
+#[cfg(feature = "sqlite")]
 mod stor;
 mod strings;
 mod system;

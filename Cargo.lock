@@ -1254,16 +1254,6 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "fancy-regex"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b95f7c0680e4142284cf8b22c14a476e87d61b004a3a0861872b32ef7ead40a2"
-dependencies = [
- "bit-set",
- "regex",
-]
-
-[[package]]
-name = "fancy-regex"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7493d4c459da9f84325ad297371a6b2b8a162800873a22e3b6b6512e61d18c05"
@@ -1798,7 +1788,7 @@ dependencies = [
  "iana-time-zone-haiku",
  "js-sys",
  "wasm-bindgen",
- "windows-core",
+ "windows-core 0.51.1",
 ]
 
 [[package]]
@@ -1812,9 +1802,9 @@ dependencies = [
 
 [[package]]
 name = "ical"
-version = "0.8.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "356d82bd58997815d55ea6f9081bd4cac149e50ca943f7a4f7c050fec7271c1f"
+checksum = "26393c372d4c4d51616084afe36c0b44e4467febaa6f91f11f789094b4863bf9"
 dependencies = [
  "thiserror",
 ]
@@ -1970,6 +1960,15 @@ name = "itertools"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1c173a5686ce8bfa551b3563d0c2170bf24ca44da99c7ca4bfdab5418c3fe57"
+dependencies = [
+ "either",
+]
+
+[[package]]
+name = "itertools"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
 dependencies = [
  "either",
 ]
@@ -2273,9 +2272,9 @@ dependencies = [
 
 [[package]]
 name = "lscolors"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf7015a04103ad78abb77e4b79ed151e767922d1cfde5f62640471c629a2320d"
+checksum = "ab0b209ec3976527806024406fe765474b9a1750a0ed4b8f0372364741f50e7b"
 dependencies = [
  "nu-ansi-term",
 ]
@@ -2677,7 +2676,7 @@ version = "0.88.2"
 dependencies = [
  "chrono",
  "crossterm",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "fuzzy-matcher",
  "is_executable",
  "log",
@@ -2726,7 +2725,7 @@ version = "0.88.2"
 dependencies = [
  "chrono",
  "chrono-tz",
- "fancy-regex 0.12.0",
+ "fancy-regex",
  "indexmap",
  "nu-cmd-lang",
  "nu-engine",
@@ -2748,7 +2747,7 @@ name = "nu-cmd-extra"
 version = "0.88.2"
 dependencies = [
  "ahash",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "heck",
  "htmlescape",
  "nu-ansi-term",
@@ -2772,8 +2771,8 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.88.2"
 dependencies = [
- "fancy-regex 0.11.0",
- "itertools 0.11.0",
+ "fancy-regex",
+ "itertools 0.12.0",
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
@@ -2816,7 +2815,7 @@ dependencies = [
  "dirs-next",
  "dtparse",
  "encoding_rs",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "filesize",
  "filetime",
  "fs_extra",
@@ -2824,7 +2823,7 @@ dependencies = [
  "human-date-parser",
  "indexmap",
  "indicatif",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "libc",
  "log",
  "lscolors",
@@ -2894,7 +2893,7 @@ dependencies = [
  "uuid",
  "wax",
  "which 5.0.0",
- "windows 0.48.0",
+ "windows 0.52.0",
  "winreg",
 ]
 
@@ -2973,7 +2972,7 @@ version = "0.88.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.11.0",
+ "itertools 0.12.0",
  "log",
  "nu-engine",
  "nu-path",
@@ -3020,7 +3019,7 @@ dependencies = [
  "byte-unit",
  "chrono",
  "chrono-humanize",
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "indexmap",
  "lru",
  "miette",
@@ -3069,7 +3068,7 @@ dependencies = [
 name = "nu-table"
 version = "0.88.2"
 dependencies = [
- "fancy-regex 0.11.0",
+ "fancy-regex",
  "nu-ansi-term",
  "nu-color-config",
  "nu-engine",
@@ -4900,9 +4899,9 @@ dependencies = [
 
 [[package]]
 name = "shadow-rs"
-version = "0.24.1"
+version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9198caff1c94f1a5df6664bddbc379896b51b98a55b0b3fedcb23078fe00c77"
+checksum = "615d846f7174a0850dca101bca72f6913e3376a64c5fda2b965d7fc3d1ff60cb"
 dependencies = [
  "const_format",
  "is_debug",
@@ -5746,9 +5745,9 @@ checksum = "f962df74c8c05a667b5ee8bcf162993134c104e96440b663c8daa176dc772d8c"
 
 [[package]]
 name = "unsafe-libyaml"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f28467d3e1d3c6586d8f25fa243f544f5800fec42d97032474e17222c2b75cfa"
+checksum = "ab4c90930b95a82d00dc9e9ac071b4991924390d46cbd0dfe566148667605e4b"
 
 [[package]]
 name = "ureq"
@@ -6137,11 +6136,12 @@ dependencies = [
 
 [[package]]
 name = "windows"
-version = "0.48.0"
+version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e686886bc078bc1b0b600cac0147aadb815089b6e4da64016cbd754b6342700f"
+checksum = "e48a53791691ab099e5e2ad123536d0fff50652600abaf43bbf952894110d0be"
 dependencies = [
- "windows-targets 0.48.5",
+ "windows-core 0.52.0",
+ "windows-targets 0.52.0",
 ]
 
 [[package]]
@@ -6151,6 +6151,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1f8cf84f35d2db49a46868f947758c7a1138116f7fac3bc844f43ade1292e64"
 dependencies = [
  "windows-targets 0.48.5",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+dependencies = [
+ "windows-targets 0.52.0",
 ]
 
 [[package]]

@@ -47,7 +47,6 @@ pub enum Expr {
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
-    MatchPattern(Box<MatchPattern>),
     Spread(Box<Expression>),
     Nothing,
     Garbage,

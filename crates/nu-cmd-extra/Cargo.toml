@@ -24,7 +24,7 @@ heck = "0.4.1"
 num-traits = "0.2"
 ahash = "0.8.3"
 nu-ansi-term = "0.49.0"
-fancy-regex = "0.11.0"
+fancy-regex = "0.12.0"
 rust-embed = "8.0.0"
 serde = "1.0.164"
 nu-pretty-hex = { version = "0.88.2", path = "../nu-pretty-hex" }

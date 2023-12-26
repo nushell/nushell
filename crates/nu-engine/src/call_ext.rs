@@ -74,7 +74,7 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
-            let result = eval_expression(engine_state, stack, &expr)?;
+            let result = eval_expression(engine_state, stack, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)
@@ -87,7 +87,7 @@ impl CallExt for Call {
         name: &str,
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.get_flag_expr(name) {
-            let result = eval_constant(working_set, &expr)?;
+            let result = eval_constant(working_set, expr)?;
             FromValue::from_value(result).map(Some)
         } else {
             Ok(None)

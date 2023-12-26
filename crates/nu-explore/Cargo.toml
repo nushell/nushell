@@ -26,4 +26,4 @@ crossterm = "0.27"
 ratatui = "0.23"
 ansi-str = "0.8"
 unicode-width = "0.1"
-lscolors = { version = "0.15", default-features = false, features = ["nu-ansi-term"] }
+lscolors = { version = "0.16", default-features = false, features = ["nu-ansi-term"] }

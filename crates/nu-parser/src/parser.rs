@@ -2,7 +2,7 @@ use crate::{
     lex::{lex, lex_signature},
     lite_parser::{lite_parse, LiteCommand, LiteElement, LitePipeline},
     parse_mut,
-    parse_patterns::{parse_match_pattern, parse_pattern},
+    parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
     type_check::{self, math_result_type, type_compatible},
     Token, TokenContents,
@@ -18,8 +18,8 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
-    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
-    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, DidYouMean, Flag, ParseError, ParseWarning, PositionalArg, Signature, Span,
+    Spanned, SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -353,6 +353,37 @@ pub fn parse_external_call(
     }
 }
 
+fn ensure_flag_arg_type(
+    working_set: &mut StateWorkingSet,
+    arg_name: String,
+    arg: Expression,
+    arg_shape: &SyntaxShape,
+    long_name_span: Span,
+) -> (Spanned<String>, Expression) {
+    if !type_compatible(&arg.ty, &arg_shape.to_type()) {
+        working_set.error(ParseError::TypeMismatch(
+            arg_shape.to_type(),
+            arg.ty,
+            arg.span,
+        ));
+        (
+            Spanned {
+                item: arg_name,
+                span: long_name_span,
+            },
+            Expression::garbage(arg.span),
+        )
+    } else {
+        (
+            Spanned {
+                item: arg_name,
+                span: long_name_span,
+            },
+            arg,
+        )
+    }
+}
+
 fn parse_long_flag(
     working_set: &mut StateWorkingSet,
     spans: &[Span],
@@ -377,25 +408,21 @@ fn parse_long_flag(
                         span.start += long_name_len + 3; //offset by long flag and '='
 
                         let arg = parse_value(working_set, span, arg_shape);
-
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) = ensure_flag_arg_type(
+                            working_set,
+                            long_name,
+                            arg,
+                            arg_shape,
+                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                        );
+                        (Some(arg_name), Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
                         let arg = parse_value(working_set, *arg, arg_shape);
 
                         *spans_idx += 1;
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: arg_span,
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) =
+                            ensure_flag_arg_type(working_set, long_name, arg, arg_shape, arg_span);
+                        (Some(arg_name), Some(val_expression))
                     } else {
                         working_set.error(ParseError::MissingFlagParam(
                             arg_shape.to_string(),
@@ -420,13 +447,14 @@ fn parse_long_flag(
 
                         let arg = parse_value(working_set, span, &SyntaxShape::Boolean);
 
-                        (
-                            Some(Spanned {
-                                item: long_name,
-                                span: Span::new(arg_span.start, arg_span.start + long_name_len + 2),
-                            }),
-                            Some(arg),
-                        )
+                        let (arg_name, val_expression) = ensure_flag_arg_type(
+                            working_set,
+                            long_name,
+                            arg,
+                            &SyntaxShape::Boolean,
+                            Span::new(arg_span.start, arg_span.start + long_name_len + 2),
+                        );
+                        (Some(arg_name), Some(val_expression))
                     } else {
                         (
                             Some(Spanned {
@@ -3543,6 +3571,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         type_annotated,
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
+                                        if syntax_shape == SyntaxShape::Boolean {
+                                            working_set.warning(ParseWarning::DeprecatedWarning(
+                                                "--flag: bool".to_string(),
+                                                "--flag".to_string(),
+                                                span,
+                                            ));
+                                        }
                                         *arg = Some(syntax_shape);
                                         *type_annotated = true;
                                     }
@@ -4498,10 +4533,6 @@ pub fn parse_value(
         _ => {}
     }
 
-    if matches!(shape, SyntaxShape::MatchPattern) {
-        return parse_match_pattern(working_set, span);
-    }
-
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
@@ -4539,7 +4570,6 @@ pub fn parse_value(
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
-        SyntaxShape::MatchPattern => parse_match_pattern(working_set, span),
         SyntaxShape::Signature => {
             if bytes.starts_with(b"[") {
                 parse_signature(working_set, span)
@@ -5988,7 +6018,6 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::MatchPattern(_) => {}
         Expr::MatchBlock(match_block) => {
             for match_ in match_block {
                 discover_captures_in_pattern(&match_.0, seen);
@@ -6113,11 +6142,8 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: &Expression) 
             default_value: None,
         });
 
-        let mut expr = expr.clone();
-        expr.replace_in_variable(working_set, var_id);
-
         let block = Block {
-            pipelines: vec![Pipeline::from_vec(vec![expr])],
+            pipelines: vec![Pipeline::from_vec(vec![expr.clone()])],
             signature: Box::new(signature),
             ..Default::default()
         };

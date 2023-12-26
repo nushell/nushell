@@ -6,7 +6,7 @@ use crate::ast::Block;
 use crate::{
     BlockId, Config, DeclId, FileId, Module, ModuleId, Span, Type, VarId, Variable, VirtualPathId,
 };
-use crate::{Category, ParseError, Value};
+use crate::{Category, ParseError, ParseWarning, Value};
 use core::panic;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -27,6 +27,7 @@ pub struct StateWorkingSet<'a> {
     /// Whether or not predeclarations are searched when looking up a command (used with aliases)
     pub search_predecls: bool,
     pub parse_errors: Vec<ParseError>,
+    pub parse_warnings: Vec<ParseWarning>,
 }
 
 impl<'a> StateWorkingSet<'a> {
@@ -39,6 +40,7 @@ impl<'a> StateWorkingSet<'a> {
             parsed_module_files: vec![],
             search_predecls: true,
             parse_errors: vec![],
+            parse_warnings: vec![],
         }
     }
 
@@ -48,6 +50,10 @@ impl<'a> StateWorkingSet<'a> {
 
     pub fn error(&mut self, parse_error: ParseError) {
         self.parse_errors.push(parse_error)
+    }
+
+    pub fn warning(&mut self, parse_warning: ParseWarning) {
+        self.parse_warnings.push(parse_warning)
     }
 
     pub fn num_files(&self) -> usize {

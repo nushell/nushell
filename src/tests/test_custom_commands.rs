@@ -74,6 +74,14 @@ fn custom_switch1() -> TestResult {
 }
 
 #[test]
+fn custom_flag_with_type_checking() -> TestResult {
+    fail_test(
+        r#"def florb [--dry-run: int] { $dry_run }; let y = "3"; florb --dry-run=$y"#,
+        "type_mismatch",
+    )
+}
+
+#[test]
 fn custom_switch2() -> TestResult {
     run_test(
         r#"def florb [ --dry-run ] { if ($dry_run) { "foo" } else { "bar" } }; florb"#,
@@ -116,7 +124,7 @@ fn custom_flag1() -> TestResult {
         r#"def florb [
             --age: int = 0
             --name = "foobar"
-        ] { 
+        ] {
             ($age | into string) + $name
         }
         florb"#,
@@ -136,6 +144,13 @@ fn custom_flag2() -> TestResult {
         florb --age 3"#,
         "3foobar",
     )
+}
+
+#[test]
+fn deprecated_boolean_flag() {
+    let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
+    assert!(actual.err.contains("Deprecated"));
+    assert_eq!(actual.out, "aaa");
 }
 
 #[test]

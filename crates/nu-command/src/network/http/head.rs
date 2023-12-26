@@ -147,7 +147,7 @@ fn helper(
     let span = args.url.span();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure, engine_state, stack);
+    let client = http_client(args.insecure, engine_state, stack)?;
     let mut request = client.head(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;

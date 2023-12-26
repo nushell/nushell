@@ -92,6 +92,17 @@ jobs:
       - name: Tests
         run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
 
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi
+
   std-lib-and-python-virtualenv:
     strategy:
       fail-fast: true
@@ -129,6 +140,17 @@ jobs:
         run: nu scripts/test_virtualenv.nu
         shell: bash
 
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi
+
   plugins:
     strategy:
       fail-fast: true
@@ -150,3 +172,14 @@ jobs:
 
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
+
+      - name: Check for clean repo
+        shell: bash
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "there are changes";
+            git status --porcelain
+            exit 1
+          else
+            echo "no changes in working directory";
+          fi

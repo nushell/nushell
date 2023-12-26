@@ -1,10 +1,11 @@
 use nu_engine::{current_dir, eval_block, CallExt};
+use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Spanned, SyntaxShape, Type, Value,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata,
+    RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::io::BufReader;
 
@@ -157,6 +158,7 @@ impl Command for Open {
                     };
 
                     let buf_reader = BufReader::new(file);
+                    let real_path = expand_to_real_path(path);
 
                     let file_contents = PipelineData::ExternalStream {
                         stdout: Some(RawStream::new(
@@ -168,7 +170,9 @@ impl Command for Open {
                         stderr: None,
                         exit_code: None,
                         span: call_span,
-                        metadata: None,
+                        metadata: Some(PipelineMetadata {
+                            data_source: DataSource::FilePath(real_path),
+                        }),
                         trim_end_newline: false,
                     };
                     let exts_opt: Option<Vec<String>> = if raw {

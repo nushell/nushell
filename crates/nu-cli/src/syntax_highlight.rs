@@ -329,7 +329,6 @@ fn find_matching_block_end_in_expr(
             Expr::ImportPattern(_) => None,
             Expr::Overlay(_) => None,
             Expr::Signature(_) => None,
-            Expr::MatchPattern(_) => None,
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
