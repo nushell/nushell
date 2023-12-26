@@ -98,23 +98,24 @@ impl Command for UMv {
             .collect();
         // CHECK THIS ERROR, DONT KNOW WHAT MOVE GETS
         if paths.is_empty() {
-            return Err(ShellError::GenericError(
-                "Missing file operand".into(),
-                "Missing file operand".into(),
-                Some(call.head),
-                Some("Please provide source and destination paths".into()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing file operand".into(),
+                msg: "Missing file operand".into(),
+                span: Some(call.head),
+                help: Some("Please provide source and destination paths".into()),
+                inner: Vec::new(),
+            });
         }
         // CHECK THIS ERROR AS WELL
+
         if paths.len() == 1 {
-            return Err(ShellError::GenericError(
-                "Missing destination path".into(),
-                format!("Missing destination path operand after {}", paths[0].item),
-                Some(paths[0].span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing destination path".into(),
+                msg: format!("Missing destination path operand after {}", paths[0].item),
+                span: Some(paths[0].span),
+                help: None,
+                inner: Vec::new(),
+            });
         }
 
         // Do not glob target
@@ -124,7 +125,7 @@ impl Command for UMv {
         for p in sources {
             let exp_files = arg_glob(p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound(p.span));
+                return Err(ShellError::FileNotFound { span: p.span });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
@@ -133,10 +134,10 @@ impl Command for UMv {
                         app_vals.push(path);
                     }
                     Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob(
-                            format!("error {} in path {}", e.error(), e.path().display()),
-                            p.span,
-                        ));
+                        return Err(ShellError::ErrorExpandingGlob {
+                            msg: format!("error {} in path {}", e.error(), e.path().display()),
+                            span: p.span,
+                        });
                     }
                 }
             }
@@ -161,13 +162,13 @@ impl Command for UMv {
             strip_slashes: false,
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
-            return Err(ShellError::GenericError(
-                format!("{}", error),
-                format!("{}", error),
-                None,
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: format!("{}", error),
+                msg: format!("{}", error),
+                span: None,
+                help: None,
+                inner: Vec::new(),
+            });
         }
         Ok(PipelineData::empty())
     }
