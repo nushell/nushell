@@ -5,7 +5,7 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     SyntaxShape, Type, Value,
 };
 
@@ -25,7 +25,7 @@ impl Command for Mkdir {
                 SyntaxShape::Directory,
                 "The name(s) of the path(s) to create.",
             )
-            .switch("verbose", "print created path(s).", Some('v'))
+            .switch("verbose", "output created path(s) to pipeline", Some('v'))
             .category(Category::FileSystem)
     }
 
@@ -84,11 +84,13 @@ impl Command for Mkdir {
             }
         }
 
-        stream
-            .into_iter()
-            .into_pipeline_data(engine_state.ctrlc.clone())
-            .print_not_formatted(engine_state, false, true)?;
-        Ok(PipelineData::empty())
+        if !stream.is_empty() {
+            Ok(stream
+                .into_iter()
+                .into_pipeline_data(engine_state.ctrlc.clone()))
+        } else {
+            Ok(PipelineData::Empty)
+        }
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -101,7 +103,13 @@ impl Command for Mkdir {
             Example {
                 description: "Make multiple directories and show the paths created",
                 example: "mkdir -v foo/bar foo2",
-                result: None,
+                result: Some(Value::list(
+                    vec![
+                        Value::test_string("$env.PWD/foo/bar"),
+                        Value::test_string("$env.PWD/foo2"),
+                    ],
+                    Span::test_data(),
+                )),
             },
         ]
     }
