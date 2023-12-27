@@ -275,3 +275,90 @@ fn select_single_row_with_variable() {
     assert_eq!(actual.out, "[[a]; [3]]".to_string());
     assert!(actual.err.is_empty());
 }
+
+#[cfg(test)]
+mod range {
+    use nu_test_support::nu;
+
+    #[test]
+    fn positive_positive() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 1..2 | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+    }
+
+    // Should these two tests work? It would select 1 till the 2nd from last (-2, -1,0*) * for 0 you just leave blank
+    #[test]
+    #[ignore]
+    fn positive_negative() {
+        let actual = nu!(
+            "[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select 1..(-2) | to nuon"
+        );
+
+        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn negative_negative() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select (-1)..(-2) | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [7, 8, 9], [10, 11, 12]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn negative_positive() {
+        let actual = nu!(
+            "[[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15]] | select (-1)..1 | to nuon"
+        );
+
+        assert_eq!(
+            actual.out,
+            "[[a, b, c]; [4, 5, 6], [10, 11, 12], [13, 14, 15]]"
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn infinity_positive() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select 1.. | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn infinity_negative() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select (-1).. | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [4, 5, 6], [7, 8, 9]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn ninfinity_positive() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..1 | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [4, 5, 6]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn ninfinity_negative() {
+        let actual = nu!("[[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ..(-1) | to nuon");
+
+        assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [4, 5, 6]]");
+    }
+
+    #[test]
+    #[ignore]
+    fn positive_step_positive() {
+        let actual = nu!("[a b c]; [1 2 3] [4 5 6] [7 8 9] [10 11 12] [13 14 15] [16 17 18] [19 20 21]] | select 0..2..6 | to nuon");
+
+        assert_eq!(
+            actual.out,
+            "[[a, b, c]; [1, 2, 3], [7, 8, 9], [13, 14, 15], [19, 20, 21]]"
+        );
+    }
+}
