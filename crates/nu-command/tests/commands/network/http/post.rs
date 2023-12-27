@@ -112,3 +112,68 @@ fn http_post_json_list_is_success() {
     mock.assert();
     assert!(actual.out.is_empty())
 }
+
+#[test]
+fn http_post_follows_redirect() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("GET", "/bar").with_body("bar").create();
+    let _mock = server
+        .mock("POST", "/foo")
+        .with_status(301)
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http post {url}/foo postbody", url = server.url()).as_str()
+    ));
+
+    assert_eq!(&actual.out, "bar");
+}
+
+#[test]
+fn http_post_redirect_mode_manual() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("POST", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http post --redirect-mode manual {url}/foo postbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(&actual.out, "foo");
+}
+
+#[test]
+fn http_post_redirect_mode_error() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("POST", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http post --redirect-mode error {url}/foo postbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+    assert!(&actual.err.contains(
+        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+    ));
+}

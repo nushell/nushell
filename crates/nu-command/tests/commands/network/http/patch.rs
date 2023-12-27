@@ -76,3 +76,68 @@ fn http_patch_failed_due_to_unexpected_body() {
 
     assert!(actual.err.contains("Cannot make request"))
 }
+
+#[test]
+fn http_patch_follows_redirect() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("GET", "/bar").with_body("bar").create();
+    let _mock = server
+        .mock("PATCH", "/foo")
+        .with_status(301)
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http patch {url}/foo patchbody", url = server.url()).as_str()
+    ));
+
+    assert_eq!(&actual.out, "bar");
+}
+
+#[test]
+fn http_patch_redirect_mode_manual() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("PATCH", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http patch --redirect-mode manual {url}/foo patchbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(&actual.out, "foo");
+}
+
+#[test]
+fn http_patch_redirect_mode_error() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("PATCH", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http patch --redirect-mode error {url}/foo patchbody",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+    assert!(&actual.err.contains(
+        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+    ));
+}
