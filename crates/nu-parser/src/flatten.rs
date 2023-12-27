@@ -209,8 +209,6 @@ pub fn flatten_expression(
                         }
                     }
                     Argument::Spread(expr) => {
-                        // TODO hardcoding the operator's span is probably unsafe,
-                        // put it in the Spread variant itself
                         args.push((
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
@@ -257,8 +255,6 @@ pub fn flatten_expression(
                         }
                     },
                     ExternalArgument::Spread(expr) => {
-                        // TODO hardcoding the operator's span is probably unsafe,
-                        // put it in the Spread variant itself
                         output.push((
                             Span::new(expr.span.start - 3, expr.span.start),
                             FlatShape::Operator,
