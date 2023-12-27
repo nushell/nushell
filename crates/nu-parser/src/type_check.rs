@@ -7,66 +7,6 @@ use nu_protocol::{
     ParseError, Type,
 };
 
-pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-    // Structural subtyping
-    let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        if expected.is_empty() || found.is_empty() {
-            // We treat an incoming empty table/record type as compatible for typechecking purposes
-            // It is the responsibility of the runtime to reject if necessary
-            true
-        } else if expected.len() > found.len() {
-            false
-        } else {
-            expected.iter().all(|(col_x, ty_x)| {
-                if let Some((_, ty_y)) = found.iter().find(|(col_y, _)| col_x == col_y) {
-                    type_compatible(ty_x, ty_y)
-                } else {
-                    false
-                }
-            })
-        }
-    };
-
-    match (lhs, rhs) {
-        (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::ListStream, Type::List(_)) => true,
-        (Type::List(_), Type::ListStream) => true,
-        (Type::List(c), Type::Table(table_fields)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(fields, table_fields)
-            } else {
-                false
-            }
-        }
-        (Type::Table(table_fields), Type::List(c)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(table_fields, fields)
-            } else {
-                false
-            }
-        }
-        (Type::Number, Type::Int) => true,
-        (Type::Int, Type::Number) => true,
-        (Type::Number, Type::Float) => true,
-        (Type::Float, Type::Number) => true,
-        (Type::Closure, Type::Block) => true,
-        (Type::Any, _) => true,
-        (_, Type::Any) => true,
-        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
-            is_compatible(lhs, rhs)
-        }
-        (lhs, rhs) => lhs == rhs,
-    }
-}
-
 pub fn math_result_type(
     _working_set: &StateWorkingSet,
     lhs: &mut Expression,
@@ -768,7 +708,7 @@ pub fn math_result_type(
                 }
             },
             Operator::Comparison(Comparison::In) => match (&lhs.ty, &rhs.ty) {
-                (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
+                (t, Type::List(u)) if t.is_compatible_with(u) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
@@ -806,7 +746,7 @@ pub fn math_result_type(
                 }
             },
             Operator::Comparison(Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
-                (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
+                (t, Type::List(u)) if t.is_compatible_with(u) => (Type::Bool, None),
                 (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
                 (Type::String, Type::String) => (Type::Bool, None),
                 (Type::String, Type::Record(_)) => (Type::Bool, None),
@@ -945,7 +885,7 @@ pub fn check_pipeline_type(
                     continue 'elem;
                 } else {
                     for (call_input, call_output) in decl.signature().input_output_types {
-                        if type_compatible(&call_input, &current_type) {
+                        if call_input.is_compatible_with(&current_type) {
                             current_type = call_output.clone();
                             continue 'elem;
                         }
@@ -992,7 +932,7 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
             }
         }
 
-        if !type_compatible(output_type, &current_output_type)
+        if !output_type.is_compatible_with(&current_output_type)
             && output_type != &Type::Any
             && current_output_type != Type::Any
         {

@@ -35,34 +35,47 @@ pub enum Type {
 }
 
 impl Type {
-    pub fn is_subtype(&self, other: &Type) -> bool {
-        // Structural subtyping
-        let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
-            if this.is_empty() || that.is_empty() {
-                true
-            } else if this.len() > that.len() {
-                false
-            } else {
-                this.iter().all(|(col_x, ty_x)| {
-                    if let Some((_, ty_y)) = that.iter().find(|(col_y, _)| col_x == col_y) {
-                        ty_x.is_subtype(ty_y)
-                    } else {
-                        false
-                    }
-                })
-            }
+    pub fn is_compatible_with(&self, other: &Self) -> bool {
+        let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| -> bool {
+            this.is_empty()
+                // We treat an incoming empty table/record type as compatible for typechecking purposes
+                // It is the responsibility of the runtime to reject if necessary               
+                || that.is_empty()
+                || (this.len() <= that.len()
+                    && this.iter().all(|(col_x, ty_x)| {
+                        that.iter()
+                            .find(|(col_y, _)| col_y == col_x)
+                            .is_some_and(|(_, ty_y)| ty_x.is_compatible_with(ty_y))
+                    }))
         };
 
         match (self, other) {
-            (t, u) if t == u => true,
-            (Type::Float, Type::Number) => true,
-            (Type::Int, Type::Number) => true,
-            (_, Type::Any) => true,
-            (Type::List(t), Type::List(u)) if t.is_subtype(u) => true, // List is covariant
-            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
-                is_subtype_collection(this, that)
+            (Type::List(c), Type::List(d)) => c.is_compatible_with(d),
+            (Type::ListStream, Type::List(_)) => true,
+            (Type::List(_), Type::ListStream) => true,
+            (Type::List(c), Type::Table(table_fields))
+            | (Type::Table(table_fields), Type::List(c)) => {
+                if matches!(**c, Type::Any) {
+                    return true;
+                }
+
+                if let Type::Record(fields) = &**c {
+                    is_subtype_collection(table_fields, fields)
+                } else {
+                    false
+                }
             }
-            _ => false,
+            (Type::Number, Type::Int) => true,
+            (Type::Int, Type::Number) => true,
+            (Type::Number, Type::Float) => true,
+            (Type::Float, Type::Number) => true,
+            (Type::Closure, Type::Block) => true,
+            (Type::Any, _) => true,
+            (_, Type::Any) => true,
+            (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
+                is_subtype_collection(lhs, rhs)
+            }
+            (lhs, rhs) => lhs == rhs,
         }
     }
 
@@ -210,21 +223,21 @@ mod tests {
         #[test]
         fn test_reflexivity() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&ty));
+                assert!(ty.is_compatible_with(&ty));
             }
         }
 
         #[test]
         fn test_any_is_top_type() {
             for ty in Type::iter() {
-                assert!(ty.is_subtype(&Type::Any));
+                assert!(ty.is_compatible_with(&Type::Any));
             }
         }
 
         #[test]
         fn test_number_supertype() {
-            assert!(Type::Int.is_subtype(&Type::Number));
-            assert!(Type::Float.is_subtype(&Type::Number));
+            assert!(Type::Int.is_compatible_with(&Type::Number));
+            assert!(Type::Float.is_compatible_with(&Type::Number));
         }
 
         #[test]
@@ -233,7 +246,10 @@ mod tests {
                 for ty2 in Type::iter() {
                     let list_ty1 = Type::List(Box::new(ty1.clone()));
                     let list_ty2 = Type::List(Box::new(ty2.clone()));
-                    assert_eq!(list_ty1.is_subtype(&list_ty2), ty1.is_subtype(&ty2));
+                    assert_eq!(
+                        list_ty1.is_compatible_with(&list_ty2),
+                        ty1.is_compatible_with(&ty2)
+                    );
                 }
             }
         }
