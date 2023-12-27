@@ -763,3 +763,14 @@ fn properly_typecheck_rest_param() -> TestResult {
 fn implied_collect_has_compatible_type() -> TestResult {
     run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
 }
+
+#[test]
+fn record_expected_colon() -> TestResult {
+    fail_test(r#"{ a: 2 b }"#, "expected ':'")?;
+    fail_test(r#"{ a: 2 b 3 }"#, "expected ':'")
+}
+
+#[test]
+fn record_missing_value() -> TestResult {
+    fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
+}

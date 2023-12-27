@@ -5272,15 +5272,43 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
             idx += 1;
             if idx == tokens.len() {
-                working_set.error(ParseError::Expected("record", span));
-                return garbage(span);
+                working_set.error(ParseError::Expected(
+                    "':'",
+                    Span::new(curr_span.end, curr_span.end),
+                ));
+                output.push(RecordItem::Pair(
+                    garbage(curr_span),
+                    garbage(Span::new(curr_span.end, curr_span.end)),
+                ));
+                break;
             }
-            let colon = working_set.get_span_contents(tokens[idx].span);
+            let colon_span = tokens[idx].span;
+            let colon = working_set.get_span_contents(colon_span);
             idx += 1;
-            if idx == tokens.len() || colon != b":" {
-                //FIXME: need better error
-                working_set.error(ParseError::Expected("record", span));
-                return garbage(span);
+            if colon != b":" {
+                working_set.error(ParseError::Expected(
+                    "':'",
+                    Span::new(colon_span.start, colon_span.start),
+                ));
+                output.push(RecordItem::Pair(
+                    field,
+                    garbage(Span::new(
+                        colon_span.start,
+                        tokens[tokens.len() - 1].span.end,
+                    )),
+                ));
+                break;
+            }
+            if idx == tokens.len() {
+                working_set.error(ParseError::Expected(
+                    "value for record field",
+                    Span::new(colon_span.end, colon_span.end),
+                ));
+                output.push(RecordItem::Pair(
+                    garbage(Span::new(curr_span.start, colon_span.end)),
+                    garbage(Span::new(colon_span.end, tokens[tokens.len() - 1].span.end)),
+                ));
+                break;
             }
             let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
             idx += 1;
