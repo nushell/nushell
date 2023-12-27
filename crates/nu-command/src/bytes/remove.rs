@@ -159,7 +159,7 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         }
         // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
-        // check if the left is negative, if it is, we don't need to append anything.
+        // check if the left is positive, if it is not, we don't need to append anything.
         if left > 0 {
             let mut remain = input[..left as usize].iter().copied().rev().collect();
             result.append(&mut remain);
