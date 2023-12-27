@@ -106,6 +106,13 @@ impl Command for BytesRemove {
                 )),
             },
             Example {
+                description: "Remove something not exist will keep raw bytes",
+                example: "0x[AA BB CC AA] | bytes remove --end 0x[10]",
+                result: Some(Value::test_binary (
+                    vec![0xAA, 0xBB, 0xCC, 0xAA],
+                )),
+            },
+            Example {
                 description: "Remove all occurrences of find binary in table",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
                 result: Some(Value::test_list (
@@ -159,8 +166,11 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         }
         // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
-        let mut remain = input[..left as usize].iter().copied().rev().collect();
-        result.append(&mut remain);
+        if left >= 0 {
+            // we have remove something successfully
+            let mut remain = input[..left as usize].iter().copied().rev().collect();
+            result.append(&mut remain);
+        }
         result = result.into_iter().rev().collect();
         Value::binary(result, span)
     } else {
