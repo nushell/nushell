@@ -142,8 +142,10 @@ impl Command for UMv {
             files.append(&mut app_vals);
         }
         // Add back the target after globbing
-        let spanned_target = paths.last().ok_or(ShellError::NushellFailed {
-            msg: "Destination path expected".into(),
+        let spanned_target = paths.last().ok_or(ShellError::NushellFailedSpanned {
+            msg: "Missing file operand".into(),
+            label: "Missing file operand".into(),
+            span: call.head,
         })?;
         let expanded_target = expand_to_real_path(spanned_target.item.clone());
         let abs_target_path = expand_path_with(expanded_target, &cwd);
