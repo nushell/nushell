@@ -159,8 +159,11 @@ fn remove_impl(input: &[u8], arg: &Arguments, span: Span) -> Value {
         }
         // append the remaining thing to result, this can be happening when
         // we have something to remove and remove_all is False.
-        let mut remain = input[..left as usize].iter().copied().rev().collect();
-        result.append(&mut remain);
+        // check if the left is negative, if it is, we don't need to append anything.
+        if left > 0 {
+            let mut remain = input[..left as usize].iter().copied().rev().collect();
+            result.append(&mut remain);
+        }
         result = result.into_iter().rev().collect();
         Value::binary(result, span)
     } else {
