@@ -2,6 +2,7 @@ use nu_cmd_base::arg_glob;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_glob::GlobResult;
+use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -96,7 +97,6 @@ impl Command for UMv {
                 span: p.span,
             })
             .collect();
-        // CHECK THIS ERROR, DONT KNOW WHAT MOVE GETS
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -106,8 +106,6 @@ impl Command for UMv {
                 inner: Vec::new(),
             });
         }
-        // CHECK THIS ERROR AS WELL
-
         if paths.len() == 1 {
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
@@ -144,8 +142,12 @@ impl Command for UMv {
             files.append(&mut app_vals);
         }
         // Add back the target after globbing
-        let target = paths.last().expect("Should not be reached");
-        files.push(target.item.clone().into());
+        let spanned_target = paths.last().ok_or(ShellError::NushellFailed {
+            msg: "Destination path expected".into(),
+        })?;
+        let expanded_target = expand_to_real_path(spanned_target.item.clone());
+        let abs_target_path = expand_path_with(expanded_target, &cwd);
+        files.push(abs_target_path.clone());
         let files = files
             .into_iter()
             .map(|p| p.into_os_string())

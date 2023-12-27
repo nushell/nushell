@@ -240,8 +240,7 @@ fn errors_if_destination_doesnt_exist() {
             "umv empty.txt does/not/exist/"
         );
 
-        // assert!(actual.err.contains("directory not found"));
-        assert!(actual.err.contains("No such file or directory"));
+        assert!(actual.err.contains("failed to access"));
     })
 }
 
