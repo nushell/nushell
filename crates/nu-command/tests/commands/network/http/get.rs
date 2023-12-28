@@ -176,6 +176,71 @@ fn http_get_full_response() {
     assert_eq!(header["value"], "close");
 }
 
+#[test]
+fn http_get_follows_redirect() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("GET", "/bar").with_body("bar").create();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(301)
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!("http get {url}/foo", url = server.url()).as_str()
+    ));
+
+    assert_eq!(&actual.out, "bar");
+}
+
+#[test]
+fn http_get_redirect_mode_manual() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http get --redirect-mode manual {url}/foo",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert_eq!(&actual.out, "foo");
+}
+
+#[test]
+fn http_get_redirect_mode_error() {
+    let mut server = Server::new();
+
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(301)
+        .with_body("foo")
+        .with_header("Location", "/bar")
+        .create();
+
+    let actual = nu!(pipeline(
+        format!(
+            "http get --redirect-mode error {url}/foo",
+            url = server.url()
+        )
+        .as_str()
+    ));
+
+    assert!(&actual.err.contains("nu::shell::network_failure"));
+    assert!(&actual.err.contains(
+        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+    ));
+}
+
 // These tests require network access; they use badssl.com which is a Google-affiliated site for testing various SSL errors.
 // Revisit this if these tests prove to be flaky or unstable.
 
