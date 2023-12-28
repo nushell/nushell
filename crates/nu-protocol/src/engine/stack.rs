@@ -4,9 +4,17 @@ use crate::engine::EngineState;
 use crate::engine::DEFAULT_OVERLAY_NAME;
 use crate::{ShellError, Span, Value, VarId};
 use crate::{ENV_VARIABLE_ID, NU_VARIABLE_ID};
+#[cfg(windows)]
+use unicase::UniCase;
+
+/// Environment variable name is a String on Unix, or a case-insensitive string on Windows.
+#[cfg(not(windows))]
+pub type EnvVarName = String;
+#[cfg(windows)]
+pub type EnvVarName = UniCase<String>;
 
 /// Environment variables per overlay
-pub type EnvVars = HashMap<String, HashMap<String, Value>>;
+pub type EnvVars = HashMap<EnvVarName, HashMap<EnvVarName, Value>>;
 
 /// A runtime value stack used during evaluation
 ///
@@ -32,9 +40,9 @@ pub struct Stack {
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<EnvVars>,
     /// Tells which environment variables from engine state are hidden, per overlay.
-    pub env_hidden: HashMap<String, HashSet<String>>,
+    pub env_hidden: HashMap<EnvVarName, HashSet<EnvVarName>>,
     /// List of active overlays
-    pub active_overlays: Vec<String>,
+    pub active_overlays: Vec<EnvVarName>,
     pub recursion_count: u64,
 }
 
@@ -44,7 +52,7 @@ impl Stack {
             vars: vec![],
             env_vars: vec![],
             env_hidden: HashMap::new(),
-            active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
+            active_overlays: vec![DEFAULT_OVERLAY_NAME.into()],
             recursion_count: 0,
         }
     }
@@ -52,7 +60,7 @@ impl Stack {
     pub fn with_env(
         &mut self,
         env_vars: &[EnvVars],
-        env_hidden: &HashMap<String, HashSet<String>>,
+        env_hidden: &HashMap<EnvVarName, HashSet<EnvVarName>>,
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
@@ -114,7 +122,7 @@ impl Stack {
         }
     }
 
-    pub fn add_env_var(&mut self, var: String, value: Value) {
+    pub fn add_env_var(&mut self, var: EnvVarName, value: Value) {
         if let Some(last_overlay) = self.active_overlays.last() {
             if let Some(env_hidden) = self.env_hidden.get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
@@ -125,13 +133,19 @@ impl Stack {
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
                     env_vars.insert(var, value);
                 } else {
-                    scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
+                    scope.insert(
+                        last_overlay.to_owned(),
+                        [(var, value)].into_iter().collect(),
+                    );
                 }
             } else {
                 self.env_vars.push(
-                    [(last_overlay.into(), [(var, value)].into_iter().collect())]
-                        .into_iter()
-                        .collect(),
+                    [(
+                        last_overlay.to_owned(),
+                        [(var, value)].into_iter().collect(),
+                    )]
+                    .into_iter()
+                    .collect(),
                 );
             }
         } else {
@@ -140,7 +154,7 @@ impl Stack {
         }
     }
 
-    pub fn last_overlay_name(&self) -> Result<String, ShellError> {
+    pub fn last_overlay_name(&self) -> Result<EnvVarName, ShellError> {
         self.active_overlays
             .last()
             .cloned()
@@ -191,7 +205,7 @@ impl Stack {
     }
 
     /// Flatten the env var scope frames into one frame
-    pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<String, Value> {
+    pub fn get_env_vars(&self, engine_state: &EngineState) -> HashMap<EnvVarName, Value> {
         let mut result = HashMap::new();
 
         for active_overlay in self.active_overlays.iter() {
@@ -201,14 +215,14 @@ impl Stack {
                         .iter()
                         .filter(|(k, _)| {
                             if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                                !env_hidden.contains(*k)
+                                !env_hidden.contains(k)
                             } else {
                                 // nothing has been hidden in this overlay
                                 true
                             }
                         })
                         .map(|(k, v)| (k.clone(), v.clone()))
-                        .collect::<HashMap<String, Value>>(),
+                        .collect::<HashMap<EnvVarName, Value>>(),
                 );
             }
         }
@@ -219,7 +233,7 @@ impl Stack {
     }
 
     /// Get flattened environment variables only from the stack
-    pub fn get_stack_env_vars(&self) -> HashMap<String, Value> {
+    pub fn get_stack_env_vars(&self) -> HashMap<EnvVarName, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
@@ -234,7 +248,10 @@ impl Stack {
     }
 
     /// Get flattened environment variables only from the stack and one overlay
-    pub fn get_stack_overlay_env_vars(&self, overlay_name: &str) -> HashMap<String, Value> {
+    pub fn get_stack_overlay_env_vars(
+        &self,
+        overlay_name: &EnvVarName,
+    ) -> HashMap<EnvVarName, Value> {
         let mut result = HashMap::new();
 
         for scope in &self.env_vars {
@@ -249,7 +266,7 @@ impl Stack {
     }
 
     /// Same as get_env_vars, but returns only the names as a HashSet
-    pub fn get_env_var_names(&self, engine_state: &EngineState) -> HashSet<String> {
+    pub fn get_env_var_names(&self, engine_state: &EngineState) -> HashSet<EnvVarName> {
         let mut result = HashSet::new();
 
         for active_overlay in self.active_overlays.iter() {
@@ -259,14 +276,14 @@ impl Stack {
                         .keys()
                         .filter(|k| {
                             if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                                !env_hidden.contains(*k)
+                                !env_hidden.contains(k)
                             } else {
                                 // nothing has been hidden in this overlay
                                 true
                             }
                         })
                         .cloned()
-                        .collect::<HashSet<String>>(),
+                        .collect::<HashSet<EnvVarName>>(),
                 );
             }
         }
@@ -274,7 +291,7 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.keys().cloned().collect::<HashSet<String>>());
+                    result.extend(env_vars.keys().cloned().collect::<HashSet<EnvVarName>>());
                 }
             }
         }
@@ -286,7 +303,7 @@ impl Stack {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
+                    if let Some(v) = env_vars.get(&EnvVarName::from(name)) {
                         return Some(v.clone());
                     }
                 }
@@ -295,14 +312,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(&EnvVarName::from(name))
             } else {
                 false
             };
 
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if let Some(v) = env_vars.get(name) {
+                    if let Some(v) = env_vars.get(&EnvVarName::from(name)) {
                         return Some(v.clone());
                     }
                 }
@@ -316,7 +333,7 @@ impl Stack {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    if env_vars.contains_key(name) {
+                    if env_vars.contains_key(&EnvVarName::from(name)) {
                         return true;
                     }
                 }
@@ -325,14 +342,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(&EnvVarName::from(name))
             } else {
                 false
             };
 
             if !is_hidden {
                 if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                    if env_vars.contains_key(name) {
+                    if env_vars.contains_key(&EnvVarName::from(name)) {
                         return true;
                     }
                 }
@@ -346,7 +363,7 @@ impl Stack {
         for scope in self.env_vars.iter_mut().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay) {
-                    if env_vars.remove(name).is_some() {
+                    if env_vars.remove(&EnvVarName::from(name)).is_some() {
                         return true;
                     }
                 }
@@ -355,12 +372,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay) {
-                if env_vars.get(name).is_some() {
+                if env_vars.get(&EnvVarName::from(name)).is_some() {
                     if let Some(env_hidden) = self.env_hidden.get_mut(active_overlay) {
                         env_hidden.insert(name.into());
                     } else {
-                        self.env_hidden
-                            .insert(active_overlay.into(), [name.into()].into_iter().collect());
+                        self.env_hidden.insert(
+                            active_overlay.to_owned(),
+                            [name.into()].into_iter().collect(),
+                        );
                     }
 
                     return true;
@@ -373,25 +392,29 @@ impl Stack {
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
         for scope in self.env_vars.iter().rev() {
-            if scope.contains_key(name) {
+            if scope.contains_key(&name.into()) {
                 return true;
             }
         }
 
-        engine_state.env_vars.contains_key(name)
+        engine_state.env_vars.contains_key(&name.into())
     }
 
     pub fn is_overlay_active(&self, name: &str) -> bool {
-        self.active_overlays.iter().any(|n| n == name)
+        self.active_overlays
+            .iter()
+            .any(|n| n == &EnvVarName::from(name))
     }
 
-    pub fn add_overlay(&mut self, name: String) {
-        self.active_overlays.retain(|o| o != &name);
-        self.active_overlays.push(name);
+    pub fn add_overlay(&mut self, name: &str) {
+        self.active_overlays
+            .retain(|o| o != &EnvVarName::from(name));
+        self.active_overlays.push(EnvVarName::from(name));
     }
 
     pub fn remove_overlay(&mut self, name: &str) {
-        self.active_overlays.retain(|o| o != name);
+        self.active_overlays
+            .retain(|o| o != &EnvVarName::from(name));
     }
 }
 

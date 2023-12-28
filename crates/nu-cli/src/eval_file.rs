@@ -91,15 +91,15 @@ pub fn evaluate_file(
     });
 
     stack.add_env_var(
-        "FILE_PWD".to_string(),
+        "FILE_PWD".into(),
         Value::string(parent.to_string_lossy(), Span::unknown()),
     );
     stack.add_env_var(
-        "CURRENT_FILE".to_string(),
+        "CURRENT_FILE".into(),
         Value::string(file_path.to_string_lossy(), Span::unknown()),
     );
     stack.add_env_var(
-        "PROCESS_PATH".to_string(),
+        "PROCESS_PATH".into(),
         Value::string(path, Span::unknown()),
     );
 

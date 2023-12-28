@@ -309,7 +309,7 @@ pub fn evaluate_repl(
                 engine_state
                     .render_env_vars()
                     .into_iter()
-                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
+                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k.as_str(), v))),
             );
             line_editor.with_buffer_editor(command, temp_file.clone())
         } else {

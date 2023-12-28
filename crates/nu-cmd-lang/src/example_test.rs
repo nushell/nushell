@@ -59,7 +59,7 @@ mod test_examples {
             .expect("Could not get current working directory.")
             .to_string_lossy()
             .to_string();
-        engine_state.add_env_var("PWD".to_string(), Value::test_string(cwd));
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd));
 
         let delta = {
             // Base functions that are needed for testing
@@ -84,7 +84,7 @@ mod test_examples {
             working_set.render()
         };
 
-        engine_state.add_env_var("PWD".to_string(), Value::test_string("."));
+        engine_state.add_env_var("PWD".into(), Value::test_string("."));
 
         engine_state
             .merge_delta(delta)

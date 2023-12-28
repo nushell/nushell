@@ -3,7 +3,7 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::cli_error::{report_error, report_error_new};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::engine::{EngineState, EnvVarName, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
 
 pub fn eval_env_change_hook(
@@ -17,7 +17,7 @@ pub fn eval_env_change_hook(
                 for (env_name, hook_value) in &val {
                     let before = engine_state
                         .previous_env_vars
-                        .get(env_name)
+                        .get(&EnvVarName::from(env_name.to_owned()))
                         .cloned()
                         .unwrap_or_default();
 
@@ -37,7 +37,7 @@ pub fn eval_env_change_hook(
 
                         engine_state
                             .previous_env_vars
-                            .insert(env_name.to_string(), after);
+                            .insert(env_name.to_owned().into(), after);
                     }
                 }
             }

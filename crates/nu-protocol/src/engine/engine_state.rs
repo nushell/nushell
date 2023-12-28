@@ -2,7 +2,9 @@ use fancy_regex::Regex;
 use lru::LruCache;
 
 use super::{usage::build_usage, usage::Usage, StateDelta};
-use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
+use super::{
+    Command, EnvVarName, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME,
+};
 use crate::ast::Block;
 use crate::{
     BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
@@ -88,7 +90,7 @@ pub struct EngineState {
     pub scope: ScopeFrame,
     pub ctrlc: Option<Arc<AtomicBool>>,
     pub env_vars: EnvVars,
-    pub previous_env_vars: HashMap<String, Value>,
+    pub previous_env_vars: HashMap<EnvVarName, Value>,
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
@@ -137,7 +139,7 @@ impl EngineState {
                 false,
             ),
             ctrlc: None,
-            env_vars: [(DEFAULT_OVERLAY_NAME.to_string(), HashMap::new())]
+            env_vars: [(DEFAULT_OVERLAY_NAME.into(), HashMap::new())]
                 .into_iter()
                 .collect(),
             previous_env_vars: HashMap::new(),
@@ -255,7 +257,7 @@ impl EngineState {
                 if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
                     // Updating existing overlay
                     for (k, v) in env.drain() {
-                        if k == "config" {
+                        if k == EnvVarName::from("config") {
                             // Don't insert the record as the "config" env var as-is.
                             // Instead, mutate a clone of it with into_config(), and put THAT in env_vars.
                             let mut new_record = v.clone();
@@ -383,12 +385,12 @@ impl EngineState {
             .1
     }
 
-    pub fn render_env_vars(&self) -> HashMap<&String, &Value> {
+    pub fn render_env_vars(&self) -> HashMap<&EnvVarName, &Value> {
         let mut result = HashMap::new();
 
         for overlay_name in self.active_overlay_names(&[]) {
             let name = String::from_utf8_lossy(overlay_name);
-            if let Some(env_vars) = self.env_vars.get(name.as_ref()) {
+            if let Some(env_vars) = self.env_vars.get(&EnvVarName::from(name)) {
                 result.extend(env_vars);
             }
         }
@@ -396,8 +398,8 @@ impl EngineState {
         result
     }
 
-    pub fn add_env_var(&mut self, name: String, val: Value) {
-        let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
+    pub fn add_env_var(&mut self, name: EnvVarName, val: Value) {
+        let overlay_name = EnvVarName::from(String::from_utf8_lossy(self.last_overlay_name(&[])));
 
         if let Some(env_vars) = self.env_vars.get_mut(&overlay_name) {
             env_vars.insert(name, val);
@@ -409,9 +411,10 @@ impl EngineState {
 
     pub fn get_env_var(&self, name: &str) -> Option<&Value> {
         for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(name) {
+            let overlay_name =
+                EnvVarName::from(String::from_utf8_lossy(self.get_overlay_name(*overlay_id)));
+            if let Some(env_vars) = self.env_vars.get(&overlay_name) {
+                if let Some(val) = env_vars.get(&EnvVarName::from(name)) {
                     return Some(val);
                 }
             }
@@ -420,17 +423,14 @@ impl EngineState {
         None
     }
 
-    // Get the path environment variable in a platform agnostic way
+    // Get the path environment variable in a platform agnostic way (deprecated - no longer
+    // required).
     pub fn get_path_env_var(&self) -> Option<&Value> {
-        let env_path_name_windows: &str = "Path";
-        let env_path_name_nix: &str = "PATH";
-
         for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref()) {
-                if let Some(val) = env_vars.get(env_path_name_nix) {
-                    return Some(val);
-                } else if let Some(val) = env_vars.get(env_path_name_windows) {
+            let overlay_name =
+                EnvVarName::from(String::from_utf8_lossy(self.get_overlay_name(*overlay_id)));
+            if let Some(env_vars) = self.env_vars.get(&overlay_name) {
+                if let Some(val) = env_vars.get(&EnvVarName::from("PATH")) {
                     return Some(val);
                 } else {
                     return None;

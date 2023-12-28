@@ -1069,12 +1069,12 @@ impl Eval for EvalRuntime {
                                                 span: *span,
                                             });
                                         } else {
-                                            stack.add_env_var(val.to_string(), vardata);
+                                            stack.add_env_var(val.to_string().into(), vardata);
                                         }
                                     }
                                     // In case someone really wants an integer env-var
                                     PathMember::Int { val, .. } => {
-                                        stack.add_env_var(val.to_string(), vardata);
+                                        stack.add_env_var(val.to_string().into(), vardata);
                                     }
                                 }
                             } else {

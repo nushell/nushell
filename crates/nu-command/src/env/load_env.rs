@@ -52,7 +52,7 @@ impl Command for LoadEnv {
                             span: call.head,
                         });
                     }
-                    stack.add_env_var(env_var, rhs);
+                    stack.add_env_var(env_var.into(), rhs);
                 }
                 Ok(PipelineData::empty())
             }
@@ -72,11 +72,11 @@ impl Command for LoadEnv {
                             let rhs = rhs.as_string()?;
                             let rhs = nu_path::expand_path_with(rhs, cwd);
                             stack.add_env_var(
-                                env_var,
+                                env_var.into(),
                                 Value::string(rhs.to_string_lossy(), call.head),
                             );
                         } else {
-                            stack.add_env_var(env_var, rhs);
+                            stack.add_env_var(env_var.into(), rhs);
                         }
                     }
                     Ok(PipelineData::empty())

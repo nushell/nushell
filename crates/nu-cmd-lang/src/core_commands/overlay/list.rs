@@ -36,7 +36,7 @@ impl Command for OverlayList {
         let active_overlays_engine: Vec<Value> = stack
             .active_overlays
             .iter()
-            .map(|s| Value::string(s, call.head))
+            .map(|s| Value::string(s.to_string(), call.head))
             .collect();
 
         Ok(Value::list(active_overlays_engine, call.head).into_pipeline_data())

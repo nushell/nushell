@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, EnvVarName, Stack};
 use nu_protocol::{
     did_you_mean, Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape,
     Type, Value,
@@ -46,7 +46,7 @@ impl Command for HideEnv {
 
         for name in env_var_names {
             if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {
-                let all_names: Vec<String> = stack
+                let all_names: Vec<EnvVarName> = stack
                     .get_env_var_names(engine_state)
                     .iter()
                     .cloned()

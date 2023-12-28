@@ -51,7 +51,7 @@ This command is a parser keyword. For details, check:
     ) -> Result<PipelineData, ShellError> {
         let name_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        stack.add_overlay(name_arg.item);
+        stack.add_overlay(&*name_arg.item);
 
         Ok(PipelineData::empty())
     }

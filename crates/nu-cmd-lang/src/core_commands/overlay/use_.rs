@@ -133,12 +133,12 @@ impl Command for OverlayUse {
 
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
-                    callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                    callee_stack.add_env_var("FILE_PWD".into(), file_pwd);
                 }
 
                 if let Some(file_path) = &maybe_path {
                     let file_path = Value::string(file_path.to_string_lossy(), call.head);
-                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
+                    callee_stack.add_env_var("CURRENT_FILE".into(), file_path);
                 }
 
                 let _ = eval_block(
@@ -151,15 +151,15 @@ impl Command for OverlayUse {
                 );
 
                 // The export-env block should see the env vars *before* activating this overlay
-                caller_stack.add_overlay(overlay_name);
+                caller_stack.add_overlay(&*overlay_name);
 
                 // Merge the block's environment to the current stack
                 redirect_env(engine_state, caller_stack, &callee_stack);
             } else {
-                caller_stack.add_overlay(overlay_name);
+                caller_stack.add_overlay(&*overlay_name);
             }
         } else {
-            caller_stack.add_overlay(overlay_name);
+            caller_stack.add_overlay(&*overlay_name);
         }
 
         Ok(PipelineData::empty())

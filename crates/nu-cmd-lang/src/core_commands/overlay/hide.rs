@@ -1,6 +1,6 @@
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, EnvVarName, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
@@ -55,14 +55,14 @@ impl Command for OverlayHide {
             name
         } else {
             Spanned {
-                item: stack.last_overlay_name()?,
+                item: stack.last_overlay_name()?.to_string(),
                 span: call.head,
             }
         };
 
         if !stack.is_overlay_active(&overlay_name.item) {
             return Err(ShellError::OverlayNotFoundAtRuntime {
-                overlay_name: overlay_name.item,
+                overlay_name: overlay_name.item.into(),
                 span: overlay_name.span,
             });
         }
@@ -93,7 +93,7 @@ impl Command for OverlayHide {
         stack.remove_overlay(&overlay_name.item);
 
         for (name, val) in env_vars_to_keep {
-            stack.add_env_var(name, val);
+            stack.add_env_var(EnvVarName::from(name), val);
         }
 
         Ok(PipelineData::empty())
