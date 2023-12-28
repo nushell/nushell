@@ -34,8 +34,6 @@ pub enum RedirectMode {
     Manual,
 }
 
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
 pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,

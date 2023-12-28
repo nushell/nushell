@@ -186,7 +186,7 @@ fn helper(
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, redirect_mode, engine_state, stack);
+    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.put(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
