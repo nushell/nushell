@@ -20,6 +20,7 @@ pub struct Flag {
     pub short: Option<char>,
     pub arg: Option<SyntaxShape>,
     pub required: bool,
+    pub multiple: bool,
     pub desc: String,
 
     // For custom commands
@@ -210,6 +211,7 @@ impl Signature {
             arg: None,
             desc: "Display the help message for this command".into(),
             required: false,
+            multiple: false,
             var_id: None,
             default_value: None,
         };
@@ -342,6 +344,31 @@ impl Signature {
             short: s,
             arg: Some(shape.into()),
             required: false,
+            multiple: false,
+            desc: desc.into(),
+            var_id: None,
+            default_value: None,
+        });
+
+        self
+    }
+
+    /// Add an optional named flag argument to the signature
+    pub fn multiple_named(
+        mut self,
+        name: impl Into<String>,
+        shape: impl Into<SyntaxShape>,
+        desc: impl Into<String>,
+        short: Option<char>,
+    ) -> Signature {
+        let (name, s) = self.check_names(name, short);
+
+        self.named.push(Flag {
+            long: name,
+            short: s,
+            arg: Some(shape.into()),
+            required: false,
+            multiple: true,
             desc: desc.into(),
             var_id: None,
             default_value: None,
@@ -365,6 +392,7 @@ impl Signature {
             short: s,
             arg: Some(shape.into()),
             required: true,
+            multiple: false,
             desc: desc.into(),
             var_id: None,
             default_value: None,
@@ -387,6 +415,7 @@ impl Signature {
             short: s,
             arg: None,
             required: false,
+            multiple: false,
             desc: desc.into(),
             var_id: None,
             default_value: None,

@@ -92,24 +92,32 @@ pub fn eval_call(
             if let Some(var_id) = named.var_id {
                 let mut found = false;
                 for call_named in call.named_iter() {
-                    if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
-                        if spanned.item == short.to_string() {
-                            if let Some(arg) = &call_named.2 {
-                                let result = eval_expression(engine_state, caller_stack, arg)?;
-
-                                callee_stack.add_var(var_id, result);
-                            } else if let Some(value) = &named.default_value {
-                                callee_stack.add_var(var_id, value.to_owned());
-                            } else {
-                                callee_stack.add_var(var_id, Value::bool(true, call.head))
-                            }
-                            found = true;
-                        }
-                    } else if call_named.0.item == named.long {
+                    let found_this =
+                        if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
+                            spanned.item.len() == 1 && spanned.item.starts_with(short)
+                        } else {
+                            call_named.0.item == named.long
+                        };
+                    if found_this {
                         if let Some(arg) = &call_named.2 {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
 
-                            callee_stack.add_var(var_id, result);
+                            if named.multiple {
+                                if let Ok(Value::List {
+                                    mut vals,
+                                    internal_span: span,
+                                }) = callee_stack.get_var(var_id, call.head)
+                                {
+                                    vals.push(result);
+                                    // FIXME What should be the span here?
+                                    callee_stack.add_var(var_id, Value::list(vals, span));
+                                } else {
+                                    callee_stack
+                                        .add_var(var_id, Value::list(vec![result], call.head));
+                                }
+                            } else {
+                                callee_stack.add_var(var_id, result);
+                            }
                         } else if let Some(value) = &named.default_value {
                             callee_stack.add_var(var_id, value.to_owned());
                         } else {
@@ -120,7 +128,9 @@ pub fn eval_call(
                 }
 
                 if !found {
-                    if named.arg.is_none() {
+                    if named.multiple {
+                        callee_stack.add_var(var_id, Value::list(vec![], call.head))
+                    } else if named.arg.is_none() {
                         callee_stack.add_var(var_id, Value::bool(false, call.head))
                     } else if let Some(value) = named.default_value {
                         callee_stack.add_var(var_id, value);

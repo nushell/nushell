@@ -896,6 +896,7 @@ pub fn parse_internal_call(
                     arg: None,
                     required: false,
                     desc: "".to_string(),
+                    multiple: false,
                     var_id: None,
                     default_value: None,
                 })
@@ -3221,6 +3222,13 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                         }
                     }
                 } else {
+                    let (contents, multiple) = if let Some(stripped) = contents.strip_prefix(b"...")
+                    {
+                        (stripped, true)
+                    } else {
+                        (contents.as_slice(), false)
+                    };
+
                     match parse_mode {
                         ParseMode::ArgMode | ParseMode::AfterCommaArgMode => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
@@ -3259,6 +3267,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                             short: None,
                                             required: false,
                                             var_id: Some(var_id),
+                                            multiple,
                                             default_value: None,
                                         },
                                         type_annotated: false,
@@ -3320,6 +3329,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                                 short: Some(chars[0]),
                                                 required: false,
                                                 var_id: Some(var_id),
+                                                multiple,
                                                 default_value: None,
                                             },
                                             type_annotated: false,
@@ -3362,6 +3372,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         short: Some(chars[0]),
                                         required: false,
                                         var_id: Some(var_id),
+                                        multiple,
                                         default_value: None,
                                     },
                                     type_annotated: false,
@@ -3371,7 +3382,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             // Short flag alias for long flag, e.g. --b (-a)
                             // This is the same as the short flag in --b(-a)
                             else if contents.starts_with(b"(-") {
-                                if matches!(parse_mode, ParseMode::AfterCommaArgMode) {
+                                if multiple || matches!(parse_mode, ParseMode::AfterCommaArgMode) {
                                     working_set
                                         .error(ParseError::Expected("parameter or flag", span));
                                 }
@@ -3410,6 +3421,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             }
                             // Positional arg, optional
                             else if contents.ends_with(b"?") {
+                                if multiple {
+                                    working_set.error(ParseError::Expected(
+                                        "no '?' for a rest parameter",
+                                        span,
+                                    ))
+                                }
                                 let contents: Vec<_> = contents[..(contents.len() - 1)].into();
                                 let name = String::from_utf8_lossy(&contents).to_string();
 
@@ -3436,38 +3453,18 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 });
                                 parse_mode = ParseMode::ArgMode;
                             }
-                            // Rest param
-                            else if let Some(contents) = contents.strip_prefix(b"...") {
-                                let name = String::from_utf8_lossy(contents).to_string();
-                                let contents_vec: Vec<u8> = contents.to_vec();
-
-                                if !is_variable(&contents_vec) {
-                                    working_set.error(ParseError::Expected(
-                                        "valid variable name for this rest parameter",
-                                        span,
-                                    ))
-                                }
-
-                                let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
-
-                                args.push(Arg::RestPositional(PositionalArg {
-                                    desc: String::new(),
-                                    name,
-                                    shape: SyntaxShape::Any,
-                                    var_id: Some(var_id),
-                                    default_value: None,
-                                }));
-                                parse_mode = ParseMode::ArgMode;
-                            }
-                            // Normal param
+                            // Rest & Normal param
                             else {
-                                let name = String::from_utf8_lossy(&contents).to_string();
+                                let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec = contents.to_vec();
 
                                 if !is_variable(&contents_vec) {
                                     working_set.error(ParseError::Expected(
-                                        "valid variable name for this parameter",
+                                        if multiple {
+                                            "valid variable name for this rest parameter"
+                                        } else {
+                                            "valid variable name for this parameter"
+                                        },
                                         span,
                                     ))
                                 }
@@ -3476,16 +3473,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     working_set.add_variable(contents_vec, span, Type::Any, false);
 
                                 // Positional arg, required
-                                args.push(Arg::Positional {
-                                    arg: PositionalArg {
-                                        desc: String::new(),
-                                        name,
-                                        shape: SyntaxShape::Any,
-                                        var_id: Some(var_id),
-                                        default_value: None,
-                                    },
-                                    required: true,
-                                    type_annotated: false,
+                                let arg = PositionalArg {
+                                    desc: String::new(),
+                                    name,
+                                    shape: SyntaxShape::Any,
+                                    var_id: Some(var_id),
+                                    default_value: None,
+                                };
+                                args.push(if multiple {
+                                    Arg::RestPositional(arg)
+                                } else {
+                                    Arg::Positional {
+                                        arg,
+                                        required: true,
+                                        type_annotated: false,
+                                    }
                                 });
                                 parse_mode = ParseMode::ArgMode;
                             }
@@ -3494,7 +3496,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                             if let Some(last) = args.last_mut() {
                                 let syntax_shape = parse_shape_name(
                                     working_set,
-                                    &contents,
+                                    contents,
                                     span,
                                     ShapeDescriptorUse::Argument,
                                 );
