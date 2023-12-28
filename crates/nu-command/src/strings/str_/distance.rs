@@ -36,12 +36,12 @@ impl Command for SubCommand {
             .required(
                 "compare-string",
                 SyntaxShape::String,
-                "the first string to compare",
+                "The first string to compare.",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .category(Category::Strings)
     }

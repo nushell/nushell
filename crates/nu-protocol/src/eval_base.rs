@@ -277,7 +277,6 @@ pub trait Eval {
             Expr::GlobPattern(pattern) => {
                 Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
             }
-            Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)

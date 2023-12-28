@@ -290,7 +290,6 @@ fn describe_value(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::String { .. }
-        | Value::MatchPattern { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
                 "type" => Value::string(value.get_type().to_string(), head),

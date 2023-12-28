@@ -161,9 +161,14 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
 #[test]
 fn redirection_keep_exit_codes() {
-    let out = nu!("do -i { nu --testbin fail e> a.txt } | complete | get exit_code");
-    // needs to use contains "1", because it complete will output `Some(RawStream)`.
-    assert!(out.out.contains('1'));
+    Playground::setup("redirection preserves exit code", |dirs, _| {
+        let out = nu!(
+            cwd: dirs.test(),
+            "do -i { nu --testbin fail e> a.txt } | complete | get exit_code"
+        );
+        // needs to use contains "1", because it complete will output `Some(RawStream)`.
+        assert!(out.out.contains('1'));
+    });
 }
 
 #[test]
@@ -302,24 +307,29 @@ fn separate_redirection_support_variable() {
 
 #[test]
 fn redirection_should_have_a_target() {
-    let scripts = [
-        "echo asdf o+e>",
-        "echo asdf o>",
-        "echo asdf e>",
-        "echo asdf o> e>",
-        "echo asdf o> tmp.txt e>",
-        "echo asdf o> e> tmp.txt",
-        "echo asdf o> | ignore",
-        "echo asdf o>; echo asdf",
-    ];
-    for code in scripts {
-        let actual = nu!(code);
-        assert!(
-            actual.err.contains("expected redirection target",),
-            "should be error, code: {}",
-            code
-        );
-    }
+    Playground::setup("redirection_should_have_a_target", |dirs, _| {
+        let scripts = [
+            "echo asdf o+e>",
+            "echo asdf o>",
+            "echo asdf e>",
+            "echo asdf o> e>",
+            "echo asdf o> tmp.txt e>",
+            "echo asdf o> e> tmp.txt",
+            "echo asdf o> | ignore",
+            "echo asdf o>; echo asdf",
+        ];
+        for code in scripts {
+            let actual = nu!(cwd: dirs.test(), code);
+            assert!(
+                actual.err.contains("expected redirection target",),
+                "should be error, code: {code}",
+            );
+            assert!(
+                !dirs.test().join("tmp.txt").exists(),
+                "No file should be created on error: {code}",
+            );
+        }
+    });
 }
 
 #[test]
@@ -352,8 +362,24 @@ fn redirection_with_pipe() {
 
 #[test]
 fn no_duplicate_redirection() {
-    let actual = nu!("echo 3 o> a.txt o> a.txt");
-    assert!(actual.err.contains("Redirection can be set only once"));
-    let actual = nu!("echo 3 e> a.txt e> a.txt");
-    assert!(actual.err.contains("Redirection can be set only once"));
+    Playground::setup("redirection does not accept duplicate", |dirs, _| {
+        let actual = nu!(
+            cwd: dirs.test(),
+            "echo 3 o> a.txt o> a.txt"
+        );
+        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(
+            !dirs.test().join("a.txt").exists(),
+            "No file should be created on error"
+        );
+        let actual = nu!(
+            cwd: dirs.test(),
+            "echo 3 e> a.txt e> a.txt"
+        );
+        assert!(actual.err.contains("Redirection can be set only once"));
+        assert!(
+            !dirs.test().join("a.txt").exists(),
+            "No file should be created on error"
+        );
+    });
 }

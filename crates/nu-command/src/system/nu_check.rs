@@ -20,7 +20,7 @@ impl Command for NuCheck {
             (Type::ListStream, Type::Bool),
             (Type::List(Box::new(Type::Any)), Type::Bool)])
             // type is string to avoid automatically canonicalizing the path
-            .optional("path", SyntaxShape::String, "File path to parse")
+            .optional("path", SyntaxShape::String, "File path to parse.")
             .switch("as-module", "Parse content as module", Some('m'))
             .switch("debug", "Show error messages", Some('d'))
             .switch("all", "Parse content as script first, returns result if success, otherwise, try with module", Some('a'))

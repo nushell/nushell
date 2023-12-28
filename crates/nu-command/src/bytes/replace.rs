@@ -36,12 +36,12 @@ impl Command for BytesReplace {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("find", SyntaxShape::Binary, "the pattern to find")
-            .required("replace", SyntaxShape::Binary, "the replacement pattern")
+            .required("find", SyntaxShape::Binary, "The pattern to find.")
+            .required("replace", SyntaxShape::Binary, "The replacement pattern.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, replace bytes in data at the given cell paths",
+                "For a data structure input, replace bytes in data at the given cell paths.",
             )
             .switch("all", "replace all occurrences of find binary", Some('a'))
             .category(Category::Bytes)

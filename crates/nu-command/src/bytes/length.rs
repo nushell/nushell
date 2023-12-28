@@ -29,7 +29,7 @@ impl Command for BytesLen {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, find the length of data at the given cell paths",
+                "For a data structure input, find the length of data at the given cell paths.",
             )
             .category(Category::Bytes)
     }

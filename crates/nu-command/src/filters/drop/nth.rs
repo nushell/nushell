@@ -25,9 +25,9 @@ impl Command for DropNth {
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
-                "the number of the row to drop or a range to drop consecutive rows",
+                "The number of the row to drop or a range to drop consecutive rows.",
             )
-            .rest("rest", SyntaxShape::Any, "the number of the row to drop")
+            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 

@@ -19,7 +19,7 @@ impl Command for ErrorMake {
             .required(
                 "error_struct",
                 SyntaxShape::Record(vec![]),
-                "the error to create",
+                "The error to create.",
             )
             .switch(
                 "unspanned",

@@ -24,7 +24,7 @@ impl Command for SortBy {
                 (Type::Record(vec![]), Type::Table(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
+            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",

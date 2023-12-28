@@ -41,11 +41,17 @@ pub fn http_client(
     redirect_mode: RedirectMode,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> ureq::Agent {
+) -> Result<ureq::Agent, ShellError> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .expect("Failed to build network tls");
+        .map_err(|e| ShellError::GenericError {
+            error: format!("Failed to build network tls: {}", e),
+            msg: String::new(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
 
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
@@ -61,7 +67,7 @@ pub fn http_client(
         }
     };
 
-    agent_builder.build()
+    Ok(agent_builder.build())
 }
 
 pub fn http_parse_url(

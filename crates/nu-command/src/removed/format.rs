@@ -21,7 +21,7 @@ impl Command for SubCommand {
             .optional(
                 "format string",
                 SyntaxShape::String,
-                "the desired date format",
+                "The desired date format.",
             )
             .category(Category::Removed)
     }

@@ -34,7 +34,7 @@ impl Command for Select {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the columns to select from the table",
+                "The columns to select from the table.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

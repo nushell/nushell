@@ -37,7 +37,7 @@ impl Command for SubCommand {
             .required(
                 "path",
                 SyntaxShape::String,
-                "Parent shared with the input path",
+                "Parent shared with the input path.",
             )
             .category(Category::Path)
     }

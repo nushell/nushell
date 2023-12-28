@@ -514,7 +514,7 @@ impl Command for AnsiCommand {
             .optional(
                 "code",
                 SyntaxShape::Any,
-                "the name of the code to use like 'green' or 'reset' to reset the color",
+                "The name of the code to use (from `ansi -l`).",
             )
             .switch(
                 "escape", // \x1b[

@@ -68,7 +68,7 @@ where
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                format!("optionally {} hash data by cell path", D::name()),
+                format!("Optionally {} hash data by cell path.", D::name()),
             )
     }
 

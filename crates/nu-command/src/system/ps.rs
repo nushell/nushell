@@ -5,7 +5,6 @@ use itertools::Itertools;
     not(target_os = "macos"),
     not(target_os = "windows"),
     not(target_os = "android"),
-    not(target_os = "ios")
 ))]
 use nu_protocol::Span;
 use nu_protocol::{
@@ -19,7 +18,6 @@ use nu_protocol::{
     not(target_os = "macos"),
     not(target_os = "windows"),
     not(target_os = "android"),
-    not(target_os = "ios")
 ))]
 use procfs::WithCurrentSystemInfo;
 
@@ -123,7 +121,6 @@ fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, Shell
                 not(target_os = "macos"),
                 not(target_os = "windows"),
                 not(target_os = "android"),
-                not(target_os = "ios")
             ))]
             {
                 let proc_stat = proc

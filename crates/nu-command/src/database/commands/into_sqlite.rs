@@ -25,7 +25,7 @@ impl Command for IntoSqliteDb {
             .required(
                 "file_name",
                 SyntaxShape::String,
-                "Specify the filename to save the database to",
+                "Specify the filename to save the database to.",
             )
             .named(
                 "table_name",
@@ -260,7 +260,6 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
         Value::Binary { val, .. } => format!("{val:?}"),
         Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }
 

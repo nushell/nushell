@@ -34,7 +34,7 @@ impl Command for History {
                 "Show long listing of entries for sqlite history",
                 Some('l'),
             )
-            .category(Category::Misc)
+            .category(Category::History)
     }
 
     fn run(

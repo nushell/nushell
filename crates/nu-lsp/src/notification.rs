@@ -121,7 +121,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  let {flags} <var_name> <initial_value>\n```\n\n### Parameters\n\n  `var_name: any` - variable name\n\n  `initial_value: any` - equals sign followed by value\n\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n### Input/output\n\n```\n any | nothing\n\n```\n### Usage\n  Create a variable and give it a value.\n\n### Extra usage:\n  This command is a parser keyword. For details, check:\n  https://www.nushell.sh/book/thinking_in_nu.html\n### Example(s)\n  Set a variable to a value\n```\n  let x = 10\n```\n  Set a variable to the result of an expression\n```\n  let x = 10 + 100\n```\n  Set a variable based on the condition\n```\n  let x = if false { -1 } else { 1 }\n```\n"
+                    "value": "Create a variable and give it a value.\n\nThis command is a parser keyword. For details, check:\n  https://www.nushell.sh/book/thinking_in_nu.html\n### Usage \n```\n  let {flags} <var_name> <initial_value>\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `var_name: any` - Variable name.\n\n  `initial_value: any` - Equals sign followed by value.\n\n\n### Input/output types\n\n```\n any | nothing\n\n```\n### Example(s)\n  Set a variable to a value\n```\n  let x = 10\n```\n  Set a variable to the result of an expression\n```\n  let x = 10 + 100\n```\n  Set a variable based on the condition\n```\n  let x = if false { -1 } else { 1 }\n```\n"
                 }
             })
         );
@@ -162,7 +162,7 @@ hello"#,
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                    "value": "Renders some updated greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -207,7 +207,7 @@ hello"#,
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some updated greeting message\n"
+                    "value": "Renders some updated greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );

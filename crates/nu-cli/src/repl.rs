@@ -54,7 +54,8 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -68,7 +69,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let mut nu_prompt = NushellPrompt::new();
+    let mut nu_prompt = NushellPrompt::new(config.shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -213,20 +214,6 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        // Reset the SIGQUIT handler
-        if let Some(sig_quit) = engine_state.get_sig_quit() {
-            sig_quit.store(false, Ordering::SeqCst);
-        }
-        perf(
-            "reset sig_quit",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());
@@ -267,11 +254,7 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config)
-            .with_transient_prompt(prompt_update::transient_prompt(
-                engine_reference.clone(),
-                stack,
-            ));
+            .with_cursor_config(cursor_config);
         perf(
             "reedline builder",
             start_time,
@@ -424,7 +407,9 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         let config = &engine_state.get_config().clone();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        let transient_prompt =
+            prompt_update::make_transient_prompt(config, engine_state, stack, &nu_prompt);
         perf(
             "update_prompt",
             start_time,
@@ -437,7 +422,8 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        let input = line_editor.read_line(prompt);
+        line_editor = line_editor.with_transient_prompt(transient_prompt);
+        let input = line_editor.read_line(&nu_prompt);
         let shell_integration = config.shell_integration;
 
         match input {
@@ -764,7 +750,7 @@ fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorSty
     }
 }
 
-pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
+fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());

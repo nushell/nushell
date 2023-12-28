@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "URL",
                 SyntaxShape::String,
-                "the URL to fetch the options from",
+                "The URL to fetch the options from.",
             )
             .named(
                 "user",

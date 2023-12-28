@@ -312,7 +312,7 @@ impl LanguageServer {
                     }
                 }
             }
-            _ => {}
+            Id::Value(_) => {}
         }
         None
     }
@@ -347,11 +347,22 @@ impl LanguageServer {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
 
-                let mut description = "\n### Signature\n```\n".to_string();
+                let mut description = String::new();
+
+                // First description
+                description.push_str(&format!("{}\n", decl.usage().replace('\r', "")));
+
+                // Additional description
+                if !decl.extra_usage().is_empty() {
+                    description.push_str(&format!("\n{}\n", decl.extra_usage()));
+                }
+
+                // Usage
+                description.push_str("### Usage \n```\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
-                    description.push_str(" {flags}")
+                    description.push_str(" {flags}");
                 }
                 for required_arg in &signature.required_positional {
                     description.push_str(&format!(" <{}>", required_arg.name));
@@ -363,6 +374,39 @@ impl LanguageServer {
                     description.push_str(&format!(" <...{}>", arg.name));
                 }
                 description.push_str("\n```\n");
+
+                // Flags
+                if !signature.named.is_empty() {
+                    description.push_str("\n### Flags\n\n");
+                    let mut first = true;
+                    for named in &signature.named {
+                        if first {
+                            first = false;
+                        } else {
+                            description.push('\n');
+                        }
+                        description.push_str("  ");
+                        if let Some(short_flag) = &named.short {
+                            description.push_str(&format!("`-{short_flag}`"));
+                        }
+                        if !named.long.is_empty() {
+                            if named.short.is_some() {
+                                description.push_str(", ");
+                            }
+                            description.push_str(&format!("`--{}`", named.long));
+                        }
+                        if let Some(arg) = &named.arg {
+                            description.push_str(&format!(" `<{}>`", arg.to_type()));
+                        }
+                        if !named.desc.is_empty() {
+                            description.push_str(&format!(" - {}", named.desc));
+                        }
+                        description.push('\n');
+                    }
+                    description.push('\n');
+                }
+
+                // Parameters
                 if !signature.required_positional.is_empty()
                     || !signature.optional_positional.is_empty()
                     || signature.rest_positional.is_some()
@@ -370,10 +414,10 @@ impl LanguageServer {
                     description.push_str("\n### Parameters\n\n");
                     let mut first = true;
                     for required_arg in &signature.required_positional {
-                        if !first {
-                            description.push('\n');
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -386,10 +430,10 @@ impl LanguageServer {
                         description.push('\n');
                     }
                     for optional_arg in &signature.optional_positional {
-                        if !first {
-                            description.push('\n');
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -417,36 +461,10 @@ impl LanguageServer {
                     }
                     description.push('\n');
                 }
-                if !signature.named.is_empty() {
-                    description.push_str("\n### Flags\n\n");
-                    let mut first = true;
-                    for named in &signature.named {
-                        if !first {
-                            description.push('\n');
-                        } else {
-                            first = false;
-                        }
-                        description.push_str("  ");
-                        if let Some(short_flag) = &named.short {
-                            description.push_str(&format!("`-{}`", short_flag));
-                        }
-                        if !named.long.is_empty() {
-                            if named.short.is_some() {
-                                description.push_str(", ")
-                            }
-                            description.push_str(&format!("`--{}`", named.long));
-                        }
-                        if let Some(arg) = &named.arg {
-                            description.push_str(&format!(" `<{}>`", arg.to_type()))
-                        }
-                        if !named.desc.is_empty() {
-                            description.push_str(&format!(" - {}", named.desc));
-                        }
-                    }
-                    description.push('\n');
-                }
+
+                // Input/output types
                 if !signature.input_output_types.is_empty() {
-                    description.push_str("\n### Input/output\n");
+                    description.push_str("\n### Input/output types\n");
                     description.push_str("\n```\n");
                     for input_output in &signature.input_output_types {
                         description
@@ -454,14 +472,8 @@ impl LanguageServer {
                     }
                     description.push_str("\n```\n");
                 }
-                description.push_str(&format!(
-                    "### Usage\n  {}\n",
-                    decl.usage().replace('\r', "")
-                ));
-                if !decl.extra_usage().is_empty() {
-                    description
-                        .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
-                }
+
+                // Examples
                 if !decl.examples().is_empty() {
                     description.push_str("### Example(s)\n");
                     for example in decl.examples() {
@@ -578,8 +590,9 @@ mod tests {
         },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
         CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-        GotoDefinitionParams, InitializeParams, InitializedParams, TextDocumentContentChangeEvent,
-        TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, Url,
+        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, Url, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
@@ -671,8 +684,8 @@ mod tests {
                             character: 0,
                         },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -777,8 +790,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -894,7 +907,7 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
                 })
                 .unwrap(),
             }))
@@ -957,7 +970,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
+                    "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -974,8 +987,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                     context: None,
                 })
                 .unwrap(),

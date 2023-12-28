@@ -28,11 +28,7 @@ impl Command for Parse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "the pattern to match. Eg) \"{foo}: {bar}\"",
-            )
+            .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
                 (Type::String, Type::Table(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),

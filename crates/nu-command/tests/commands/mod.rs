@@ -7,6 +7,7 @@ mod break_;
 mod cal;
 mod cd;
 mod compact;
+mod complete;
 mod config_env_default;
 mod config_nu_default;
 mod continue_;
@@ -106,6 +107,8 @@ mod touch;
 mod transpose;
 mod try_;
 mod ucp;
+#[cfg(unix)]
+mod ulimit;
 mod umkdir;
 mod uniq;
 mod uniq_by;
