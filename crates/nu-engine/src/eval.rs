@@ -1,9 +1,9 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{call_ext::CallExt, current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        Argument, Assignment, Block, Call, Expr, Expression, PathMember, PipelineElement,
-        Redirection,
+        Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
+        PipelineElement, Redirection,
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
@@ -66,11 +66,11 @@ pub fn eval_call(
         if let Some(rest_positional) = decl.signature().rest_positional {
             let mut rest_items = vec![];
 
-            for arg in call.positional_iter().skip(
+            for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
-            ) {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
+                |expr| eval_expression(engine_state, caller_stack, expr),
+            )? {
                 rest_items.push(result);
             }
 
@@ -182,7 +182,7 @@ fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
     head: &Expression,
-    args: &[Expression],
+    args: &[ExternalArgument],
     input: PipelineData,
     redirect_target: RedirectTarget,
     is_subexpression: bool,
@@ -198,7 +198,10 @@ fn eval_external(
     call.add_positional(head.clone());
 
     for arg in args {
-        call.add_positional(arg.clone())
+        match arg {
+            ExternalArgument::Regular(expr) => call.add_positional(expr.clone()),
+            ExternalArgument::Spread(expr) => call.add_spread(expr.clone()),
+        }
     }
 
     match redirect_target {
@@ -947,7 +950,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         head: &Expression,
-        args: &[Expression],
+        args: &[ExternalArgument],
         is_subexpression: bool,
         _: Span,
     ) -> Result<Value, ShellError> {

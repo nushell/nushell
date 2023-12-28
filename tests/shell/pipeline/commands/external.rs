@@ -354,7 +354,7 @@ mod nu_commands {
     #[test]
     fn command_list_arg_test() {
         let actual = nu!("
-        nu ['-c' 'version']
+        nu ...['-c' 'version']
         ");
 
         assert!(actual.out.contains("version"));
@@ -365,7 +365,7 @@ mod nu_commands {
     #[test]
     fn command_cell_path_arg_test() {
         let actual = nu!("
-        nu ([ '-c' 'version' ])
+        nu ...([ '-c' 'version' ])
         ");
 
         assert!(actual.out.contains("version"));
@@ -436,7 +436,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 "
-                    nu --testbin cococo (ls | get name)
+                    nu --testbin cococo ...(ls | get name)
                 "
                 ));
 

@@ -200,6 +200,24 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 };
                 arg_value.push(Value::record(record, inner_expr.span));
             }
+            Argument::Spread(inner_expr) => {
+                let arg_type = "spread";
+                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_type = &evaluated_expression.get_type().to_string();
+                let evaled_span = evaluated_expression.span();
+                let arg_value_name_span_start = evaled_span.start as i64;
+                let arg_value_name_span_end = evaled_span.end as i64;
+
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
+                };
+                arg_value.push(Value::record(record, inner_expr.span));
+            }
         };
     }
 

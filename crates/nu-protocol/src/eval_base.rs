@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, RecordItem,
+        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
+        ExternalArgument, Math, Operator, RecordItem,
     },
     Range, Record, ShellError, Span, Value, VarId,
 };
@@ -319,7 +319,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         head: &Expression,
-        args: &[Expression],
+        args: &[ExternalArgument],
         is_subexpression: bool,
         span: Span,
     ) -> Result<Value, ShellError>;

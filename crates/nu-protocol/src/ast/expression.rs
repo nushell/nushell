@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Expr, RecordItem};
+use super::{Argument, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -162,15 +162,21 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for positional in call.positional_iter() {
-                    if positional.has_in_variable(working_set) {
-                        return true;
-                    }
-                }
-                for named in call.named_iter() {
-                    if let Some(expr) = &named.2 {
-                        if expr.has_in_variable(working_set) {
-                            return true;
+                for arg in &call.arguments {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Spread(expr) => {
+                            if expr.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
+                        Argument::Named(named) => {
+                            if let Some(expr) = &named.2 {
+                                if expr.has_in_variable(working_set) {
+                                    return true;
+                                }
+                            }
                         }
                     }
                 }
@@ -182,8 +188,8 @@ impl Expression {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
-                for arg in args {
-                    if arg.has_in_variable(working_set) {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    if expr.has_in_variable(working_set) {
                         return true;
                     }
                 }
@@ -346,12 +352,18 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = new_span;
                 }
-                for positional in call.positional_iter_mut() {
-                    positional.replace_span(working_set, replaced, new_span);
-                }
-                for named in call.named_iter_mut() {
-                    if let Some(expr) = &mut named.2 {
-                        expr.replace_span(working_set, replaced, new_span)
+                for arg in call.arguments.iter_mut() {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Spread(expr) => {
+                            expr.replace_span(working_set, replaced, new_span);
+                        }
+                        Argument::Named(named) => {
+                            if let Some(expr) = &mut named.2 {
+                                expr.replace_span(working_set, replaced, new_span);
+                            }
+                        }
                     }
                 }
             }
@@ -359,8 +371,8 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args, _) => {
                 head.replace_span(working_set, replaced, new_span);
-                for arg in args {
-                    arg.replace_span(working_set, replaced, new_span)
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    expr.replace_span(working_set, replaced, new_span);
                 }
             }
             Expr::Filepath(_) => {}

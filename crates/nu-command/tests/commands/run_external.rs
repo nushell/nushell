@@ -328,7 +328,7 @@ fn redirect_combine() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                run-external --redirect-combine sh [-c 'echo Foo; echo >&2 Bar']
+                run-external --redirect-combine sh ...[-c 'echo Foo; echo >&2 Bar']
             "#
         ));
 

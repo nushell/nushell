@@ -1,4 +1,5 @@
 use crate::tests::{fail_test, run_test, TestResult};
+use nu_test_support::nu;
 
 #[test]
 fn spread_in_list() -> TestResult {
@@ -15,30 +16,6 @@ fn spread_in_list() -> TestResult {
     .unwrap();
     run_test(
         r#"let l = [1, 2, [3]]; [...$l $l] | to nuon"#,
-        "[1, 2, [3], [1, 2, [3]]]",
-    )
-    .unwrap();
-    run_test(
-        r#"[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon"#,
-        "[a, b, c, d]",
-    )
-}
-
-#[test]
-fn const_spread_in_list() -> TestResult {
-    run_test(r#"const x = [...[]]; $x | to nuon"#, "[]").unwrap();
-    run_test(
-        r#"const x = [1 2 ...[[3] {x: 1}] 5]; $x | to nuon"#,
-        "[1, 2, [3], {x: 1}, 5]",
-    )
-    .unwrap();
-    run_test(
-        r#"const x = [...([f o o]) 10]; $x | to nuon"#,
-        "[f, o, o, 10]",
-    )
-    .unwrap();
-    run_test(
-        r#"const l = [1, 2, [3]]; const x = [...$l $l]; $x | to nuon"#,
         "[1, 2, [3], [1, 2, [3]]]",
     )
     .unwrap();
@@ -96,29 +73,10 @@ fn spread_in_record() -> TestResult {
 }
 
 #[test]
-fn const_spread_in_record() -> TestResult {
-    run_test(r#"const x = {...{...{...{}}}}; $x | to nuon"#, "{}").unwrap();
-    run_test(
-        r#"const x = {foo: bar ...{a: {x: 1}} b: 3}; $x | to nuon"#,
-        "{foo: bar, a: {x: 1}, b: 3}",
-    )
-}
-
-#[test]
 fn duplicate_cols() -> TestResult {
     fail_test(r#"{a: 1, ...{a: 3}}"#, "column used twice").unwrap();
     fail_test(r#"{...{a: 4, x: 3}, x: 1}"#, "column used twice").unwrap();
     fail_test(r#"{...{a: 0, x: 2}, ...{x: 5}}"#, "column used twice")
-}
-
-#[test]
-fn const_duplicate_cols() -> TestResult {
-    fail_test(r#"const _ = {a: 1, ...{a: 3}}"#, "column used twice").unwrap();
-    fail_test(r#"const _ = {...{a: 4, x: 3}, x: 1}"#, "column used twice").unwrap();
-    fail_test(
-        r#"const _ = {...{a: 0, x: 2}, ...{x: 5}}"#,
-        "column used twice",
-    )
 }
 
 #[test]
@@ -138,4 +96,97 @@ fn spread_type_record() -> TestResult {
         r#"def f [a: record<x: int>] {}; f { ...{x: "not an int"} }"#,
         "type_mismatch",
     )
+}
+
+#[test]
+fn spread_external_args() {
+    assert_eq!(
+        nu!(r#"nu --testbin cococo ...[1 "foo"] 2 ...[3 "bar"]"#).out,
+        "1 foo 2 3 bar",
+    );
+    // exec doesn't have rest parameters but allows unknown arguments
+    assert_eq!(
+        nu!(r#"exec nu --testbin cococo "foo" ...[5 6]"#).out,
+        "foo 5 6"
+    );
+}
+
+#[test]
+fn spread_internal_args() -> TestResult {
+    run_test(
+        r#"
+        let list = ["foo" 4]
+        def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
+        f 1 2 ...[5 6] 7 ...$list"#,
+        "[1, 2, null, null, [5, 6, 7, foo, 4]]",
+    )
+    .unwrap();
+    run_test(
+        r#"
+        def f [a b c? d? ...x] { [$a $b $c $d $x] | to nuon }
+        f 1 2 3 ...[5 6]"#,
+        "[1, 2, 3, null, [5, 6]]",
+    )
+    .unwrap();
+    run_test(
+        r#"
+        def f [--flag: int ...x] { [$flag $x] | to nuon }
+        f 2 ...[foo] 4 --flag 5 6 ...[7 8]"#,
+        "[5, [2, foo, 4, 6, 7, 8]]",
+    )
+    .unwrap();
+    run_test(
+        r#"
+        def f [a b? --flag: int ...x] { [$a $b $flag $x] | to nuon }
+        f 1 ...[foo] 4 --flag 5 6 ...[7 8]"#,
+        "[1, null, 5, [foo, 4, 6, 7, 8]]",
+    )
+}
+
+#[test]
+fn bad_spread_internal_args() -> TestResult {
+    fail_test(
+        r#"
+        def f [a b c? d? ...x] { echo $a $b $c $d $x }
+        f 1 ...[5 6]"#,
+        "Missing required positional argument",
+    )
+    .unwrap();
+    fail_test(
+        r#"
+        def f [a b?] { echo a b c d }
+        f ...[5 6]"#,
+        "unexpected spread argument",
+    )
+}
+
+#[test]
+fn spread_non_list_args() {
+    fail_test(r#"echo ...(1)"#, "cannot spread value").unwrap();
+    assert!(nu!(r#"nu --testbin cococo ...(1)"#)
+        .err
+        .contains("cannot spread value"));
+}
+
+#[test]
+fn spread_args_type() -> TestResult {
+    fail_test(r#"def f [...x: int] {}; f ...["abc"]"#, "expected int")
+}
+
+#[test]
+fn explain_spread_args() -> TestResult {
+    run_test(
+        r#"(explain { || echo ...[1 2] }).cmd_args.0 | select arg_type name type | to nuon"#,
+        r#"[[arg_type, name, type]; [spread, "[1 2]", list<int>]]"#,
+    )
+}
+
+#[test]
+fn deprecate_implicit_spread_for_externals() {
+    // TODO: When automatic spreading is removed, test that list literals fail at parse time
+    let result = nu!(r#"nu --testbin cococo [1 2]"#);
+    assert!(result
+        .err
+        .contains("Automatically spreading lists is deprecated"));
+    assert_eq!(result.out, "1 2");
 }

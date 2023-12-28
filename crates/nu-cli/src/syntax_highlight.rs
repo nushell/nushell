@@ -385,6 +385,7 @@ fn find_matching_block_end_in_expr(
                         Argument::Named((_, _, opt_expr)) => opt_expr.as_ref(),
                         Argument::Positional(inner_expr) => Some(inner_expr),
                         Argument::Unknown(inner_expr) => Some(inner_expr),
+                        Argument::Spread(inner_expr) => Some(inner_expr),
                     };
 
                     if let Some(inner_expr) = opt_expr {

@@ -1,8 +1,8 @@
 use nu_protocol::{
-    ast::Call,
+    ast::{Call, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::eval_constant,
-    FromValue, ShellError,
+    FromValue, ShellError, Value,
 };
 
 use crate::eval_expression;
@@ -33,6 +33,10 @@ pub trait CallExt {
         working_set: &StateWorkingSet,
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
+
+    fn rest_iter_flattened<F>(&self, start: usize, eval: F) -> Result<Vec<Value>, ShellError>
+    where
+        F: FnMut(&Expression) -> Result<Value, ShellError>;
 
     fn opt<T: FromValue>(
         &self,
@@ -98,8 +102,9 @@ impl CallExt for Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for expr in self.positional_iter().skip(starting_pos) {
-            let result = eval_expression(engine_state, stack, expr)?;
+        for result in self.rest_iter_flattened(starting_pos, |expr| {
+            eval_expression(engine_state, stack, expr)
+        })? {
             output.push(FromValue::from_value(result)?);
         }
 
@@ -113,9 +118,31 @@ impl CallExt for Call {
     ) -> Result<Vec<T>, ShellError> {
         let mut output = vec![];
 
-        for expr in self.positional_iter().skip(starting_pos) {
-            let result = eval_constant(working_set, expr)?;
+        for result in
+            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
+        {
             output.push(FromValue::from_value(result)?);
+        }
+
+        Ok(output)
+    }
+
+    fn rest_iter_flattened<F>(&self, start: usize, mut eval: F) -> Result<Vec<Value>, ShellError>
+    where
+        F: FnMut(&Expression) -> Result<Value, ShellError>,
+    {
+        let mut output = Vec::new();
+
+        for (expr, spread) in self.rest_iter(start) {
+            let result = eval(expr)?;
+            if spread {
+                match result {
+                    Value::List { mut vals, .. } => output.append(&mut vals),
+                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                }
+            } else {
+                output.push(result);
+            }
         }
 
         Ok(output)

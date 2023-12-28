@@ -484,9 +484,12 @@ pub enum ParseError {
         #[label("...and here")] Option<Span>,
     ),
 
-    #[error("Unexpected spread operator outside list")]
-    #[diagnostic(code(nu::parser::unexpected_spread_operator))]
-    UnexpectedSpread(#[label("Spread operator not allowed here")] Span),
+    #[error("This command does not have a ...rest parameter")]
+    #[diagnostic(
+        code(nu::parser::unexpected_spread_arg),
+        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
+    )]
+    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
 
 impl ParseError {
@@ -573,7 +576,7 @@ impl ParseError {
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectionInLetMut(s, _) => *s,
-            ParseError::UnexpectedSpread(s) => *s,
+            ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
 }
