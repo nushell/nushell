@@ -1,5 +1,6 @@
 use std::path::Path;
 
+use crate::engine::debugger::{DebugContext, Debugger};
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
@@ -45,6 +46,21 @@ pub trait Command: Send + Sync + CommandClone {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         Err(ShellError::MissingConstEvalImpl { span: call.head })
+    }
+
+    /// Run the command via a provided debugger.
+    ///
+    /// By default runs without debugging.
+    #[allow(unused_variables)]
+    fn run_debug(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+        debugger: &mut dyn Debugger,
+    ) -> Result<PipelineData, ShellError> {
+        self.run(engine_state, stack, call, input)
     }
 
     fn examples(&self) -> Vec<Example> {

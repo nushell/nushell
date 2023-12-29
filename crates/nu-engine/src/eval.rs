@@ -1,5 +1,6 @@
 use crate::{call_ext::CallExt, current_dir_str, get_full_help};
 use nu_path::expand_path_with;
+use nu_protocol::engine::debugger::{DebugContext, Debugger};
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -577,6 +578,31 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
+    }
+}
+
+pub fn eval_block_with_early_return2(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+    redirect_stdout: bool,
+    redirect_stderr: bool,
+    debug_mode: impl DebugContext,
+    debugger: &mut dyn Debugger,
+) -> Result<PipelineData, ShellError> {
+    debug_mode.on_block_enter(debugger);
+
+    match eval_block(
+        engine_state,
+        stack,
+        block,
+        input,
+        redirect_stdout,
+        redirect_stderr,
+    ) {
+        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
+        x => x,
     }
 }
 

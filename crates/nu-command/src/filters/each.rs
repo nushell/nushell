@@ -1,11 +1,13 @@
-use super::utils::chain_error_with_input;
-use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_engine::{eval_block_with_early_return, eval_block_with_early_return2, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::{DebugContext, Debugger, NoopDebugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+
+use super::utils::chain_error_with_input;
 
 #[derive(Clone)]
 pub struct Each;
@@ -105,6 +107,17 @@ with 'transpose' first."#
         ]
     }
 
+    fn run_debug(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+        debugger: &mut dyn Debugger,
+    ) -> Result<PipelineData, ShellError> {
+        run_each(engine_state, stack, call, input, WithDebug, debugger)
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -112,133 +125,154 @@ with 'transpose' first."#
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let capture_block: Closure = call.req(engine_state, stack, 0)?;
+        run_each(
+            engine_state,
+            stack,
+            call,
+            input,
+            WithoutDebug,
+            &mut NoopDebugger,
+        )
+    }
+}
 
-        let keep_empty = call.has_flag("keep-empty");
+fn run_each(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+    debug_mode: impl DebugContext,
+    debugger: &mut dyn Debugger,
+) -> Result<PipelineData, ShellError> {
+    let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let metadata = input.metadata();
-        let ctrlc = engine_state.ctrlc.clone();
-        let outer_ctrlc = engine_state.ctrlc.clone();
-        let engine_state = engine_state.clone();
-        let block = engine_state.get_block(capture_block.block_id).clone();
-        let mut stack = stack.captures_to_stack(capture_block.captures);
-        let orig_env_vars = stack.env_vars.clone();
-        let orig_env_hidden = stack.env_hidden.clone();
-        let span = call.head;
-        let redirect_stdout = call.redirect_stdout;
-        let redirect_stderr = call.redirect_stderr;
+    let keep_empty = call.has_flag("keep-empty");
 
-        match input {
-            PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => Ok(input
-                .into_iter()
-                .map_while(move |x| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
+    let metadata = input.metadata();
+    let ctrlc = engine_state.ctrlc.clone();
+    let outer_ctrlc = engine_state.ctrlc.clone();
+    let engine_state = engine_state.clone();
+    let block = engine_state.get_block(capture_block.block_id).clone();
+    let mut stack = stack.captures_to_stack(capture_block.captures);
+    let orig_env_vars = stack.env_vars.clone();
+    let orig_env_hidden = stack.env_hidden.clone();
+    let span = call.head;
+    let redirect_stdout = call.redirect_stdout;
+    let redirect_stderr = call.redirect_stderr;
 
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
-                        }
-                    }
+    match input {
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(Value::Range { .. }, ..)
+        | PipelineData::Value(Value::List { .. }, ..)
+        | PipelineData::ListStream { .. } => Ok(input
+            .into_iter()
+            .map_while(move |x| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
+                stack.with_env(&orig_env_vars, &orig_env_hidden);
 
-                    let input_span = x.span();
-                    let x_is_error = x.is_error();
-                    match eval_block_with_early_return(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
-                        Err(ShellError::Break { .. }) => None,
-                        Err(error) => {
-                            let error = chain_error_with_input(error, x_is_error, input_span);
-                            Some(Value::error(error, input_span))
-                        }
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
-            PipelineData::ExternalStream {
-                stdout: Some(stream),
-                ..
-            } => Ok(stream
-                .into_iter()
-                .map_while(move |x| {
-                    // with_env() is used here to ensure that each iteration uses
-                    // a different set of environment variables.
-                    // Hence, a 'cd' in the first loop won't affect the next loop.
-                    stack.with_env(&orig_env_vars, &orig_env_hidden);
-
-                    let x = match x {
-                        Ok(x) => x,
-                        Err(ShellError::Continue { span }) => return Some(Value::nothing(span)),
-                        Err(ShellError::Break { .. }) => return None,
-                        Err(err) => return Some(Value::error(err, span)),
-                    };
-
-                    if let Some(var) = block.signature.get_positional(0) {
-                        if let Some(var_id) = &var.var_id {
-                            stack.add_var(*var_id, x.clone());
-                        }
-                    }
-
-                    let input_span = x.span();
-                    let x_is_error = x.is_error();
-
-                    match eval_block_with_early_return(
-                        &engine_state,
-                        &mut stack,
-                        &block,
-                        x.into_pipeline_data(),
-                        redirect_stdout,
-                        redirect_stderr,
-                    ) {
-                        Ok(v) => Some(v.into_value(span)),
-                        Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
-                        Err(ShellError::Break { .. }) => None,
-                        Err(error) => {
-                            let error = chain_error_with_input(error, x_is_error, input_span);
-                            Some(Value::error(error, input_span))
-                        }
-                    }
-                })
-                .into_pipeline_data(ctrlc)),
-            // This match allows non-iterables to be accepted,
-            // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(x, ..) => {
                 if let Some(var) = block.signature.get_positional(0) {
                     if let Some(var_id) = &var.var_id {
                         stack.add_var(*var_id, x.clone());
                     }
                 }
 
-                eval_block_with_early_return(
+                let input_span = x.span();
+                let x_is_error = x.is_error();
+                // TODO: change to eval_block_with_early_return2 which accepts the debugger args
+                match eval_block_with_early_return(
                     &engine_state,
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
-                )
+                ) {
+                    Ok(v) => Some(v.into_value(span)),
+                    Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                    Err(ShellError::Break { .. }) => None,
+                    Err(error) => {
+                        let error = chain_error_with_input(error, x_is_error, input_span);
+                        Some(Value::error(error, input_span))
+                    }
+                }
+            })
+            .into_pipeline_data(ctrlc)),
+        PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
+        PipelineData::ExternalStream {
+            stdout: Some(stream),
+            ..
+        } => Ok(stream
+            .into_iter()
+            .map_while(move |x| {
+                // with_env() is used here to ensure that each iteration uses
+                // a different set of environment variables.
+                // Hence, a 'cd' in the first loop won't affect the next loop.
+                stack.with_env(&orig_env_vars, &orig_env_hidden);
+
+                let x = match x {
+                    Ok(x) => x,
+                    Err(ShellError::Continue { span }) => return Some(Value::nothing(span)),
+                    Err(ShellError::Break { .. }) => return None,
+                    Err(err) => return Some(Value::error(err, span)),
+                };
+
+                if let Some(var) = block.signature.get_positional(0) {
+                    if let Some(var_id) = &var.var_id {
+                        stack.add_var(*var_id, x.clone());
+                    }
+                }
+
+                let input_span = x.span();
+                let x_is_error = x.is_error();
+
+                // TODO: change to eval_block_with_early_return2 which accepts the debugger args
+                match eval_block_with_early_return(
+                    &engine_state,
+                    &mut stack,
+                    &block,
+                    x.into_pipeline_data(),
+                    redirect_stdout,
+                    redirect_stderr,
+                ) {
+                    Ok(v) => Some(v.into_value(span)),
+                    Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
+                    Err(ShellError::Break { .. }) => None,
+                    Err(error) => {
+                        let error = chain_error_with_input(error, x_is_error, input_span);
+                        Some(Value::error(error, input_span))
+                    }
+                }
+            })
+            .into_pipeline_data(ctrlc)),
+        // This match allows non-iterables to be accepted,
+        // which is currently considered undesirable (Nov 2022).
+        PipelineData::Value(x, ..) => {
+            if let Some(var) = block.signature.get_positional(0) {
+                if let Some(var_id) = &var.var_id {
+                    stack.add_var(*var_id, x.clone());
+                }
             }
-        }
-        .and_then(|x| {
-            x.filter(
-                move |x| if !keep_empty { !x.is_nothing() } else { true },
-                outer_ctrlc,
+
+            // TODO: change to eval_block_with_early_return2 which accepts the debugger args
+            eval_block_with_early_return(
+                &engine_state,
+                &mut stack,
+                &block,
+                x.into_pipeline_data(),
+                redirect_stdout,
+                redirect_stderr,
             )
-        })
-        .map(|x| x.set_metadata(metadata))
+        }
     }
+    .and_then(|x| {
+        x.filter(
+            move |x| if !keep_empty { !x.is_nothing() } else { true },
+            outer_ctrlc,
+        )
+    })
+    .map(|x| x.set_metadata(metadata))
 }
 
 #[cfg(test)]

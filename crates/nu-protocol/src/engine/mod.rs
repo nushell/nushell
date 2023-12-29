@@ -1,6 +1,7 @@
 mod call_info;
 mod capture_block;
 mod command;
+pub mod debugger;
 mod engine_state;
 mod overlay;
 mod pattern_match;
