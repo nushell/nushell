@@ -2,6 +2,7 @@ use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, DirectoryCompletion,
     DotNuCompletion, FileCompletion, FlagCompletion, VariableCompletion,
 };
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
 use nu_protocol::{
@@ -507,6 +508,16 @@ pub fn map_value_completions<'a>(
                         // Update the suggestion value
                         suggestion.description = Some(desc_str);
                     }
+                }
+
+                // Match `style` column
+                if it.0 == "style" {
+                    // Convert the value to string
+                    suggestion.style = match it.1 {
+                        Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+                        Value::Record { .. } => Some(color_record_to_nustyle(it.1)),
+                        _ => None,
+                    };
                 }
             });
 

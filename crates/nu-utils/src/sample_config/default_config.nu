@@ -265,7 +265,7 @@ $env.config = {
             }
             style: {
                 text: green
-                selected_text: green_reverse
+                selected_text: {attr: r}
                 description_text: yellow
             }
         }
