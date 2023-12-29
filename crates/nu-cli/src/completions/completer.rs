@@ -6,6 +6,7 @@ use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::{flatten_pipeline_element, parse, FlatShape};
 use nu_protocol::{
+    ast::Expression,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     BlockId, PipelineData, Span, Value,
@@ -229,7 +230,10 @@ impl NuCompleter {
                             let mut completer = CommandCompletion::new(
                                 self.engine_state.clone(),
                                 &working_set,
-                                flattened.clone(),
+                                flattened
+                                    .iter()
+                                    .map(|(span, shape, _)| (*span, shape.clone()))
+                                    .collect(),
                                 // flat_idx,
                                 FlatShape::String,
                                 true,
@@ -340,7 +344,10 @@ impl NuCompleter {
                                 let mut completer = CommandCompletion::new(
                                     self.engine_state.clone(),
                                     &working_set,
-                                    flattened.clone(),
+                                    flattened
+                                        .iter()
+                                        .map(|(span, shape, _)| (*span, shape.clone()))
+                                        .collect(),
                                     // flat_idx,
                                     flat_shape.clone(),
                                     false,
@@ -410,10 +417,10 @@ impl ReedlineCompleter for NuCompleter {
 
 // reads the most left variable returning it's name (e.g: $myvar)
 // and the depth (a.b.c)
-fn most_left_variable(
+fn most_left_variable<'a>(
     idx: usize,
-    working_set: &StateWorkingSet<'_>,
-    flattened: Vec<(Span, FlatShape)>,
+    working_set: &'a StateWorkingSet<'_>,
+    flattened: Vec<(Span, FlatShape, Option<&'a Expression>)>,
 ) -> Option<(Vec<u8>, Vec<Vec<u8>>)> {
     // Reverse items to read the list backwards and truncate
     // because the only items that matters are the ones before the current index
