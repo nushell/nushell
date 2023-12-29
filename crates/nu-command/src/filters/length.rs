@@ -18,10 +18,7 @@ impl Command for Length {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("length")
-            .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Int),
-                (Type::Table(vec![]), Type::Int),
-            ])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Int)])
             .category(Category::Filters)
     }
 

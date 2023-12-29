@@ -19,10 +19,7 @@ impl Command for ConfigNu {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch(
                 "default",
                 "Print default `config.nu` file instead.",

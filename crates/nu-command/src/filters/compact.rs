@@ -14,19 +14,10 @@ impl Command for Compact {
 
     fn signature(&self) -> Signature {
         Signature::build("compact")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-                (
-                    // TODO: Should table be a subtype of List<Any>? If so then this
-                    // entry would be unnecessary.
-                    Type::Table(vec![]),
-                    Type::List(Box::new(Type::Any)),
-                ),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .switch(
                 "empty",
                 "also compact empty items like \"\", {}, and []",

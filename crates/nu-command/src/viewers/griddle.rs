@@ -29,7 +29,6 @@ impl Command for Griddle {
             .input_output_types(vec![
                 (Type::List(Box::new(Type::Any)), Type::String),
                 (Type::Record(vec![]), Type::String),
-                (Type::Table(vec![]), Type::String),
             ])
             .named(
                 "width",

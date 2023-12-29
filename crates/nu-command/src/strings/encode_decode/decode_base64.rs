@@ -16,15 +16,10 @@ impl Command for DecodeBase64 {
     fn signature(&self) -> Signature {
         Signature::build("decode base64")
             .input_output_types(vec![
-                (Type::String, Type::String),
-                (Type::String, Type::Binary),
+                (Type::String, Type::Any),
                 (
                     Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::String)),
-                ),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Any)),
                 ),
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
