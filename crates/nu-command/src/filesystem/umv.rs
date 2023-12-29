@@ -59,7 +59,7 @@ impl Command for UMv {
             .rest(
                 "paths",
                 SyntaxShape::Filepath,
-                "Rename SRC to DST, or move SRC to DIR",
+                "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
