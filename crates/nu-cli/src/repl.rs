@@ -29,7 +29,7 @@ use std::{
     env::temp_dir,
     io::{self, IsTerminal, Write},
     path::Path,
-    sync::atomic::Ordering,
+    sync::{atomic::Ordering, Arc},
     time::Instant,
 };
 use sysinfo::SystemExt;
@@ -242,6 +242,7 @@ pub fn evaluate_repl(
             .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
+                stack: Arc::new(stack.clone()),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {

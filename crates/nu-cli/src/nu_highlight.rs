@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type, Value};
@@ -28,18 +30,18 @@ impl Command for NuHighlight {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
         let ctrlc = engine_state.ctrlc.clone();
-        let engine_state = std::sync::Arc::new(engine_state.clone());
         let config = engine_state.get_config().clone();
 
         let highlighter = crate::NuHighlighter {
-            engine_state,
+            engine_state: Arc::new(engine_state.clone()),
+            stack: Arc::new(stack.clone()),
             config,
         };
 
