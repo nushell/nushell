@@ -354,9 +354,7 @@ impl NuCompleter {
                                             if let Some(external_result) = self.external_completion(
                                                 block_id, &spans, offset, new_span,
                                             ) {
-                                                if !external_result.is_empty() {
-                                                    return external_result;
-                                                }
+                                                return external_result;
                                             }
                                         }
 
