@@ -10,6 +10,6 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check spelling
-        uses: crate-ci/typos@v1.16.25
+        uses: crate-ci/typos@v1.16.26
         with:
           config: ./.github/.typos.toml
