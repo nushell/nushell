@@ -381,11 +381,24 @@ fn rm(
                         {
                             unreachable!()
                         }
-                    } else if metadata.is_file()
-                        || is_socket
-                        || is_fifo
-                        || metadata.file_type().is_symlink()
-                    {
+                    } else if metadata.is_symlink() {
+                        // In Windows, symlink pointing to a directory can be removed using
+                        // std::fs::remove_dir instead of std::fs::remove_file.
+                        #[cfg(windows)]
+                        match f.metadata() {
+                            Ok(metadata) => {
+                                if metadata.is_dir() {
+                                    std::fs::remove_dir(&f)
+                                } else {
+                                    std::fs::remove_file(&f)
+                                }
+                            }
+                            Err(e) => Err(e),
+                        }
+
+                        #[cfg(not(windows))]
+                        std::fs::remove_file(&f)
+                    } else if metadata.is_file() || is_socket || is_fifo {
                         std::fs::remove_file(&f)
                     } else {
                         std::fs::remove_dir_all(&f)
