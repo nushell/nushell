@@ -385,15 +385,14 @@ fn rm(
                         // In Windows, symlink pointing to a directory can be removed using
                         // std::fs::remove_dir instead of std::fs::remove_file.
                         #[cfg(windows)]
-                        match f.metadata() {
-                            Ok(metadata) => {
+                        {
+                            f.metadata().and_then(|metadata| {
                                 if metadata.is_dir() {
                                     std::fs::remove_dir(&f)
                                 } else {
                                     std::fs::remove_file(&f)
                                 }
-                            }
-                            Err(e) => Err(e),
+                            })
                         }
 
                         #[cfg(not(windows))]
