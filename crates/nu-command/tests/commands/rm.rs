@@ -376,6 +376,19 @@ fn removes_symlink() {
 }
 
 #[test]
+fn removes_symlink_pointing_to_directory() {
+    Playground::setup("rm_symlink_to_directory", |dirs, sandbox| {
+        sandbox.mkdir("test").symlink("test", "test_link");
+
+        nu!(cwd: sandbox.cwd(), "rm test_link");
+
+        assert!(!dirs.test().join("test_link").exists());
+        // The pointed directory should not be deleted.
+        assert!(dirs.test().join("test").exists());
+    });
+}
+
+#[test]
 fn removes_file_after_cd() {
     Playground::setup("rm_after_cd", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("delete.txt")]);
