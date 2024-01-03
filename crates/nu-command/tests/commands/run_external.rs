@@ -161,7 +161,7 @@ fn external_arg_with_long_flag_value_quoted() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu --testbin cococo --foo='bar'
+                ^echo --foo='bar'
             "#
         ));
 
