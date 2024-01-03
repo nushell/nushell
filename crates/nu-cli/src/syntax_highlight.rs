@@ -4,7 +4,7 @@ use nu_color_config::{
     color_record_to_nustyle, default_shape_color, get_matching_brackets_style,
     lookup_ansi_color_style,
 };
-use nu_engine::eval_block;
+use nu_engine::{eval_block, eval_expression};
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -87,7 +87,7 @@ impl Highlighter for NuHighlighter {
             // Highlighting externals has a config point because of concerns that using which to resolve
             // externals may slow down things too much.
             if highlight_resolved_externals {
-                for (span, shape) in shapes.iter_mut() {
+                for (span, shape, _) in shapes.iter_mut() {
                     if *shape == FlatShape::External {
                         let str_contents =
                             working_set.get_span_contents(Span::new(span.start, span.end));
@@ -158,16 +158,22 @@ impl Highlighter for NuHighlighter {
                 }};
             }
 
-            let mut add_colored_token = |(span, shape): &(Span, FlatShape), text: String| {
-                output.push((
-                    self.get_shape_color(
-                        shape.to_string(),
-                        &self.config,
-                        &Value::string(text.clone(), *span),
-                    ),
-                    text,
-                ));
-            };
+            let mut add_colored_token =
+                |(span, shape, expr): &(Span, FlatShape, Option<&Expression>), text: String| {
+                    output.push((
+                        self.get_shape_color(
+                            shape.to_string(),
+                            &self.config,
+                            &expr
+                                .map(|e| {
+                                    eval_expression(&self.engine_state, &mut Stack::new(), e)
+                                        .expect("can't fail eval")
+                                })
+                                .unwrap_or_else(|| Value::string(text.clone(), *span)),
+                        ),
+                        text,
+                    ));
+                };
 
             match shape.1 {
                 FlatShape::Garbage => add_colored_token(shape, next_token),

@@ -162,8 +162,14 @@ impl NuCompleter {
                             // Complete based on the last span
                             if is_last_span {
                                 // Context variables
-                                let most_left_var =
-                                    most_left_variable(flat_idx, &working_set, flattened.clone());
+                                let most_left_var = most_left_variable(
+                                    flat_idx,
+                                    &working_set,
+                                    flattened
+                                        .iter()
+                                        .map(|(span, shape, _)| (*span, shape.clone()))
+                                        .collect(),
+                                );
 
                                 // Create a new span
                                 let new_span = Span::new(flat.0.start, flat.0.end - 1);
@@ -227,7 +233,10 @@ impl NuCompleter {
                                     let mut completer = CommandCompletion::new(
                                         self.engine_state.clone(),
                                         &working_set,
-                                        flattened.clone(),
+                                        flattened
+                                            .iter()
+                                            .map(|(span, shape, _)| (*span, shape.clone()))
+                                            .collect(),
                                         // flat_idx,
                                         FlatShape::String,
                                         true,
@@ -330,7 +339,10 @@ impl NuCompleter {
                                         let mut completer = CommandCompletion::new(
                                             self.engine_state.clone(),
                                             &working_set,
-                                            flattened.clone(),
+                                            flattened
+                                                .iter()
+                                                .map(|(span, shape, _)| (*span, shape.clone()))
+                                                .collect(),
                                             // flat_idx,
                                             flat_shape.clone(),
                                             false,
