@@ -3,10 +3,10 @@ use nu_test_support::nu;
 #[test]
 fn basic_stdout() {
     let without_complete = nu!(r#"
-        ^echo a
+        nu --testbin cococo test
     "#);
     let with_complete = nu!(r#"
-        (^echo a | complete).stdout
+        (nu --testbin cococo test | complete).stdout
     "#);
 
     assert_eq!(with_complete.out, without_complete.out);
@@ -15,7 +15,7 @@ fn basic_stdout() {
 #[test]
 fn basic_exit_code() {
     let with_complete = nu!(r#"
-        (^echo a | complete).exit_code
+        (nu --testbin cococo test | complete).exit_code
     "#);
 
     assert_eq!(with_complete.out, "0");
