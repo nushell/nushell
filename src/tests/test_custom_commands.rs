@@ -216,32 +216,16 @@ fn infinite_recursion_does_not_panic() {
 }
 
 #[test]
-fn type_check_for_positional_during_eval() -> TestResult {
+fn type_check_for_during_eval() -> TestResult {
     fail_test(
         r#"def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer"#,
         "can't convert nothing to string",
     )
 }
 #[test]
-fn type_check_for_positional_during_eval2() -> TestResult {
+fn type_check_for_during_eval2() -> TestResult {
     fail_test(
         r#"def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer"#,
-        "can't convert nothing to string",
-    )
-}
-
-#[test]
-fn type_check_for_flag_during_eval() -> TestResult {
-    fail_test(
-        r#"def spam [--foo: string] { $foo | describe }; def outer [--foo: string] { spam --foo $foo }; outer"#,
-        "can't convert nothing to string",
-    )
-}
-
-#[test]
-fn type_check_for_flag_during_eval2() -> TestResult {
-    fail_test(
-        r#"def spam [--foo: string] { $foo | describe }; def outer [--foo: any] { spam --foo $foo }; outer"#,
         "can't convert nothing to string",
     )
 }

@@ -185,6 +185,7 @@ export def critical [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get CRITICAL)  $format $short
 }
 
@@ -194,6 +195,7 @@ export def error [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get ERROR) $format $short
 }
 
@@ -203,6 +205,7 @@ export def warning [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get WARNING) $format $short
 }
 
@@ -212,6 +215,7 @@ export def info [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get INFO) $format $short
 }
 
@@ -221,6 +225,7 @@ export def debug [
     --short (-s) # Whether to use a short prefix
     --format (-f): string # A format (for further reference: help std log)
 ] {
+    let format = $format | default ""
     handle-log $message (log-types | get DEBUG) $format $short
 }
 
