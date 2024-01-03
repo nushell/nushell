@@ -82,8 +82,8 @@ print $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in [$USE_UBUNTU, 'macos-latest'] {
-    if $os == $USE_UBUNTU {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
+    if $os starts-with ubuntu {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
@@ -106,7 +106,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
-            if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
+            if $os starts-with ubuntu { sudo apt install musl-tools -y }
             cargo-build-nu $flags
         }
     }
@@ -153,7 +153,7 @@ if ($ver | str trim | is-empty) {
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; print $'(char nl)Creating release archive...'; hr-line
-if $os in [$USE_UBUNTU, 'macos-latest'] {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
 
     let files = (ls | get name)
     let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }
