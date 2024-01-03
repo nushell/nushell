@@ -7,8 +7,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    type_compatible, DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
-    ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
+    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
