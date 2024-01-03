@@ -146,7 +146,7 @@ fn external_args_with_quoted() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo "foo=bar 'hi'"
+                nu --testbin cococo "foo=bar 'hi'"
             "#
         ));
 
@@ -161,7 +161,7 @@ fn external_arg_with_long_flag_value_quoted() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo --foo='bar'
+                nu --testbin cococo --foo='bar'
             "#
         ));
 
@@ -194,7 +194,7 @@ fn external_command_escape_args() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo "\"abcd"
+                nu --testbin cococo "\"abcd"
             "#
         ));
 
@@ -314,7 +314,7 @@ fn quotes_trimmed_when_shelling_out() {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
     let actual = nu!(pipeline(
         r#"
-            ^echo "foo"
+            nu --testbin cococo "foo"
         "#
     ));
 
