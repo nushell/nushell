@@ -55,7 +55,7 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
-                if !type_compatible(&result.get_type(), &param.shape.to_type()) {
+                if !result.get_type().is_subtype(&param.shape.to_type()) {
                     return Err(ShellError::CantConvert {
                         to_type: param.shape.to_type().to_string(),
                         from_type: result.get_type().to_string(),
@@ -107,7 +107,7 @@ pub fn eval_call(
 
                                 // check type before call
                                 if let Some(shape) = &named.arg {
-                                    if !type_compatible(&result.get_type(), &shape.to_type()) {
+                                    if !result.get_type().is_subtype(&shape.to_type()) {
                                         return Err(ShellError::CantConvert {
                                             to_type: shape.to_type().to_string(),
                                             from_type: result.get_type().to_string(),
@@ -131,7 +131,7 @@ pub fn eval_call(
 
                             // check type before call
                             if let Some(shape) = &named.arg {
-                                if !type_compatible(&result.get_type(), &shape.to_type()) {
+                                if !result.get_type().is_subtype(&shape.to_type()) {
                                     return Err(ShellError::CantConvert {
                                         to_type: shape.to_type().to_string(),
                                         from_type: result.get_type().to_string(),
