@@ -4,7 +4,7 @@ use crate::{
     parse_mut,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_shape_name, parse_type, ShapeDescriptorUse},
-    type_check::{self, math_result_type, type_compatible},
+    type_check::{self, math_result_type},
     Token, TokenContents,
 };
 
@@ -18,8 +18,8 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
-    span, BlockId, DidYouMean, Flag, ParseError, ParseWarning, PositionalArg, Signature, Span,
-    Spanned, SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, type_compatible, BlockId, DidYouMean, Flag, ParseError, ParseWarning, PositionalArg,
+    Signature, Span, Spanned, SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{

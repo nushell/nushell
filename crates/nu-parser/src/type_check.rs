@@ -4,68 +4,8 @@ use nu_protocol::{
         PipelineElement,
     },
     engine::StateWorkingSet,
-    ParseError, Type,
+    type_compatible, ParseError, Type,
 };
-
-pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-    // Structural subtyping
-    let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        if expected.is_empty() || found.is_empty() {
-            // We treat an incoming empty table/record type as compatible for typechecking purposes
-            // It is the responsibility of the runtime to reject if necessary
-            true
-        } else if expected.len() > found.len() {
-            false
-        } else {
-            expected.iter().all(|(col_x, ty_x)| {
-                if let Some((_, ty_y)) = found.iter().find(|(col_y, _)| col_x == col_y) {
-                    type_compatible(ty_x, ty_y)
-                } else {
-                    false
-                }
-            })
-        }
-    };
-
-    match (lhs, rhs) {
-        (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::ListStream, Type::List(_)) => true,
-        (Type::List(_), Type::ListStream) => true,
-        (Type::List(c), Type::Table(table_fields)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(fields, table_fields)
-            } else {
-                false
-            }
-        }
-        (Type::Table(table_fields), Type::List(c)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(table_fields, fields)
-            } else {
-                false
-            }
-        }
-        (Type::Number, Type::Int) => true,
-        (Type::Int, Type::Number) => true,
-        (Type::Number, Type::Float) => true,
-        (Type::Float, Type::Number) => true,
-        (Type::Closure, Type::Block) => true,
-        (Type::Any, _) => true,
-        (_, Type::Any) => true,
-        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
-            is_compatible(lhs, rhs)
-        }
-        (lhs, rhs) => lhs == rhs,
-    }
-}
 
 pub fn math_result_type(
     _working_set: &StateWorkingSet,

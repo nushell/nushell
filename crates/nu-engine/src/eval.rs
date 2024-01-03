@@ -7,8 +7,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    type_compatible, DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Span, Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -55,6 +55,14 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
+                if !type_compatible(&result.get_type(), &param.shape.to_type()) {
+                    return Err(ShellError::CantConvert {
+                        to_type: param.shape.to_type().to_string(),
+                        from_type: result.get_type().to_string(),
+                        span: result.span(),
+                        help: None,
+                    });
+                }
                 callee_stack.add_var(var_id, result);
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());
@@ -97,6 +105,18 @@ pub fn eval_call(
                             if let Some(arg) = &call_named.2 {
                                 let result = eval_expression(engine_state, caller_stack, arg)?;
 
+                                // check type before call
+                                if let Some(shape) = &named.arg {
+                                    if !type_compatible(&result.get_type(), &shape.to_type()) {
+                                        return Err(ShellError::CantConvert {
+                                            to_type: shape.to_type().to_string(),
+                                            from_type: result.get_type().to_string(),
+                                            span: result.span(),
+                                            help: None,
+                                        });
+                                    }
+                                }
+
                                 callee_stack.add_var(var_id, result);
                             } else if let Some(value) = &named.default_value {
                                 callee_stack.add_var(var_id, value.to_owned());
@@ -108,6 +128,18 @@ pub fn eval_call(
                     } else if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.2 {
                             let result = eval_expression(engine_state, caller_stack, arg)?;
+
+                            // check type before call
+                            if let Some(shape) = &named.arg {
+                                if !type_compatible(&result.get_type(), &shape.to_type()) {
+                                    return Err(ShellError::CantConvert {
+                                        to_type: shape.to_type().to_string(),
+                                        from_type: result.get_type().to_string(),
+                                        span: result.span(),
+                                        help: None,
+                                    });
+                                }
+                            }
 
                             callee_stack.add_var(var_id, result);
                         } else if let Some(value) = &named.default_value {

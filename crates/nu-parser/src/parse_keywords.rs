@@ -1,8 +1,4 @@
-use crate::{
-    parse_block,
-    parser_path::ParserPath,
-    type_check::{check_block_input_output, type_compatible},
-};
+use crate::{parse_block, parser_path::ParserPath, type_check::check_block_input_output};
 use itertools::Itertools;
 use log::trace;
 use nu_path::canonicalize_with;
@@ -13,8 +9,8 @@ use nu_protocol::{
     },
     engine::{StateWorkingSet, DEFAULT_OVERLAY_NAME},
     eval_const::eval_constant,
-    span, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError, PositionalArg,
-    ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
+    span, type_compatible, Alias, BlockId, DeclId, Exportable, Module, ModuleId, ParseError,
+    PositionalArg, ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
