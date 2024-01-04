@@ -286,7 +286,7 @@ pub fn flatten_expression<'a>(
             output
         }
         Expr::Garbage => {
-            vec![(expr.span, FlatShape::Garbage, Some(expr))]
+            vec![(expr.span, FlatShape::Garbage, None)]
         }
         Expr::Nothing => {
             vec![(expr.span, FlatShape::Nothing, Some(expr))]
@@ -522,7 +522,7 @@ pub fn flatten_expression<'a>(
             output
         }
         Expr::Keyword(_, span, inner) => {
-            let mut output = vec![(*span, FlatShape::Keyword, Some(expr))];
+            let mut output = vec![(*span, FlatShape::Keyword, None)];
             output.extend(flatten_expression(working_set, inner));
             output
         }
