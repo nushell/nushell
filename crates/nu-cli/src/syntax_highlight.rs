@@ -4,10 +4,11 @@ use nu_color_config::{
     color_record_to_nustyle, default_shape_color, get_matching_brackets_style,
     lookup_ansi_color_style,
 };
-use nu_engine::{eval_block, eval_expression};
+use nu_engine::eval_block;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
+use nu_protocol::eval_const::eval_constant;
 use nu_protocol::{CliError, Config, IntoPipelineData, Span, Value};
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
@@ -165,10 +166,7 @@ impl Highlighter for NuHighlighter {
                             shape.to_string(),
                             &self.config,
                             &expr
-                                .map(|e| {
-                                    eval_expression(&self.engine_state, &mut Stack::new(), e)
-                                        .expect("can't fail eval")
-                                })
+                                .map(|e| eval_constant(&working_set, e).expect("can't fail eval"))
                                 .unwrap_or_else(|| Value::string(text.clone(), *span)),
                         ),
                         text,
