@@ -376,7 +376,8 @@ fn from_csv(
     let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
 
-    let maybe_schema = call.get_flag(engine_state, stack, "schema")?
+    let maybe_schema = call
+        .get_flag(engine_state, stack, "schema")?
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
@@ -407,7 +408,7 @@ fn from_csv(
 
         let csv_reader = csv_reader.has_header(!no_header);
 
-        let csv_reader = match maybe_schema  {
+        let csv_reader = match maybe_schema {
             Some(schema) => csv_reader.with_schema(Some(schema.into())),
             None => csv_reader,
         };
@@ -469,7 +470,7 @@ fn from_csv(
 
         let csv_reader = csv_reader.has_header(!no_header);
 
-        let csv_reader = match maybe_schema  {
+        let csv_reader = match maybe_schema {
             Some(schema) => csv_reader.with_schema(Some(schema.into())),
             None => csv_reader,
         };

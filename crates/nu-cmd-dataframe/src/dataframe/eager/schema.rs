@@ -1,8 +1,8 @@
-use super::super::values::{Column, NuDataFrame};
+use super::super::values::NuDataFrame;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Type, Value,
 };
 
 #[derive(Clone)]
@@ -27,26 +27,26 @@ impl Command for SchemaDF {
     }
 
     fn examples(&self) -> Vec<Example> {
-        //todo 
+        //todo
         vec![]
-    //     vec![Example {
-    //         description: "Dataframe dtypes",
-    //         example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dtypes",
-    //         result: Some(
-    //             NuDataFrame::try_from_columns(vec![
-    //                 Column::new(
-    //                     "column".to_string(),
-    //                     vec![Value::test_string("a"), Value::test_string("b")],
-    //                 ),
-    //                 Column::new(
-    //                     "dtype".to_string(),
-    //                     vec![Value::test_string("i64"), Value::test_string("i64")],
-    //                 ),
-    //             ])
-    //             .expect("simple df for test should not fail")
-    //             .into_value(Span::test_data()),
-    //         ),
-    //     }]
+        //     vec![Example {
+        //         description: "Dataframe dtypes",
+        //         example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr dtypes",
+        //         result: Some(
+        //             NuDataFrame::try_from_columns(vec![
+        //                 Column::new(
+        //                     "column".to_string(),
+        //                     vec![Value::test_string("a"), Value::test_string("b")],
+        //                 ),
+        //                 Column::new(
+        //                     "dtype".to_string(),
+        //                     vec![Value::test_string("i64"), Value::test_string("i64")],
+        //                 ),
+        //             ])
+        //             .expect("simple df for test should not fail")
+        //             .into_value(Span::test_data()),
+        //         ),
+        //     }]
     }
 
     fn run(
