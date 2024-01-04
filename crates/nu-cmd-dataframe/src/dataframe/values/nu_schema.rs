@@ -131,7 +131,8 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
             let dtype = dtype
                 .trim_start_matches("list")
                 .trim_start_matches('[')
-                .trim_end_matches(']');
+                .trim_end_matches(']')
+                .trim();
             let dtype = dtype_str_to_schema(dtype, span)?;
             Ok(DataType::List(Box::new(dtype)))
         }
@@ -180,7 +181,7 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
                     span: Some(span),
                     help: None,
                     inner: vec![],
-                })?;
+                })?.trim();
             let time_unit = str_to_time_unit(next, span)?;
             Ok(DataType::Duration(time_unit))
         }
