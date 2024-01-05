@@ -110,6 +110,8 @@ impl NuCompleter {
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
+        // TODO: Callers should be trimming the line themselves
+        let line = if line.len() > pos { &line[..pos] } else { line };
         // Adjust offset so that the spans of the suggestions will start at the right
         // place even with `only_buffer_difference: true`
         let fake_offset = offset + line.len() - pos;
