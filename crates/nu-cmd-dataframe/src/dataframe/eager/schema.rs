@@ -14,29 +14,7 @@ impl Command for SchemaDF {
     }
 
     fn usage(&self) -> &str {
-        r#"Show schema for dataframe. Schema data types can be:
-            null
-            bool
-            u8
-            u16
-            u32
-            u64
-            i8
-            i16
-            i32
-            i64
-            f32
-            f64
-            str
-            binary
-            date
-            datetime[time_unit timezone]
-            duration[time_unit]
-            time
-            object
-            unknown
-            list[dtype]
-        "#
+        "Show schema for a dataframe."
     }
 
     fn signature(&self) -> Signature {
