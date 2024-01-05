@@ -110,13 +110,14 @@ impl NuCompleter {
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
-        let orig_start = pos - line.len();
-        let fake_offset = offset - orig_start;
+        // Adjust offset so that the spans of the suggestions will start at the right
+        // place even with `only_buffer_difference: true`
+        let fake_offset = offset - pos + line.len();
+        let pos = offset + line.len();
         let initial_line = line.to_string();
         let mut line = line.to_string();
-        let fake_pos = offset + line.len();
-        let pos = offset + line.len();
         line.push('a');
+
         let config = self.engine_state.get_config();
 
         let output = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
@@ -146,11 +147,11 @@ impl NuCompleter {
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
 
-                            let is_last_span = fake_pos >= flat.0.start && fake_pos < flat.0.end;
+                            let is_last_span = pos >= flat.0.start && pos < flat.0.end;
 
                             // Skip the last 'a' as span item
                             if is_last_span {
-                                let offset = fake_pos - flat.0.start;
+                                let offset = pos - flat.0.start;
                                 if offset == 0 {
                                     spans.push(String::new())
                                 } else {
