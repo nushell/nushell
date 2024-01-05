@@ -501,7 +501,6 @@ mod external_command_arguments {
         assert_eq!(actual.out, "a;b");
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn ampersands_are_sanitized_before_passing_to_subshell() {
         let actual = nu!("nu --testbin cococo \"a&b\"");
@@ -509,7 +508,6 @@ mod external_command_arguments {
         assert_eq!(actual.out, "a&b");
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn subcommands_are_sanitized_before_passing_to_subshell() {
         let actual = nu!("nu --testbin cococo \"$(ls)\"");
