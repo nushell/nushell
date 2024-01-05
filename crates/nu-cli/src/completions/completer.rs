@@ -112,7 +112,7 @@ impl NuCompleter {
         let offset = working_set.next_span_start();
         // Adjust offset so that the spans of the suggestions will start at the right
         // place even with `only_buffer_difference: true`
-        let fake_offset = offset - pos + line.len();
+        let fake_offset = offset + line.len() - pos;
         let pos = offset + line.len();
         let initial_line = line.to_string();
         let mut line = line.to_string();
