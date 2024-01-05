@@ -28,7 +28,7 @@ libproc = "0.14"
 mach2 = "0.4"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-chrono = { version = "0.4", default-features = false }
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 ntapi = "0.4"
 once_cell = "1.18"
 windows = { version = "0.52", features = [
