@@ -20,7 +20,7 @@ nu-table = { path = "../nu-table", version = "0.88.2" }
 nu-json = { path = "../nu-json", version = "0.88.2" }
 nu-utils = { path = "../nu-utils", version = "0.88.2" }
 
-terminal_size = "0.2"
+terminal_size = "0.3"
 strip-ansi-escapes = "0.2.0"
 crossterm = "0.27"
 ratatui = "0.23"

@@ -1,12 +1,24 @@
 use nu_test_support::nu;
 
 #[test]
-fn basic() {
-    let actual = nu!(r#"
-        (^echo a | complete) == {stdout: "a\n", exit_code: 0}
+fn basic_stdout() {
+    let without_complete = nu!(r#"
+        nu --testbin cococo test
+    "#);
+    let with_complete = nu!(r#"
+        (nu --testbin cococo test | complete).stdout
     "#);
 
-    assert_eq!(actual.out, "true");
+    assert_eq!(with_complete.out, without_complete.out);
+}
+
+#[test]
+fn basic_exit_code() {
+    let with_complete = nu!(r#"
+        (nu --testbin cococo test | complete).exit_code
+    "#);
+
+    assert_eq!(with_complete.out, "0");
 }
 
 #[test]

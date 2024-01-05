@@ -34,10 +34,10 @@ impl Command for ToXml {
     fn extra_usage(&self) -> &str {
         r#"Every XML entry is represented via a record with tag, attribute and content fields.
 To represent different types of entries different values must be written to this fields:
-1. Tag entry: `{tag: <tag name> attrs: {<attr name>: "<string value>" ...} content: [<entries>]}`
-2. Comment entry: `{tag: '!' attrs: null content: "<comment string>"}`
-3. Processing instruction (PI): `{tag: '?<pi name>' attrs: null content: "<pi content string>"}`
-4. Text: `{tag: null attrs: null content: "<text>"}`. Or as plain `<text>` instead of record.
+1. Tag entry: `{tag: <tag name> attributes: {<attr name>: "<string value>" ...} content: [<entries>]}`
+2. Comment entry: `{tag: '!' attributes: null content: "<comment string>"}`
+3. Processing instruction (PI): `{tag: '?<pi name>' attributes: null content: "<pi content string>"}`
+4. Text: `{tag: null attributes: null content: "<text>"}`. Or as plain `<text>` instead of record.
 
 Additionally any field which is: empty record, empty list or null, can be omitted."#
     }
@@ -46,7 +46,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table",
-                example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attrs: null content : Event}]}]} | to xml"#,
+                example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
@@ -110,6 +110,17 @@ fn to_xml_entry<W: Write>(
     }
 
     if let Value::Record { val: record, .. } = &entry {
+        if let Some(bad_column) = find_invalid_column(record) {
+            return Err(ShellError::CantConvert {
+                to_type: "XML".into(),
+                from_type: "record".into(),
+                span: entry_span,
+                help: Some(format!(
+                    "Invalid column \"{}\" in xml entry. Only \"{}\", \"{}\" and \"{}\" are permitted",
+                    bad_column, COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME
+                )),
+            });
+        }
         // If key is not found it is assumed to be nothing. This way
         // user can write a tag like {tag: a content: [...]} instead
         // of longer {tag: a attributes: {} content: [...]}
@@ -144,7 +155,12 @@ fn to_xml_entry<W: Write>(
             (Value::String { val: tag_name, .. }, attrs, children) => to_tag_like(
                 entry_span, tag_name, tag_span, attrs, children, top_level, writer,
             ),
-            _ => Ok(()),
+            _ => Err(ShellError::CantConvert {
+                to_type: "XML".into(),
+                from_type: "record".into(),
+                span: entry_span,
+                help: Some("Tag missing or is not a string".into()),
+            }),
         }
     } else {
         Err(ShellError::CantConvert {
@@ -154,6 +170,14 @@ fn to_xml_entry<W: Write>(
             help: Some("Xml entry expected to be a record".into()),
         })
     }
+}
+
+fn find_invalid_column(record: &Record) -> Option<&String> {
+    const VALID_COLS: [&str; 3] = [COLUMN_TAG_NAME, COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME];
+    record
+        .cols
+        .iter()
+        .find(|col| !VALID_COLS.contains(&col.as_str()))
 }
 
 /// Convert record to tag-like entry: tag, PI, comment.
