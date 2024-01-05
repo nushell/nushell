@@ -13,34 +13,6 @@ impl NuSchema {
             schema: Arc::new(schema),
         }
     }
-
-    // todo - use
-    #[allow(dead_code)]
-    pub fn values() -> &'static [&'static str] {
-        &[
-            "null",
-            "bool",
-            "u8",
-            "u16",
-            "u32",
-            "u64",
-            "i8",
-            "i16",
-            "i32",
-            "i64",
-            "f32",
-            "f64",
-            "str",
-            "binary",
-            "date",
-            "datetime[time_unit, timezone]",
-            "duration[time_unit]",
-            "time",
-            "object",
-            "unknown",
-            "list[dtype]",
-        ]
-    }
 }
 
 impl TryFrom<&Value> for NuSchema {
@@ -181,7 +153,8 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
                     span: Some(span),
                     help: None,
                     inner: vec![],
-                })?.trim();
+                })?
+                .trim();
             let time_unit = str_to_time_unit(next, span)?;
             Ok(DataType::Duration(time_unit))
         }
@@ -250,19 +223,17 @@ mod test {
             internal_span: Span::test_data(),
         };
         let schema = value_to_schema(&value, Span::unknown()).unwrap();
-        let expected = Schema::from_iter(
-            vec![
-                Field::new("name", DataType::Utf8),
-                Field::new("age", DataType::Int32),
-                Field::new(
-                    "address",
-                    DataType::Struct(vec![
-                        Field::new("street", DataType::Utf8),
-                        Field::new("city", DataType::Utf8),
-                    ]),
-                ),
-            ]
-        );
+        let expected = Schema::from_iter(vec![
+            Field::new("name", DataType::Utf8),
+            Field::new("age", DataType::Int32),
+            Field::new(
+                "address",
+                DataType::Struct(vec![
+                    Field::new("street", DataType::Utf8),
+                    Field::new("city", DataType::Utf8),
+                ]),
+            ),
+        ]);
         assert_eq!(schema, expected);
     }
 
