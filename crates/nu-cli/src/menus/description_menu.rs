@@ -487,13 +487,13 @@ impl Menu for DescriptionMenu {
                 let (start, input) = string_difference(editor.get_buffer(), old_string);
                 if !input.is_empty() {
                     self.reset_position();
-                    self.values = completer.complete(input, start);
+                    self.values = completer.complete(input, start + input.len());
                 }
             }
         } else {
             let trimmed_buffer = editor.get_buffer().replace('\n', " ");
             self.values = completer.complete(
-                trimmed_buffer.as_str(),
+                &trimmed_buffer.as_str()[..editor.line_buffer().insertion_point()],
                 editor.line_buffer().insertion_point(),
             );
             self.reset_position();

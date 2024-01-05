@@ -110,10 +110,13 @@ impl NuCompleter {
     fn completion_helper(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
         let offset = working_set.next_span_start();
+        let orig_start = pos - line.len();
+        let fake_offset = offset - orig_start;
         let initial_line = line.to_string();
         let mut line = line.to_string();
-        line.insert(pos, 'a');
-        let pos = offset + pos;
+        let fake_pos = offset + line.len();
+        let pos = offset + line.len();
+        line.push('a');
         let config = self.engine_state.get_config();
 
         let output = parse(&mut working_set, Some("completer"), line.as_bytes(), false);
@@ -143,11 +146,11 @@ impl NuCompleter {
                             let current_span = working_set.get_span_contents(flat.0).to_vec();
                             let current_span_str = String::from_utf8_lossy(&current_span);
 
-                            let is_last_span = pos >= flat.0.start && pos < flat.0.end;
+                            let is_last_span = fake_pos >= flat.0.start && fake_pos < flat.0.end;
 
                             // Skip the last 'a' as span item
                             if is_last_span {
-                                let offset = pos - flat.0.start;
+                                let offset = fake_pos - flat.0.start;
                                 if offset == 0 {
                                     spans.push(String::new())
                                 } else {
@@ -186,7 +189,7 @@ impl NuCompleter {
                                         &working_set,
                                         prefix,
                                         new_span,
-                                        offset,
+                                        fake_offset,
                                         pos,
                                     );
                                 }
@@ -200,7 +203,7 @@ impl NuCompleter {
                                         &working_set,
                                         prefix.clone(),
                                         new_span,
-                                        offset,
+                                        fake_offset,
                                         pos,
                                     );
 
@@ -211,9 +214,12 @@ impl NuCompleter {
                                     // We got no results for internal completion
                                     // now we can check if external completer is set and use it
                                     if let Some(block_id) = config.external_completer {
-                                        if let Some(external_result) = self
-                                            .external_completion(block_id, &spans, offset, new_span)
-                                        {
+                                        if let Some(external_result) = self.external_completion(
+                                            block_id,
+                                            &spans,
+                                            fake_offset,
+                                            new_span,
+                                        ) {
                                             return external_result;
                                         }
                                     }
@@ -237,7 +243,7 @@ impl NuCompleter {
                                         &working_set,
                                         prefix,
                                         new_span,
-                                        offset,
+                                        fake_offset,
                                         pos,
                                     );
                                 }
@@ -262,7 +268,7 @@ impl NuCompleter {
                                                 &working_set,
                                                 prefix,
                                                 new_span,
-                                                offset,
+                                                fake_offset,
                                                 pos,
                                             );
                                         } else if prev_expr_str == b"ls" {
@@ -274,7 +280,7 @@ impl NuCompleter {
                                                 &working_set,
                                                 prefix,
                                                 new_span,
-                                                offset,
+                                                fake_offset,
                                                 pos,
                                             );
                                         }
@@ -296,7 +302,7 @@ impl NuCompleter {
                                             &working_set,
                                             prefix,
                                             new_span,
-                                            offset,
+                                            fake_offset,
                                             pos,
                                         );
                                     }
@@ -309,7 +315,7 @@ impl NuCompleter {
                                             &working_set,
                                             prefix,
                                             new_span,
-                                            offset,
+                                            fake_offset,
                                             pos,
                                         );
                                     }
@@ -322,7 +328,7 @@ impl NuCompleter {
                                             &working_set,
                                             prefix,
                                             new_span,
-                                            offset,
+                                            fake_offset,
                                             pos,
                                         );
                                     }
@@ -341,7 +347,7 @@ impl NuCompleter {
                                             &working_set,
                                             prefix.clone(),
                                             new_span,
-                                            offset,
+                                            fake_offset,
                                             pos,
                                         );
 
@@ -352,7 +358,10 @@ impl NuCompleter {
                                         // Try to complete using an external completer (if set)
                                         if let Some(block_id) = config.external_completer {
                                             if let Some(external_result) = self.external_completion(
-                                                block_id, &spans, offset, new_span,
+                                                block_id,
+                                                &spans,
+                                                fake_offset,
+                                                new_span,
                                             ) {
                                                 return external_result;
                                             }
@@ -366,7 +375,7 @@ impl NuCompleter {
                                             &working_set,
                                             prefix,
                                             new_span,
-                                            offset,
+                                            fake_offset,
                                             pos,
                                         );
 
