@@ -139,14 +139,13 @@ fn failed_command_with_semicolon_will_not_execute_following_cmds() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn external_args_with_quoted() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo "foo=bar 'hi'"
+                nu --testbin cococo "foo=bar 'hi'"
             "#
         ));
 
@@ -187,14 +186,13 @@ fn external_arg_with_variable_name() {
     })
 }
 
-#[cfg(not(windows))]
 #[test]
 fn external_command_escape_args() {
     Playground::setup("external failed command with semicolon", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                ^echo "\"abcd"
+                nu --testbin cococo "\"abcd"
             "#
         ));
 
@@ -308,13 +306,12 @@ fn can_run_batch_files_without_bat_extension() {
     );
 }
 
-#[cfg(windows)]
 #[test]
 fn quotes_trimmed_when_shelling_out() {
     // regression test for a bug where we weren't trimming quotes around string args before shelling out to cmd.exe
     let actual = nu!(pipeline(
         r#"
-            ^echo "foo"
+            nu --testbin cococo "foo"
         "#
     ));
 
