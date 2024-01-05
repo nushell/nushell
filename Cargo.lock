@@ -2697,7 +2697,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "sysinfo",
+ "sysinfo 0.30.4",
  "unicode-segmentation",
  "uuid",
  "which 5.0.0",
@@ -2876,7 +2876,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml",
  "sha2",
- "sysinfo",
+ "sysinfo 0.30.4",
  "tabled",
  "terminal_size 0.3.0",
  "titlecase",
@@ -3060,7 +3060,7 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
- "sysinfo",
+ "sysinfo 0.30.4",
  "windows 0.52.0",
 ]
 
@@ -4089,7 +4089,7 @@ dependencies = [
  "polars-error",
  "rayon",
  "smartstring",
- "sysinfo",
+ "sysinfo 0.29.11",
  "version_check",
 ]
 
@@ -5280,8 +5280,22 @@ dependencies = [
  "libc",
  "ntapi",
  "once_cell",
- "rayon",
  "winapi",
+]
+
+[[package]]
+name = "sysinfo"
+version = "0.30.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "717570a2533606f81f8cfac02a1915a620e725ffb78f6fc5e259769a4d747407"
+dependencies = [
+ "cfg-if",
+ "core-foundation-sys",
+ "libc",
+ "ntapi",
+ "once_cell",
+ "rayon",
+ "windows 0.52.0",
 ]
 
 [[package]]
