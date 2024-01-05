@@ -8,6 +8,8 @@ use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_utils::strip_ansi_string_likely;
+use nu_utils::utils::supports_color;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::sync::{atomic::AtomicBool, Arc};
@@ -661,7 +663,7 @@ Operating system commands:
         let list: bool = call.has_flag(engine_state, stack, "list")?;
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
+        let use_ansi_coloring = supports_color(engine_state.get_config().ansi_coloring, true);
         let ctrlc = engine_state.ctrlc.clone();
 
         if list {
@@ -681,7 +683,11 @@ Operating system commands:
             }
         };
 
-        let output = heavy_lifting(code, escape, osc, call)?;
+        let mut output = heavy_lifting(code, escape, osc, call)?;
+
+        if !use_ansi_coloring {
+            output = strip_ansi_string_likely(output);
+        }
 
         Ok(Value::string(output, call.head).into_pipeline_data())
     }
@@ -695,7 +701,7 @@ Operating system commands:
         let list: bool = call.has_flag_const(working_set, "list")?;
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
-        let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
+        let use_ansi_coloring = supports_color(working_set.get_config().ansi_coloring, true);
         let ctrlc = working_set.permanent().ctrlc.clone();
 
         if list {

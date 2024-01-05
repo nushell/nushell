@@ -6,6 +6,7 @@ use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use nu_utils::utils::supports_color;
 use std::{collections::HashMap, fmt::Write};
 
 use crate::eval_call;
@@ -20,7 +21,7 @@ pub fn get_full_help(
     let config = engine_state.get_config();
     let doc_config = DocumentationConfig {
         no_subcommands: false,
-        no_color: !config.use_ansi_coloring,
+        no_color: !supports_color(config.ansi_coloring, true),
         brief: false,
     };
 

@@ -11,6 +11,7 @@ use nu_protocol::{
 };
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::get_ls_colors;
+use nu_utils::utils::supports_color;
 use terminal_size::{Height, Width};
 #[derive(Clone)]
 pub struct Griddle;
@@ -71,7 +72,7 @@ prints out the list properly."#
             None => None,
         };
         let use_grid_icons = config.use_grid_icons;
-        let use_color: bool = color_param && config.use_ansi_coloring;
+        let use_color: bool = color_param && supports_color(config.ansi_coloring, true);
 
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {

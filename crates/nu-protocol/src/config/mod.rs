@@ -6,6 +6,7 @@ use self::reedline::*;
 use self::table::*;
 
 use crate::{record, ShellError, Span, Value};
+use nu_utils::utils::AnsiColoring;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -62,7 +63,7 @@ pub struct Config {
     pub float_precision: i64,
     pub max_external_completion_results: i64,
     pub filesize_format: String,
-    pub use_ansi_coloring: bool,
+    pub ansi_coloring: AnsiColoring,
     pub quick_completions: bool,
     pub partial_completions: bool,
     pub completion_algorithm: CompletionAlgorithm,
@@ -148,7 +149,7 @@ impl Default for Config {
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
             buffer_editor: Value::nothing(Span::unknown()),
-            use_ansi_coloring: true,
+            ansi_coloring: AnsiColoring::default(),
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
             shell_integration: false,
@@ -618,8 +619,31 @@ impl Value {
                     "float_precision" => {
                         process_int_config(value, &mut errors, &mut config.float_precision);
                     }
-                    "use_ansi_coloring" => {
-                        process_bool_config(value, &mut errors, &mut config.use_ansi_coloring);
+                    "ansi_coloring" => {
+                        match value {
+                            Value::String { val, .. } => {
+                                match val.parse() {
+                                    Ok(v) => config.ansi_coloring = v,
+                                    Err(e) => {
+                                        report_invalid_value(e, span, &mut errors);
+                                        // Reconstruct
+                                        *value = Value::string(config.ansi_coloring.as_str(), span);
+                                    }
+                                }
+                            },
+                            Value::Bool { val, .. } => {
+                                if *val {
+                                    config.ansi_coloring = AnsiColoring::True;
+                                } else {
+                                    config.ansi_coloring = AnsiColoring::False;
+                                }
+                            },
+                            _ => {
+                                report_invalid_value("should be a string or a bool", span, &mut errors);
+                                // Reconstruct
+                                *value = Value::string(config.ansi_coloring.as_str(), span);
+                            }
+                        }
                     }
                     "edit_mode" => {
                         process_string_enum(

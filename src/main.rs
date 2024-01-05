@@ -30,7 +30,7 @@ use nu_protocol::{
     PipelineData, RawStream, ShellError, Span, Value, NU_VARIABLE_ID,
 };
 use nu_std::load_standard_library;
-use nu_utils::utils::perf;
+use nu_utils::utils::{perf, supports_color};
 use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
@@ -162,7 +162,7 @@ fn main() -> Result<()> {
 
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let use_color = supports_color(engine_state.get_config().ansi_coloring, true);
     if let Some(level) = parsed_nu_cli_args
         .log_level
         .as_ref()
