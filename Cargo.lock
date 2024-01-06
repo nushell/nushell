@@ -3096,14 +3096,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu_plugin_config"
-version = "0.87.1"
-dependencies = [
- "nu-plugin",
- "nu-protocol",
-]
-
-[[package]]
 name = "nu_plugin_custom_values"
 version = "0.1.0"
 dependencies = [

@@ -4,18 +4,18 @@ use nu_test_support::nu_with_plugins;
 fn closure() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("nu_plugin_config"),
+        plugin: ("nu_plugin_example"),
         r#"
             $env.env_value = "value from env"
 
             $env.config = {
                 plugins: {
-                    config: {||
+                    example: {||
                         $env.env_value
                     }
                 }
             }
-            nu-plugin-config
+            nu-example-config
         "#
     );
 
@@ -26,8 +26,8 @@ fn closure() {
 fn none() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("nu_plugin_config"),
-        "nu-plugin-config"
+        plugin: ("nu_plugin_example"),
+        "nu-example-config"
     );
 
     assert!(actual.err.contains("No config sent"));
@@ -37,17 +37,17 @@ fn none() {
 fn record() {
     let actual = nu_with_plugins!(
         cwd: "tests",
-        plugin: ("nu_plugin_config"),
+        plugin: ("nu_plugin_example"),
         r#"
             $env.config = {
                 plugins: {
-                    config: {
+                    example: {
                         key1: "value"
                         key2: "other"
                     }
                 }
             }
-            nu-plugin-config
+            nu-example-config
         "#
     );
 
