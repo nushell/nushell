@@ -4,7 +4,7 @@ use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -53,6 +53,14 @@ impl Command for UCp {
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .named(
+                "preserve",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "preserve only the specified attributes (empty list means no attributes preserved)
+                    if not specified only mode is preserved
+                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
+                None
+            )
             .switch("debug", "explain how a file is copied. Implies -v", None)
             .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
@@ -107,6 +115,7 @@ impl Command for UCp {
         let progress = call.has_flag("progress");
         let recursive = call.has_flag("recursive");
         let verbose = call.has_flag("verbose");
+        let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
 
         let debug = call.has_flag("debug");
         let overwrite = if no_clobber {
@@ -213,11 +222,14 @@ impl Command for UCp {
 
         let target_path = nu_path::expand_path_with(&target_path, &cwd);
 
+        let attributes = make_attributes(preserve)?;
+
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
             recursive,
             debug,
+            attributes,
             verbose: verbose || debug,
             dereference: !recursive,
             progress_bar: progress,
@@ -231,7 +243,6 @@ impl Command for UCp {
             parents: false,
             sparse_mode: uu_cp::SparseMode::Auto,
             strip_trailing_slashes: false,
-            attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
@@ -255,6 +266,84 @@ impl Command for UCp {
             // uucore::error::set_exit_code(EXIT_ERR);
         }
         Ok(PipelineData::empty())
+    }
+}
+
+const ATTR_UNSET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
+const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
+
+fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
+    if let Some(preserve) = preserve {
+        let mut attributes = uu_cp::Attributes {
+            ownership: ATTR_UNSET,
+            mode: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        };
+        parse_and_set_attributes_list(&preserve, &mut attributes)?;
+
+        Ok(attributes)
+    } else {
+        // By default preseerve only mode
+        Ok(uu_cp::Attributes {
+            mode: ATTR_SET,
+            ownership: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        })
+    }
+}
+
+fn parse_and_set_attributes_list(
+    list: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match list {
+        Value::List { vals, .. } => {
+            for val in vals {
+                parse_and_set_attribute(val, attribute)?;
+            }
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: list.span(),
+        }),
+    }
+}
+
+fn parse_and_set_attribute(
+    value: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match value {
+        Value::String { val, .. } => {
+            let attribute = match val.as_str() {
+                "mode" => &mut attribute.mode,
+                #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+                "ownership" => &mut attribute.ownership,
+                "timestamps" => &mut attribute.timestamps,
+                "context" => &mut attribute.context,
+                "link" | "links" => &mut attribute.links,
+                "xattr" => &mut attribute.xattr,
+                _ => {
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        span: value.span(),
+                    });
+                }
+            };
+            *attribute = ATTR_SET;
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: value.span(),
+        }),
     }
 }
 
