@@ -55,7 +55,7 @@ impl Command for ToNuon {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
-        let use_indent = call.has_flag(engine_state, stack, "indent")?;
+        let use_indent = call.has_named("indent");
 
         let span = call.head;
         let value = input.into_value(span);
