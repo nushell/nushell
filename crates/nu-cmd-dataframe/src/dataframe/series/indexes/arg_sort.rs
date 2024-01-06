@@ -1,5 +1,6 @@
 use super::super::super::values::{Column, NuDataFrame};
 
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -92,8 +93,8 @@ impl Command for ArgSort {
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
