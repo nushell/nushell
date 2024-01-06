@@ -5,7 +5,7 @@ use rstest::rstest;
 // avoid feeding strings containing parens to regex.  Does not end well.
 #[case(": arga help")]
 #[case("argb help")]
-#[case("optional, default: 20")]
+#[case("optional, default: `20`")]
 #[case("- f1 switch")]
 #[case("- f2 named no default")]
 #[case("- f3 named default 3")]

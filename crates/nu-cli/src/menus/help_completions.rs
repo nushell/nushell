@@ -57,7 +57,7 @@ impl NuHelpCompleter {
 
                 if !sig.named.is_empty() {
                     long_desc.push_str(&get_flags_section(Some(&*self.0.clone()), sig, |v| {
-                        v.into_string_parsable(", ", &self.0.config)
+                        v.into_string(", ", &self.0.config)
                     }))
                 }
 
@@ -72,8 +72,8 @@ impl NuHelpCompleter {
                     for positional in &sig.optional_positional {
                         let opt_suffix = if let Some(value) = &positional.default_value {
                             format!(
-                                " (optional, default: {})",
-                                &value.into_string_parsable(", ", &self.0.config),
+                                " (optional, default: `{}`)",
+                                &value.into_string(", ", &self.0.config),
                             )
                         } else {
                             (" (optional)").to_string()
