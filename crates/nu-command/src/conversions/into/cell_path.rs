@@ -38,6 +38,10 @@ impl Command for IntoCellPath {
         vec!["convert"]
     }
 
+    fn extra_usage(&self) -> &str {
+        "Converting a string directly into a cell path is intentionally not supported."
+    }
+
     fn run(
         &self,
         _engine_state: &EngineState,
@@ -51,10 +55,20 @@ impl Command for IntoCellPath {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Convert integer to cell path",
+                description: "Convert integer into cell path",
                 example: "5 | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![PathMember::test_int(5, false)],
+                })),
+            },
+            Example {
+                description: "Convert string into cell path",
+                example: "'some.path' | split row '.' | into cell-path",
+                result: Some(Value::test_cell_path(CellPath {
+                    members: vec![
+                        PathMember::test_string("some".into(), false),
+                        PathMember::test_string("path".into(), false),
+                    ],
                 })),
             },
             Example {
