@@ -275,6 +275,7 @@ const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
 fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
     if let Some(preserve) = preserve {
         let mut attributes = uu_cp::Attributes {
+            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
             ownership: ATTR_UNSET,
             mode: ATTR_UNSET,
             timestamps: ATTR_UNSET,
@@ -289,6 +290,7 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
         // By default preseerve only mode
         Ok(uu_cp::Attributes {
             mode: ATTR_SET,
+            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
             ownership: ATTR_UNSET,
             timestamps: ATTR_UNSET,
             context: ATTR_UNSET,
