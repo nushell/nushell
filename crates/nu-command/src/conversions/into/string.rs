@@ -148,7 +148,7 @@ fn string_helper(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let decimals = call.has_flag(engine_state, stack, "decimals")?;
+    let decimals = call.has_named("decimals");
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
