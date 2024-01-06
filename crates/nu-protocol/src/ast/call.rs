@@ -201,6 +201,11 @@ impl Call {
         self.parser_info.insert(name, val)
     }
 
+    /// Checks if a named argument was passed to command.
+    ///
+    /// Note that this does not mean that a boolean flag is set,
+    /// because for `--flag=false` this method returns true, but
+    /// flag is actually false. Use [`has_flag`] instead
     pub fn has_named(&self, flag_name: &str) -> bool {
         for name in self.named_iter() {
             if flag_name == name.0.item {

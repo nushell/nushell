@@ -8,6 +8,7 @@ use nu_protocol::{
 use crate::eval_expression;
 
 pub trait CallExt {
+    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)
     fn has_flag(
         &self,
         engine_state: &EngineState,
@@ -15,6 +16,8 @@ pub trait CallExt {
         flag_name: &str,
     ) -> Result<bool, ShellError>;
 
+    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)
+    /// evaluating the expression after = as a constant command
     fn has_flag_const(
         &self,
         working_set: &StateWorkingSet,
