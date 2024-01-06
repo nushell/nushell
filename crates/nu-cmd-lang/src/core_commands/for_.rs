@@ -74,7 +74,7 @@ impl Command for For {
 
         let block: Block = call.req(engine_state, stack, 2)?;
 
-        let numbered = call.has_flag("numbered");
+        let numbered = call.has_flag(engine_state, stack, "numbered")?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();

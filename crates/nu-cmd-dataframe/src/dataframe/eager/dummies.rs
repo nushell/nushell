@@ -83,7 +83,7 @@ fn command(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let drop_first: bool = call.has_flag("drop-first");
+    let drop_first: bool = call.has_flag(engine_state, stack, "drop-first")?;
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()

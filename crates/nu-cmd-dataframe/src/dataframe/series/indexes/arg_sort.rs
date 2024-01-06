@@ -100,10 +100,10 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let sort_options = SortOptions {
-        descending: call.has_flag("reverse"),
-        nulls_last: call.has_flag("nulls-last"),
+        descending: call.has_flag(engine_state, stack, "reverse")?,
+        nulls_last: call.has_flag(engine_state, stack, "nulls-last")?,
         multithreaded: true,
-        maintain_order: call.has_flag("maintain-order"),
+        maintain_order: call.has_flag(engine_state, stack, "maintain-order")?,
     };
 
     let mut res = df

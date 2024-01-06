@@ -8,6 +8,19 @@ use nu_protocol::{
 use crate::eval_expression;
 
 pub trait CallExt {
+    fn has_flag(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<bool, ShellError>;
+
+    fn has_flag_const(
+        &self,
+        working_set: &StateWorkingSet,
+        flag_name: &str,
+    ) -> Result<bool, ShellError>;
+
     fn get_flag<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -67,6 +80,63 @@ pub trait CallExt {
 }
 
 impl CallExt for Call {
+    fn has_flag(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        flag_name: &str,
+    ) -> Result<bool, ShellError> {
+        for name in self.named_iter() {
+            if flag_name == name.0.item {
+                return if let Some(expr) = &name.2 {
+                    // Check --flag=false
+                    let result = eval_expression(engine_state, stack, expr)?;
+                    match result {
+                        Value::Bool { val, .. } => Ok(val),
+                        _ => Err(ShellError::CantConvert {
+                            to_type: "bool".into(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: Some("".into()),
+                        }),
+                    }
+                } else {
+                    Ok(true)
+                };
+            }
+        }
+
+        Ok(false)
+    }
+
+    fn has_flag_const(
+        &self,
+        working_set: &StateWorkingSet,
+        flag_name: &str,
+    ) -> Result<bool, ShellError> {
+        for name in self.named_iter() {
+            if flag_name == name.0.item {
+                return if let Some(expr) = &name.2 {
+                    // Check --flag=false
+                    let result = eval_constant(working_set, expr)?;
+                    match result {
+                        Value::Bool { val, .. } => Ok(val),
+                        _ => Err(ShellError::CantConvert {
+                            to_type: "bool".into(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: Some("".into()),
+                        }),
+                    }
+                } else {
+                    Ok(true)
+                };
+            }
+        }
+
+        Ok(false)
+    }
+
     fn get_flag<T: FromValue>(
         &self,
         engine_state: &EngineState,

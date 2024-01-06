@@ -88,7 +88,7 @@ fn registry_query(
 ) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
-    let skip_expand = call.has_flag("no-expand");
+    let skip_expand = call.has_flag(engine_state, stack, "no-expand")?;
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;

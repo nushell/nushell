@@ -201,7 +201,7 @@ impl Call {
         self.parser_info.insert(name, val)
     }
 
-    pub fn has_flag(&self, flag_name: &str) -> bool {
+    pub fn has_named(&self, flag_name: &str) -> bool {
         for name in self.named_iter() {
             if flag_name == name.0.item {
                 return true;

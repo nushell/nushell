@@ -107,8 +107,8 @@ impl Command for SubCommand {
             Some(_) => ActionMode::Local,
         };
 
-        let left = call.has_flag("left");
-        let right = call.has_flag("right");
+        let left = call.has_flag(engine_state, stack, "left")?;
+        let right = call.has_flag(engine_state, stack, "right")?;
         let trim_side = match (left, right) {
             (true, true) => TrimSide::Both,
             (true, false) => TrimSide::Left,

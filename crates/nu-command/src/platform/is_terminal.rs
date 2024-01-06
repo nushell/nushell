@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -40,14 +41,14 @@ impl Command for IsTerminal {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let stdin = call.has_flag("stdin");
-        let stdout = call.has_flag("stdout");
-        let stderr = call.has_flag("stderr");
+        let stdin = call.has_flag(engine_state, stack, "stdin")?;
+        let stdout = call.has_flag(engine_state, stack, "stdout")?;
+        let stderr = call.has_flag(engine_state, stack, "stderr")?;
 
         let is_terminal = match (stdin, stdout, stderr) {
             (true, false, false) => std::io::stdin().is_terminal(),

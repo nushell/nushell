@@ -124,13 +124,13 @@ fn rm(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let trash = call.has_flag("trash");
-    let permanent = call.has_flag("permanent");
-    let recursive = call.has_flag("recursive");
-    let force = call.has_flag("force");
-    let verbose = call.has_flag("verbose");
-    let interactive = call.has_flag("interactive");
-    let interactive_once = call.has_flag("interactive-once") && !interactive;
+    let trash = call.has_flag(engine_state, stack, "trash")?;
+    let permanent = call.has_flag(engine_state, stack, "permanent")?;
+    let recursive = call.has_flag(engine_state, stack, "recursive")?;
+    let force = call.has_flag(engine_state, stack, "force")?;
+    let verbose = call.has_flag(engine_state, stack, "verbose")?;
+    let interactive = call.has_flag(engine_state, stack, "interactive")?;
+    let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
 
     let ctrlc = engine_state.ctrlc.clone();
 

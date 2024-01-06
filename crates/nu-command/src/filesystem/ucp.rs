@@ -96,19 +96,19 @@ impl Command for UCp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let interactive = call.has_flag("interactive");
-        let (update, copy_mode) = if call.has_flag("update") {
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
             (UpdateMode::ReplaceIfOlder, CopyMode::Update)
         } else {
             (UpdateMode::ReplaceAll, CopyMode::Copy)
         };
-        let force = call.has_flag("force");
-        let no_clobber = call.has_flag("no-clobber");
-        let progress = call.has_flag("progress");
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
 
-        let debug = call.has_flag("debug");
+        let debug = call.has_flag(engine_state, stack, "debug")?;
         let overwrite = if no_clobber {
             uu_cp::OverwriteMode::NoClobber
         } else if interactive {

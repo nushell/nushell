@@ -167,7 +167,7 @@ pub fn rotate(
     let mut new_values = vec![];
     let mut not_a_record = false;
     let mut total_rows = values.len();
-    let ccw: bool = call.has_flag("ccw");
+    let ccw: bool = call.has_flag(engine_state, stack, "ccw")?;
 
     if !ccw {
         values.reverse();

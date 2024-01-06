@@ -78,6 +78,8 @@ impl Command for InputList {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
+        let multi = call.has_flag(engine_state, stack, "multi")?;
+        let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
@@ -105,7 +107,7 @@ impl Command for InputList {
             });
         }
 
-        if call.has_flag("multi") && call.has_flag("fuzzy") {
+        if multi && fuzzy {
             return Err(ShellError::TypeMismatch {
                 err_message: "Fuzzy search is not supported for multi select".to_string(),
                 span: head,
@@ -118,7 +120,7 @@ impl Command for InputList {
         //     ..Default::default()
         // };
 
-        let ans: InteractMode = if call.has_flag("multi") {
+        let ans: InteractMode = if multi {
             let multi_select = MultiSelect::new(); //::with_theme(&theme);
 
             InteractMode::Multi(
@@ -134,7 +136,7 @@ impl Command for InputList {
                     msg: format!("{}: {}", INTERACT_ERROR, err),
                 })?,
             )
-        } else if call.has_flag("fuzzy") {
+        } else if fuzzy {
             let fuzzy_select = FuzzySelect::new(); //::with_theme(&theme);
 
             InteractMode::Single(
