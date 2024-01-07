@@ -666,14 +666,19 @@ fn list_flag_false() {
             EmptyFile("another_normal"),
         ]);
 
-        let actual = nu!(
-            cwd: dirs.test(), pipeline(
-            "
+        // TODO Remove this cfg value when we have an OS-agnostic way
+        // of creating hidden files using the playground.
+        #[cfg(unix)]
+        {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                "
                 ls --all=false | length
             "
-        ));
+            ));
 
-        assert_eq!(actual.out, "2");
+            assert_eq!(actual.out, "2");
+        }
 
         let actual = nu!(
             cwd: dirs.test(), pipeline(
