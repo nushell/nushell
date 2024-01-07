@@ -244,7 +244,9 @@ pub fn eval_source(
         // eval_block_with_early_return(engine_state, stack, &block, input, false, false)
 
         let debug_mode = WithDebug;
-        let mut debugger = BasicDebugger;
+        let mut debugger = BasicDebugger {
+            timestamps: vec![]
+        };
         // uncomment to disable debugger:
         // let debug_mode = WithoutDebug;
         // let mut debugger = NoopDebugger;

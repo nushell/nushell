@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::time::SystemTime;
 
 use crate::ast::Call;
 use crate::engine::{Command, EngineState, Stack};
@@ -43,7 +44,9 @@ pub trait Debugger {
 }
 
 /// Basic debugger showcasing the functionality
-pub struct BasicDebugger;
+pub struct BasicDebugger {
+    pub timestamps: Vec<SystemTime>
+}
 
 impl Debugger for BasicDebugger {
     fn run_cmd(
@@ -58,6 +61,7 @@ impl Debugger for BasicDebugger {
     }
 
     fn on_block_enter(&mut self) {
+        self.timestamps.push(SystemTime::now());
         println!("Entered block with debugger!");
     }
 }
