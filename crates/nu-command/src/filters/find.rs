@@ -281,6 +281,27 @@ where
     })
 }
 
+fn highlight_terms_in_string(
+    val: &Value,
+    span: Span,
+    config: &Config,
+    terms: &[Value],
+    string_style: Style,
+    highlight_style: Style,
+) -> Value {
+    let val_str = val.into_string("", config);
+
+    if let Some(term) = terms.iter().find(|term| contains_ignore_case(&val_str, &term.into_string("", config))) {
+        let term_str = term.into_string("", config);
+        let highlighted_str = highlight_search_string(&val_str, &term_str, &string_style, &highlight_style)
+            .unwrap_or_else(|_| string_style.paint(&term_str).to_string());
+
+        return Value::string(highlighted_str, span);
+    }
+
+    val.clone()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn highlight_terms_in_record_with_search_columns(
     search_cols: &[String],
@@ -368,6 +389,14 @@ fn find_with_rest_and_highlight(
                         Value::Record { val, .. } => highlight_terms_in_record_with_search_columns(
                             &cols_to_search_in_map,
                             val,
+                            span,
+                            &config,
+                            &terms,
+                            string_style,
+                            highlight_style,
+                        ),
+                        Value::String { .. } => highlight_terms_in_string(
+                            &x,
                             span,
                             &config,
                             &terms,
