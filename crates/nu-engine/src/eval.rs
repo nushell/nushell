@@ -1,6 +1,6 @@
 use crate::{call_ext::CallExt, current_dir_str, get_full_help};
 use nu_path::expand_path_with;
-use nu_protocol::engine::debugger::{DebugContext, Debugger};
+use nu_protocol::engine::debugger::{BasicDebugger, DebugContext, Debugger, WithDebug};
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -20,6 +20,12 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    println!("DEBUG: Creating new debugger for a call");
+    let debug_mode = WithDebug;
+    let mut debugger = BasicDebugger {
+        timestamps: vec![]
+    };
+
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
     }
@@ -150,7 +156,10 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        match debug_mode {
+            WithDebug => decl.run_debug(engine_state, caller_stack, call, input, &mut debugger),
+            WithoutDebug => decl.run(engine_state, caller_stack, call, input)
+        }
     }
 }
 
