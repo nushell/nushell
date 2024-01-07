@@ -14,7 +14,12 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math product")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Range, Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .category(Category::Math)
     }
 

@@ -13,7 +13,11 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math variance")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .switch(
                 "sample",
                 "calculate sample variance (i.e. using N-1 as the denominator)",
