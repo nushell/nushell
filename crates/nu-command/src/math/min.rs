@@ -20,6 +20,7 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Number)), Type::Number),
                 (Type::List(Box::new(Type::Duration)), Type::Duration),
                 (Type::List(Box::new(Type::Filesize)), Type::Filesize),
+                (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Range, Type::Number),
                 (Type::Table(vec![]), Type::Record(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
