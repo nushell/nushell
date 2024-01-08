@@ -65,7 +65,9 @@ impl Command for SubCommand {
             Example {
                 description: "Find the maximum of a list of dates",
                 example: "[2022-02-02 2022-12-30 2012-12-12] | math max",
-                result: Some(Value::test_date("2022-12-30 00:00:00Z".parse().unwrap())),
+                result: Some(Value::test_date(
+                    "2022-12-30 00:00:00Z".parse().unwrap_or_default(),
+                )),
             },
         ]
     }
