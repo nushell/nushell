@@ -2,7 +2,9 @@ use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -65,6 +67,14 @@ impl Command for SubCommand {
                 description: "Compute the sample standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev --sample",
                 result: Some(Value::test_float(1.5811388300841898)),
+            },
+            Example {
+                description: "Compute the standard deviation of each column in a table",
+                example: "[[a b]; [1 2] [3 4]] | math stddev",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(1),
+                })),
             },
         ]
     }

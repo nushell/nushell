@@ -2,7 +2,9 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -55,6 +57,14 @@ impl Command for SubCommand {
                 description: "Get the disk usage for the current directory",
                 example: "ls | get size | math sum",
                 result: None,
+            },
+            Example {
+                description: "Compute the sum of each column in a table",
+                example: "[[a b]; [1 2] [3 4]] | math sum",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(4),
+                    "b" => Value::test_int(6),
+                })),
             },
         ]
     }

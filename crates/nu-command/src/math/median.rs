@@ -63,6 +63,11 @@ impl Command for SubCommand {
                     "b" => Value::test_int(3),
                 })),
             },
+            Example {
+                description: "Find the median of a list of file sizes",
+                example: "[5KB 10MB 200B] | math median",
+                result: Some(Value::test_filesize(5 * 1_000)),
+            },
         ]
     }
 }
