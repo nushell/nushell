@@ -24,6 +24,7 @@ impl Command for SubCommand {
                 "calculate sample standard deviation (i.e. using N-1 as the denominator)",
                 Some('s'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
