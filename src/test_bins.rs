@@ -181,7 +181,7 @@ pub fn chop() {
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
-    for given in stdin.lock().lines().flatten() {
+    for given in stdin.lock().lines().map_while(Result::ok) {
         let chopped = if given.is_empty() {
             &given
         } else {

@@ -27,9 +27,6 @@ impl CmdArgument for Arguments {
 #[derive(Clone)]
 pub struct SubCommand;
 
-#[derive(Clone)]
-pub struct IndexOfOptionalBounds(i32, i32);
-
 impl Command for SubCommand {
     fn name(&self) -> &str {
         "str index-of"
