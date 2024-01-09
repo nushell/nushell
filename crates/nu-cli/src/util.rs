@@ -245,7 +245,9 @@ pub fn eval_source(
 
         let debug_mode = WithDebug;
         let mut debugger = BasicDebugger {
-            timestamps: vec![]
+            // data: BasicData {
+                timestamps: vec![]
+            // }
         };
         // uncomment to disable debugger:
         // let debug_mode = WithoutDebug;
