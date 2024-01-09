@@ -32,7 +32,7 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-use sysinfo::SystemExt;
+use sysinfo::System;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
@@ -128,17 +128,6 @@ pub fn evaluate_repl(
     };
     perf(
         "setup history",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    let sys = sysinfo::System::new();
-    perf(
-        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -428,7 +417,7 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
-                let hostname = sys.host_name();
+                let hostname = System::host_name();
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()

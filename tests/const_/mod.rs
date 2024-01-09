@@ -304,6 +304,19 @@ fn const_captures_work() {
     assert_eq!(actual.out, "xy");
 }
 
+#[test]
+fn const_captures_in_closures_work() {
+    let module = "module foo {
+        const a = 'world'
+        export def bar [] {
+            'hello ' + $a
+        }
+    }";
+    let inp = &[module, "use foo", "do { foo bar }"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "hello world");
+}
+
 #[ignore = "TODO: Need to fix `overlay hide` to hide the constants brough by `overlay use`"]
 #[test]
 fn complex_const_overlay_use_hide() {
