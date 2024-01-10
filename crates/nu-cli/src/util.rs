@@ -12,6 +12,7 @@ use nu_protocol::{report_error, report_error_new};
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -244,14 +245,13 @@ pub fn eval_source(
         // eval_block_with_early_return(engine_state, stack, &block, input, false, false)
 
         let debug_mode = WithDebug;
-        let mut debugger = BasicDebugger {
+        let debugger = Arc::new(Mutex::new(BasicDebugger {
             // data: BasicData {
                 timestamps: vec![]
             // }
-        };
+        }));
         // uncomment to disable debugger:
         // let debug_mode = WithoutDebug;
-        // let mut debugger = NoopDebugger;
         eval_block_with_early_return2(
             engine_state,
             stack,
@@ -260,7 +260,7 @@ pub fn eval_source(
             false,
             false,
             debug_mode,
-            &mut debugger,
+            Some(debugger),
         )
     } else {
         eval_block(engine_state, stack, &block, input, false, false)

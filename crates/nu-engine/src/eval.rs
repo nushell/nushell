@@ -12,6 +12,7 @@ use nu_protocol::{
     Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 pub fn eval_call(
@@ -22,9 +23,9 @@ pub fn eval_call(
 ) -> Result<PipelineData, ShellError> {
     println!("DEBUG: Creating new debugger for a call");
     let debug_mode = WithDebug;
-    let mut debugger = BasicDebugger {
+    let debugger = Arc::new(Mutex::new(BasicDebugger {
         timestamps: vec![]
-    };
+    }));
 
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
@@ -157,8 +158,8 @@ pub fn eval_call(
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
         match debug_mode {
-            WithDebug => decl.run_debug(engine_state, caller_stack, call, input, &mut debugger),
-            WithoutDebug => decl.run(engine_state, caller_stack, call, input)
+            WithDebug => decl.run_debug(engine_state, caller_stack, call, input, debugger),
+            _ => decl.run(engine_state, caller_stack, call, input)
         }
     }
 }
@@ -598,7 +599,7 @@ pub fn eval_block_with_early_return2(
     redirect_stdout: bool,
     redirect_stderr: bool,
     debug_mode: impl DebugContext,
-    debugger: &mut dyn Debugger,
+    debugger: Option<Arc<Mutex<dyn Debugger>>>
 ) -> Result<PipelineData, ShellError> {
     debug_mode.on_block_enter(debugger);
 

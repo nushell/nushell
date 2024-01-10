@@ -1,6 +1,7 @@
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
-use crate::engine::debugger::{DebugContext, Debugger};
+use crate::engine::debugger::Debugger;
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
 use super::{EngineState, Stack, StateWorkingSet};
@@ -58,7 +59,7 @@ pub trait Command: Send + Sync + CommandClone {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-        debugger: &mut dyn Debugger,
+        debugger: Arc<Mutex<dyn Debugger>>
     ) -> Result<PipelineData, ShellError> {
         self.run(engine_state, stack, call, input)
     }

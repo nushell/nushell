@@ -1,9 +1,7 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use nu_engine::{eval_block_with_early_return, eval_block_with_early_return2, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::debugger::{DebugContext, Debugger, NoopDebugger, WithDebug, WithoutDebug};
+use nu_protocol::engine::debugger::{Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
@@ -116,15 +114,9 @@ with 'transpose' first."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-        debugger: &mut dyn Debugger,
+        debugger: Arc<Mutex<dyn Debugger>>
     ) -> Result<PipelineData, ShellError> {
-        // run_each(engine_state, stack, call, input, WithDebug, debugger)
-
-        // let mut dbgr = Rc::new(RefCell::new(*debugger.derive()));
-        // let x= dbgr.clone().borrow_mut();
-        let dbgr = debugger.derive();
-        let mut dbgrs = vec![];
-
+        println!("Run debug each");
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let keep_empty = call.has_flag("keep-empty");
@@ -148,6 +140,7 @@ with 'transpose' first."#
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map_while(move |x| {
+                    println!("Each iter");
 
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
@@ -160,12 +153,10 @@ with 'transpose' first."#
                         }
                     }
 
-                    let mut db = dbgr.derive();
-
                     let input_span = x.span();
                     let x_is_error = x.is_error();
                     // TODO: change to eval_block_with_early_return2 which accepts the debugger args
-                    let res = match eval_block_with_early_return2(
+                    match eval_block_with_early_return2(
                         &engine_state,
                         &mut stack,
                         &block,
@@ -173,7 +164,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithDebug,
-                        &mut *db
+                        Some(debugger.clone())
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -182,11 +173,7 @@ with 'transpose' first."#
                             let error = chain_error_with_input(error, x_is_error, input_span);
                             Some(Value::error(error, input_span))
                         }
-                    };
-
-                    dbgrs.push(db);
-
-                    res
+                    }
                 })
                 .into_pipeline_data(ctrlc)),
             PipelineData::ExternalStream { stdout: None, .. } => Ok(PipelineData::empty()),
@@ -317,7 +304,8 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithoutDebug ,
-                        &mut NoopDebugger
+                        // &mut NoopDebugger
+                        None
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
