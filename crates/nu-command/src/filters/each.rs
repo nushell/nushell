@@ -139,8 +139,6 @@ with 'transpose' first."#
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map_while(move |x| {
-                    println!("Each iter");
-
                     // with_env() is used here to ensure that each iteration uses
                     // a different set of environment variables.
                     // Hence, a 'cd' in the first loop won't affect the next loop.
