@@ -116,7 +116,6 @@ with 'transpose' first."#
         input: PipelineData,
         debugger: Arc<Mutex<dyn Debugger>>
     ) -> Result<PipelineData, ShellError> {
-        println!("Run debug each");
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
         let keep_empty = call.has_flag("keep-empty");
@@ -155,7 +154,7 @@ with 'transpose' first."#
 
                     let input_span = x.span();
                     let x_is_error = x.is_error();
-                    // TODO: change to eval_block_with_early_return2 which accepts the debugger args
+
                     match eval_block_with_early_return2(
                         &engine_state,
                         &mut stack,
@@ -204,14 +203,15 @@ with 'transpose' first."#
                     let input_span = x.span();
                     let x_is_error = x.is_error();
 
-                    // TODO: change to eval_block_with_early_return2 which accepts the debugger args
-                    match eval_block_with_early_return(
+                    match eval_block_with_early_return2(
                         &engine_state,
                         &mut stack,
                         &block,
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        WithDebug,
+                        Some(debugger.clone())
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -232,14 +232,15 @@ with 'transpose' first."#
                     }
                 }
 
-                // TODO: change to eval_block_with_early_return2 which accepts the debugger args
-                eval_block_with_early_return(
+                eval_block_with_early_return2(
                     &engine_state,
                     &mut stack,
                     &block,
                     x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
+                    WithDebug,
+                    Some(debugger.clone())
                 )
             }
         }
