@@ -119,7 +119,7 @@ mod foreground_pgroup {
                 // According to glibc's job control manual:
                 // https://www.gnu.org/software/libc/manual/html_node/Launching-Jobs.html
                 // This has to be done *both* in the parent and here in the child due to race conditions.
-                set_foreground_pid(unistd::getpid(), existing_pgrp);
+                set_foreground_pid(Pid::this(), existing_pgrp);
 
                 // Reset signal handlers for child, sync with `terminal.rs`
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
