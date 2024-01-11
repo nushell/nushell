@@ -74,9 +74,9 @@ impl Command for BytesRemove {
         let pattern_to_remove: Vec<u8> = pattern_to_remove.item;
         let arg = Arguments {
             pattern: pattern_to_remove,
-            end: call.has_flag("end"),
+            end: call.has_flag(engine_state, stack, "end")?,
             cell_paths,
-            all: call.has_flag("all"),
+            all: call.has_flag(engine_state, stack, "all")?,
         };
 
         operate(remove, arg, input, call.head, engine_state.ctrlc.clone())

@@ -43,9 +43,9 @@ impl Command for NuCheck {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let path: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-        let is_module = call.has_flag("as-module");
-        let is_debug = call.has_flag("debug");
-        let is_all = call.has_flag("all");
+        let is_module = call.has_flag(engine_state, stack, "as-module")?;
+        let is_debug = call.has_flag(engine_state, stack, "debug")?;
+        let is_all = call.has_flag(engine_state, stack, "all")?;
         let config = engine_state.get_config();
         let mut contents = vec![];
 

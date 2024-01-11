@@ -76,7 +76,7 @@ impl Command for BytesReplace {
             find: find.item,
             replace: call.req::<Vec<u8>>(engine_state, stack, 1)?,
             cell_paths,
-            all: call.has_flag("all"),
+            all: call.has_flag(engine_state, stack, "all")?,
         };
 
         operate(replace, arg, input, call.head, engine_state.ctrlc.clone())

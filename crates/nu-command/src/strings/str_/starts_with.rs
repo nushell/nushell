@@ -69,7 +69,7 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: substring.item,
             cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

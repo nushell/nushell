@@ -67,7 +67,7 @@ impl Command for ToCsv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let noheaders = call.has_flag("noheaders");
+        let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let separator: Option<Spanned<String>> = call.get_flag(engine_state, stack, "separator")?;
         let config = engine_state.get_config();
         to_csv(input, noheaders, separator, head, config)

@@ -108,7 +108,7 @@ pub(crate) fn parse_commandline_args(
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             // ide flags
-            let lsp = call.has_flag("lsp");
+            let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
             let include_path = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
@@ -150,7 +150,7 @@ pub(crate) fn parse_commandline_args(
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
 
-            let help = call.has_flag("help");
+            let help = call.has_flag(engine_state, &mut stack, "help")?;
 
             if help {
                 let full_help = get_full_help(
@@ -166,7 +166,7 @@ pub(crate) fn parse_commandline_args(
                 std::process::exit(0);
             }
 
-            if call.has_flag("version") {
+            if call.has_flag(engine_state, &mut stack, "version")? {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
                     stdout_write_all_and_flush(format!("{version}\n"))

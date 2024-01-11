@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -31,13 +32,13 @@ impl Command for Debug {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let config = engine_state.get_config().clone();
-        let raw = call.has_flag("raw");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
 
         // Should PipelineData::Empty result in an error here?
 

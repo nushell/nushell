@@ -60,10 +60,10 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag("redirect-stdout");
-        let redirect_stderr = call.has_flag("redirect-stderr");
-        let redirect_combine = call.has_flag("redirect-combine");
-        let trim_end_newline = call.has_flag("trim-end-newline");
+        let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
+        let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
+        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
+        let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
 
         if redirect_combine && (redirect_stdout || redirect_stderr) {
             return Err(ShellError::ExternalCommand {

@@ -90,12 +90,13 @@ impl Command for SubCommand {
         let replace: Spanned<String> = call.req(engine_state, stack, 1)?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 2)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let literal_replace = call.has_flag("no-expand");
-        let no_regex = !call.has_flag("regex") && !call.has_flag("multiline");
-        let multiline = call.has_flag("multiline");
+        let literal_replace = call.has_flag(engine_state, stack, "no-expand")?;
+        let no_regex = !call.has_flag(engine_state, stack, "regex")?
+            && !call.has_flag(engine_state, stack, "multiline")?;
+        let multiline = call.has_flag(engine_state, stack, "multiline")?;
 
         let args = Arguments {
-            all: call.has_flag("all"),
+            all: call.has_flag(engine_state, stack, "all")?,
             find,
             replace,
             cell_paths,

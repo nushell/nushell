@@ -96,7 +96,7 @@ impl Command for Watch {
             .get_block(capture_block.block_id)
             .clone();
 
-        let verbose = call.has_flag("verbose");
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
 
         let debounce_duration_flag: Option<Spanned<i64>> =
             call.get_flag(engine_state, stack, "debounce-ms")?;

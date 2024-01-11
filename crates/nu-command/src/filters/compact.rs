@@ -51,7 +51,7 @@ impl Command for Compact {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let empty = call.has_flag("empty");
+        let empty = call.has_flag(engine_state, stack, "empty")?;
         compact(engine_state, stack, call, input, empty)
     }
 

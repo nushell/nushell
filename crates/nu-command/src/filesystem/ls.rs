@@ -73,13 +73,13 @@ impl Command for Ls {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let all = call.has_flag("all");
-        let long = call.has_flag("long");
-        let short_names = call.has_flag("short-names");
-        let full_paths = call.has_flag("full-paths");
-        let du = call.has_flag("du");
-        let directory = call.has_flag("directory");
-        let use_mime_type = call.has_flag("mime-type");
+        let all = call.has_flag(engine_state, stack, "all")?;
+        let long = call.has_flag(engine_state, stack, "long")?;
+        let short_names = call.has_flag(engine_state, stack, "short-names")?;
+        let full_paths = call.has_flag(engine_state, stack, "full-paths")?;
+        let du = call.has_flag(engine_state, stack, "du")?;
+        let directory = call.has_flag(engine_state, stack, "directory")?;
+        let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let ctrl_c = engine_state.ctrlc.clone();
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
