@@ -550,7 +550,7 @@ impl LanguageServer {
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
-        let results = completer.complete(&rope_of_file.to_string(), location);
+        let results = completer.complete(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
             None
         } else {
