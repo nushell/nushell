@@ -5,7 +5,6 @@ use crate::{
 };
 use itertools::Itertools;
 use log::trace;
-use nu_engine::CallExt;
 use nu_path::canonicalize_with;
 use nu_protocol::{
     ast::{
