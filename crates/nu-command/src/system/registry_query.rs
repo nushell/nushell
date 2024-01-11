@@ -88,13 +88,13 @@ fn registry_query(
 ) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
-    let skip_expand = call.has_flag("no-expand");
+    let skip_expand = call.has_flag(engine_state, stack, "no-expand")?;
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let reg_hive = get_reg_hive(call)?;
+    let reg_hive = get_reg_hive(engine_state, stack, call)?;
     let reg_key = reg_hive.open_subkey(registry_key.item)?;
 
     if registry_value.is_none() {
@@ -144,14 +144,22 @@ fn registry_query(
     }
 }
 
-fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
-    let flags: Vec<_> = [
+fn get_reg_hive(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<RegKey, ShellError> {
+    let flags = [
         "hkcr", "hkcu", "hklm", "hku", "hkpd", "hkpt", "hkpnls", "hkcc", "hkdd", "hkculs",
     ]
     .iter()
     .copied()
-    .filter(|flag| call.has_flag(flag))
-    .collect();
+    .filter_map(|flag| match call.has_flag(engine_state, stack, flag) {
+        Ok(true) => Some(Ok(flag)),
+        Ok(false) => None,
+        Err(e) => Some(Err(e)),
+    })
+    .collect::<Result<Vec<_>, ShellError>>()?;
     if flags.len() > 1 {
         return Err(ShellError::GenericError {
             error: "Only one registry key can be specified".into(),

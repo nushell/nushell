@@ -226,7 +226,7 @@ fn which(
 ) -> Result<PipelineData, ShellError> {
     let which_args = WhichArgs {
         applications: call.rest(engine_state, stack, 0)?,
-        all: call.has_flag("all"),
+        all: call.has_flag(engine_state, stack, "all")?,
     };
     let ctrlc = engine_state.ctrlc.clone();
 

@@ -202,7 +202,7 @@ fn split_list(
     let mut returned_list = Vec::new();
 
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
-    let matcher = Matcher::new(call.has_flag("regex"), separator)?;
+    let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
     for val in iter {
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {

@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::Expression;
-use crate::{DeclId, Span, Spanned};
+use crate::{
+    engine::StateWorkingSet, eval_const::eval_constant, DeclId, FromValue, ShellError, Span,
+    Spanned, Value,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Argument {
@@ -201,16 +204,6 @@ impl Call {
         self.parser_info.insert(name, val)
     }
 
-    pub fn has_flag(&self, flag_name: &str) -> bool {
-        for name in self.named_iter() {
-            if flag_name == name.0.item {
-                return true;
-            }
-        }
-
-        false
-    }
-
     pub fn get_flag_expr(&self, flag_name: &str) -> Option<&Expression> {
         for name in self.named_iter() {
             if flag_name == name.0.item {
@@ -229,6 +222,108 @@ impl Call {
         }
 
         None
+    }
+
+    /// Check if a boolean flag is set (i.e. `--bool` or `--bool=true`)
+    /// evaluating the expression after = as a constant command
+    pub fn has_flag_const(
+        &self,
+        working_set: &StateWorkingSet,
+        flag_name: &str,
+    ) -> Result<bool, ShellError> {
+        for name in self.named_iter() {
+            if flag_name == name.0.item {
+                return if let Some(expr) = &name.2 {
+                    // Check --flag=false
+                    let result = eval_constant(working_set, expr)?;
+                    match result {
+                        Value::Bool { val, .. } => Ok(val),
+                        _ => Err(ShellError::CantConvert {
+                            to_type: "bool".into(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: Some("".into()),
+                        }),
+                    }
+                } else {
+                    Ok(true)
+                };
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub fn get_flag_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        name: &str,
+    ) -> Result<Option<T>, ShellError> {
+        if let Some(expr) = self.get_flag_expr(name) {
+            let result = eval_constant(working_set, expr)?;
+            FromValue::from_value(result).map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn rest_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        starting_pos: usize,
+    ) -> Result<Vec<T>, ShellError> {
+        let mut output = vec![];
+
+        for result in
+            self.rest_iter_flattened(starting_pos, |expr| eval_constant(working_set, expr))?
+        {
+            output.push(FromValue::from_value(result)?);
+        }
+
+        Ok(output)
+    }
+
+    pub fn rest_iter_flattened<F>(
+        &self,
+        start: usize,
+        mut eval: F,
+    ) -> Result<Vec<Value>, ShellError>
+    where
+        F: FnMut(&Expression) -> Result<Value, ShellError>,
+    {
+        let mut output = Vec::new();
+
+        for (expr, spread) in self.rest_iter(start) {
+            let result = eval(expr)?;
+            if spread {
+                match result {
+                    Value::List { mut vals, .. } => output.append(&mut vals),
+                    _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
+                }
+            } else {
+                output.push(result);
+            }
+        }
+
+        Ok(output)
+    }
+
+    pub fn req_const<T: FromValue>(
+        &self,
+        working_set: &StateWorkingSet,
+        pos: usize,
+    ) -> Result<T, ShellError> {
+        if let Some(expr) = self.positional_nth(pos) {
+            let result = eval_constant(working_set, expr)?;
+            FromValue::from_value(result)
+        } else if self.positional_len() == 0 {
+            Err(ShellError::AccessEmptyContent { span: self.head })
+        } else {
+            Err(ShellError::AccessBeyondEnd {
+                max_idx: self.positional_len() - 1,
+                span: self.head,
+            })
+        }
     }
 
     pub fn span(&self) -> Span {

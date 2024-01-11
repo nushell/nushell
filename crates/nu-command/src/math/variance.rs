@@ -1,4 +1,5 @@
 use crate::math::utils::run_with_function;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -32,12 +33,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let sample = call.has_flag("sample");
+        let sample = call.has_flag(engine_state, stack, "sample")?;
         run_with_function(call, input, compute_variance(sample))
     }
 

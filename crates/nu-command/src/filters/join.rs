@@ -75,7 +75,7 @@ impl Command for Join {
             .opt(engine_state, stack, 2)?
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
-        let join_type = join_type(call)?;
+        let join_type = join_type(engine_state, stack, call)?;
 
         // FIXME: we should handle ListStreams properly instead of collecting
         let collected_input = input.into_value(span);
@@ -116,12 +116,16 @@ impl Command for Join {
     }
 }
 
-fn join_type(call: &Call) -> Result<JoinType, nu_protocol::ShellError> {
+fn join_type(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<JoinType, nu_protocol::ShellError> {
     match (
-        call.has_flag("inner"),
-        call.has_flag("left"),
-        call.has_flag("right"),
-        call.has_flag("outer"),
+        call.has_flag(engine_state, stack, "inner")?,
+        call.has_flag(engine_state, stack, "left")?,
+        call.has_flag(engine_state, stack, "right")?,
+        call.has_flag(engine_state, stack, "outer")?,
     ) {
         (_, false, false, false) => Ok(JoinType::Inner),
         (false, true, false, false) => Ok(JoinType::Left),

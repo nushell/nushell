@@ -57,7 +57,7 @@ impl Command for BitsShl {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let bits: usize = call.req(engine_state, stack, 0)?;
-        let signed = call.has_flag("signed");
+        let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<String>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
         let bytes_len = get_number_bytes(number_bytes.as_ref());

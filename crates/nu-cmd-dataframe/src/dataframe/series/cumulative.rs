@@ -103,7 +103,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let cum_type: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let reverse = call.has_flag("reverse");
+    let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
