@@ -63,3 +63,25 @@ fn const_path_exists() {
     let actual = nu!("const exists = ('~' | path exists); $exists");
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn test_check_symlink_exists() {
+    use nu_test_support::{nu, playground::Playground};
+
+    let symlink_target = "symlink_target";
+    let symlink = "symlink";
+    Playground::setup("rm_test_symlink", |dirs, sandbox| {
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
+            .unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(
+            dirs.test().join(symlink_target),
+            dirs.test().join(symlink),
+        )
+        .unwrap();
+
+        let shell_res = nu!(cwd: sandbox.cwd(), "'symlink' | path exists -n");
+        assert_eq!("true".to_string(), shell_res.out);
+    });
+}
