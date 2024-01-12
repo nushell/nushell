@@ -81,6 +81,11 @@ fn test_check_symlink_exists() {
         )
         .unwrap();
 
+        let false_out = "false".to_string();
+        let shell_res = nu!(cwd: sandbox.cwd(), "'symlink_target' | path exists");
+        assert_eq!(false_out, shell_res.out);
+        let shell_res = nu!(cwd: sandbox.cwd(), "'symlink' | path exists");
+        assert_eq!(false_out, shell_res.out);
         let shell_res = nu!(cwd: sandbox.cwd(), "'symlink' | path exists -n");
         assert_eq!("true".to_string(), shell_res.out);
     });
