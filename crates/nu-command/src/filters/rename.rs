@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature,
@@ -183,6 +184,9 @@ fn rename(
                                     Value::string(c.clone(), span).into_pipeline_data(),
                                     redirect_stdout,
                                     redirect_stderr,
+                                    // DEBUG TODO
+                                    WithoutDebug,
+                                    None
                                 );
                                 match eval_result {
                                     Err(e) => return Value::error(e, span),

@@ -157,6 +157,8 @@ pub fn eval_call(
             input,
             call.redirect_stdout,
             call.redirect_stderr,
+            debug_context,
+            Some(debugger), // DEBUG TODO
         );
 
         if block.redirect_env {
@@ -602,7 +604,7 @@ fn eval_element_with_input(
     }
 }
 
-pub fn eval_block_with_early_return2(
+pub fn eval_block_with_early_return(
     engine_state: &EngineState,
     stack: &mut Stack,
     block: &Block,
@@ -611,33 +613,6 @@ pub fn eval_block_with_early_return2(
     redirect_stderr: bool,
     debug_context: impl DebugContext,
     debugger: Option<Arc<Mutex<dyn Debugger>>>,
-) -> Result<PipelineData, ShellError> {
-    debug_context.on_block_enter(&debugger);
-
-    let res = match eval_block(
-        engine_state,
-        stack,
-        block,
-        input,
-        redirect_stdout,
-        redirect_stderr,
-    ) {
-        Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
-        x => x,
-    };
-
-    debug_context.on_block_leave(&debugger);
-
-    res
-}
-
-pub fn eval_block_with_early_return(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    block: &Block,
-    input: PipelineData,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
 ) -> Result<PipelineData, ShellError> {
     match eval_block(
         engine_state,

@@ -1,5 +1,6 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
 
@@ -55,6 +56,9 @@ impl Command for Source {
             input,
             call.redirect_stdout,
             call.redirect_stderr,
+            // DEBUG TODO
+            WithoutDebug,
+            None,
         )
     }
 

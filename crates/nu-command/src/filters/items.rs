@@ -1,5 +1,6 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
@@ -81,6 +82,9 @@ impl Command for Items {
                 PipelineData::empty(),
                 true,
                 redirect_stderr,
+                // DEBUG TODO
+                WithoutDebug,
+                None,
             ) {
                 Ok(v) => Some(v.into_value(span)),
                 Err(ShellError::Break { .. }) => None,

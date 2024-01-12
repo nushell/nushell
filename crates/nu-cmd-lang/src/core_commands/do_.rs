@@ -2,6 +2,7 @@ use std::thread;
 
 use nu_engine::{eval_block_with_early_return, redirect_env, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, SyntaxShape,
@@ -123,6 +124,9 @@ impl Command for Do {
             input,
             call.redirect_stdout,
             call.redirect_stdout,
+            // DEBUG TODO
+            WithoutDebug,
+            None,
         );
 
         if has_env {

@@ -1,5 +1,6 @@
 use itertools::unfold;
 use nu_engine::{eval_block_with_early_return, CallExt};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -135,6 +136,9 @@ used as the next argument to the closure, otherwise generation stops.
                 arg.into_pipeline_data(),
                 redirect_stdout,
                 redirect_stderr,
+                // DEBUG TODO
+                WithoutDebug,
+                None,
             ) {
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),

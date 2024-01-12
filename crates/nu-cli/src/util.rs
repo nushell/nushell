@@ -1,5 +1,5 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::{eval_block, eval_block_with_early_return, eval_block_with_early_return2};
+use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::engine::debugger::{BasicDebugger, NoopDebugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::StateWorkingSet;
@@ -248,7 +248,7 @@ pub fn eval_source(
         let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
         // uncomment to disable debugger:
         // let debug_context = WithoutDebug;
-        let res = eval_block_with_early_return2(
+        let res = eval_block_with_early_return(
             engine_state,
             stack,
             &block,
