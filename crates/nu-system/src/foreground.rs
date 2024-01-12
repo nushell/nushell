@@ -127,10 +127,10 @@ mod foreground_pgroup {
                 let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
                 // SIGINT has special handling
                 sigaction(Signal::SIGQUIT, &default).expect("signal default");
-                // We don't support background jobs, so keep SIGTSTP blocked?
+                // We don't support background jobs, so keep some signals blocked for now
                 // sigaction(Signal::SIGTSTP, &default).expect("signal default");
-                sigaction(Signal::SIGTTIN, &default).expect("signal default");
-                sigaction(Signal::SIGTTOU, &default).expect("signal default");
+                // sigaction(Signal::SIGTTIN, &default).expect("signal default");
+                // sigaction(Signal::SIGTTOU, &default).expect("signal default");
                 sigaction(Signal::SIGTERM, &default).expect("signal default");
 
                 Ok(())
