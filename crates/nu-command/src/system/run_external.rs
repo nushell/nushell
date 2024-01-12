@@ -75,7 +75,7 @@ impl Command for External {
             });
         }
 
-        let command = create_external_command(
+        let command = ExternalCommand::new(
             engine_state,
             stack,
             call,
@@ -104,93 +104,6 @@ impl Command for External {
     }
 }
 
-/// Creates ExternalCommand from a call
-pub fn create_external_command(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    redirect_stdout: bool,
-    redirect_stderr: bool,
-    redirect_combine: bool,
-    trim_end_newline: bool,
-) -> Result<ExternalCommand, ShellError> {
-    let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-
-    // Translate environment variables from Values to Strings
-    let env_vars_str = env_to_strings(engine_state, stack)?;
-
-    fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
-        let span = value.span();
-
-        value
-            .as_string()
-            .map(|item| Spanned { item, span })
-            .map_err(|_| ShellError::ExternalCommand {
-                label: format!("Cannot convert {} to a string", value.get_type()),
-                help: "All arguments to an external command need to be string-compatible".into(),
-                span,
-            })
-    }
-
-    let mut spanned_args = vec![];
-    let mut arg_keep_raw = vec![];
-    for (arg, spread) in call.rest_iter(1) {
-        // TODO: Disallow automatic spreading entirely later. This match block will
-        // have to be refactored, and lists will have to be disallowed in the parser too
-        match eval_expression(engine_state, stack, arg)? {
-            Value::List { vals, .. } => {
-                if !spread {
-                    nu_protocol::report_error_new(
-                        engine_state,
-                        &ShellError::GenericError {
-                            error: "Automatically spreading lists is deprecated".into(),
-                            msg: "Spreading lists automatically when calling external commands is deprecated and will be removed in 0.91.".into(),
-                            span: Some(arg.span),
-                            help: Some("Use the spread operator (put a '...' before the argument)".into()),
-                            inner: vec![],
-                        },
-                    );
-                }
-                // turn all the strings in the array into params.
-                // Example: one_arg may be something like ["ls" "-a"]
-                // convert it to "ls" "-a"
-                for v in vals {
-                    spanned_args.push(value_as_spanned(v)?);
-                    // for arguments in list, it's always treated as a whole arguments
-                    arg_keep_raw.push(true);
-                }
-            }
-            val => {
-                if spread {
-                    return Err(ShellError::CannotSpreadAsList { span: arg.span });
-                } else {
-                    spanned_args.push(value_as_spanned(val)?);
-                    match arg.expr {
-                        // refer to `parse_dollar_expr` function
-                        // the expression type of $variable_name, $"($variable_name)"
-                        // will be Expr::StringInterpolation, Expr::FullCellPath
-                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
-                            arg_keep_raw.push(true)
-                        }
-                        _ => arg_keep_raw.push(false),
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(ExternalCommand {
-        name,
-        args: spanned_args,
-        arg_keep_raw,
-        redirect_stdout,
-        redirect_stderr,
-        redirect_combine,
-        env_vars: env_vars_str,
-        trim_end_newline,
-    })
-}
-
 #[derive(Clone)]
 pub struct ExternalCommand {
     pub name: Spanned<String>,
@@ -204,6 +117,158 @@ pub struct ExternalCommand {
 }
 
 impl ExternalCommand {
+    pub fn new(
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        redirect_stdout: bool,
+        redirect_stderr: bool,
+        redirect_combine: bool,
+        trim_end_newline: bool,
+    ) -> Result<ExternalCommand, ShellError> {
+        let name: Spanned<String> = call.req(engine_state, stack, 0)?;
+
+        // Translate environment variables from Values to Strings
+        let env_vars_str = env_to_strings(engine_state, stack)?;
+
+        fn value_as_spanned(value: Value) -> Result<Spanned<String>, ShellError> {
+            let span = value.span();
+
+            value
+                .as_string()
+                .map(|item| Spanned { item, span })
+                .map_err(|_| ShellError::ExternalCommand {
+                    label: format!("Cannot convert {} to a string", value.get_type()),
+                    help: "All arguments to an external command need to be string-compatible"
+                        .into(),
+                    span,
+                })
+        }
+
+        let mut spanned_args = vec![];
+        let mut arg_keep_raw = vec![];
+        for (arg, spread) in call.rest_iter(1) {
+            // TODO: Disallow automatic spreading entirely later. This match block will
+            // have to be refactored, and lists will have to be disallowed in the parser too
+            match eval_expression(engine_state, stack, arg)? {
+                Value::List { vals, .. } => {
+                    if !spread {
+                        nu_protocol::report_error_new(
+                            engine_state,
+                            &ShellError::GenericError {
+                                error: "Automatically spreading lists is deprecated".into(),
+                                msg: "Spreading lists automatically when calling external commands is deprecated and will be removed in 0.91.".into(),
+                                span: Some(arg.span),
+                                help: Some("Use the spread operator (put a '...' before the argument)".into()),
+                                inner: vec![],
+                            },
+                        );
+                    }
+                    // turn all the strings in the array into params.
+                    // Example: one_arg may be something like ["ls" "-a"]
+                    // convert it to "ls" "-a"
+                    for v in vals {
+                        spanned_args.push(value_as_spanned(v)?);
+                        // for arguments in list, it's always treated as a whole arguments
+                        arg_keep_raw.push(true);
+                    }
+                }
+                val => {
+                    if spread {
+                        return Err(ShellError::CannotSpreadAsList { span: arg.span });
+                    } else {
+                        spanned_args.push(value_as_spanned(val)?);
+                        match arg.expr {
+                            // refer to `parse_dollar_expr` function
+                            // the expression type of $variable_name, $"($variable_name)"
+                            // will be Expr::StringInterpolation, Expr::FullCellPath
+                            Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
+                                arg_keep_raw.push(true)
+                            }
+                            _ => arg_keep_raw.push(false),
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(ExternalCommand {
+            name,
+            args: spanned_args,
+            arg_keep_raw,
+            redirect_stdout,
+            redirect_stderr,
+            redirect_combine,
+            env_vars: env_vars_str,
+            trim_end_newline,
+        })
+    }
+
+    #[cfg(windows)]
+    pub fn retry_command_windows(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        span: Span,
+    ) -> Result<Option<CommandSys>, ShellError> {
+        // Running external commands on Windows has 2 points of complication:
+        // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+        // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+
+        // To support these situations, we have a fallback path that gets run if a command
+        // fails to be run as a normal executable:
+        // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+        // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
+
+        // set the default value, maybe we'll override it later
+        let mut result = None;
+
+        // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+        // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+        const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+            "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+        ];
+        let command_name = &self.name.item;
+        let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+            .iter()
+            .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+
+        if looks_like_cmd_internal {
+            result = Some(self.create_process(true, span)?);
+        } else {
+            #[cfg(feature = "which-support")]
+            {
+                // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                // TODO: clean this up with an if-let chain once those are stable
+                if let Ok(path) = nu_engine::env::path_str(engine_state, stack, self.name.span) {
+                    if let Some(cwd) = self.env_vars.get("PWD") {
+                        // append cwd to PATH so `which-rs` looks in the cwd too.
+                        // this approximates what cmd.exe does.
+                        let path_with_cwd = format!("{};{}", cwd, path);
+                        if let Ok(which_path) =
+                            which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                        {
+                            if let Some(file_name) = which_path.file_name() {
+                                if !file_name.to_string_lossy().eq_ignore_case(command_name) {
+                                    // which-rs found an executable file with a slightly different name
+                                    // than the one the user tried. Let's try running it
+                                    let mut new_command = self.clone();
+                                    new_command.name = Spanned {
+                                        item: file_name.to_string_lossy().to_string(),
+                                        span: self.name.span,
+                                    };
+                                    result = Some(new_command.create_process(true, span)?);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(result)
+    }
+
     pub fn run_with_input(
         &self,
         engine_state: &EngineState,
@@ -215,80 +280,29 @@ impl ExternalCommand {
 
         let ctrlc = engine_state.ctrlc.clone();
 
-        #[allow(unused_mut)]
-        let (cmd, mut reader) = self.create_process(&input, false, head)?;
+        let mut cmd = self.create_process(false, head)?;
+        let reader = self.create_pipe(&mut cmd, &input)?;
 
-        #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
-        let child = ForegroundChild::spawn(cmd);
-
-        #[cfg(windows)]
+        #[cfg(not(unix))]
         let child = match ForegroundChild::spawn(cmd) {
-            Ok(child) => Ok(child),
+            Ok(child) => Ok((child, reader)),
             Err(err) => {
-                // Running external commands on Windows has 2 points of complication:
-                // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-                // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
-
-                // To support these situations, we have a fallback path that gets run if a command
-                // fails to be run as a normal executable:
-                // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-                // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-
-                // set the default value, maybe we'll override it later
-                let mut child = Err(err);
-
-                // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                const CMD_INTERNAL_COMMANDS: [&str; 9] = [
-                    "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
-                ];
-                let command_name = &self.name.item;
-                let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
-                    .iter()
-                    .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
-
-                if looks_like_cmd_internal {
-                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
-                    reader = new_reader;
-                    child = ForegroundChild::spawn(cmd);
-                } else {
-                    #[cfg(feature = "which-support")]
-                    {
-                        // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                        // TODO: clean this up with an if-let chain once those are stable
-                        if let Ok(path) =
-                            nu_engine::env::path_str(engine_state, stack, self.name.span)
-                        {
-                            if let Some(cwd) = self.env_vars.get("PWD") {
-                                // append cwd to PATH so `which-rs` looks in the cwd too.
-                                // this approximates what cmd.exe does.
-                                let path_with_cwd = format!("{};{}", cwd, path);
-                                if let Ok(which_path) =
-                                    which::which_in(&self.name.item, Some(path_with_cwd), cwd)
-                                {
-                                    if let Some(file_name) = which_path.file_name() {
-                                        if !file_name.to_string_lossy().eq_ignore_case(command_name)
-                                        {
-                                            // which-rs found an executable file with a slightly different name
-                                            // than the one the user tried. Let's try running it
-                                            let mut new_command = self.clone();
-                                            new_command.name = Spanned {
-                                                item: file_name.to_string_lossy().to_string(),
-                                                span: self.name.span,
-                                            };
-                                            let (cmd, new_reader) =
-                                                new_command.create_process(&input, true, head)?;
-                                            reader = new_reader;
-                                            child = ForegroundChild::spawn(cmd);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                #[cfg(not(windows))]
+                {
+                    Err(err)
                 }
 
-                child
+                #[cfg(windows)]
+                {
+                    if let Some(mut command) =
+                        self.retry_command_windows(engine_state, stack, head)?
+                    {
+                        let reader = self.create_pipe(&mut command, &input)?;
+                        ForegroundChild::spawn(command).map(|child| (child, reader))
+                    } else {
+                        Err(err)
+                    }
+                }
             }
         };
 
@@ -297,7 +311,8 @@ impl ExternalCommand {
             cmd,
             engine_state.is_interactive,
             &engine_state.pipeline_externals_state,
-        );
+        )
+        .map(|child| (child, reader));
 
         match child {
             Err(err) => {
@@ -402,7 +417,7 @@ impl ExternalCommand {
                     }),
                 }
             }
-            Ok(mut child) => {
+            Ok((mut child, reader)) => {
                 if !input.is_nothing() {
                     let mut engine_state = engine_state.clone();
                     let mut stack = stack.clone();
@@ -589,12 +604,7 @@ impl ExternalCommand {
         }
     }
 
-    pub fn create_process(
-        &self,
-        input: &PipelineData,
-        use_cmd: bool,
-        span: Span,
-    ) -> Result<(CommandSys, Option<PipeReader>), ShellError> {
+    pub fn create_process(&self, use_cmd: bool, span: Span) -> Result<CommandSys, ShellError> {
         let mut process = if let Some(d) = self.env_vars.get("PWD") {
             let mut process = if use_cmd {
                 self.spawn_cmd_command(d)
@@ -622,6 +632,14 @@ impl ExternalCommand {
 
         process.envs(&self.env_vars);
 
+        Ok(process)
+    }
+
+    fn create_pipe(
+        &self,
+        process: &mut CommandSys,
+        input: &PipelineData,
+    ) -> Result<Option<PipeReader>, ShellError> {
         // If the external is not the last command, its output will get piped
         // either as a string or binary
         let reader = if self.redirect_combine {
@@ -647,7 +665,7 @@ impl ExternalCommand {
             process.stdin(Stdio::piped());
         }
 
-        Ok((process, reader))
+        Ok(reader)
     }
 
     fn create_command(&self, cwd: &str) -> Result<CommandSys, ShellError> {
