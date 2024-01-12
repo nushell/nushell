@@ -46,7 +46,7 @@ pub fn operate(
     let head = call.head;
     let character_set: Option<Spanned<String>> =
         call.get_flag(engine_state, stack, "character-set")?;
-    let binary = call.has_flag("binary");
+    let binary = call.has_flag(engine_state, stack, "binary")?;
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 

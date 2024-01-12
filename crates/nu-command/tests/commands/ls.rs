@@ -655,3 +655,47 @@ fn list_unknown_flag() {
         .err
         .contains("Available flags: --help(-h), --all(-a),"));
 }
+
+#[test]
+fn list_flag_false() {
+    // Check that ls flags respect explicit values
+    Playground::setup("ls_test_false_flag", |dirs, sandbox| {
+        sandbox.with_files(vec![
+            EmptyFile(".hidden"),
+            EmptyFile("normal"),
+            EmptyFile("another_normal"),
+        ]);
+
+        // TODO Remove this cfg value when we have an OS-agnostic way
+        // of creating hidden files using the playground.
+        #[cfg(unix)]
+        {
+            let actual = nu!(
+                cwd: dirs.test(), pipeline(
+                "
+                ls --all=false | length
+            "
+            ));
+
+            assert_eq!(actual.out, "2");
+        }
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --long=false | columns | length
+            "
+        ));
+
+        assert_eq!(actual.out, "4");
+
+        let actual = nu!(
+            cwd: dirs.test(), pipeline(
+            "
+                ls --full-paths=false | get name | any { $in =~ / }
+            "
+        ));
+
+        assert_eq!(actual.out, "false");
+    })
+}

@@ -118,26 +118,26 @@ fn split_words(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let span = call.head;
-    // let ignore_hyphenated = call.has_flag("ignore-hyphenated");
-    // let ignore_apostrophes = call.has_flag("ignore-apostrophes");
-    // let ignore_punctuation = call.has_flag("ignore-punctuation");
+    // let ignore_hyphenated = call.has_flag(engine_state, stack, "ignore-hyphenated")?;
+    // let ignore_apostrophes = call.has_flag(engine_state, stack, "ignore-apostrophes")?;
+    // let ignore_punctuation = call.has_flag(engine_state, stack, "ignore-punctuation")?;
     let word_length: Option<usize> = call.get_flag(engine_state, stack, "min-word-length")?;
 
     if word_length.is_none() {
-        if call.has_flag("grapheme-clusters") {
+        if call.has_flag(engine_state, stack, "grapheme-clusters")? {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--grapheme-clusters (-g) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
-        if call.has_flag("utf-8-bytes") {
+        if call.has_flag(engine_state, stack, "utf-8-bytes")? {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "--utf-8-bytes (-b) requires --min-word-length (-l)".to_string(),
                 span,
             });
         }
     }
-    let graphemes = grapheme_flags(call)?;
+    let graphemes = grapheme_flags(engine_state, stack, call)?;
 
     input.map(
         move |x| split_words_helper(&x, word_length, span, graphemes),

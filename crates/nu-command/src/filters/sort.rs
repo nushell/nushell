@@ -1,4 +1,5 @@
 use alphanumeric_sort::compare_str;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -134,20 +135,20 @@ impl Command for Sort {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("ignore-case");
-        let natural = call.has_flag("natural");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
+        let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+        let natural = call.has_flag(engine_state, stack, "natural")?;
         let metadata = &input.metadata();
 
         let span = input.span().unwrap_or(call.head);
         match input {
             // Records have two sorting methods, toggled by presence or absence of -v
             PipelineData::Value(Value::Record { val, .. }, ..) => {
-                let sort_by_value = call.has_flag("values");
+                let sort_by_value = call.has_flag(engine_state, stack, "values")?;
                 let record = sort_record(val, span, sort_by_value, reverse, insensitive, natural);
                 Ok(record.into_pipeline_data())
             }

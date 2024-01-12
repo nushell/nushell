@@ -46,7 +46,7 @@ impl Command for ErrorMake {
     ) -> Result<PipelineData, ShellError> {
         let arg: Value = call.req(engine_state, stack, 0)?;
 
-        let throw_span = if call.has_flag("unspanned") {
+        let throw_span = if call.has_flag(engine_state, stack, "unspanned")? {
             None
         } else {
             Some(call.head)

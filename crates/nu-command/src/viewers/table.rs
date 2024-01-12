@@ -122,7 +122,7 @@ impl Command for Table {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list_themes: bool = call.has_flag("list");
+        let list_themes: bool = call.has_flag(engine_state, stack, "list")?;
         // if list argument is present we just need to return a list of supported table themes
         if list_themes {
             let val = Value::list(supported_table_modes(), Span::test_data());
@@ -248,10 +248,10 @@ fn parse_table_config(
     stack: &mut Stack,
 ) -> Result<TableConfig, ShellError> {
     let width_param: Option<i64> = call.get_flag(state, stack, "width")?;
-    let expand: bool = call.has_flag("expand");
+    let expand: bool = call.has_flag(state, stack, "expand")?;
     let expand_limit: Option<usize> = call.get_flag(state, stack, "expand-deep")?;
-    let collapse: bool = call.has_flag("collapse");
-    let flatten: bool = call.has_flag("flatten");
+    let collapse: bool = call.has_flag(state, stack, "collapse")?;
+    let flatten: bool = call.has_flag(state, stack, "flatten")?;
     let flatten_separator: Option<String> = call.get_flag(state, stack, "flatten-separator")?;
     let abbrivation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?

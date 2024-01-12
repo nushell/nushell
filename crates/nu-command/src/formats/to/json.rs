@@ -44,8 +44,8 @@ impl Command for ToJson {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let use_tabs = call.has_flag("tabs");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let use_tabs = call.has_flag(engine_state, stack, "tabs")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array

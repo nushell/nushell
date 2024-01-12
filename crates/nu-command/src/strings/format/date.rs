@@ -53,7 +53,7 @@ impl Command for FormatDate {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if call.has_flag("list") {
+        if call.has_flag(engine_state, stack, "list")? {
             return Ok(PipelineData::Value(
                 generate_strftime_list(head, false),
                 None,

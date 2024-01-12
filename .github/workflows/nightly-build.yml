@@ -119,7 +119,7 @@ jobs:
           os: ubuntu-20.04
           target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-latest
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}

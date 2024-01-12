@@ -166,9 +166,9 @@ fn from_csv(
         .get_flag(engine_state, stack, "escape")?
         .map(|v: Value| v.as_char())
         .transpose()?;
-    let no_infer = call.has_flag("no-infer");
-    let noheaders = call.has_flag("noheaders");
-    let flexible = call.has_flag("flexible");
+    let no_infer = call.has_flag(engine_state, stack, "no-infer")?;
+    let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
+    let flexible = call.has_flag(engine_state, stack, "flexible")?;
     let trim = trim_from_str(call.get_flag(engine_state, stack, "trim")?)?;
 
     let config = DelimitedReaderConfig {

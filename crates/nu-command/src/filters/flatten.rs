@@ -128,7 +128,7 @@ fn flatten(
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
-    let flatten_all = call.has_flag("all");
+    let flatten_all = call.has_flag(engine_state, stack, "all")?;
 
     input
         .flat_map(

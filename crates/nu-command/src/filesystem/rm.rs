@@ -124,13 +124,13 @@ fn rm(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let trash = call.has_flag("trash");
-    let permanent = call.has_flag("permanent");
-    let recursive = call.has_flag("recursive");
-    let force = call.has_flag("force");
-    let verbose = call.has_flag("verbose");
-    let interactive = call.has_flag("interactive");
-    let interactive_once = call.has_flag("interactive-once") && !interactive;
+    let trash = call.has_flag(engine_state, stack, "trash")?;
+    let permanent = call.has_flag(engine_state, stack, "permanent")?;
+    let recursive = call.has_flag(engine_state, stack, "recursive")?;
+    let force = call.has_flag(engine_state, stack, "force")?;
+    let verbose = call.has_flag(engine_state, stack, "verbose")?;
+    let interactive = call.has_flag(engine_state, stack, "interactive")?;
+    let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
 
     let ctrlc = engine_state.ctrlc.clone();
 
@@ -381,11 +381,23 @@ fn rm(
                         {
                             unreachable!()
                         }
-                    } else if metadata.is_file()
-                        || is_socket
-                        || is_fifo
-                        || metadata.file_type().is_symlink()
-                    {
+                    } else if metadata.is_symlink() {
+                        // In Windows, symlink pointing to a directory can be removed using
+                        // std::fs::remove_dir instead of std::fs::remove_file.
+                        #[cfg(windows)]
+                        {
+                            f.metadata().and_then(|metadata| {
+                                if metadata.is_dir() {
+                                    std::fs::remove_dir(&f)
+                                } else {
+                                    std::fs::remove_file(&f)
+                                }
+                            })
+                        }
+
+                        #[cfg(not(windows))]
+                        std::fs::remove_file(&f)
+                    } else if metadata.is_file() || is_socket || is_fifo {
                         std::fs::remove_file(&f)
                     } else {
                         std::fs::remove_dir_all(&f)
