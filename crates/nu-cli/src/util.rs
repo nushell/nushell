@@ -245,13 +245,10 @@ pub fn eval_source(
         // eval_block_with_early_return(engine_state, stack, &block, input, false, false)
 
         let debug_context = WithDebug;
-        let debugger = Arc::new(Mutex::new(BasicDebugger {
-            // data: BasicData {
-            timestamps: vec![], // }
-        }));
+        let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
         // uncomment to disable debugger:
         // let debug_context = WithoutDebug;
-        eval_block_with_early_return2(
+        let res = eval_block_with_early_return2(
             engine_state,
             stack,
             &block,
@@ -259,8 +256,12 @@ pub fn eval_source(
             false,
             false,
             debug_context,
-            Some(debugger),
-        )
+            Some(debugger.clone()),
+        );
+
+        debugger.lock().unwrap().report();
+
+        res
     } else {
         eval_block(engine_state, stack, &block, input, false, false)
     };

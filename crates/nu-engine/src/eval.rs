@@ -21,9 +21,8 @@ pub fn eval_call(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    println!("DEBUG: Creating new debugger for a call");
     let debug_context = WithDebug;
-    let debugger = Arc::new(Mutex::new(BasicDebugger { timestamps: vec![] }));
+    let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
 
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
@@ -615,7 +614,7 @@ pub fn eval_block_with_early_return2(
 ) -> Result<PipelineData, ShellError> {
     debug_context.on_block_enter(&debugger);
 
-    match eval_block(
+    let res = match eval_block(
         engine_state,
         stack,
         block,
@@ -625,7 +624,11 @@ pub fn eval_block_with_early_return2(
     ) {
         Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
         x => x,
-    }
+    };
+
+    debug_context.on_block_leave(&debugger);
+
+    res
 }
 
 pub fn eval_block_with_early_return(
