@@ -424,6 +424,12 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StorUpdate,
         };
 
+        // Job control
+        bind_command! {
+            JobList,
+            JobStart,
+        }
+
         working_set.render()
     };
 

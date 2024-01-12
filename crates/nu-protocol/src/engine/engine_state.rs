@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
 use lru::LruCache;
+use nu_system::Jobs;
 
 use super::{
     usage::{build_usage, Usage},
@@ -94,6 +95,7 @@ pub struct EngineState {
     pub config: Config,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
+    pub jobs: Jobs,
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
@@ -146,6 +148,7 @@ impl EngineState {
             previous_env_vars: HashMap::new(),
             config: Config::default(),
             pipeline_externals_state: Arc::new((AtomicU32::new(0), AtomicU32::new(0))),
+            jobs: Jobs::new(),
             repl_state: Arc::new(Mutex::new(ReplState {
                 buffer: "".to_string(),
                 cursor_pos: 0,
