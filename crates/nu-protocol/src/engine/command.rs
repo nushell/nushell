@@ -59,7 +59,7 @@ pub trait Command: Send + Sync + CommandClone {
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-        debugger: Arc<Mutex<dyn Debugger>>
+        debugger: Arc<Mutex<dyn Debugger>>,
     ) -> Result<PipelineData, ShellError> {
         self.run(engine_state, stack, call, input)
     }

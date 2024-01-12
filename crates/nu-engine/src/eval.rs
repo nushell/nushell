@@ -22,10 +22,8 @@ pub fn eval_call(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     println!("DEBUG: Creating new debugger for a call");
-    let debug_mode = WithDebug;
-    let debugger = Arc::new(Mutex::new(BasicDebugger {
-        timestamps: vec![]
-    }));
+    let debug_context = WithDebug;
+    let debugger = Arc::new(Mutex::new(BasicDebugger { timestamps: vec![] }));
 
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
@@ -171,9 +169,9 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        match debug_mode {
+        match debug_context {
             WithDebug => decl.run_debug(engine_state, caller_stack, call, input, debugger),
-            _ => decl.run(engine_state, caller_stack, call, input)
+            _ => decl.run(engine_state, caller_stack, call, input),
         }
     }
 }
@@ -612,10 +610,10 @@ pub fn eval_block_with_early_return2(
     input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
-    debug_mode: impl DebugContext,
-    debugger: Option<Arc<Mutex<dyn Debugger>>>
+    debug_context: impl DebugContext,
+    debugger: Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
-    debug_mode.on_block_enter(debugger);
+    debug_context.on_block_enter(&debugger);
 
     match eval_block(
         engine_state,

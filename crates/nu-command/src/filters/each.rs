@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use nu_engine::{eval_block_with_early_return, eval_block_with_early_return2, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::debugger::{Debugger, WithDebug, WithoutDebug};
@@ -7,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+use std::sync::{Arc, Mutex};
 
 use super::utils::chain_error_with_input;
 
@@ -114,11 +114,11 @@ with 'transpose' first."#
         stack: &mut Stack,
         call: &Call,
         input: PipelineData,
-        debugger: Arc<Mutex<dyn Debugger>>
+        debugger: Arc<Mutex<dyn Debugger>>,
     ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let keep_empty = call.has_flag("keep-empty");
+        let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
@@ -161,7 +161,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithDebug,
-                        Some(debugger.clone())
+                        Some(debugger.clone()),
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -209,7 +209,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithDebug,
-                        Some(debugger.clone())
+                        Some(debugger.clone()),
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -238,17 +238,17 @@ with 'transpose' first."#
                     redirect_stdout,
                     redirect_stderr,
                     WithDebug,
-                    Some(debugger.clone())
+                    Some(debugger.clone()),
                 )
             }
         }
-            .and_then(|x| {
-                x.filter(
-                    move |x| if !keep_empty { !x.is_nothing() } else { true },
-                    outer_ctrlc,
-                )
-            })
-            .map(|x| x.set_metadata(metadata))
+        .and_then(|x| {
+            x.filter(
+                move |x| if !keep_empty { !x.is_nothing() } else { true },
+                outer_ctrlc,
+            )
+        })
+        .map(|x| x.set_metadata(metadata))
     }
 
     fn run(
@@ -302,9 +302,9 @@ with 'transpose' first."#
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
-                        WithoutDebug ,
+                        WithoutDebug,
                         // &mut NoopDebugger
-                        None
+                        None,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -383,13 +383,13 @@ with 'transpose' first."#
                 )
             }
         }
-            .and_then(|x| {
-                x.filter(
-                    move |x| if !keep_empty { !x.is_nothing() } else { true },
-                    outer_ctrlc,
-                )
-            })
-            .map(|x| x.set_metadata(metadata))
+        .and_then(|x| {
+            x.filter(
+                move |x| if !keep_empty { !x.is_nothing() } else { true },
+                outer_ctrlc,
+            )
+        })
+        .map(|x| x.set_metadata(metadata))
         // run_each(
         //     engine_state,
         //     stack,

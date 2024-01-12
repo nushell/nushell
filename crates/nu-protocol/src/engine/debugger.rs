@@ -5,7 +5,7 @@ use std::time::SystemTime;
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy {
     #[allow(unused_variables)]
-    fn on_block_enter(&self, debugger: Option<Arc<Mutex<dyn Debugger>>>) {}
+    fn on_block_enter(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 }
 
 /// Marker struct signalizing that evaluation should use a Debugger
@@ -13,8 +13,14 @@ pub trait DebugContext: Clone + Copy {
 pub struct WithDebug;
 
 impl DebugContext for WithDebug {
-    fn on_block_enter(&self, debugger: Option<Arc<Mutex<dyn Debugger>>>) {
-        debugger.unwrap().lock().unwrap().deref_mut().on_block_enter();
+    fn on_block_enter(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
+        debugger
+            .as_ref()
+            .unwrap()
+            .lock()
+            .unwrap()
+            .deref_mut()
+            .on_block_enter();
     }
 }
 
@@ -35,7 +41,7 @@ pub trait Debugger: Send {
 #[derive(Default)]
 pub struct BasicDebugger {
     // pub data: BasicData
-    pub timestamps: Vec<SystemTime>
+    pub timestamps: Vec<SystemTime>,
 }
 
 impl Debugger for BasicDebugger {
@@ -48,4 +54,4 @@ impl Debugger for BasicDebugger {
 /// Noop debugger doing nothing, should not interfere with normal flow in any way.
 pub struct NoopDebugger;
 
-impl Debugger for NoopDebugger { }
+impl Debugger for NoopDebugger {}
