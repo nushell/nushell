@@ -35,7 +35,7 @@ impl Command for Reduce {
                     SyntaxShape::Any,
                     SyntaxShape::Int,
                 ])),
-                "reducing function",
+                "Reducing function.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -98,7 +98,7 @@ impl Command for Reduce {
 
         let fold: Option<Value> = call.get_flag(engine_state, stack, "fold")?;
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
 
@@ -117,13 +117,13 @@ impl Command for Reduce {
         } else if let Some(val) = input_iter.next() {
             val
         } else {
-            return Err(ShellError::GenericError(
-                "Expected input".to_string(),
-                "needs input".to_string(),
-                Some(span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Expected input".into(),
+                msg: "needs input".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            });
         };
 
         let mut acc = start_val;

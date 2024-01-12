@@ -1,11 +1,13 @@
 use crate::formats::value_to_string;
 use itertools::Itertools;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, Record,
-    ShellError, Signature, Span, Type, Value,
+    record, Category, Example, IntoPipelineData, PipelineData, PipelineMetadata, ShellError,
+    Signature, Span, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 use std::collections::hash_map::IntoIter;
 use std::collections::HashMap;
 
@@ -172,7 +174,7 @@ impl ValueCounter {
         ValueCounter {
             val,
             val_to_compare: if flag_ignore_case {
-                clone_to_lowercase(&vals_to_compare.with_span(Span::unknown()))
+                clone_to_folded_case(&vals_to_compare.with_span(Span::unknown()))
             } else {
                 vals_to_compare.with_span(Span::unknown())
             },
@@ -182,18 +184,18 @@ impl ValueCounter {
     }
 }
 
-fn clone_to_lowercase(value: &Value) -> Value {
+fn clone_to_folded_case(value: &Value) -> Value {
     let span = value.span();
     match value {
-        Value::String { val: s, .. } => Value::string(s.clone().to_lowercase(), span),
+        Value::String { val: s, .. } => Value::string(s.clone().to_folded_case(), span),
         Value::List { vals: vec, .. } => {
-            Value::list(vec.iter().map(clone_to_lowercase).collect(), span)
+            Value::list(vec.iter().map(clone_to_folded_case).collect(), span)
         }
         Value::Record { val: record, .. } => Value::record(
-            Record {
-                cols: record.cols.clone(),
-                vals: record.vals.iter().map(clone_to_lowercase).collect(),
-            },
+            record
+                .iter()
+                .map(|(k, v)| (k.to_owned(), clone_to_folded_case(v)))
+                .collect(),
             span,
         ),
         other => other.clone(),
@@ -204,24 +206,18 @@ fn sort_attributes(val: Value) -> Value {
     let span = val.span();
     match val {
         Value::Record { val, .. } => {
+            // TODO: sort inplace
             let sorted = val
                 .into_iter()
                 .sorted_by(|a, b| a.0.cmp(&b.0))
                 .collect_vec();
 
-            let sorted_cols = sorted.clone().into_iter().map(|a| a.0).collect_vec();
-            let sorted_vals = sorted
+            let record = sorted
                 .into_iter()
-                .map(|a| sort_attributes(a.1))
-                .collect_vec();
+                .map(|(k, v)| (k, sort_attributes(v)))
+                .collect();
 
-            Value::record(
-                Record {
-                    cols: sorted_cols,
-                    vals: sorted_vals,
-                },
-                span,
-            )
+            Value::record(record, span)
         }
         Value::List { vals, .. } => {
             Value::list(vals.into_iter().map(sort_attributes).collect_vec(), span)
@@ -252,7 +248,7 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
 
 pub fn uniq(
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
@@ -260,10 +256,10 @@ pub fn uniq(
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
-    let flag_show_count = call.has_flag("count");
-    let flag_show_repeated = call.has_flag("repeated");
-    let flag_ignore_case = call.has_flag("ignore-case");
-    let flag_only_uniques = call.has_flag("unique");
+    let flag_show_count = call.has_flag(engine_state, stack, "count")?;
+    let flag_show_repeated = call.has_flag(engine_state, stack, "repeated")?;
+    let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+    let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
     let uniq_values = input
         .into_iter()
@@ -316,9 +312,7 @@ pub fn uniq(
         uniq_values.into_iter().map(|v| v.val).collect()
     };
 
-    Ok(Value::list(result, head)
-        .into_pipeline_data()
-        .set_metadata(metadata))
+    Ok(Value::list(result, head).into_pipeline_data_with_metadata(metadata))
 }
 
 fn sort(iter: IntoIter<String, ValueCounter>) -> Vec<ValueCounter> {

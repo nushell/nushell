@@ -10,6 +10,7 @@ use nu_protocol::{
     span, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
+use nu_utils::IgnoreCaseExt;
 #[derive(Clone)]
 pub struct Help;
 
@@ -27,7 +28,7 @@ impl Command for Help {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command, alias or module to get help on",
+                "The name of command, alias or module to get help on.",
             )
             .named(
                 "find",
@@ -88,13 +89,13 @@ You can also learn more at https://www.nushell.sh/book/"#;
         } else {
             let result = help_aliases(engine_state, stack, call);
 
-            let result = if let Err(ShellError::AliasNotFound(_)) = result {
+            let result = if let Err(ShellError::AliasNotFound { .. }) = result {
                 help_commands(engine_state, stack, call)
             } else {
                 result
             };
 
-            let result = if let Err(ShellError::CommandNotFound(_)) = result {
+            let result = if let Err(ShellError::CommandNotFound { .. }) = result {
                 help_modules(engine_state, stack, call)
             } else {
                 result
@@ -144,7 +145,7 @@ pub fn highlight_search_in_table(
     highlight_style: &Style,
 ) -> Result<Vec<Value>, ShellError> {
     let orig_search_string = search_string;
-    let search_string = search_string.to_lowercase();
+    let search_string = search_string.to_folded_case();
     let mut matches = vec![];
 
     for record in table {
@@ -168,7 +169,7 @@ pub fn highlight_search_in_table(
                 }
                 let span = val.span();
                 if let Value::String { val: s, .. } = val {
-                    if s.to_lowercase().contains(&search_string) {
+                    if s.to_folded_case().contains(&search_string) {
                         *val = Value::string(
                             highlight_search_string(
                                 s,
@@ -206,13 +207,13 @@ pub fn highlight_search_string(
     let regex = match Regex::new(&regex_string) {
         Ok(regex) => regex,
         Err(err) => {
-            return Err(ShellError::GenericError(
-                "Could not compile regex".into(),
-                err.to_string(),
-                Some(Span::test_data()),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Could not compile regex".into(),
+                msg: err.to_string(),
+                span: Some(Span::test_data()),
+                help: None,
+                inner: vec![],
+            });
         }
     };
     // strip haystack to remove existing ansi style
@@ -244,13 +245,13 @@ pub fn highlight_search_string(
                 last_match_end = end;
             }
             Err(e) => {
-                return Err(ShellError::GenericError(
-                    "Error with regular expression capture".into(),
-                    e.to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Error with regular expression capture".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         }
     }

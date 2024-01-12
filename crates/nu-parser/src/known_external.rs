@@ -106,6 +106,7 @@ impl Command for KnownExternal {
                     }
                 }
                 Argument::Unknown(unknown) => extern_call.add_unknown(unknown.clone()),
+                Argument::Spread(args) => extern_call.add_spread(args.clone()),
             }
         }
 

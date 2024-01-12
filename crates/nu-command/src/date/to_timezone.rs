@@ -22,7 +22,7 @@ impl Command for SubCommand {
         Signature::build("date to-timezone")
             .input_output_types(vec![(Type::Date, Type::Date), (Type::String, Type::Date)])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .required("time zone", SyntaxShape::String, "time zone description")
+            .required("time zone", SyntaxShape::String, "Time zone description.")
             .category(Category::Date)
     }
 
@@ -122,7 +122,10 @@ fn helper(value: Value, head: Span, timezone: &Spanned<String>) -> Value {
             _to_timezone(dt.with_timezone(dt.offset()), timezone, head)
         }
         _ => Value::error(
-            ShellError::DatetimeParseError(value.debug_value(), head),
+            ShellError::DatetimeParseError {
+                msg: value.debug_value(),
+                span: head,
+            },
             head,
         ),
     }

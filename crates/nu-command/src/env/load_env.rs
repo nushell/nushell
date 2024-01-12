@@ -27,7 +27,7 @@ impl Command for LoadEnv {
             .optional(
                 "update",
                 SyntaxShape::Record(vec![]),
-                "the record to use for updates",
+                "The record to use for updates.",
             )
             .category(Category::FileSystem)
     }
@@ -81,12 +81,12 @@ impl Command for LoadEnv {
                     }
                     Ok(PipelineData::empty())
                 }
-                _ => Err(ShellError::UnsupportedInput(
-                    "'load-env' expects a single record".into(),
-                    "value originated from here".into(),
-                    span,
-                    input.span().unwrap_or(span),
-                )),
+                _ => Err(ShellError::UnsupportedInput {
+                    msg: "'load-env' expects a single record".into(),
+                    input: "value originated from here".into(),
+                    msg_span: span,
+                    input_span: input.span().unwrap_or(span),
+                }),
             },
         }
     }

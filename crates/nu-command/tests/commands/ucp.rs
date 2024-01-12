@@ -970,6 +970,21 @@ fn test_cp_with_vars() {
     });
 }
 
+#[test]
+fn test_cp_destination_after_cd() {
+    Playground::setup("ucp_test_34", |dirs, sandbox| {
+        sandbox.mkdir("test");
+        sandbox.with_files(vec![EmptyFile("test/file.txt")]);
+        nu!(
+        cwd: dirs.test(),
+            // Defining variable avoid path expansion of cp argument.
+            // If argument was not expanded ucp wrapper should do it
+        "cd test; let file = 'copy.txt'; cp file.txt $file",
+        );
+        assert!(dirs.test().join("test").join("copy.txt").exists());
+    });
+}
+
 #[rstest]
 #[case(r#"'a]c'"#)]
 #[case(r#"'a[c'"#)]
@@ -1011,4 +1026,77 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 // windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
     copies_files_with_glob_metachars(src_name);
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_timestamps() {
+    // Preserve timestamp and mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ mode timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs == $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_only_timestamps() {
+    // Preserve timestamps and discard all other attributes including mode
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [ timestamps ] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            print (($old_attrs | select mode) != ($new_attrs | select mode))
+            print (($old_attrs | select accessed modified) == ($new_attrs | select accessed modified))
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "truetrue");
+    });
+}
+
+#[cfg(not(windows))]
+#[test]
+fn test_cp_preserve_nothing() {
+    // Preserve no attributes
+
+    Playground::setup("ucp_test_35", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("file.txt")]);
+        let actual = nu!(
+        cwd: dirs.test(),
+        "
+            chmod +x file.txt
+            cp --preserve [] file.txt other.txt
+
+            let old_attrs = ls -l file.txt | get 0 | select mode accessed modified
+            let new_attrs = ls -l other.txt | get 0 | select mode accessed modified
+
+            $old_attrs != $new_attrs
+        ",
+        );
+        assert!(actual.err.is_empty());
+        assert_eq!(actual.out, "true");
+    });
 }

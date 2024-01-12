@@ -1,9 +1,12 @@
+use crossterm::{
+    cursor::MoveTo,
+    terminal::{Clear as ClearCommand, ClearType},
+    QueueableCommand,
+};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Type, Value,
-};
-use std::process::Command as CommandSys;
+use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Type};
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct Clear;
@@ -25,31 +28,17 @@ impl Command for Clear {
 
     fn run(
         &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        std::io::stdout()
+            .queue(ClearCommand(ClearType::All))?
+            .queue(MoveTo(0, 0))?
+            .flush()?;
 
-        if cfg!(windows) {
-            CommandSys::new("cmd")
-                .args(["/C", "cls"])
-                .status()
-                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
-        } else if cfg!(unix) {
-            let mut cmd = CommandSys::new("/bin/sh");
-
-            if let Some(Value::String { val, .. }) = stack.get_env_var(engine_state, "TERM") {
-                cmd.env("TERM", val);
-            }
-
-            cmd.args(["-c", "clear"])
-                .status()
-                .map_err(|e| ShellError::IOErrorSpanned(e.to_string(), span))?;
-        }
-
-        Ok(Value::nothing(span).into_pipeline_data())
+        Ok(PipelineData::Empty)
     }
 
     fn examples(&self) -> Vec<Example> {

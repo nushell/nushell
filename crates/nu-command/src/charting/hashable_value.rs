@@ -102,12 +102,12 @@ impl HashableValue {
 
             // Explicitly propagate errors instead of dropping them.
             Value::Error { error, .. } => Err(*error),
-            _ => Err(ShellError::UnsupportedInput(
-                "input value is not hashable".into(),
-                format!("input type: {:?}", value.get_type()),
-                span,
-                value.span(),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "input value is not hashable".into(),
+                input: format!("input type: {:?}", value.get_type()),
+                msg_span: span,
+                input_span: value.span(),
+            }),
         }
     }
 
@@ -178,8 +178,11 @@ impl PartialEq for HashableValue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use nu_protocol::ast::{CellPath, PathMember};
-    use std::collections::{HashMap, HashSet};
+    use nu_protocol::{
+        ast::{CellPath, PathMember},
+        engine::Closure,
+    };
+    use std::collections::HashSet;
 
     #[test]
     fn from_value() {
@@ -237,9 +240,21 @@ mod test {
         let span = Span::test_data();
         let values = [
             Value::list(vec![Value::bool(true, span)], span),
-            Value::closure(0, HashMap::new(), span),
+            Value::closure(
+                Closure {
+                    block_id: 0,
+                    captures: Vec::new(),
+                },
+                span,
+            ),
             Value::nothing(span),
-            Value::error(ShellError::DidYouMean("what?".to_string(), span), span),
+            Value::error(
+                ShellError::DidYouMean {
+                    suggestion: "what?".to_string(),
+                    span,
+                },
+                span,
+            ),
             Value::cell_path(
                 CellPath {
                     members: vec![PathMember::Int {

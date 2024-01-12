@@ -1,4 +1,5 @@
 use crate::math::utils::run_with_function;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -32,12 +33,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let sample = call.has_flag("sample");
+        let sample = call.has_flag(engine_state, stack, "sample")?;
         run_with_function(call, input, compute_variance(sample))
     }
 
@@ -65,12 +66,13 @@ fn sum_of_squares(values: &[Value], span: Span) -> Result<Value, ShellError> {
         let v = match &value {
             Value::Int { .. } | Value::Float { .. } => Ok(value),
             Value::Error { error, .. } => Err(*error.clone()),
-            _ => Err(ShellError::UnsupportedInput(
-                "Attempted to compute the sum of squares of a non-int, non-float value".to_string(),
-                "value originates from here".into(),
-                span,
-                value.span(),
-            )),
+            _ => Err(ShellError::UnsupportedInput {
+                msg: "Attempted to compute the sum of squares of a non-int, non-float value"
+                    .to_string(),
+                input: "value originates from here".into(),
+                msg_span: span,
+                input_span: value.span(),
+            }),
         }?;
         let v_squared = &v.mul(span, v, span)?;
         sum_x2 = sum_x2.add(span, v_squared, span)?;

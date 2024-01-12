@@ -73,7 +73,7 @@ impl Command for Headers {
         let (old_headers, new_headers) = extract_headers(&value, config)?;
         let new_headers = replace_headers(value, &old_headers, &new_headers)?;
 
-        Ok(new_headers.into_pipeline_data().set_metadata(metadata))
+        Ok(new_headers.into_pipeline_data_with_metadata(metadata))
     }
 }
 
@@ -129,7 +129,7 @@ fn extract_headers(
     let span = value.span();
     match value {
         Value::Record { val: record, .. } => {
-            for v in &record.vals {
+            for v in record.values() {
                 if !is_valid_header(v) {
                     return Err(ShellError::TypeMismatch {
                         err_message: "needs compatible type: Null, String, Bool, Float, Int"
@@ -139,10 +139,9 @@ fn extract_headers(
                 }
             }
 
-            let old_headers = record.cols.clone();
+            let old_headers = record.columns().cloned().collect();
             let new_headers = record
-                .vals
-                .iter()
+                .values()
                 .enumerate()
                 .map(|(idx, value)| {
                     let col = value.into_string("", config);
@@ -160,14 +159,12 @@ fn extract_headers(
             .iter()
             .map(|value| extract_headers(value, config))
             .next()
-            .ok_or_else(|| {
-                ShellError::GenericError(
-                    "Found empty list".to_string(),
-                    "unable to extract headers".to_string(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                )
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Found empty list".into(),
+                msg: "unable to extract headers".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
             })?,
         _ => Err(ShellError::TypeMismatch {
             err_message: "record".to_string(),

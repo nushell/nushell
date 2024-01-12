@@ -1,5 +1,6 @@
 use crate::completions::{matches, CompletionOptions};
 use nu_path::home_dir;
+use nu_protocol::{engine::StateWorkingSet, Span};
 use std::path::{is_separator, Component, Path, PathBuf, MAIN_SEPARATOR as SEP};
 
 fn complete_rec(
@@ -21,7 +22,10 @@ fn complete_rec(
                     Some(base) if matches(base, &entry_name, options) => {
                         let partial = &partial[1..];
                         if !partial.is_empty() || isdir {
-                            completions.extend(complete_rec(partial, &path, options, dir, isdir))
+                            completions.extend(complete_rec(partial, &path, options, dir, isdir));
+                            if entry_name.eq(base) {
+                                break;
+                            }
                         } else {
                             completions.push(path)
                         }
@@ -158,5 +162,38 @@ pub fn escape_path(path: String, dir: bool) -> String {
         format!("`{path}`")
     } else {
         path
+    }
+}
+
+pub struct AdjustView {
+    pub prefix: String,
+    pub span: Span,
+    pub readjusted: bool,
+}
+
+pub fn adjust_if_intermediate(
+    prefix: &[u8],
+    working_set: &StateWorkingSet,
+    mut span: nu_protocol::Span,
+) -> AdjustView {
+    let span_contents = String::from_utf8_lossy(working_set.get_span_contents(span)).to_string();
+    let mut prefix = String::from_utf8_lossy(prefix).to_string();
+
+    // A difference of 1 because of the cursor's unicode code point in between.
+    // Using .chars().count() because unicode and Windows.
+    let readjusted = span_contents.chars().count() - prefix.chars().count() > 1;
+    if readjusted {
+        let remnant: String = span_contents
+            .chars()
+            .skip(prefix.chars().count() + 1)
+            .take_while(|&c| !is_separator(c))
+            .collect();
+        prefix.push_str(&remnant);
+        span = Span::new(span.start, span.start + prefix.chars().count() + 1);
+    }
+    AdjustView {
+        prefix,
+        span,
+        readjusted,
     }
 }

@@ -47,17 +47,17 @@ impl Command for BytesAt {
                 (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
-            .required("range", SyntaxShape::Range, "the range to get bytes")
+            .required("range", SyntaxShape::Range, "The range to get bytes.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, get bytes from data at the given cell paths",
+                "For a data structure input, get bytes from data at the given cell paths.",
             )
             .category(Category::Bytes)
     }
 
     fn usage(&self) -> &str {
-        "Get bytes defined by a range"
+        "Get bytes defined by a range."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -176,13 +176,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         Value::Error { .. } => input.clone(),
 
         other => Value::error(
-            ShellError::UnsupportedInput(
-                "Only binary values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.span(),
-            ),
+            ShellError::UnsupportedInput {
+                msg: "Only binary values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
             head,
         ),
     }

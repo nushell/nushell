@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::{Call, CellPath},
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, Spanned, SyntaxShape, Type,
+    Value,
 };
 
 #[derive(Clone)]
@@ -49,7 +49,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, trim strings at the given cell paths",
+                "For a data structure input, trim strings at the given cell paths.",
             )
             .named(
                 "char",
@@ -88,13 +88,13 @@ impl Command for SubCommand {
         let to_trim = match character.as_ref() {
             Some(v) => {
                 if v.item.chars().count() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Trim only works with single character".into(),
-                        "needs single character".into(),
-                        Some(v.span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Trim only works with single character".into(),
+                        msg: "needs single character".into(),
+                        span: Some(v.span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 v.item.chars().next()
             }
@@ -107,8 +107,8 @@ impl Command for SubCommand {
             Some(_) => ActionMode::Local,
         };
 
-        let left = call.has_flag("left");
-        let right = call.has_flag("right");
+        let left = call.has_flag(engine_state, stack, "left")?;
+        let right = call.has_flag(engine_state, stack, "right")?;
         let trim_side = match (left, right) {
             (true, true) => TrimSide::Both,
             (true, false) => TrimSide::Left,
@@ -133,9 +133,9 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '=' | str trim",
-                result: Some(Value::test_string("Nu shell")),
+                description: "Trim a specific character (not the whitespace)",
+                example: "'=== Nu shell ===' | str trim --char '='",
+                result: Some(Value::test_string(" Nu shell ")),
             },
             Example {
                 description: "Trim whitespace from the beginning of string",
@@ -143,17 +143,12 @@ impl Command for SubCommand {
                 result: Some(Value::test_string("Nu shell ")),
             },
             Example {
-                description: "Trim a specific character",
-                example: "'=== Nu shell ===' | str trim --char '='",
-                result: Some(Value::test_string(" Nu shell ")),
-            },
-            Example {
                 description: "Trim whitespace from the end of string",
                 example: "' Nu shell ' | str trim --right",
                 result: Some(Value::test_string(" Nu shell")),
             },
             Example {
-                description: "Trim a specific character",
+                description: "Trim a specific character only from the end of the string",
                 example: "'=== Nu shell ===' | str trim --right --char '='",
                 result: Some(Value::test_string("=== Nu shell ")),
             },
@@ -181,15 +176,12 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
             match mode {
                 ActionMode::Global => match other {
                     Value::Record { val: record, .. } => {
-                        let new_vals = record.vals.iter().map(|v| action(v, arg, head)).collect();
+                        let new_record = record
+                            .iter()
+                            .map(|(k, v)| (k.clone(), action(v, arg, head)))
+                            .collect();
 
-                        Value::record(
-                            Record {
-                                cols: record.cols.to_vec(),
-                                vals: new_vals,
-                            },
-                            span,
-                        )
+                        Value::record(new_record, span)
                     }
                     Value::List { vals, .. } => {
                         let new_vals = vals.iter().map(|v| action(v, arg, head)).collect();
@@ -198,18 +190,15 @@ fn action(input: &Value, arg: &Arguments, head: Span) -> Value {
                     }
                     _ => input.clone(),
                 },
-                ActionMode::Local => {
-                    Value::error(
-                        ShellError::UnsupportedInput(
-                            "Only string values are supported".into(),
-                            format!("input type: {:?}", other.get_type()),
-                            head,
-                            // This line requires the Value::Error match above.
-                            other.span(),
-                        ),
-                        head,
-                    )
-                }
+                ActionMode::Local => Value::error(
+                    ShellError::UnsupportedInput {
+                        msg: "Only string values are supported".into(),
+                        input: format!("input type: {:?}", other.get_type()),
+                        msg_span: head,
+                        input_span: other.span(),
+                    },
+                    head,
+                ),
             }
         }
     }

@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use nu_engine::env::{current_dir_str, current_dir_str_const};
+use nu_engine::CallExt;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -61,9 +62,9 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            strict: call.has_flag("strict"),
+            strict: call.has_flag(engine_state, stack, "strict")?,
             cwd: current_dir_str(engine_state, stack)?,
-            not_follow_symlink: call.has_flag("no-symlink"),
+            not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -83,9 +84,9 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let args = Arguments {
-            strict: call.has_flag("strict"),
+            strict: call.has_flag_const(working_set, "strict")?,
             cwd: current_dir_str_const(working_set)?,
-            not_follow_symlink: call.has_flag("no-symlink"),
+            not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -157,15 +158,15 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                 }
             }
             Err(_) => Value::error(
-                ShellError::GenericError(
-                    "Could not expand path".into(),
-                    "could not be expanded (path might not exist, non-final \
+                ShellError::GenericError {
+                    error: "Could not expand path".into(),
+                    msg: "could not be expanded (path might not exist, non-final \
                             component is not a directory, or other cause)"
                         .into(),
-                    Some(span),
-                    None,
-                    Vec::new(),
-                ),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                },
                 span,
             ),
         }

@@ -31,7 +31,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .category(Category::Strings)
     }
@@ -53,7 +53,7 @@ impl Command for SubCommand {
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let args = CellPathOnlyArgs::from(cell_paths);
-        if call.has_flag("all") {
+        if call.has_flag(engine_state, stack, "all")? {
             operate(
                 action_all,
                 args,

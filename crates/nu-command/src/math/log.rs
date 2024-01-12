@@ -18,7 +18,7 @@ impl Command for SubCommand {
             .required(
                 "base",
                 SyntaxShape::Number,
-                "Base for which the logarithm should be computed",
+                "Base for which the logarithm should be computed.",
             )
             .input_output_types(vec![
                 (Type::Number, Type::Float),
@@ -50,12 +50,12 @@ impl Command for SubCommand {
         let base: Spanned<f64> = call.req(engine_state, stack, 0)?;
 
         if base.item <= 0.0f64 {
-            return Err(ShellError::UnsupportedInput(
-                "Base has to be greater 0".into(),
-                "value originates from here".into(),
-                head,
-                base.span,
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Base has to be greater 0".into(),
+                input: "value originates from here".into(),
+                msg_span: head,
+                input_span: base.span,
+            });
         }
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -103,13 +103,13 @@ fn operate(value: Value, head: Span, base: f64) -> Value {
 
             if val <= 0.0 {
                 return Value::error(
-                    ShellError::UnsupportedInput(
-                        "'math log' undefined for values outside the open interval (0, Inf)."
+                    ShellError::UnsupportedInput {
+                        msg: "'math log' undefined for values outside the open interval (0, Inf)."
                             .into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 );
             }

@@ -23,12 +23,12 @@ impl Command for SeqChar {
             .required(
                 "start",
                 SyntaxShape::String,
-                "start of character sequence (inclusive)",
+                "Start of character sequence (inclusive).",
             )
             .required(
                 "end",
                 SyntaxShape::String,
-                "end of character sequence (inclusive)",
+                "End of character sequence (inclusive).",
             )
             .category(Category::Generators)
     }
@@ -82,23 +82,23 @@ fn seq_char(
     let end: Spanned<String> = call.req(engine_state, stack, 1)?;
 
     if !is_single_character(&start.item) {
-        return Err(ShellError::GenericError(
-            "seq char only accepts individual ASCII characters as parameters".into(),
-            "should be 1 character long".into(),
-            Some(start.span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq char only accepts individual ASCII characters as parameters".into(),
+            msg: "should be 1 character long".into(),
+            span: Some(start.span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     if !is_single_character(&end.item) {
-        return Err(ShellError::GenericError(
-            "seq char only accepts individual ASCII characters as parameters".into(),
-            "should be 1 character long".into(),
-            Some(end.span),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "seq char only accepts individual ASCII characters as parameters".into(),
+            msg: "should be 1 character long".into(),
+            span: Some(end.span),
+            help: None,
+            inner: vec![],
+        });
     }
 
     let start = start

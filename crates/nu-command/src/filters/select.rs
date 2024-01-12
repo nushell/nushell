@@ -34,7 +34,7 @@ impl Command for Select {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the columns to select from the table",
+                "The columns to select from the table.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -93,6 +93,9 @@ produce a table, a list will produce a list, and a record will produce a record.
                                 };
                                 new_columns.push(cv.clone());
                             }
+                            Value::CellPath { val, .. } => {
+                                new_columns.push(val);
+                            }
                             y => {
                                 return Err(ShellError::CantConvert {
                                     to_type: "cell path".into(),
@@ -134,7 +137,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                 }
             }
         }
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
         let span = call.head;
 
         if ignore_errors {
@@ -180,6 +183,15 @@ produce a table, a list will produce a list, and a record will produce a record.
                 result: None
             },
             Example {
+                description: "Select columns by a provided list of columns",
+                example: r#"[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ["name", "type"]"#,
+                result: Some(Value::test_list(
+                    vec![
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.toml"), "type" => Value::test_string("toml")}),
+                        Value::test_record(record! {"name" => Value::test_string("Cargo.lock"), "type" => Value::test_string("toml")})],
+                ))
+            },
+            Example {
                 description: "Select rows by a provided list of rows",
                 example: "let rows = [0 2];[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | select $rows",
                 result: None
@@ -200,16 +212,16 @@ fn select(
 
     for column in columns {
         let CellPath { ref members } = column;
-        match members.get(0) {
+        match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError(
-                        "Select only allows row numbers for rows".into(),
-                        "extra after row number".into(),
-                        Some(*span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Select only allows row numbers for rows".into(),
+                        msg: "extra after row number".into(),
+                        span: Some(*span),
+                        help: None,
+                        inner: vec![],
+                    });
                 }
                 unique_rows.insert(*val);
             }
@@ -223,7 +235,7 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        // let skip = call.has_flag("skip");
+        // let skip = call.has_flag(engine_state, stack, "skip")?;
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
@@ -232,8 +244,7 @@ fn select(
             rows: unique_rows.into_iter().peekable(),
             current: 0,
         }
-        .into_pipeline_data(engine_state.ctrlc.clone())
-        .set_metadata(metadata)
+        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())
     } else {
         input
     };
@@ -254,7 +265,7 @@ fn select(
                                 //FIXME: improve implementation to not clone
                                 match input_val.clone().follow_cell_path(&path.members, false) {
                                     Ok(fetcher) => {
-                                        record.push(path.into_string().replace('.', "_"), fetcher);
+                                        record.push(path.to_string().replace('.', "_"), fetcher);
                                         if !columns_with_value.contains(&path) {
                                             columns_with_value.push(path);
                                         }
@@ -273,8 +284,7 @@ fn select(
 
                     Ok(output
                         .into_iter()
-                        .into_pipeline_data(engine_state.ctrlc.clone())
-                        .set_metadata(metadata))
+                        .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
                 }
                 _ => {
                     if !columns.is_empty() {
@@ -284,17 +294,16 @@ fn select(
                             // FIXME: remove clone
                             match v.clone().follow_cell_path(&cell_path.members, false) {
                                 Ok(result) => {
-                                    record.push(cell_path.into_string().replace('.', "_"), result);
+                                    record.push(cell_path.to_string().replace('.', "_"), result);
                                 }
                                 Err(e) => return Err(e),
                             }
                         }
 
                         Ok(Value::record(record, call_span)
-                            .into_pipeline_data()
-                            .set_metadata(metadata))
+                            .into_pipeline_data_with_metadata(metadata))
                     } else {
-                        Ok(v.into_pipeline_data().set_metadata(metadata))
+                        Ok(v.into_pipeline_data_with_metadata(metadata))
                     }
                 }
             }
@@ -309,7 +318,7 @@ fn select(
                         //FIXME: improve implementation to not clone
                         match x.clone().follow_cell_path(&path.members, false) {
                             Ok(value) => {
-                                record.push(path.into_string().replace('.', "_"), value);
+                                record.push(path.to_string().replace('.', "_"), value);
                             }
                             Err(e) => return Err(e),
                         }
@@ -320,9 +329,7 @@ fn select(
                 }
             }
 
-            Ok(values
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata))
+            Ok(values.into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         }
         _ => Ok(PipelineData::empty()),
     }

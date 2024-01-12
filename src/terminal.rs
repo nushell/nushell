@@ -30,7 +30,8 @@ pub(crate) fn acquire_terminal(interactive: bool) {
                 std::process::exit(1);
             };
 
-            // SIGINT and SIGQUIT have special handling
+            // SIGINT has special handling
+            signal(Signal::SIGQUIT, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
             signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");

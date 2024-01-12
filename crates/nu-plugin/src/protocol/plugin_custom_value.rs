@@ -47,17 +47,15 @@ impl CustomValue for PluginCustomValue {
     ) -> Result<nu_protocol::Value, nu_protocol::ShellError> {
         let mut plugin_cmd = create_command(&self.filename, self.shell.as_deref());
 
-        let mut child = plugin_cmd.spawn().map_err(|err| {
-            ShellError::GenericError(
-                format!(
-                    "Unable to spawn plugin for {} to get base value",
-                    self.source
-                ),
-                format!("{err}"),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+        let mut child = plugin_cmd.spawn().map_err(|err| ShellError::GenericError {
+            error: format!(
+                "Unable to spawn plugin for {} to get base value",
+                self.source
+            ),
+            msg: format!("{err}"),
+            span: Some(span),
+            help: None,
+            inner: vec![],
         })?;
 
         let plugin_call = PluginCall::CollapseCustomValue(PluginData {
@@ -68,44 +66,44 @@ impl CustomValue for PluginCustomValue {
             let stdout_reader = match &mut child.stdout {
                 Some(out) => out,
                 None => {
-                    return Err(ShellError::PluginFailedToLoad(
-                        "Plugin missing stdout reader".into(),
-                    ))
+                    return Err(ShellError::PluginFailedToLoad {
+                        msg: "Plugin missing stdout reader".into(),
+                    })
                 }
             };
             get_plugin_encoding(stdout_reader)?
         };
 
         let response = call_plugin(&mut child, plugin_call, &encoding, span).map_err(|err| {
-            ShellError::GenericError(
-                format!(
+            ShellError::GenericError {
+                error: format!(
                     "Unable to decode call for {} to get base value",
                     self.source
                 ),
-                format!("{err}"),
-                Some(span),
-                None,
-                Vec::new(),
-            )
+                msg: format!("{err}"),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }
         });
 
         let value = match response {
             Ok(PluginResponse::Value(value)) => Ok(*value),
-            Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError(
-                "Plugin misbehaving".into(),
-                "Plugin returned custom data as a response to a collapse call".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+            Ok(PluginResponse::PluginData(..)) => Err(ShellError::GenericError {
+                error: "Plugin misbehaving".into(),
+                msg: "Plugin returned custom data as a response to a collapse call".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
             Ok(PluginResponse::Error(err)) => Err(err.into()),
-            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError(
-                "Plugin missing value".into(),
-                "Received a signature from plugin instead of value".into(),
-                Some(span),
-                None,
-                Vec::new(),
-            )),
+            Ok(PluginResponse::Signature(..)) => Err(ShellError::GenericError {
+                error: "Plugin missing value".into(),
+                msg: "Received a signature from plugin instead of value".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            }),
             Err(err) => Err(err),
         };
 

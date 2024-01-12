@@ -38,7 +38,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -82,20 +82,24 @@ impl Command for Du {
         let max_depth: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "max-depth")?;
         if let Some(ref max_depth) = max_depth {
             if max_depth.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(max_depth.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: max_depth.span,
+                });
             }
         }
         if let Some(ref min_size) = min_size {
             if min_size.item < 0 {
-                return Err(ShellError::NeedsPositiveValue(min_size.span));
+                return Err(ShellError::NeedsPositiveValue {
+                    span: min_size.span,
+                });
             }
         }
         let current_dir = current_dir(engine_state, stack)?;
 
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
-            all: call.has_flag("all"),
-            deref: call.has_flag("deref"),
+            all: call.has_flag(engine_state, stack, "all")?,
+            deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth,
             min_size,
@@ -104,7 +108,10 @@ impl Command for Du {
         let exclude = args.exclude.map_or(Ok(None), move |x| {
             Pattern::new(&x.item)
                 .map(Some)
-                .map_err(|e| ShellError::InvalidGlobPattern(e.msg.to_string(), x.span))
+                .map_err(|e| ShellError::InvalidGlobPattern {
+                    msg: e.msg.into(),
+                    span: x.span,
+                })
         })?;
 
         let include_files = args.all;

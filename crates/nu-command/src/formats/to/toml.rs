@@ -94,7 +94,6 @@ fn helper(engine_state: &EngineState, v: &Value) -> Result<toml::Value, ShellErr
                 .collect::<Result<Vec<toml::Value>, ShellError>>()?,
         ),
         Value::CustomValue { .. } => toml::Value::String("<Custom Value>".to_string()),
-        Value::MatchPattern { .. } => toml::Value::String("<Match Pattern>".to_string()),
     })
 }
 
@@ -137,12 +136,12 @@ fn value_to_toml_value(
         Value::Record { .. } => helper(engine_state, v),
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
-        _ => Err(ShellError::UnsupportedInput(
-            format!("{:?} is not valid top-level TOML", v.get_type()),
-            "value originates from here".into(),
-            head,
-            v.span(),
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: format!("{:?} is not valid top-level TOML", v.get_type()),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: v.span(),
+        }),
     }
 }
 

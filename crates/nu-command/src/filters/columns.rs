@@ -124,9 +124,8 @@ fn getcol(
                     })
                 }
                 Value::Record { val, .. } => Ok(val
-                    .cols
                     .into_iter()
-                    .map(move |x| Value::string(x, head))
+                    .map(move |(x, _)| Value::string(x, head))
                     .into_pipeline_data(ctrlc)
                     .set_metadata(metadata)),
                 // Propagate errors
@@ -146,8 +145,7 @@ fn getcol(
             Ok(input_cols
                 .into_iter()
                 .map(move |x| Value::string(x, head))
-                .into_pipeline_data(ctrlc)
-                .set_metadata(metadata))
+                .into_pipeline_data_with_metadata(metadata, ctrlc))
         }
         PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
             exp_input_type: "record or table".into(),

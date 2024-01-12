@@ -25,8 +25,8 @@ impl Command for Histogram {
     fn signature(&self) -> Signature {
         Signature::build("histogram")
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Table(vec![])),])
-            .optional("column-name", SyntaxShape::String, "column name to calc frequency, no need to provide if input is just a list")
-            .optional("frequency-column-name", SyntaxShape::String, "histogram's frequency column, default to be frequency column output")
+            .optional("column-name", SyntaxShape::String, "Column name to calc frequency, no need to provide if input is a list.")
+            .optional("frequency-column-name", SyntaxShape::String, "Histogram's frequency column, default to be frequency column output.")
             .named("percentage-type", SyntaxShape::String, "percentage calculate method, can be 'normalize' or 'relative', in 'normalize', defaults to be 'normalize'", Some('t'))
             .category(Category::Chart)
     }
@@ -162,14 +162,9 @@ fn run_histogram(
                         let t = v.get_type();
                         let span = v.span();
                         inputs.push(HashableValue::from_value(v, head_span).map_err(|_| {
-                        ShellError::UnsupportedInput(
-                            "Since --column-name was not provided, only lists of hashable values are supported.".to_string(),
-                            format!(
+                        ShellError::UnsupportedInput { msg: "Since --column-name was not provided, only lists of hashable values are supported.".to_string(), input: format!(
                                 "input type: {t:?}"
-                            ),
-                            head_span,
-                            span,
-                        )
+                            ), msg_span: head_span, input_span: span }
                     })?)
                     }
                 }
@@ -263,16 +258,16 @@ fn histogram_impl(
         result.push((
             count, // attach count first for easily sorting.
             Value::record(
-                Record {
-                    cols: result_cols.clone(),
-                    vals: vec![
+                Record::from_raw_cols_vals(
+                    result_cols.clone(),
+                    vec![
                         val.into_value(),
                         Value::int(count, span),
                         Value::float(quantile, span),
                         Value::string(percentage, span),
                         Value::string(freq, span),
                     ],
-                },
+                ),
                 span,
             ),
         ));

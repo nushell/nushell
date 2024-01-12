@@ -1,4 +1,7 @@
-use crate::engine::{EngineState, StateWorkingSet};
+use crate::{
+    engine::{EngineState, StateWorkingSet},
+    ErrorStyle,
+};
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
     SourceCode,
@@ -49,12 +52,11 @@ impl std::fmt::Debug for CliError<'_> {
         let ansi_support = &config.use_ansi_coloring;
         let ansi_support = *ansi_support;
 
-        let error_style = &config.error_style.as_str();
-        let errors_style = *error_style;
+        let error_style = &config.error_style;
 
-        let miette_handler: Box<dyn ReportHandler> = match errors_style {
-            "plain" => Box::new(NarratableReportHandler::new()),
-            _ => Box::new(
+        let miette_handler: Box<dyn ReportHandler> = match error_style {
+            ErrorStyle::Plain => Box::new(NarratableReportHandler::new()),
+            ErrorStyle::Fancy => Box::new(
                 MietteHandlerOpts::new()
                     // For better support of terminal themes use the ANSI coloring
                     .rgb_colors(RgbColors::Never)

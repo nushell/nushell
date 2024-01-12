@@ -41,12 +41,12 @@ impl Command for BytesIndexOf {
             .required(
                 "pattern",
                 SyntaxShape::Binary,
-                "the pattern to find index of",
+                "The pattern to find index of.",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, find the indexes at the given cell paths",
+                "For a data structure input, find the indexes at the given cell paths.",
             )
             .switch("all", "returns all matched index", Some('a'))
             .switch("end", "search from the end of the binary", Some('e'))
@@ -73,8 +73,8 @@ impl Command for BytesIndexOf {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             pattern,
-            end: call.has_flag("end"),
-            all: call.has_flag("all"),
+            end: call.has_flag(engine_state, stack, "end")?,
+            all: call.has_flag(engine_state, stack, "all")?,
             cell_paths,
         };
         operate(index_of, arg, input, call.head, engine_state.ctrlc.clone())

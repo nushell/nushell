@@ -39,7 +39,7 @@ impl Command for Input {
                 (Type::Nothing, Type::Binary),
             ])
             .allow_variants_without_examples(true)
-            .optional("prompt", SyntaxShape::String, "prompt to show the user")
+            .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
                 "bytes-until-any",
                 SyntaxShape::String,
@@ -65,7 +65,7 @@ impl Command for Input {
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until-any")?;
-        let suppress_output = call.has_flag("suppress-output");
+        let suppress_output = call.has_flag(engine_state, stack, "suppress-output")?;
         let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
             item: i64::MAX,
@@ -73,12 +73,12 @@ impl Command for Input {
         });
 
         if numchar.item < 1 {
-            return Err(ShellError::UnsupportedInput(
-                "Number of characters to read has to be positive".to_string(),
-                "value originated from here".to_string(),
-                call.head,
-                numchar.span,
-            ));
+            return Err(ShellError::UnsupportedInput {
+                msg: "Number of characters to read has to be positive".to_string(),
+                input: "value originated from here".to_string(),
+                msg_span: call.head,
+                input_span: numchar.span,
+            });
         }
 
         if let Some(prompt) = &prompt {
@@ -110,7 +110,9 @@ impl Command for Input {
                                 {
                                     if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
                                         crossterm::terminal::disable_raw_mode()?;
-                                        return Err(ShellError::IOError("SIGINT".to_string()));
+                                        return Err(ShellError::IOError {
+                                            msg: "SIGINT".to_string(),
+                                        });
                                     }
                                     continue;
                                 }

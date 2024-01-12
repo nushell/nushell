@@ -61,12 +61,12 @@ fn from_url(input: PipelineData, head: Span) -> Result<PipelineData, ShellError>
 
             Ok(PipelineData::Value(Value::record(record, head), metadata))
         }
-        _ => Err(ShellError::UnsupportedInput(
-            "String not compatible with URL encoding".to_string(),
-            "value originates from here".into(),
-            head,
-            span,
-        )),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "String not compatible with URL encoding".to_string(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: span,
+        }),
     }
 }
 

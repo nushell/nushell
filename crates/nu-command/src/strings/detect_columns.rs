@@ -103,7 +103,7 @@ fn detect_columns(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
-    let noheader = call.has_flag("no-headers");
+    let noheader = call.has_flag(engine_state, stack, "no-headers")?;
     let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();
@@ -199,7 +199,10 @@ fn detect_columns(
                         };
 
                         if !(l_idx <= r_idx && (r_idx >= 0 || l_idx < (cols.len() as isize))) {
-                            return Value::record(Record { cols, vals }, name_span);
+                            return Value::record(
+                                Record::from_raw_cols_vals(cols, vals),
+                                name_span,
+                            );
                         }
 
                         (l_idx.max(0) as usize, (r_idx as usize + 1).min(cols.len()))
@@ -210,7 +213,7 @@ fn detect_columns(
                     }
                 }
             } else {
-                return Value::record(Record { cols, vals }, name_span);
+                return Value::record(Record::from_raw_cols_vals(cols, vals), name_span);
             };
 
             // Merge Columns
@@ -232,7 +235,7 @@ fn detect_columns(
             vals.push(binding);
             last_seg.into_iter().for_each(|v| vals.push(v));
 
-            Value::record(Record { cols, vals }, name_span)
+            Value::record(Record::from_raw_cols_vals(cols, vals), name_span)
         })
         .into_pipeline_data(ctrlc))
     } else {

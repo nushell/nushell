@@ -24,7 +24,7 @@ impl<D: HashDigest> Default for GenericDigest<D> {
     fn default() -> Self {
         Self {
             name: format!("hash {}", D::name()),
-            usage: format!("Hash a value using the {} hash algorithm", D::name()),
+            usage: format!("Hash a value using the {} hash algorithm.", D::name()),
             phantom: PhantomData,
         }
     }
@@ -68,7 +68,7 @@ where
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                format!("optionally {} hash data by cell path", D::name()),
+                format!("Optionally {} hash data by cell path.", D::name()),
             )
     }
 
@@ -87,7 +87,7 @@ where
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let binary = call.has_flag("binary");
+        let binary = call.has_flag(engine_state, stack, "binary")?;
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let args = Arguments { binary, cell_paths };

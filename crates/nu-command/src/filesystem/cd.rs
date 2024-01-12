@@ -43,7 +43,7 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .optional("path", SyntaxShape::Directory, "the path to change to")
+            .optional("path", SyntaxShape::Directory, "The path to change to.")
             .input_output_types(vec![
                 (Type::Nothing, Type::Nothing),
                 (Type::String, Type::Nothing),
@@ -83,10 +83,10 @@ impl Command for Cd {
                         let path = match nu_path::canonicalize_with(path.clone(), &cwd) {
                             Ok(p) => p,
                             Err(_) => {
-                                return Err(ShellError::DirectoryNotFound(
-                                    v.span,
-                                    path.to_string_lossy().to_string(),
-                                ));
+                                return Err(ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: v.span,
+                                });
                             }
                         };
                         (path.to_string_lossy().to_string(), v.span)
@@ -100,17 +100,17 @@ impl Command for Cd {
                     let path = match nu_path::canonicalize_with(path_no_whitespace, &cwd) {
                         Ok(p) => {
                             if !p.is_dir() {
-                                return Err(ShellError::NotADirectory(v.span));
+                                return Err(ShellError::NotADirectory { span: v.span });
                             };
                             p
                         }
 
                         // if canonicalize failed, let's check to see if it's abbreviated
                         Err(_) => {
-                            return Err(ShellError::DirectoryNotFound(
-                                v.span,
-                                path_no_whitespace.to_string(),
-                            ));
+                            return Err(ShellError::DirectoryNotFound {
+                                dir: path_no_whitespace.to_string(),
+                                span: v.span,
+                            });
                         }
                     };
                     (path.to_string_lossy().to_string(), v.span)
@@ -135,9 +135,9 @@ impl Command for Cd {
                 stack.add_env_var("PWD".into(), path_value);
                 Ok(PipelineData::empty())
             }
-            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError(format!(
-                "Cannot change directory to {path}: {reason}"
-            ))),
+            PermissionResult::PermissionDenied(reason) => Err(ShellError::IOError {
+                msg: format!("Cannot change directory to {path}: {reason}"),
+            }),
         }
     }
 
@@ -229,7 +229,16 @@ fn have_permission(dir: impl AsRef<Path>) -> PermissionResult<'static> {
     }
 }
 
-#[cfg(unix)]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn any_group(_current_user_gid: gid_t, owner_group: u32) -> bool {
+    use crate::filesystem::util::users;
+    let Some(user_groups) = users::current_user_groups() else {
+        return false;
+    };
+    user_groups.iter().any(|gid| gid.as_raw() == owner_group)
+}
+
+#[cfg(all(unix, not(any(target_os = "linux", target_os = "android"))))]
 fn any_group(current_user_gid: gid_t, owner_group: u32) -> bool {
     use crate::filesystem::util::users;
 

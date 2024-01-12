@@ -95,8 +95,6 @@ pub struct EngineState {
     pub table_decl_id: Option<usize>,
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
-    #[cfg(not(windows))]
-    sig_quit: Option<Arc<AtomicBool>>,
     config_path: HashMap<String, PathBuf>,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
@@ -152,8 +150,6 @@ impl EngineState {
             table_decl_id: None,
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
-            #[cfg(not(windows))]
-            sig_quit: None,
             config_path: HashMap::new(),
             history_session_id: 0,
             currently_parsed_cwd: None,
@@ -454,11 +450,16 @@ impl EngineState {
         // Updating the signatures plugin file with the added signatures
         self.plugin_signatures
             .as_ref()
-            .ok_or_else(|| ShellError::PluginFailedToLoad("Plugin file not found".into()))
+            .ok_or_else(|| ShellError::PluginFailedToLoad {
+                msg: "Plugin file not found".into(),
+            })
             .and_then(|plugin_path| {
                 // Always create the file, which will erase previous signatures
-                std::fs::File::create(plugin_path.as_path())
-                    .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                std::fs::File::create(plugin_path.as_path()).map_err(|err| {
+                    ShellError::PluginFailedToLoad {
+                        msg: err.to_string(),
+                    }
+                })
             })
             .and_then(|mut plugin_file| {
                 // Plugin definitions with parsed signature
@@ -510,21 +511,23 @@ impl EngineState {
                             // information when nushell starts
                             format!("register {file_name} {shell_str} {signature}\n\n")
                         })
-                        .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                        .map_err(|err| ShellError::PluginFailedToLoad {
+                            msg: err.to_string(),
+                        })
                         .and_then(|line| {
-                            plugin_file
-                                .write_all(line.as_bytes())
-                                .map_err(|err| ShellError::PluginFailedToLoad(err.to_string()))
+                            plugin_file.write_all(line.as_bytes()).map_err(|err| {
+                                ShellError::PluginFailedToLoad {
+                                    msg: err.to_string(),
+                                }
+                            })
                         })
                         .and_then(|_| {
-                            plugin_file.flush().map_err(|err| {
-                                ShellError::GenericError(
-                                    "Error flushing plugin file".to_string(),
-                                    format! {"{err}"},
-                                    None,
-                                    None,
-                                    Vec::new(),
-                                )
+                            plugin_file.flush().map_err(|err| ShellError::GenericError {
+                                error: "Error flushing plugin file".into(),
+                                msg: format! {"{err}"},
+                                span: None,
+                                help: None,
+                                inner: vec![],
                             })
                         })
                 })
@@ -705,8 +708,8 @@ impl EngineState {
         &self.config
     }
 
-    pub fn set_config(&mut self, conf: &Config) {
-        self.config = conf.clone();
+    pub fn set_config(&mut self, conf: Config) {
+        self.config = conf;
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
@@ -753,8 +756,7 @@ impl EngineState {
             decls_map.extend(new_decls);
         }
 
-        let mut decls: Vec<(Vec<u8>, DeclId)> =
-            decls_map.into_iter().map(|(v, k)| (v, k)).collect();
+        let mut decls: Vec<(Vec<u8>, DeclId)> = decls_map.into_iter().collect();
 
         decls.sort_by(|a, b| a.0.cmp(&b.0));
         decls.into_iter()
@@ -854,21 +856,6 @@ impl EngineState {
         } else {
             None
         }
-    }
-
-    #[cfg(not(windows))]
-    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
-        &self.sig_quit
-    }
-
-    #[cfg(windows)]
-    pub fn get_sig_quit(&self) -> &Option<Arc<AtomicBool>> {
-        &None
-    }
-
-    #[cfg(not(windows))]
-    pub fn set_sig_quit(&mut self, sig_quit: Arc<AtomicBool>) {
-        self.sig_quit = Some(sig_quit)
     }
 
     pub fn set_config_path(&mut self, key: &str, val: PathBuf) {

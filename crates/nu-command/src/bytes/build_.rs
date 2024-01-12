@@ -25,7 +25,7 @@ impl Command for BytesBuild {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("bytes build")
             .input_output_types(vec![(Type::Nothing, Type::Binary)])
-            .rest("rest", SyntaxShape::Any, "list of bytes")
+            .rest("rest", SyntaxShape::Any, "List of bytes.")
             .category(Category::Bytes)
     }
 
@@ -48,8 +48,7 @@ impl Command for BytesBuild {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
-        for expr in call.positional_iter() {
-            let val = eval_expression(engine_state, stack, expr)?;
+        for val in call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))? {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
                 // Explicitly propagate errors instead of dropping them.

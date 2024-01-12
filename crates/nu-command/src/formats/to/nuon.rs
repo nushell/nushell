@@ -53,20 +53,18 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let use_tabs = call.has_flag("tabs");
-        let use_indent = call.has_flag("indent");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let tabs: Option<usize> = call.get_flag(engine_state, stack, "tabs")?;
+        let indent: Option<usize> = call.get_flag(engine_state, stack, "indent")?;
 
         let span = call.head;
         let value = input.into_value(span);
 
         let nuon_result = if raw {
             value_to_string(&value, span, 0, None)
-        } else if use_tabs {
-            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+        } else if let Some(tab_count) = tabs {
             value_to_string(&value, span, 0, Some(&"\t".repeat(tab_count)))
-        } else if use_indent {
-            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+        } else if let Some(indent) = indent {
             value_to_string(&value, span, 0, Some(&" ".repeat(indent)))
         } else {
             value_to_string(&value, span, 0, None)
@@ -131,28 +129,28 @@ pub fn value_to_string(
             let mut s = String::with_capacity(2 * val.len());
             for byte in val {
                 if write!(s, "{byte:02X}").is_err() {
-                    return Err(ShellError::UnsupportedInput(
-                        "could not convert binary to string".into(),
-                        "value originates from here".into(),
-                        span,
-                        v.span(),
-                    ));
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "could not convert binary to string".into(),
+                        input: "value originates from here".into(),
+                        msg_span: span,
+                        input_span: v.span(),
+                    });
                 }
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Block { .. } => Err(ShellError::UnsupportedInput(
-            "blocks are currently not nuon-compatible".into(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
-        Value::Closure { .. } => Err(ShellError::UnsupportedInput(
-            "closures are currently not nuon-compatible".into(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
+        Value::Block { .. } => Err(ShellError::UnsupportedInput {
+            msg: "blocks are currently not nuon-compatible".into(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
+        Value::Closure { .. } => Err(ShellError::UnsupportedInput {
+            msg: "closures are currently not nuon-compatible".into(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
         Value::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())
@@ -160,18 +158,18 @@ pub fn value_to_string(
                 Ok("false".to_string())
             }
         }
-        Value::CellPath { .. } => Err(ShellError::UnsupportedInput(
-            "cell-paths are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
-        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput(
-            "custom values are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
+        Value::CellPath { .. } => Err(ShellError::UnsupportedInput {
+            msg: "cell-paths are currently not nuon-compatible".to_string(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
+        Value::CustomValue { .. } => Err(ShellError::UnsupportedInput {
+            msg: "custom values are currently not nuon-compatible".to_string(),
+            input: "value originates from here".into(),
+            msg_span: span,
+            input_span: v.span(),
+        }),
         Value::Date { val, .. } => Ok(val.to_rfc3339()),
         // FIXME: make durations use the shortest lossless representation.
         Value::Duration { val, .. } => Ok(format!("{}ns", *val)),
@@ -190,7 +188,7 @@ pub fn value_to_string(
         Value::Int { val, .. } => Ok(format!("{}", *val)),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
-            if !headers.is_empty() && vals.iter().all(|x| x.columns() == headers) {
+            if !headers.is_empty() && vals.iter().all(|x| x.columns().eq(headers.iter())) {
                 // Table output
                 let headers: Vec<String> = headers
                     .iter()
@@ -209,7 +207,7 @@ pub fn value_to_string(
                     let mut row = vec![];
 
                     if let Value::Record { val, .. } = val {
-                        for val in &val.vals {
+                        for val in val.values() {
                             row.push(value_to_string_without_quotes(
                                 val,
                                 span,
@@ -241,12 +239,6 @@ pub fn value_to_string(
                 ))
             }
         }
-        Value::MatchPattern { .. } => Err(ShellError::UnsupportedInput(
-            "match patterns are currently not nuon-compatible".to_string(),
-            "value originates from here".into(),
-            span,
-            v.span(),
-        )),
         Value::Nothing { .. } => Ok("null".to_string()),
         Value::Range { val, .. } => Ok(format!(
             "{}..{}{}",

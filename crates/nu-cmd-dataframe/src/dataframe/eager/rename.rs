@@ -130,15 +130,15 @@ fn command_eager(
     let new_names = extract_strings(new_names)?;
 
     for (from, to) in columns.iter().zip(new_names.iter()) {
-        df.as_mut().rename(from, to).map_err(|e| {
-            ShellError::GenericError(
-                "Error renaming".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
-        })?;
+        df.as_mut()
+            .rename(from, to)
+            .map_err(|e| ShellError::GenericError {
+                error: "Error renaming".into(),
+                msg: e.to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })?;
     }
 
     Ok(PipelineData::Value(df.into_value(call.head), None))

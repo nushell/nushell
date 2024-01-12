@@ -339,7 +339,10 @@ pub enum ParseError {
     OnlyLastFlagInBatchCanTakeArg(#[label = "only the last flag can take args"] Span),
 
     #[error("Missing required positional argument.")]
-    #[diagnostic(code(nu::parser::missing_positional), help("Usage: {2}"))]
+    #[diagnostic(
+        code(nu::parser::missing_positional),
+        help("Usage: {2}. Use `--help` for more information.")
+    )]
     MissingPositional(String, #[label("missing {0}")] Span, String),
 
     #[error("Missing argument to `{1}`.")]
@@ -422,7 +425,7 @@ pub enum ParseError {
     MissingImportPattern(#[label = "needs an import pattern"] Span),
 
     #[error("Wrong import pattern structure.")]
-    #[diagnostic(code(nu::parser::missing_import_pattern))]
+    #[diagnostic(code(nu::parser::wrong_import_pattern))]
     WrongImportPattern(String, #[label = "{0}"] Span),
 
     #[error("Export not found.")]
@@ -480,6 +483,13 @@ pub enum ParseError {
         #[label("Not allowed here")] Span,
         #[label("...and here")] Option<Span>,
     ),
+
+    #[error("This command does not have a ...rest parameter")]
+    #[diagnostic(
+        code(nu::parser::unexpected_spread_arg),
+        help("To spread arguments, the command needs to define a multi-positional parameter in its signature, such as ...rest")
+    )]
+    UnexpectedSpreadArg(String, #[label = "unexpected spread argument"] Span),
 }
 
 impl ParseError {
@@ -566,6 +576,7 @@ impl ParseError {
             ParseError::InvalidLiteral(_, _, s) => *s,
             ParseError::LabeledErrorWithHelp { span: s, .. } => *s,
             ParseError::RedirectionInLetMut(s, _) => *s,
+            ParseError::UnexpectedSpreadArg(_, s) => *s,
         }
     }
 }

@@ -1,4 +1,4 @@
-use nu_protocol::ast::{Argument, Expr, Expression};
+use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -378,10 +378,10 @@ fn get_argument_for_color_value(
 ) -> Option<Argument> {
     match color {
         Value::Record { val, .. } => {
-            let record_exp: Vec<(Expression, Expression)> = val
+            let record_exp: Vec<RecordItem> = val
                 .into_iter()
                 .map(|(k, v)| {
-                    (
+                    RecordItem::Pair(
                         Expression {
                             expr: Expr::String(k.clone()),
                             span,

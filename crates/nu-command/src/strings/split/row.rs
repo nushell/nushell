@@ -27,7 +27,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "a character or regex that denotes what separates rows",
+                "A character or regex that denotes what separates rows.",
             )
             .named(
                 "number",
@@ -123,20 +123,18 @@ fn split_row(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let separator: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex = if call.has_flag("regex") {
+    let regex = if call.has_flag(engine_state, stack, "regex")? {
         Regex::new(&separator.item)
     } else {
         let escaped = regex::escape(&separator.item);
         Regex::new(&escaped)
     }
-    .map_err(|err| {
-        ShellError::GenericError(
-            "Error with regular expression".into(),
-            err.to_string(),
-            Some(separator.span),
-            None,
-            Vec::new(),
-        )
+    .map_err(|e| ShellError::GenericError {
+        error: "Error with regular expression".into(),
+        msg: e.to_string(),
+        span: Some(separator.span),
+        help: None,
+        inner: vec![],
     })?;
     let max_split: Option<usize> = call.get_flag(engine_state, stack, "number")?;
     input.flat_map(

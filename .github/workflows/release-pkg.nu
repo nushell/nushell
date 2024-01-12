@@ -82,8 +82,8 @@ print $'Start building ($bin)...'; hr-line
 # ----------------------------------------------------------------------------
 # Build for Ubuntu and macOS
 # ----------------------------------------------------------------------------
-if $os in [$USE_UBUNTU, 'macos-latest'] {
-    if $os == $USE_UBUNTU {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
+    if $os starts-with ubuntu {
         sudo apt update
         sudo apt-get install libxcb-composite0-dev -y
     }
@@ -106,7 +106,7 @@ if $os in [$USE_UBUNTU, 'macos-latest'] {
         _ => {
             # musl-tools to fix 'Failed to find tool. Is `musl-gcc` installed?'
             # Actually just for x86_64-unknown-linux-musl target
-            if $os == $USE_UBUNTU { sudo apt install musl-tools -y }
+            if $os starts-with ubuntu { sudo apt install musl-tools -y }
             cargo-build-nu $flags
         }
     }
@@ -138,8 +138,6 @@ print $'(char nl)Copying release files...'; hr-line
 
 > register ./nu_plugin_query" | save $'($dist)/README.txt' -f
 [LICENSE $executable] | each {|it| cp -rv $it $dist } | flatten
-# Sleep a few seconds to make sure the cp process finished successfully
-sleep 3sec
 
 print $'(char nl)Check binary release version detail:'; hr-line
 let ver = if $os == 'windows-latest' {
@@ -148,14 +146,14 @@ let ver = if $os == 'windows-latest' {
     (do -i { ./output/nu -c 'version' }) | str join
 }
 if ($ver | str trim | is-empty) {
-    print $'(ansi r)Incompatible nu binary...(ansi reset)'
+    print $'(ansi r)Incompatible Nu binary: The binary cross compiled is not runnable on current arch...(ansi reset)'
 } else { print $ver }
 
 # ----------------------------------------------------------------------------
 # Create a release archive and send it to output for the following steps
 # ----------------------------------------------------------------------------
 cd $dist; print $'(char nl)Creating release archive...'; hr-line
-if $os in [$USE_UBUNTU, 'macos-latest'] {
+if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
 
     let files = (ls | get name)
     let dest = if $env.RELEASE_TYPE == 'full' { $'($bin)-($version)-($FULL_NAME)' } else { $'($bin)-($version)-($target)' }

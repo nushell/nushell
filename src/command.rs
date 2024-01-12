@@ -37,7 +37,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             #[cfg(feature = "plugin")]
             "--plugin-config" => args.next().map(|a| escape_quote_string(&a)),
             "--log-level" | "--log-target" | "--testbin" | "--threads" | "-t"
-            | "--include-path" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
+            | "--include-path" | "--lsp" | "--ide-goto-def" | "--ide-hover" | "--ide-complete"
             | "--ide-check" => args.next(),
             _ => None,
         };
@@ -81,34 +81,35 @@ pub(crate) fn parse_commandline_args(
     let mut stack = Stack::new();
 
     // We should have a successful parse now
-    if let Some(pipeline) = block.pipelines.get(0) {
+    if let Some(pipeline) = block.pipelines.first() {
         if let Some(PipelineElement::Expression(
             _,
             Expression {
                 expr: Expr::Call(call),
                 ..
             },
-        )) = pipeline.elements.get(0)
+        )) = pipeline.elements.first()
         {
             let redirect_stdin = call.get_named_arg("stdin");
             let login_shell = call.get_named_arg("login");
             let interactive_shell = call.get_named_arg("interactive");
-            let commands: Option<Expression> = call.get_flag_expr("commands");
-            let testbin: Option<Expression> = call.get_flag_expr("testbin");
+            let commands = call.get_flag_expr("commands");
+            let testbin = call.get_flag_expr("testbin");
             #[cfg(feature = "plugin")]
-            let plugin_file: Option<Expression> = call.get_flag_expr("plugin-config");
+            let plugin_file = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
             let no_std_lib = call.get_named_arg("no-std-lib");
-            let config_file: Option<Expression> = call.get_flag_expr("config");
-            let env_file: Option<Expression> = call.get_flag_expr("env-config");
-            let log_level: Option<Expression> = call.get_flag_expr("log-level");
-            let log_target: Option<Expression> = call.get_flag_expr("log-target");
-            let execute: Option<Expression> = call.get_flag_expr("execute");
+            let config_file = call.get_flag_expr("config");
+            let env_file = call.get_flag_expr("env-config");
+            let log_level = call.get_flag_expr("log-level");
+            let log_target = call.get_flag_expr("log-target");
+            let execute = call.get_flag_expr("execute");
             let table_mode: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "table-mode")?;
 
             // ide flags
-            let include_path: Option<Expression> = call.get_flag_expr("include-path");
+            let lsp = call.has_flag(engine_state, &mut stack, "lsp")?;
+            let include_path = call.get_flag_expr("include-path");
             let ide_goto_def: Option<Value> =
                 call.get_flag(engine_state, &mut stack, "ide-goto-def")?;
             let ide_hover: Option<Value> = call.get_flag(engine_state, &mut stack, "ide-hover")?;
@@ -118,7 +119,7 @@ pub(crate) fn parse_commandline_args(
             let ide_ast: Option<Spanned<String>> = call.get_named_arg("ide-ast");
 
             fn extract_contents(
-                expression: Option<Expression>,
+                expression: Option<&Expression>,
             ) -> Result<Option<Spanned<String>>, ShellError> {
                 if let Some(expr) = expression {
                     let str = expr.as_string();
@@ -149,7 +150,7 @@ pub(crate) fn parse_commandline_args(
             let execute = extract_contents(execute)?;
             let include_path = extract_contents(include_path)?;
 
-            let help = call.has_flag("help");
+            let help = call.has_flag(engine_state, &mut stack, "help")?;
 
             if help {
                 let full_help = get_full_help(
@@ -165,7 +166,7 @@ pub(crate) fn parse_commandline_args(
                 std::process::exit(0);
             }
 
-            if call.has_flag("version") {
+            if call.has_flag(engine_state, &mut stack, "version")? {
                 let version = env!("CARGO_PKG_VERSION").to_string();
                 let _ = std::panic::catch_unwind(move || {
                     stdout_write_all_and_flush(format!("{version}\n"))
@@ -193,6 +194,7 @@ pub(crate) fn parse_commandline_args(
                 ide_goto_def,
                 ide_hover,
                 ide_complete,
+                lsp,
                 ide_check,
                 ide_ast,
                 table_mode,
@@ -229,6 +231,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) execute: Option<Spanned<String>>,
     pub(crate) table_mode: Option<Value>,
     pub(crate) include_path: Option<Spanned<String>>,
+    pub(crate) lsp: bool,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,
     pub(crate) ide_complete: Option<Value>,
@@ -298,7 +301,12 @@ impl Command for Nu {
                 "start with an alternate environment config file",
                 None,
             )
-            .named(
+            .switch(
+               "lsp",
+               "start nu's language server protocol",
+               None,
+            )
+           .named(
                 "ide-goto-def",
                 SyntaxShape::Int,
                 "go to the definition of the item at the given position",
@@ -309,7 +317,7 @@ impl Command for Nu {
                 SyntaxShape::Int,
                 "give information about the item at the given position",
                 None,
-            )
+             )
             .named(
                 "ide-complete",
                 SyntaxShape::Int,

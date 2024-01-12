@@ -3,8 +3,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::{Call, RangeInclusion};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, FromValue, IntoInterruptiblePipelineData, PipelineData, PipelineIterator,
-    Range, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, PipelineData, PipelineIterator, Range,
+    ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -25,9 +25,9 @@ impl Command for DropNth {
                 "row number or row range",
                 // FIXME: we can make this accept either Int or Range when we can compose SyntaxShapes
                 SyntaxShape::Any,
-                "the number of the row to drop or a range to drop consecutive rows",
+                "The number of the row to drop or a range to drop consecutive rows.",
             )
-            .rest("rest", SyntaxShape::Any, "the number of the row to drop")
+            .rest("rest", SyntaxShape::Any, "The number of the row to drop.")
             .category(Category::Filters)
     }
 
@@ -104,6 +104,7 @@ impl Command for DropNth {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let metadata = input.metadata();
         let number_or_range = extract_int_or_range(engine_state, stack, call)?;
         let mut lower_bound = None;
         let rows = match number_or_range {
@@ -165,14 +166,14 @@ impl Command for DropNth {
                 .into_iter()
                 .take(lower_bound)
                 .collect::<Vec<_>>()
-                .into_pipeline_data(engine_state.ctrlc.clone()))
+                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         } else {
             Ok(DropNthIterator {
                 input: input.into_iter(),
                 rows,
                 current: 0,
             }
-            .into_pipeline_data(engine_state.ctrlc.clone()))
+            .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
         }
     }
 }
@@ -185,9 +186,7 @@ fn extract_int_or_range(
     let value = call.req::<Value>(engine_state, stack, 0)?;
 
     let int_opt = value.as_int().map(Either::Left).ok();
-    let range_opt: Result<nu_protocol::Range, ShellError> = FromValue::from_value(&value);
-
-    let range_opt = range_opt.map(Either::Right).ok();
+    let range_opt = value.as_range().map(|r| Either::Right(r.clone())).ok();
 
     int_opt
         .or(range_opt)

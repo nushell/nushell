@@ -63,12 +63,12 @@ impl Command for SubCommand {
             .required(
                 "range",
                 SyntaxShape::Any,
-                "the indexes to substring [start end]",
+                "The indexes to substring [start end].",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, turn strings at the given cell paths into substrings",
+                "For a data structure input, turn strings at the given cell paths into substrings.",
             )
             .category(Category::Strings)
     }
@@ -102,7 +102,7 @@ impl Command for SubCommand {
         let args = Arguments {
             indexes,
             cell_paths,
-            graphemes: grapheme_flags(call)?,
+            graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }
@@ -191,13 +191,12 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
         other => Value::error(
-            ShellError::UnsupportedInput(
-                "Only string values are supported".into(),
-                format!("input type: {:?}", other.get_type()),
-                head,
-                // This line requires the Value::Error match above.
-                other.span(),
-            ),
+            ShellError::UnsupportedInput {
+                msg: "Only string values are supported".into(),
+                input: format!("input type: {:?}", other.get_type()),
+                msg_span: head,
+                input_span: other.span(),
+            },
             head,
         ),
     }

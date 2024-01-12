@@ -1,11 +1,17 @@
+use std::ops::RangeBounds;
+
 use crate::Value;
 
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Record {
+    /// Don't use this field publicly!
+    ///
+    /// Only public as command `rename` is not reimplemented in a sane way yet
+    /// Using it or making `vals` public will draw shaming by @sholderbach
     pub cols: Vec<String>,
-    pub vals: Vec<Value>,
+    vals: Vec<Value>,
 }
 
 impl Record {
@@ -94,6 +100,137 @@ impl Record {
         Some((self.cols.get(idx)?, self.vals.get(idx)?))
     }
 
+    /// Remove single value by key
+    ///
+    /// Returns `None` if key not found
+    ///
+    /// Note: makes strong assumption that keys are unique
+    pub fn remove(&mut self, col: impl AsRef<str>) -> Option<Value> {
+        let idx = self.index_of(col)?;
+        self.cols.remove(idx);
+        Some(self.vals.remove(idx))
+    }
+
+    /// Remove elements in-place that do not satisfy `keep`
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_nothing(),
+    ///     "d" => Value::test_int(42),
+    ///     );
+    /// rec.retain(|_k, val| !val.is_nothing());
+    /// let mut iter_rec = rec.columns();
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("b"));
+    /// assert_eq!(iter_rec.next().map(String::as_str), Some("d"));
+    /// assert_eq!(iter_rec.next(), None);
+    /// ```
+    pub fn retain<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &Value) -> bool,
+    {
+        self.retain_mut(|k, v| keep(k, v));
+    }
+
+    /// Remove elements in-place that do not satisfy `keep` while allowing mutation of the value.
+    ///
+    /// This can for example be used to recursively prune nested records.
+    ///
+    /// Note: Panics if `vals.len() > cols.len()`
+    /// ```rust
+    /// use nu_protocol::{record, Record, Value};
+    ///
+    /// fn remove_foo_recursively(val: &mut Value) {
+    ///     if let Value::Record {val, ..} = val {
+    ///         val.retain_mut(keep_non_foo);
+    ///     }
+    /// }
+    ///
+    /// fn keep_non_foo(k: &str, v: &mut Value) -> bool {
+    ///     if k == "foo" {
+    ///         return false;
+    ///     }
+    ///     remove_foo_recursively(v);
+    ///     true
+    /// }
+    ///
+    /// let mut test = Value::test_record(record!(
+    ///     "foo" => Value::test_nothing(),
+    ///     "bar" => Value::test_record(record!(
+    ///         "foo" => Value::test_nothing(),
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    ///
+    /// remove_foo_recursively(&mut test);
+    /// let expected = Value::test_record(record!(
+    ///     "bar" => Value::test_record(record!(
+    ///         "baz" => Value::test_nothing(),
+    ///         ))
+    ///     ));
+    /// assert_eq!(test, expected);
+    /// ```
+    pub fn retain_mut<F>(&mut self, mut keep: F)
+    where
+        F: FnMut(&str, &mut Value) -> bool,
+    {
+        // `Vec::retain` is able to optimize memcopies internally.
+        // For maximum benefit, `retain` is used on `vals`,
+        // as `Value` is a larger struct than `String`.
+        //
+        // To do a simultaneous retain on the `cols`, three portions of it are tracked:
+        //     [..retained, ..dropped, ..unvisited]
+
+        // number of elements keep so far, start of ..dropped and length of ..retained
+        let mut retained = 0;
+        // current index of element being checked, start of ..unvisited
+        let mut idx = 0;
+
+        self.vals.retain_mut(|val| {
+            if keep(&self.cols[idx], val) {
+                // skip swaps for first consecutive run of kept elements
+                if idx != retained {
+                    self.cols.swap(idx, retained);
+                }
+                retained += 1;
+                idx += 1;
+                true
+            } else {
+                idx += 1;
+                false
+            }
+        });
+        self.cols.truncate(retained);
+    }
+
+    /// Truncate record to the first `len` elements.
+    ///
+    /// `len > self.len()` will be ignored
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_nothing(),
+    ///     "d" => Value::test_int(42),
+    ///     );
+    /// rec.truncate(42); // this is fine
+    /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "abcd");
+    /// rec.truncate(2); // truncate
+    /// assert_eq!(rec.columns().map(String::as_str).collect::<String>(), "ab");
+    /// rec.truncate(0); // clear the record
+    /// assert_eq!(rec.len(), 0);
+    /// ```
+    pub fn truncate(&mut self, len: usize) {
+        self.cols.truncate(len);
+        self.vals.truncate(len);
+    }
+
     pub fn columns(&self) -> Columns {
         Columns {
             iter: self.cols.iter(),
@@ -109,6 +246,42 @@ impl Record {
     pub fn into_values(self) -> IntoValues {
         IntoValues {
             iter: self.vals.into_iter(),
+        }
+    }
+
+    /// Obtain an iterator to remove elements in `range`
+    ///
+    /// Elements not consumed from the iterator will be dropped
+    ///
+    /// ```rust
+    /// use nu_protocol::{record, Value};
+    ///
+    /// let mut rec = record!(
+    ///     "a" => Value::test_nothing(),
+    ///     "b" => Value::test_int(42),
+    ///     "c" => Value::test_string("foo"),
+    /// );
+    /// {
+    ///     let mut drainer = rec.drain(1..);
+    ///     assert_eq!(drainer.next(), Some(("b".into(), Value::test_int(42))));
+    ///     // Dropping the `Drain`
+    /// }
+    /// let mut rec_iter = rec.into_iter();
+    /// assert_eq!(rec_iter.next(), Some(("a".into(), Value::test_nothing())));
+    /// assert_eq!(rec_iter.next(), None);
+    /// ```
+    pub fn drain<R>(&mut self, range: R) -> Drain
+    where
+        R: RangeBounds<usize> + Clone,
+    {
+        assert_eq!(
+            self.cols.len(),
+            self.vals.len(),
+            "Length of cols and vals must be equal for sane `Record::drain`"
+        );
+        Drain {
+            keys: self.cols.drain(range.clone()),
+            values: self.vals.drain(range),
         }
     }
 }
@@ -247,6 +420,35 @@ impl DoubleEndedIterator for IntoValues {
 impl ExactSizeIterator for IntoValues {
     fn len(&self) -> usize {
         self.iter.len()
+    }
+}
+
+pub struct Drain<'a> {
+    keys: std::vec::Drain<'a, String>,
+    values: std::vec::Drain<'a, Value>,
+}
+
+impl Iterator for Drain<'_> {
+    type Item = (String, Value);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some((self.keys.next()?, self.values.next()?))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.keys.size_hint()
+    }
+}
+
+impl DoubleEndedIterator for Drain<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        Some((self.keys.next_back()?, self.values.next_back()?))
+    }
+}
+
+impl ExactSizeIterator for Drain<'_> {
+    fn len(&self) -> usize {
+        self.keys.len()
     }
 }
 

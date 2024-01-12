@@ -36,7 +36,7 @@ jobs:
           token: ${{ secrets.WORKFLOW_TOKEN }}
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.6
+        uses: hustcer/setup-nu@v3.8
         if: github.repository == 'nushell/nightly'
         with:
           version: 0.86.0
@@ -119,7 +119,7 @@ jobs:
           os: ubuntu-20.04
           target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-latest
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}
@@ -135,13 +135,13 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.6
+      uses: hustcer/setup-nu@v3.8
       with:
         version: 0.86.0
       env:
@@ -249,13 +249,13 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.5.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
 
     - name: Setup Nushell
-      uses: hustcer/setup-nu@v3.6
+      uses: hustcer/setup-nu@v3.8
       with:
         version: 0.86.0
       env:
@@ -321,7 +321,7 @@ jobs:
           ref: main
 
       - name: Setup Nushell
-        uses: hustcer/setup-nu@v3.6
+        uses: hustcer/setup-nu@v3.8
         with:
           version: 0.86.0
         env:

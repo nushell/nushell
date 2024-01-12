@@ -32,7 +32,7 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-use sysinfo::SystemExt;
+use sysinfo::System;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
@@ -54,7 +54,8 @@ pub fn evaluate_repl(
 ) -> Result<()> {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let use_color = engine_state.get_config().use_ansi_coloring;
+    let config = engine_state.get_config();
+    let use_color = config.use_ansi_coloring;
 
     // Guard against invocation without a connected terminal.
     // reedline / crossterm event polling will fail without a connected tty
@@ -68,7 +69,7 @@ pub fn evaluate_repl(
 
     let mut entry_num = 0;
 
-    let mut nu_prompt = NushellPrompt::new();
+    let mut nu_prompt = NushellPrompt::new(config.shell_integration);
 
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
@@ -108,16 +109,8 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    let config = engine_state.get_config();
-    if config.bracketed_paste {
-        // try to enable bracketed paste
-        // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
-        #[cfg(not(target_os = "windows"))]
-        let _ = line_editor.enable_bracketed_paste();
-    }
-
     // Setup history_isolation aka "history per session"
-    let history_isolation = config.history_isolation;
+    let history_isolation = engine_state.get_config().history_isolation;
     let history_session_id = if history_isolation {
         Reedline::create_history_session_id()
     } else {
@@ -135,17 +128,6 @@ pub fn evaluate_repl(
     };
     perf(
         "setup history",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    let sys = sysinfo::System::new();
-    perf(
-        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -182,12 +164,8 @@ pub fn evaluate_repl(
         );
     }
 
-    if engine_state.get_config().use_kitty_protocol {
-        if line_editor.can_use_kitty_protocol() {
-            line_editor.enable_kitty_protocol();
-        } else {
-            warn!("Terminal doesn't support use_kitty_protocol config");
-        }
+    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
+        warn!("Terminal doesn't support use_kitty_protocol config");
     }
 
     loop {
@@ -225,35 +203,15 @@ pub fn evaluate_repl(
         );
 
         start_time = std::time::Instant::now();
-        // Reset the SIGQUIT handler
-        if let Some(sig_quit) = engine_state.get_sig_quit() {
-            sig_quit.store(false, Ordering::SeqCst);
-        }
-        perf(
-            "reset sig_quit",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
-
-        start_time = std::time::Instant::now();
         let config = engine_state.get_config();
 
         let engine_reference = std::sync::Arc::new(engine_state.clone());
 
         // Find the configured cursor shapes for each mode
         let cursor_config = CursorConfig {
-            vi_insert: config
-                .cursor_shape_vi_insert
-                .map(map_nucursorshape_to_cursorshape),
-            vi_normal: config
-                .cursor_shape_vi_normal
-                .map(map_nucursorshape_to_cursorshape),
-            emacs: config
-                .cursor_shape_emacs
-                .map(map_nucursorshape_to_cursorshape),
+            vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_insert),
+            vi_normal: map_nucursorshape_to_cursorshape(config.cursor_shape_vi_normal),
+            emacs: map_nucursorshape_to_cursorshape(config.cursor_shape_emacs),
         };
         perf(
             "get config/cursor config",
@@ -267,6 +225,10 @@ pub fn evaluate_repl(
         start_time = std::time::Instant::now();
 
         line_editor = line_editor
+            .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
+            // try to enable bracketed paste
+            // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
+            .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
                 config: config.clone(),
@@ -281,11 +243,7 @@ pub fn evaluate_repl(
             .with_quick_completions(config.quick_completions)
             .with_partial_completions(config.partial_completions)
             .with_ansi_colors(config.use_ansi_coloring)
-            .with_cursor_config(cursor_config)
-            .with_transient_prompt(prompt_update::transient_prompt(
-                engine_reference.clone(),
-                stack,
-            ));
+            .with_cursor_config(cursor_config);
         perf(
             "reedline builder",
             start_time,
@@ -438,7 +396,9 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         let config = &engine_state.get_config().clone();
-        let prompt = prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        prompt_update::update_prompt(config, engine_state, stack, &mut nu_prompt);
+        let transient_prompt =
+            prompt_update::make_transient_prompt(config, engine_state, stack, &nu_prompt);
         perf(
             "update_prompt",
             start_time,
@@ -451,12 +411,13 @@ pub fn evaluate_repl(
         entry_num += 1;
 
         start_time = std::time::Instant::now();
-        let input = line_editor.read_line(prompt);
+        line_editor = line_editor.with_transient_prompt(transient_prompt);
+        let input = line_editor.read_line(&nu_prompt);
         let shell_integration = config.shell_integration;
 
         match input {
             Ok(Signal::Success(s)) => {
-                let hostname = sys.host_name();
+                let hostname = System::host_name();
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -516,10 +477,10 @@ pub fn evaluate_repl(
 
                             report_error(
                                 &working_set,
-                                &ShellError::DirectoryNotFound(
-                                    tokens.0[0].span,
-                                    path.to_string_lossy().to_string(),
-                                ),
+                                &ShellError::DirectoryNotFound {
+                                    dir: path.to_string_lossy().to_string(),
+                                    span: tokens.0[0].span,
+                                },
                             );
                         }
                         let path = nu_path::canonicalize_with(path, &cwd)
@@ -596,10 +557,6 @@ pub fn evaluate_repl(
                         PipelineData::empty(),
                         false,
                     );
-                    if engine_state.get_config().bracketed_paste {
-                        #[cfg(not(target_os = "windows"))]
-                        let _ = line_editor.enable_bracketed_paste();
-                    }
                 }
                 let cmd_duration = start_time.elapsed();
 
@@ -626,19 +583,29 @@ pub fn evaluate_repl(
                     if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
                         let path = cwd.as_string()?;
 
-                        // Communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
-                        run_ansi_sequence(&format!(
-                            "\x1b]7;file://{}{}{}\x1b\\",
-                            percent_encoding::utf8_percent_encode(
-                                &hostname.unwrap_or_else(|| "localhost".to_string()),
-                                percent_encoding::CONTROLS
-                            ),
-                            if path.starts_with('/') { "" } else { "/" },
-                            percent_encoding::utf8_percent_encode(
-                                &path,
-                                percent_encoding::CONTROLS
-                            )
-                        ))?;
+                        // Supported escape sequences of Microsoft's Visual Studio Code (vscode)
+                        // https://code.visualstudio.com/docs/terminal/shell-integration#_supported-escape-sequences
+                        if stack.get_env_var(engine_state, "TERM_PROGRAM")
+                            == Some(Value::test_string("vscode"))
+                        {
+                            // If we're in vscode, run their specific ansi escape sequence.
+                            // This is helpful for ctrl+g to change directories in the terminal.
+                            run_ansi_sequence(&format!("\x1b]633;P;Cwd={}\x1b\\", path))?;
+                        } else {
+                            // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
+                            run_ansi_sequence(&format!(
+                                "\x1b]7;file://{}{}{}\x1b\\",
+                                percent_encoding::utf8_percent_encode(
+                                    &hostname.unwrap_or_else(|| "localhost".to_string()),
+                                    percent_encoding::CONTROLS
+                                ),
+                                if path.starts_with('/') { "" } else { "/" },
+                                percent_encoding::utf8_percent_encode(
+                                    &path,
+                                    percent_encoding::CONTROLS
+                                )
+                            ))?;
+                        }
 
                         // Try to abbreviate string for windows title
                         let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
@@ -760,18 +727,19 @@ fn update_line_editor_history(
     Ok(line_editor)
 }
 
-fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> SetCursorStyle {
+fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
-        NuCursorShape::Block => SetCursorStyle::SteadyBlock,
-        NuCursorShape::UnderScore => SetCursorStyle::SteadyUnderScore,
-        NuCursorShape::Line => SetCursorStyle::SteadyBar,
-        NuCursorShape::BlinkBlock => SetCursorStyle::BlinkingBlock,
-        NuCursorShape::BlinkUnderScore => SetCursorStyle::BlinkingUnderScore,
-        NuCursorShape::BlinkLine => SetCursorStyle::BlinkingBar,
+        NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
+        NuCursorShape::UnderScore => Some(SetCursorStyle::SteadyUnderScore),
+        NuCursorShape::Line => Some(SetCursorStyle::SteadyBar),
+        NuCursorShape::BlinkBlock => Some(SetCursorStyle::BlinkingBlock),
+        NuCursorShape::BlinkUnderScore => Some(SetCursorStyle::BlinkingUnderScore),
+        NuCursorShape::BlinkLine => Some(SetCursorStyle::BlinkingBar),
+        NuCursorShape::Inherit => None,
     }
 }
 
-pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
+fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) -> String {
     let exit_code = stack
         .get_env_var(engine_state, "LAST_EXIT_CODE")
         .and_then(|e| e.as_i64().ok());
@@ -780,23 +748,21 @@ pub fn get_command_finished_marker(stack: &Stack, engine_state: &EngineState) ->
 }
 
 fn run_ansi_sequence(seq: &str) -> Result<(), ShellError> {
-    io::stdout().write_all(seq.as_bytes()).map_err(|e| {
-        ShellError::GenericError(
-            "Error writing ansi sequence".into(),
-            e.to_string(),
-            Some(Span::unknown()),
-            None,
-            Vec::new(),
-        )
-    })?;
-    io::stdout().flush().map_err(|e| {
-        ShellError::GenericError(
-            "Error flushing stdio".into(),
-            e.to_string(),
-            Some(Span::unknown()),
-            None,
-            Vec::new(),
-        )
+    io::stdout()
+        .write_all(seq.as_bytes())
+        .map_err(|e| ShellError::GenericError {
+            error: "Error writing ansi sequence".into(),
+            msg: e.to_string(),
+            span: Some(Span::unknown()),
+            help: None,
+            inner: vec![],
+        })?;
+    io::stdout().flush().map_err(|e| ShellError::GenericError {
+        error: "Error flushing stdio".into(),
+        msg: e.to_string(),
+        span: Some(Span::unknown()),
+        help: None,
+        inner: vec![],
     })
 }
 

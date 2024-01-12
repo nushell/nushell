@@ -36,7 +36,7 @@ repeating this process with row 1, and so on."#
                 "value",
                 // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,
-                "the new value to merge with",
+                "The new value to merge with.",
             )
             .category(Category::Filters)
     }
@@ -153,20 +153,12 @@ repeating this process with row 1, and so on."#
     }
 }
 
+// TODO: rewrite to mutate the input record
 fn do_merge(input_record: &Record, to_merge_record: &Record) -> Record {
     let mut result = input_record.clone();
 
     for (col, val) in to_merge_record {
-        let pos = result.cols.iter().position(|c| c == col);
-        // if find, replace existing data, else, push new data.
-        match pos {
-            Some(index) => {
-                result.vals[index] = val.clone();
-            }
-            None => {
-                result.push(col, val.clone());
-            }
-        }
+        result.insert(col, val.clone());
     }
     result
 }

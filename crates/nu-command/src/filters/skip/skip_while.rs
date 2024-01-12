@@ -26,7 +26,7 @@ impl Command for SkipWhile {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that skipped element must match",
+                "The predicate that skipped element must match.",
             )
             .category(Category::Filters)
     }
@@ -91,7 +91,7 @@ impl Command for SkipWhile {
 
         let block = engine_state.get_block(capture_block.block_id).clone();
         let var_id = block.signature.get_positional(0).and_then(|arg| arg.var_id);
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let ctrlc = engine_state.ctrlc.clone();
         let engine_state = engine_state.clone();
@@ -118,8 +118,7 @@ impl Command for SkipWhile {
                     pipeline_data.into_value(span).is_true()
                 })
             })
-            .into_pipeline_data(ctrlc)
-            .set_metadata(metadata))
+            .into_pipeline_data_with_metadata(metadata, ctrlc))
     }
 }
 

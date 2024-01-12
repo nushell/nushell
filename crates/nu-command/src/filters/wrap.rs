@@ -25,7 +25,7 @@ impl Command for Wrap {
                 (Type::Range, Type::Table(vec![])),
                 (Type::Any, Type::Record(vec![])),
             ])
-            .required("name", SyntaxShape::String, "the name of the column")
+            .required("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -48,17 +48,14 @@ impl Command for Wrap {
             | PipelineData::ListStream { .. } => Ok(input
                 .into_iter()
                 .map(move |x| Value::record(record! { name.clone() => x }, span))
-                .into_pipeline_data(engine_state.ctrlc.clone())
-                .set_metadata(metadata)),
+                .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone())),
             PipelineData::ExternalStream { .. } => Ok(Value::record(
                 record! { name => input.into_value(call.head) },
                 span,
             )
-            .into_pipeline_data()
-            .set_metadata(metadata)),
+            .into_pipeline_data_with_metadata(metadata)),
             PipelineData::Value(input, ..) => Ok(Value::record(record! { name => input }, span)
-                .into_pipeline_data()
-                .set_metadata(metadata)),
+                .into_pipeline_data_with_metadata(metadata)),
         }
     }
 

@@ -33,10 +33,8 @@ impl EvaluatedCall {
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
-        let positional = call
-            .positional_iter()
-            .map(|expr| eval_expression(engine_state, stack, expr))
-            .collect::<Result<Vec<Value>, ShellError>>()?;
+        let positional =
+            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
@@ -238,7 +236,7 @@ impl EvaluatedCall {
     /// ```
     pub fn get_flag<T: FromValue>(&self, name: &str) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.get_flag_value(name) {
-            FromValue::from_value(&value).map(Some)
+            FromValue::from_value(value).map(Some)
         } else {
             Ok(None)
         }
@@ -272,7 +270,7 @@ impl EvaluatedCall {
         self.positional
             .iter()
             .skip(starting_pos)
-            .map(|value| FromValue::from_value(value))
+            .map(|value| FromValue::from_value(value.clone()))
             .collect()
     }
 
@@ -283,7 +281,7 @@ impl EvaluatedCall {
     /// or an error that can be passed back to the shell on error.
     pub fn opt<T: FromValue>(&self, pos: usize) -> Result<Option<T>, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(&value).map(Some)
+            FromValue::from_value(value).map(Some)
         } else {
             Ok(None)
         }
@@ -296,7 +294,7 @@ impl EvaluatedCall {
     /// be passed back to the shell.
     pub fn req<T: FromValue>(&self, pos: usize) -> Result<T, ShellError> {
         if let Some(value) = self.nth(pos) {
-            FromValue::from_value(&value)
+            FromValue::from_value(value)
         } else if self.positional.is_empty() {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {

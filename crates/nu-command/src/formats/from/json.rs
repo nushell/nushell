@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -47,7 +48,7 @@ impl Command for FromJson {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -59,7 +60,7 @@ impl Command for FromJson {
         }
 
         // TODO: turn this into a structured underline of the nu_json error
-        if call.has_flag("objects") {
+        if call.has_flag(engine_state, stack, "objects")? {
             let converted_lines: Vec<Value> = string_input
                 .lines()
                 .filter_map(move |x| {
@@ -150,18 +151,18 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
                 let label_span = convert_row_column_to_span(row, col, &string_input);
-                Err(ShellError::GenericError(
-                    "Error while parsing JSON text".into(),
-                    "error parsing JSON text".into(),
-                    Some(span),
-                    None,
-                    vec![ShellError::OutsideSpannedLabeledError(
-                        string_input,
-                        "Error while parsing JSON text".into(),
-                        label,
-                        label_span,
-                    )],
-                ))
+                Err(ShellError::GenericError {
+                    error: "Error while parsing JSON text".into(),
+                    msg: "error parsing JSON text".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![ShellError::OutsideSpannedLabeledError {
+                        src: string_input,
+                        error: "Error while parsing JSON text".into(),
+                        msg: label,
+                        span: label_span,
+                    }],
+                })
             }
             x => Err(ShellError::CantConvert {
                 to_type: format!("structured json data ({x})"),

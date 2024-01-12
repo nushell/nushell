@@ -1,4 +1,4 @@
-use nu_engine::env_to_strings;
+use nu_engine::{env_to_strings, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -59,7 +59,7 @@ impl Command for ConfigEnv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // `--default` flag handling
-        if call.has_flag("default") {
+        if call.has_flag(engine_state, stack, "default")? {
             let head = call.head;
             return Ok(Value::string(nu_utils::get_default_env(), head).into_pipeline_data());
         }
@@ -68,13 +68,13 @@ impl Command for ConfigEnv {
         let nu_config = match engine_state.get_config_path("env-path") {
             Some(path) => path.clone(),
             None => {
-                return Err(ShellError::GenericError(
-                    "Could not find $nu.env-path".to_string(),
-                    "Could not find $nu.env-path".to_string(),
-                    None,
-                    None,
-                    Vec::new(),
-                ));
+                return Err(ShellError::GenericError {
+                    error: "Could not find $nu.env-path".into(),
+                    msg: "Could not find $nu.env-path".into(),
+                    span: None,
+                    help: None,
+                    inner: vec![],
+                });
             }
         };
 

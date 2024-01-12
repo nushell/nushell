@@ -16,7 +16,7 @@ impl Command for LazySortBy {
     }
 
     fn usage(&self) -> &str {
-        "sorts a lazy dataframe based on expression(s)."
+        "Sorts a lazy dataframe based on expression(s)."
     }
 
     fn signature(&self) -> Signature {
@@ -107,8 +107,8 @@ impl Command for LazySortBy {
         let vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(value)?;
-        let nulls_last = call.has_flag("nulls-last");
-        let maintain_order = call.has_flag("maintain-order");
+        let nulls_last = call.has_flag(engine_state, stack, "nulls-last")?;
+        let maintain_order = call.has_flag(engine_state, stack, "maintain-order")?;
 
         let reverse: Option<Vec<bool>> = call.get_flag(engine_state, stack, "reverse")?;
         let reverse = match reverse {
@@ -118,13 +118,13 @@ impl Command for LazySortBy {
                         .get_flag::<Value>(engine_state, stack, "reverse")?
                         .expect("already checked and it exists")
                         .span();
-                    return Err(ShellError::GenericError(
-                        "Incorrect list size".into(),
-                        "Size doesn't match expression list".into(),
-                        Some(span),
-                        None,
-                        Vec::new(),
-                    ));
+                    return Err(ShellError::GenericError {
+                        error: "Incorrect list size".into(),
+                        msg: "Size doesn't match expression list".into(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    });
                 } else {
                     list
                 }

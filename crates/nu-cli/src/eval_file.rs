@@ -35,10 +35,10 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::FileNotFoundCustom(
-                format!("Could not access file '{}': {:?}", path, e.to_string()),
-                Span::unknown(),
-            ),
+            &ShellError::FileNotFoundCustom {
+                msg: format!("Could not access file '{}': {:?}", path, e.to_string()),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
@@ -47,13 +47,13 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::NonUtf8Custom(
-                format!(
+            &ShellError::NonUtf8Custom {
+                msg: format!(
                     "Input file name '{}' is not valid UTF8",
                     file_path.to_string_lossy()
                 ),
-                Span::unknown(),
-            ),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
@@ -64,14 +64,14 @@ pub fn evaluate_file(
             let working_set = StateWorkingSet::new(engine_state);
             report_error(
                 &working_set,
-                &ShellError::FileNotFoundCustom(
-                    format!(
+                &ShellError::FileNotFoundCustom {
+                    msg: format!(
                         "Could not read file '{}': {:?}",
                         file_path_str,
                         e.to_string()
                     ),
-                    Span::unknown(),
-                ),
+                    span: Span::unknown(),
+                },
             );
             std::process::exit(1);
         });
@@ -82,10 +82,10 @@ pub fn evaluate_file(
         let working_set = StateWorkingSet::new(engine_state);
         report_error(
             &working_set,
-            &ShellError::FileNotFoundCustom(
-                format!("The file path '{file_path_str}' does not have a parent"),
-                Span::unknown(),
-            ),
+            &ShellError::FileNotFoundCustom {
+                msg: format!("The file path '{file_path_str}' does not have a parent"),
+                span: Span::unknown(),
+            },
         );
         std::process::exit(1);
     });
@@ -97,6 +97,10 @@ pub fn evaluate_file(
     stack.add_env_var(
         "CURRENT_FILE".to_string(),
         Value::string(file_path.to_string_lossy(), Span::unknown()),
+    );
+    stack.add_env_var(
+        "PROCESS_PATH".to_string(),
+        Value::string(path, Span::unknown()),
     );
 
     let source_filename = file_path
@@ -135,7 +139,7 @@ pub fn evaluate_file(
             false,
         );
         let pipeline_data = match pipeline_data {
-            Err(ShellError::Return(_, _)) => {
+            Err(ShellError::Return { .. }) => {
                 // allows early exists before `main` is run.
                 return Ok(());
             }
@@ -195,7 +199,7 @@ pub(crate) fn print_table_or_error(
     };
 
     // Change the engine_state config to use the passed in configuration
-    engine_state.set_config(config);
+    engine_state.set_config(config.clone());
 
     if let PipelineData::Value(Value::Error { error, .. }, ..) = &pipeline_data {
         let working_set = StateWorkingSet::new(engine_state);

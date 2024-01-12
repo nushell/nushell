@@ -6,7 +6,7 @@ pub fn merge_descriptors(values: &[Value]) -> Vec<String> {
     let mut seen: IndexSet<String> = indexset! {};
     for value in values {
         let data_descriptors = match value {
-            Value::Record { val, .. } => val.cols.clone(),
+            Value::Record { val, .. } => val.columns().cloned().collect(),
             _ => vec!["".to_string()],
         };
         for desc in data_descriptors {

@@ -2,7 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, Range, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Range, ShellError, Signature, Span, Spanned, SyntaxShape,
+    Type, Value,
 };
 use rand::prelude::{thread_rng, Rng};
 use std::cmp::Ordering;
@@ -19,7 +20,7 @@ impl Command for SubCommand {
         Signature::build("random float")
             .input_output_types(vec![(Type::Nothing, Type::Float)])
             .allow_variants_without_examples(true)
-            .optional("range", SyntaxShape::Range, "Range of values")
+            .optional("range", SyntaxShape::Range, "Range of values.")
             .category(Category::Random)
     }
 
@@ -72,10 +73,13 @@ fn float(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    let span = call.head;
-    let range: Option<Range> = call.opt(engine_state, stack, 0)?;
+    let mut range_span = call.head;
+    let range: Option<Spanned<Range>> = call.opt(engine_state, stack, 0)?;
 
-    let (min, max) = if let Some(r) = range {
+    let (min, max) = if let Some(spanned_range) = range {
+        let r = spanned_range.item;
+        range_span = spanned_range.span;
+
         if r.is_end_inclusive() {
             (r.from.as_float()?, r.to.as_float()?)
         } else if r.to.as_float()? >= 1.0 {
@@ -91,7 +95,7 @@ fn float(
         Some(Ordering::Greater) => Err(ShellError::InvalidRange {
             left_flank: min.to_string(),
             right_flank: max.to_string(),
-            span,
+            span: range_span,
         }),
         Some(Ordering::Equal) => Ok(PipelineData::Value(
             Value::float(min, Span::new(64, 64)),

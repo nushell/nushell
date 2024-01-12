@@ -19,9 +19,9 @@ impl Command for Def {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("def")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("def_name", SyntaxShape::String, "command name")
-            .required("params", SyntaxShape::Signature, "parameters")
-            .required("block", SyntaxShape::Closure(None), "body of the definition")
+            .required("def_name", SyntaxShape::String, "Command name.")
+            .required("params", SyntaxShape::Signature, "Parameters.")
+            .required("block", SyntaxShape::Closure(None), "Body of the definition.")
             .switch("env", "keep the environment defined inside the command", None)
             .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
             .category(Category::Core)

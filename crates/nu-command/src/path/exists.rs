@@ -134,6 +134,9 @@ If you need to distinguish dirs and files, please use `path type`."#
 }
 
 fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
+    if path.as_os_str().is_empty() {
+        return Value::bool(false, span);
+    }
     let path = expand_path_with(path, &args.pwd);
     let exists = if args.not_follow_symlink {
         // symlink_metadata returns true if the file/folder exists
@@ -153,7 +156,13 @@ fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
         match exists {
             Ok(exists) => exists,
             Err(err) => {
-                return Value::error(ShellError::IOErrorSpanned(err.to_string(), span), span)
+                return Value::error(
+                    ShellError::IOErrorSpanned {
+                        msg: err.to_string(),
+                        span,
+                    },
+                    span,
+                )
             }
         },
         span,

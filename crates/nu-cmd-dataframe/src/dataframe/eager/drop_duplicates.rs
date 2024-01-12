@@ -92,7 +92,7 @@ fn command(
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
-    let keep_strategy = if call.has_flag("last") {
+    let keep_strategy = if call.has_flag(engine_state, stack, "last")? {
         UniqueKeepStrategy::Last
     } else {
         UniqueKeepStrategy::First
@@ -100,14 +100,12 @@ fn command(
 
     df.as_ref()
         .unique(subset_slice, keep_strategy, None)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error dropping duplicates".into(),
-                e.to_string(),
-                Some(col_span),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error dropping duplicates".into(),
+            msg: e.to_string(),
+            span: Some(col_span),
+            help: None,
+            inner: vec![],
         })
         .map(|df| PipelineData::Value(NuDataFrame::dataframe_into_value(df, call.head), None))
 }

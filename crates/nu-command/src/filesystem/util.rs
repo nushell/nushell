@@ -165,9 +165,8 @@ pub fn is_older(src: &Path, dst: &Path) -> Option<bool> {
 
 #[cfg(unix)]
 pub mod users {
-    use libc::{c_int, gid_t, uid_t};
+    use libc::{gid_t, uid_t};
     use nix::unistd::{Gid, Group, Uid, User};
-    use std::ffi::CString;
 
     pub fn get_user_by_uid(uid: uid_t) -> Option<User> {
         User::from_uid(Uid::from_raw(uid)).ok().flatten()
@@ -185,6 +184,7 @@ pub mod users {
         Gid::current().as_raw()
     }
 
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     pub fn get_current_username() -> Option<String> {
         User::from_uid(Uid::current())
             .ok()
@@ -192,6 +192,30 @@ pub mod users {
             .map(|user| user.name)
     }
 
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn current_user_groups() -> Option<Vec<Gid>> {
+        // SAFETY:
+        // if first arg is 0 then it ignores second argument and returns number of groups present for given user.
+        let ngroups = unsafe { libc::getgroups(0, core::ptr::null::<gid_t> as *mut _) };
+        let mut buff: Vec<gid_t> = vec![0; ngroups as usize];
+
+        // SAFETY:
+        // buff is the size of ngroups and  getgroups reads max ngroups elements into buff
+        let found = unsafe { libc::getgroups(ngroups, buff.as_mut_ptr()) };
+
+        if found < 0 {
+            None
+        } else {
+            buff.truncate(found as usize);
+            buff.sort_unstable();
+            buff.dedup();
+            buff.into_iter()
+                .filter_map(|i| get_group_by_gid(i as gid_t))
+                .map(|group| group.gid)
+                .collect::<Vec<_>>()
+                .into()
+        }
+    }
     /// Returns groups for a provided user name and primary group id.
     ///
     /// # libc functions used
@@ -207,7 +231,9 @@ pub mod users {
     ///     println!("User is a member of group #{group}");
     /// }
     /// ```
+    #[cfg(not(any(target_os = "linux", target_os = "android")))]
     pub fn get_user_groups(username: &str, gid: gid_t) -> Option<Vec<Gid>> {
+        use std::ffi::CString;
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
         #[cfg(target_os = "macos")]
         let mut buff: Vec<i32> = vec![0; 1024];
@@ -218,7 +244,7 @@ pub mod users {
             return None;
         };
 
-        let mut count = buff.len() as c_int;
+        let mut count = buff.len() as libc::c_int;
 
         // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
         // SAFETY:

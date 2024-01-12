@@ -24,7 +24,7 @@ impl Command for SortBy {
                 (Type::Record(vec![]), Type::Table(vec![])),
                 (Type::Table(vec![]), Type::Table(vec![])),
             ])
-            .rest("columns", SyntaxShape::Any, "the column(s) to sort by")
+            .rest("columns", SyntaxShape::Any, "The column(s) to sort by.")
             .switch("reverse", "Sort in reverse order", Some('r'))
             .switch(
                 "ignore-case",
@@ -85,9 +85,9 @@ impl Command for SortBy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
-        let reverse = call.has_flag("reverse");
-        let insensitive = call.has_flag("ignore-case");
-        let natural = call.has_flag("natural");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
+        let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+        let natural = call.has_flag(engine_state, stack, "natural")?;
         let metadata = &input.metadata();
         let mut vec: Vec<_> = input.into_iter_strict(call.head)?.collect();
 

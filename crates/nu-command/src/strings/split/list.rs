@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .required(
                 "separator",
                 SyntaxShape::Any,
-                "the value that denotes what separates the list",
+                "The value that denotes what separates the list.",
             )
             .switch(
                 "regex", 
@@ -161,17 +161,15 @@ impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.as_string()?).map_err(
-                |err| {
-                    ShellError::GenericError(
-                        "Error with regular expression".into(),
-                        err.to_string(),
-                        match lhs {
-                            Value::Error { .. } => None,
-                            _ => Some(lhs.span()),
-                        },
-                        None,
-                        Vec::new(),
-                    )
+                |e| ShellError::GenericError {
+                    error: "Error with regular expression".into(),
+                    msg: e.to_string(),
+                    span: match lhs {
+                        Value::Error { .. } => None,
+                        _ => Some(lhs.span()),
+                    },
+                    help: None,
+                    inner: vec![],
                 },
             )?))
         } else {
@@ -204,7 +202,7 @@ fn split_list(
     let mut returned_list = Vec::new();
 
     let iter = input.into_interruptible_iter(engine_state.ctrlc.clone());
-    let matcher = Matcher::new(call.has_flag("regex"), separator)?;
+    let matcher = Matcher::new(call.has_flag(engine_state, stack, "regex")?, separator)?;
     for val in iter {
         if matcher.compare(&val)? {
             if !temp_list.is_empty() {

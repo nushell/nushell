@@ -38,11 +38,11 @@ impl Command for RegistryQuery {
                 "do not expand %ENV% placeholders in REG_EXPAND_SZ",
                 Some('u'),
             )
-            .required("key", SyntaxShape::String, "registry key to query")
+            .required("key", SyntaxShape::String, "Registry key to query.")
             .optional(
                 "value",
                 SyntaxShape::String,
-                "optionally supply a registry value to query",
+                "Optionally supply a registry value to query.",
             )
             .category(Category::System)
     }
@@ -88,13 +88,13 @@ fn registry_query(
 ) -> Result<PipelineData, ShellError> {
     let call_span = call.head;
 
-    let skip_expand = call.has_flag("no-expand");
+    let skip_expand = call.has_flag(engine_state, stack, "no-expand")?;
 
     let registry_key: Spanned<String> = call.req(engine_state, stack, 0)?;
     let registry_key_span = &registry_key.clone().span;
     let registry_value: Option<Spanned<String>> = call.opt(engine_state, stack, 1)?;
 
-    let reg_hive = get_reg_hive(call)?;
+    let reg_hive = get_reg_hive(engine_state, stack, call)?;
     let reg_key = reg_hive.open_subkey(registry_key.item)?;
 
     if registry_value.is_none() {
@@ -130,13 +130,13 @@ fn registry_query(
                         )
                         .into_pipeline_data())
                     }
-                    Err(_) => Err(ShellError::GenericError(
-                        "Unable to find registry key/value".to_string(),
-                        format!("Registry value: {} was not found", value.item),
-                        Some(value.span),
-                        None,
-                        Vec::new(),
-                    )),
+                    Err(_) => Err(ShellError::GenericError {
+                        error: "Unable to find registry key/value".into(),
+                        msg: format!("Registry value: {} was not found", value.item),
+                        span: Some(value.span),
+                        help: None,
+                        inner: vec![],
+                    }),
                 }
             }
             None => Ok(Value::nothing(call_span).into_pipeline_data()),
@@ -144,22 +144,30 @@ fn registry_query(
     }
 }
 
-fn get_reg_hive(call: &Call) -> Result<RegKey, ShellError> {
-    let flags: Vec<_> = [
+fn get_reg_hive(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<RegKey, ShellError> {
+    let flags = [
         "hkcr", "hkcu", "hklm", "hku", "hkpd", "hkpt", "hkpnls", "hkcc", "hkdd", "hkculs",
     ]
     .iter()
     .copied()
-    .filter(|flag| call.has_flag(flag))
-    .collect();
+    .filter_map(|flag| match call.has_flag(engine_state, stack, flag) {
+        Ok(true) => Some(Ok(flag)),
+        Ok(false) => None,
+        Err(e) => Some(Err(e)),
+    })
+    .collect::<Result<Vec<_>, ShellError>>()?;
     if flags.len() > 1 {
-        return Err(ShellError::GenericError(
-            "Only one registry key can be specified".into(),
-            "Only one registry key can be specified".into(),
-            Some(call.head),
-            None,
-            Vec::new(),
-        ));
+        return Err(ShellError::GenericError {
+            error: "Only one registry key can be specified".into(),
+            msg: "Only one registry key can be specified".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
     }
     let hive = flags.first().copied().unwrap_or("hkcu");
     let hkey = match hive {
@@ -308,16 +316,21 @@ fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> 
 }
 
 fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
-    let value = match reg_value.vtype {
-        REG_DWORD => u32::from_reg_value(&reg_value).unwrap() as i64,
-        REG_DWORD_BIG_ENDIAN => {
-            // winreg (v0.51.0) doesn't natively decode REG_DWORD_BIG_ENDIAN
-            u32::from_be_bytes(unsafe { *reg_value.bytes.as_ptr().cast() }) as i64
-        }
-        REG_QWORD => u64::from_reg_value(&reg_value).unwrap() as i64,
-        _ => unreachable!(
-            "registry value type should be REG_DWORD, REG_DWORD_BIG_ENDIAN, or REG_QWORD"
-        ),
-    };
+    let value =
+        match reg_value.vtype {
+            // See discussion here https://github.com/nushell/nushell/pull/10806#issuecomment-1791832088
+            // "The unwraps here are effectively infallible...", so I changed them to expects.
+            REG_DWORD => u32::from_reg_value(&reg_value)
+                .expect("registry value type should be REG_DWORD") as i64,
+            REG_DWORD_BIG_ENDIAN => {
+                // winreg (v0.51.0) doesn't natively decode REG_DWORD_BIG_ENDIAN
+                u32::from_be_bytes(unsafe { *reg_value.bytes.as_ptr().cast() }) as i64
+            }
+            REG_QWORD => u64::from_reg_value(&reg_value)
+                .expect("registry value type should be REG_QWORD") as i64,
+            _ => unreachable!(
+                "registry value type should be REG_DWORD, REG_DWORD_BIG_ENDIAN, or REG_QWORD"
+            ),
+        };
     Value::int(value, call_span)
 }

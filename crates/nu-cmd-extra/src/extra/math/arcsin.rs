@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
@@ -35,12 +36,12 @@ impl Command for SubCommand {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let use_degrees = call.has_flag("degrees");
+        let use_degrees = call.has_flag(engine_state, stack, "degrees")?;
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
             return Err(ShellError::PipelineEmpty { dst_span: head });
@@ -85,12 +86,13 @@ fn operate(value: Value, head: Span, use_degrees: bool) -> Value {
                 Value::float(val, span)
             } else {
                 Value::error(
-                    ShellError::UnsupportedInput(
-                        "'arcsin' undefined for values outside the closed interval [-1, 1].".into(),
-                        "value originates from here".into(),
-                        head,
-                        span,
-                    ),
+                    ShellError::UnsupportedInput {
+                        msg: "'arcsin' undefined for values outside the closed interval [-1, 1]."
+                            .into(),
+                        input: "value originates from here".into(),
+                        msg_span: head,
+                        input_span: span,
+                    },
                     span,
                 )
             }

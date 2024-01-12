@@ -1,5 +1,6 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::map::IndexMap;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -46,14 +47,14 @@ string. This way content of every tag is always a table and is easier to parse"#
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let keep_comments = call.has_flag("keep-comments");
-        let keep_processing_instructions = call.has_flag("keep-pi");
+        let keep_comments = call.has_flag(engine_state, stack, "keep-comments")?;
+        let keep_processing_instructions = call.has_flag(engine_state, stack, "keep-pi")?;
         let info = ParsingInfo {
             span: head,
             keep_comments,

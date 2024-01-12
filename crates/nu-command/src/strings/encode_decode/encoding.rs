@@ -12,12 +12,12 @@ pub fn detect_encoding_name(
     //Guess(TLD=None(usually used in HTML), Allow_UTF8=True)
     let (encoding, is_certain) = detector.guess_assess(None, true);
     if !is_certain {
-        return Err(ShellError::UnsupportedInput(
-            "Input contains unknown encoding, try giving a encoding name".into(),
-            "value originates from here".into(),
-            head,
-            input,
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "Input contains unknown encoding, try giving a encoding name".into(),
+            input: "value originates from here".into(),
+            msg_span: head,
+            input_span: input,
+        });
     }
     Ok(encoding)
 }
@@ -28,7 +28,7 @@ pub fn decode(
     bytes: &[u8],
 ) -> Result<Value, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let encoding = if encoding_name.item.to_lowercase() == "utf16" {
+    let encoding = if encoding_name.item.eq_ignore_ascii_case("utf16") {
         parse_encoding(encoding_name.span, "utf-16")
     } else {
         parse_encoding(encoding_name.span, &encoding_name.item)
@@ -45,7 +45,7 @@ pub fn encode(
     ignore_errors: bool,
 ) -> Result<Value, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let encoding = if encoding_name.item.to_lowercase() == "utf16" {
+    let encoding = if encoding_name.item.eq_ignore_ascii_case("utf16") {
         parse_encoding(encoding_name.span, "utf-16")
     } else {
         parse_encoding(encoding_name.span, &encoding_name.item)
@@ -55,13 +55,13 @@ pub fn encode(
     // This behaviour can be enabled with -i. Otherwise, it becomes an error.
     if replacements && !ignore_errors {
         // TODO: make GenericError accept two spans (including head)
-        Err(ShellError::GenericError(
-            "error while encoding string".into(),
-            format!("string contained characters not in {}", &encoding_name.item),
-            Some(s_span),
-            None,
-            vec![],
-        ))
+        Err(ShellError::GenericError {
+            error: "error while encoding string".into(),
+            msg: format!("string contained characters not in {}", &encoding_name.item),
+            span: Some(s_span),
+            help: None,
+            inner: vec![],
+        })
     } else {
         Ok(Value::binary(result.into_owned(), head))
     }
@@ -69,21 +69,21 @@ pub fn encode(
 
 fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellError> {
     // Workaround for a bug in the Encodings Specification.
-    let label = if label.to_lowercase() == "utf16" {
+    let label = if label.eq_ignore_ascii_case("utf16") {
         "utf-16"
     } else {
         label
     };
     match Encoding::for_label_no_replacement(label.as_bytes()) {
-        None => Err(ShellError::GenericError(
-            format!(
+        None => Err(ShellError::GenericError{
+            error: format!(
                 r#"{label} is not a valid encoding"#
             ),
-            "invalid encoding".into(),
-            Some(span),
-            Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
-            vec![],
-        )),
+            msg: "invalid encoding".into(),
+            span: Some(span),
+            help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
+            inner: vec![],
+        }),
         Some(encoding) => Ok(encoding),
     }
 }

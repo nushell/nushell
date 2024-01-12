@@ -197,7 +197,7 @@ fn def_wrapped_with_block() {
 #[test]
 fn def_wrapped_from_module() {
     let actual = nu!(r#"module spam {
-            export def --wrapped my-echo [...rest] { ^echo $rest }
+            export def --wrapped my-echo [...rest] { nu --testbin cococo ...$rest }
         }
 
         use spam
@@ -298,4 +298,10 @@ fn def_env_wrapped() {
         "def --env --wrapped spam [...eggs: string] { $env.SPAM = $eggs.0 }; spam bacon; $env.SPAM"
     );
     assert_eq!(actual.out, "bacon");
+}
+
+#[test]
+fn def_env_wrapped_no_help() {
+    let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
+    assert_eq!(actual.out, r#"["-h"]"#);
 }

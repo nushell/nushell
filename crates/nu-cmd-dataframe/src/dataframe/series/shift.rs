@@ -9,6 +9,8 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
+use polars_plan::prelude::lit;
+
 #[derive(Clone)]
 pub struct Shift;
 
@@ -98,7 +100,7 @@ fn command_lazy(
     let lazy: NuLazyFrame = match fill {
         Some(fill) => {
             let expr = NuExpression::try_from_value(fill)?.into_polars();
-            lazy.shift_and_fill(shift, expr).into()
+            lazy.shift_and_fill(lit(shift), expr).into()
         }
         None => lazy.shift(shift).into(),
     };

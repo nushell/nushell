@@ -91,6 +91,15 @@ fn const_table() {
 }
 
 #[test]
+fn const_invalid_table() {
+    let inp = &["const x = [[a b a]; [10 20 30] [100 200 300]]"];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("column_defined_twice"));
+}
+
+#[test]
 fn const_string() {
     let inp = &[r#"const x = "abc""#, "$x"];
 
@@ -293,6 +302,19 @@ fn const_captures_work() {
     let inp = &[module, "use spam", "spam"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "xy");
+}
+
+#[test]
+fn const_captures_in_closures_work() {
+    let module = "module foo {
+        const a = 'world'
+        export def bar [] {
+            'hello ' + $a
+        }
+    }";
+    let inp = &[module, "use foo", "do { foo bar }"];
+    let actual = nu!(&inp.join("; "));
+    assert_eq!(actual.out, "hello world");
 }
 
 #[ignore = "TODO: Need to fix `overlay hide` to hide the constants brough by `overlay use`"]

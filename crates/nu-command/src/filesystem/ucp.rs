@@ -4,7 +4,7 @@ use nu_glob::GlobResult;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, UpdateMode};
@@ -53,8 +53,16 @@ impl Command for UCp {
             )
             .switch("progress", "display a progress bar", Some('p'))
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .named(
+                "preserve",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "preserve only the specified attributes (empty list means no attributes preserved)
+                    if not specified only mode is preserved
+                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
+                None
+            )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST")
+            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -86,6 +94,16 @@ impl Command for UCp {
                 example: "cp -u a b",
                 result: None,
             },
+            Example {
+                description: "Copy file preserving mode and timestamps attributes",
+                example: "cp --preserve [ mode timestamps ] a b",
+                result: None,
+            },
+            Example {
+                description: "Copy file erasing all attributes",
+                example: "cp --preserve [] a b",
+                result: None,
+            },
         ]
     }
 
@@ -96,19 +114,21 @@ impl Command for UCp {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let interactive = call.has_flag("interactive");
-        let (update, copy_mode) = if call.has_flag("update") {
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let (update, copy_mode) = if call.has_flag(engine_state, stack, "update")? {
             (UpdateMode::ReplaceIfOlder, CopyMode::Update)
         } else {
             (UpdateMode::ReplaceAll, CopyMode::Copy)
         };
-        let force = call.has_flag("force");
-        let no_clobber = call.has_flag("no-clobber");
-        let progress = call.has_flag("progress");
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
 
-        let debug = call.has_flag("debug");
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
+
+        let debug = call.has_flag(engine_state, stack, "debug")?;
         let overwrite = if no_clobber {
             uu_cp::OverwriteMode::NoClobber
         } else if interactive {
@@ -135,34 +155,34 @@ impl Command for UCp {
             })
             .collect();
         if paths.is_empty() {
-            return Err(ShellError::GenericError(
-                "Missing file operand".into(),
-                "Missing file operand".into(),
-                Some(call.head),
-                Some("Please provide source and destination paths".into()),
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing file operand".into(),
+                msg: "Missing file operand".into(),
+                span: Some(call.head),
+                help: Some("Please provide source and destination paths".into()),
+                inner: vec![],
+            });
         }
 
         if paths.len() == 1 {
-            return Err(ShellError::GenericError(
-                "Missing destination path".into(),
-                format!("Missing destination path operand after {}", paths[0].item),
-                Some(paths[0].span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "Missing destination path".into(),
+                msg: format!("Missing destination path operand after {}", paths[0].item),
+                span: Some(paths[0].span),
+                help: None,
+                inner: vec![],
+            });
         }
         let target = paths.pop().expect("Should not be reached?");
         let target_path = PathBuf::from(&target.item);
         if target.item.ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
-            return Err(ShellError::GenericError(
-                "is not a directory".into(),
-                "is not a directory".into(),
-                Some(target.span),
-                None,
-                Vec::new(),
-            ));
+            return Err(ShellError::GenericError {
+                error: "is not a directory".into(),
+                msg: "is not a directory".into(),
+                span: Some(target.span),
+                help: None,
+                inner: vec![],
+            });
         };
 
         // paths now contains the sources
@@ -173,39 +193,54 @@ impl Command for UCp {
         for p in paths {
             let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
-                return Err(ShellError::FileNotFound(p.span));
+                return Err(ShellError::FileNotFound { span: p.span });
             };
             let mut app_vals: Vec<PathBuf> = Vec::new();
             for v in exp_files {
                 match v {
                     Ok(path) => {
                         if !recursive && path.is_dir() {
-                            return Err(ShellError::GenericError(
-                                "could_not_copy_directory".into(),
-                                "resolves to a directory (not copied)".into(),
-                                Some(p.span),
-                                Some("Directories must be copied using \"--recursive\"".into()),
-                                Vec::new(),
-                            ));
+                            return Err(ShellError::GenericError {
+                                error: "could_not_copy_directory".into(),
+                                msg: "resolves to a directory (not copied)".into(),
+                                span: Some(p.span),
+                                help: Some(
+                                    "Directories must be copied using \"--recursive\"".into(),
+                                ),
+                                inner: vec![],
+                            });
                         };
                         app_vals.push(path)
                     }
                     Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob(
-                            format!("error {} in path {}", e.error(), e.path().display()),
-                            p.span,
-                        ));
+                        return Err(ShellError::ErrorExpandingGlob {
+                            msg: format!("error {} in path {}", e.error(), e.path().display()),
+                            span: p.span,
+                        });
                     }
                 }
             }
             sources.append(&mut app_vals);
         }
 
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
+        for src in sources.iter_mut() {
+            if !src.is_absolute() {
+                *src = nu_path::expand_path_with(&src, &cwd);
+            }
+        }
+
+        let target_path = nu_path::expand_path_with(&target_path, &cwd);
+
+        let attributes = make_attributes(preserve)?;
+
         let options = uu_cp::Options {
             overwrite,
             reflink_mode,
             recursive,
             debug,
+            attributes,
             verbose: verbose || debug,
             dereference: !recursive,
             progress_bar: progress,
@@ -219,7 +254,6 @@ impl Command for UCp {
             parents: false,
             sparse_mode: uu_cp::SparseMode::Auto,
             strip_trailing_slashes: false,
-            attributes: uu_cp::Attributes::NONE,
             backup_suffix: String::from("~"),
             target_dir: None,
             update,
@@ -230,19 +264,99 @@ impl Command for UCp {
                 // code should still be EXIT_ERR as does GNU cp
                 uu_cp::Error::NotAllFilesCopied => {}
                 _ => {
-                    return Err(ShellError::GenericError(
-                        format!("{}", error),
-                        format!("{}", error),
-                        None,
-                        None,
-                        Vec::new(),
-                    ))
+                    return Err(ShellError::GenericError {
+                        error: format!("{}", error),
+                        msg: format!("{}", error),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    })
                 }
             };
             // TODO: What should we do in place of set_exit_code?
             // uucore::error::set_exit_code(EXIT_ERR);
         }
         Ok(PipelineData::empty())
+    }
+}
+
+const ATTR_UNSET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
+const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::Yes { required: true };
+
+fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
+    if let Some(preserve) = preserve {
+        let mut attributes = uu_cp::Attributes {
+            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+            ownership: ATTR_UNSET,
+            mode: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        };
+        parse_and_set_attributes_list(&preserve, &mut attributes)?;
+
+        Ok(attributes)
+    } else {
+        // By default preseerve only mode
+        Ok(uu_cp::Attributes {
+            mode: ATTR_SET,
+            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+            ownership: ATTR_UNSET,
+            timestamps: ATTR_UNSET,
+            context: ATTR_UNSET,
+            links: ATTR_UNSET,
+            xattr: ATTR_UNSET,
+        })
+    }
+}
+
+fn parse_and_set_attributes_list(
+    list: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match list {
+        Value::List { vals, .. } => {
+            for val in vals {
+                parse_and_set_attribute(val, attribute)?;
+            }
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: list.span(),
+        }),
+    }
+}
+
+fn parse_and_set_attribute(
+    value: &Value,
+    attribute: &mut uu_cp::Attributes,
+) -> Result<(), ShellError> {
+    match value {
+        Value::String { val, .. } => {
+            let attribute = match val.as_str() {
+                "mode" => &mut attribute.mode,
+                #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+                "ownership" => &mut attribute.ownership,
+                "timestamps" => &mut attribute.timestamps,
+                "context" => &mut attribute.context,
+                "link" | "links" => &mut attribute.links,
+                "xattr" => &mut attribute.xattr,
+                _ => {
+                    return Err(ShellError::IncompatibleParametersSingle {
+                        msg: format!("--preserve flag got an unexpected attribute \"{}\"", val),
+                        span: value.span(),
+                    });
+                }
+            };
+            *attribute = ATTR_SET;
+            Ok(())
+        }
+        _ => Err(ShellError::IncompatibleParametersSingle {
+            msg: "--preserve flag expects a list of strings".into(),
+            span: value.span(),
+        }),
     }
 }
 

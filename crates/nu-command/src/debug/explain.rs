@@ -23,7 +23,7 @@ impl Command for Explain {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run",
+                "The closure to run.",
             )
             .input_output_types(vec![(Type::Any, Type::Any), (Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
@@ -41,7 +41,7 @@ impl Command for Explain {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let block = engine_state.get_block(capture_block.block_id);
         let ctrlc = engine_state.ctrlc.clone();
-        let mut stack = stack.captures_to_stack(&capture_block.captures);
+        let mut stack = stack.captures_to_stack(capture_block.captures);
 
         let elements = get_pipeline_elements(engine_state, &mut stack, block)?;
 
@@ -200,6 +200,24 @@ fn get_arguments(engine_state: &EngineState, stack: &mut Stack, call: Call) -> V
                 };
                 arg_value.push(Value::record(record, inner_expr.span));
             }
+            Argument::Spread(inner_expr) => {
+                let arg_type = "spread";
+                let evaluated_expression = get_expression_as_value(engine_state, stack, inner_expr);
+                let arg_value_name = debug_string_without_formatting(&evaluated_expression);
+                let arg_value_type = &evaluated_expression.get_type().to_string();
+                let evaled_span = evaluated_expression.span();
+                let arg_value_name_span_start = evaled_span.start as i64;
+                let arg_value_name_span_end = evaled_span.end as i64;
+
+                let record = record! {
+                    "arg_type" => Value::string(arg_type, span),
+                    "name" => Value::string(arg_value_name, inner_expr.span),
+                    "type" => Value::string(arg_value_type, span),
+                    "span_start" => Value::int(arg_value_name_span_start, span),
+                    "span_end" => Value::int(arg_value_name_span_end, span),
+                };
+                arg_value.push(Value::record(record, inner_expr.span));
+            }
         };
     }
 
@@ -253,12 +271,11 @@ pub fn debug_string_without_formatting(value: &Value) -> String {
         },
         //TODO: It would be good to drill in deeper to blocks and closures.
         Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
+        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
         Value::Nothing { .. } => String::new(),
         Value::Error { error, .. } => format!("{error:?}"),
         Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
+        Value::CellPath { val, .. } => val.to_string(),
         Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
     }
 }

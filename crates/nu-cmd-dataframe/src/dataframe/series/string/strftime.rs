@@ -72,26 +72,22 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    let casted = series.datetime().map_err(|e| {
-        ShellError::GenericError(
-            "Error casting to date".into(),
-            e.to_string(),
-            Some(call.head),
-            Some("The str-slice command can only be used with string columns".into()),
-            Vec::new(),
-        )
+    let casted = series.datetime().map_err(|e| ShellError::GenericError {
+        error: "Error casting to date".into(),
+        msg: e.to_string(),
+        span: Some(call.head),
+        help: Some("The str-slice command can only be used with string columns".into()),
+        inner: vec![],
     })?;
 
     let res = casted
         .strftime(&fmt)
-        .map_err(|e| {
-            ShellError::GenericError(
-                "Error formatting datetime".into(),
-                e.to_string(),
-                Some(call.head),
-                None,
-                Vec::new(),
-            )
+        .map_err(|e| ShellError::GenericError {
+            error: "Error formatting datetime".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
         })?
         .into_series();
 

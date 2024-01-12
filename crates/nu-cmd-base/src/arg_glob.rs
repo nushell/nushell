@@ -64,12 +64,10 @@ fn arg_glob_opt(
     // user wasn't referring to a specific thing in filesystem, try to glob it.
     match glob_with_parent(&pattern.item, options, cwd) {
         Ok(p) => Ok(p),
-        Err(pat_err) => {
-            Err(ShellError::InvalidGlobPattern(
-                pat_err.msg.into(),
-                pattern.span, // improve specificity
-            ))
-        }
+        Err(pat_err) => Err(ShellError::InvalidGlobPattern {
+            msg: pat_err.msg.into(),
+            span: pattern.span,
+        }),
     }
 }
 

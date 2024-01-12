@@ -21,11 +21,11 @@ impl Command for If {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("if")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("cond", SyntaxShape::MathExpression, "condition to check")
+            .required("cond", SyntaxShape::MathExpression, "Condition to check.")
             .required(
                 "then_block",
                 SyntaxShape::Block,
-                "block to run if check succeeds",
+                "Block to run if check succeeds.",
             )
             .optional(
                 "else_expression",
@@ -36,7 +36,7 @@ impl Command for If {
                         SyntaxShape::Expression,
                     ])),
                 ),
-                "expression or block to run if check fails",
+                "Expression or block to run when the condition is false.",
             )
             .category(Category::Core)
     }

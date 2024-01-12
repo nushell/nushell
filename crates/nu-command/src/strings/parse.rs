@@ -28,11 +28,7 @@ impl Command for Parse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "the pattern to match. Eg) \"{foo}: {bar}\"",
-            )
+            .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
                 (Type::String, Type::Table(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
@@ -126,7 +122,7 @@ fn operate(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex: bool = call.has_flag("regex");
+    let regex: bool = call.has_flag(engine_state, stack, "regex")?;
     let ctrlc = engine_state.ctrlc.clone();
 
     let pattern_item = pattern.item;
@@ -138,14 +134,12 @@ fn operate(
         build_regex(&pattern_item, pattern_span)?
     };
 
-    let regex_pattern = Regex::new(&item_to_parse).map_err(|err| {
-        ShellError::GenericError(
-            "Error with regular expression".into(),
-            err.to_string(),
-            Some(pattern_span),
-            None,
-            Vec::new(),
-        )
+    let regex_pattern = Regex::new(&item_to_parse).map_err(|e| ShellError::GenericError {
+        error: "Error with regular expression".into(),
+        msg: e.to_string(),
+        span: Some(pattern_span),
+        help: None,
+        inner: vec![],
     })?;
 
     let columns = column_names(&regex_pattern);
@@ -164,13 +158,13 @@ fn operate(
                             let captures = match c {
                                 Ok(c) => c,
                                 Err(e) => {
-                                    return Err(ShellError::GenericError(
-                                        "Error with regular expression captures".into(),
-                                        e.to_string(),
-                                        None,
-                                        None,
-                                        Vec::new(),
-                                    ))
+                                    return Err(ShellError::GenericError {
+                                        error: "Error with regular expression captures".into(),
+                                        msg: e.to_string(),
+                                        span: None,
+                                        help: None,
+                                        inner: vec![],
+                                    })
                                 }
                             };
 
@@ -430,13 +424,13 @@ fn stream_helper(
             Ok(c) => c,
             Err(e) => {
                 return Some(Value::error(
-                    ShellError::GenericError(
-                        "Error with regular expression captures".into(),
-                        e.to_string(),
-                        Some(span),
-                        Some(e.to_string()),
-                        Vec::new(),
-                    ),
+                    ShellError::GenericError {
+                        error: "Error with regular expression captures".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: Some(e.to_string()),
+                        inner: vec![],
+                    },
                     span,
                 ))
             }
