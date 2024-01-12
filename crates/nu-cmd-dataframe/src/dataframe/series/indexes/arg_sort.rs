@@ -1,5 +1,6 @@
 use super::super::super::values::{Column, NuDataFrame};
 
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -92,18 +93,18 @@ impl Command for ArgSort {
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     let sort_options = SortOptions {
-        descending: call.has_flag("reverse"),
-        nulls_last: call.has_flag("nulls-last"),
+        descending: call.has_flag(engine_state, stack, "reverse")?,
+        nulls_last: call.has_flag(engine_state, stack, "nulls-last")?,
         multithreaded: true,
-        maintain_order: call.has_flag("maintain-order"),
+        maintain_order: call.has_flag(engine_state, stack, "maintain-order")?,
     };
 
     let mut res = df

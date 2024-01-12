@@ -41,8 +41,8 @@ impl Command for Ast {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let to_json = call.has_flag("json");
-        let minify = call.has_flag("minify");
+        let to_json = call.has_flag(engine_state, stack, "json")?;
+        let minify = call.has_flag(engine_state, stack, "minify")?;
         let mut working_set = StateWorkingSet::new(engine_state);
         let block_output = parse(&mut working_set, None, pipeline.item.as_bytes(), false);
         let error_output = working_set.parse_errors.first();

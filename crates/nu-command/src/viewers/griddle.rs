@@ -64,7 +64,7 @@ prints out the list properly."#
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
-        let color_param: bool = call.has_flag("color");
+        let color_param: bool = call.has_flag(engine_state, stack, "color")?;
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
         let config = engine_state.get_config();
         let env_str = match stack.get_env_var(engine_state, "LS_COLORS") {

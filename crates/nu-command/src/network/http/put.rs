@@ -160,13 +160,13 @@ fn run_put(
         headers: call.get_flag(engine_state, stack, "headers")?,
         data: call.req(engine_state, stack, 1)?,
         content_type: call.get_flag(engine_state, stack, "content-type")?,
-        raw: call.has_flag("raw"),
-        insecure: call.has_flag("insecure"),
+        raw: call.has_flag(engine_state, stack, "raw")?,
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
-        full: call.has_flag("full"),
-        allow_errors: call.has_flag("allow-errors"),
+        full: call.has_flag(engine_state, stack, "full")?,
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
     };
 

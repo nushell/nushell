@@ -73,8 +73,8 @@ impl Command for BytesIndexOf {
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         let arg = Arguments {
             pattern,
-            end: call.has_flag("end"),
-            all: call.has_flag("all"),
+            end: call.has_flag(engine_state, stack, "end")?,
+            all: call.has_flag(engine_state, stack, "all")?,
             cell_paths,
         };
         operate(index_of, arg, input, call.head, engine_state.ctrlc.clone())

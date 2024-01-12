@@ -114,8 +114,8 @@ fn command_lazy(
     call: &Call,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let last = call.has_flag("last");
-    let maintain = call.has_flag("maintain-order");
+    let last = call.has_flag(engine_state, stack, "last")?;
+    let maintain = call.has_flag(engine_state, stack, "maintain-order")?;
 
     let subset: Option<Value> = call.get_flag(engine_state, stack, "subset")?;
     let subset = match subset {

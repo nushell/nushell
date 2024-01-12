@@ -148,7 +148,7 @@ fn into_binary(
         _ => {
             let args = Arguments {
                 cell_paths,
-                compact: call.has_flag("compact"),
+                compact: call.has_flag(engine_state, stack, "compact")?,
             };
             operate(action, args, input, call.head, engine_state.ctrlc.clone())
         }

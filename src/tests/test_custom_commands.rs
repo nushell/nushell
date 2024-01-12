@@ -214,3 +214,18 @@ fn infinite_recursion_does_not_panic() {
         "#);
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
+
+#[test]
+fn type_check_for_during_eval() -> TestResult {
+    fail_test(
+        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer"#,
+        "can't convert nothing to string",
+    )
+}
+#[test]
+fn type_check_for_during_eval2() -> TestResult {
+    fail_test(
+        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer"#,
+        "can't convert nothing to string",
+    )
+}

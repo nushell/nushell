@@ -130,6 +130,9 @@ If you need to distinguish dirs and files, please use `path type`."#
 }
 
 fn exists(path: &Path, span: Span, args: &Arguments) -> Value {
+    if path.as_os_str().is_empty() {
+        return Value::bool(false, span);
+    }
     let path = expand_path_with(path, &args.pwd);
     Value::bool(
         match path.try_exists() {

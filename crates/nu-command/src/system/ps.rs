@@ -1,5 +1,6 @@
 #[cfg(windows)]
 use itertools::Itertools;
+use nu_engine::CallExt;
 #[cfg(all(
     unix,
     not(target_os = "macos"),
@@ -54,11 +55,11 @@ impl Command for Ps {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_ps(engine_state, call)
+        run_ps(engine_state, stack, call)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -92,10 +93,14 @@ impl Command for Ps {
     }
 }
 
-fn run_ps(engine_state: &EngineState, call: &Call) -> Result<PipelineData, ShellError> {
+fn run_ps(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<PipelineData, ShellError> {
     let mut output = vec![];
     let span = call.head;
-    let long = call.has_flag("long");
+    let long = call.has_flag(engine_state, stack, "long")?;
 
     for proc in nu_system::collect_proc(Duration::from_millis(100), false) {
         let mut record = Record::new();
