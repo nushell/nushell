@@ -36,10 +36,6 @@ pub(crate) fn acquire_terminal(interactive: bool) {
             sigaction(Signal::SIGTSTP, &ignore).expect("signal ignore");
             sigaction(Signal::SIGTTIN, &ignore).expect("signal ignore");
             sigaction(Signal::SIGTTOU, &ignore).expect("signal ignore");
-
-            // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
-            // sigaction(Signal::SIGCHLD, &ignore).expect("signal ignore");
-
             sigaction(
                 Signal::SIGTERM,
                 &SigAction::new(

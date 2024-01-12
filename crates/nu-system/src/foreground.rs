@@ -6,8 +6,10 @@ use std::{
 #[cfg(unix)]
 use std::{
     io::IsTerminal,
-    sync::atomic::Ordering,
-    sync::{atomic::AtomicU32, Arc},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 /// A simple wrapper for [`std::process::Child`]
@@ -129,10 +131,6 @@ mod foreground_pgroup {
                 // sigaction(Signal::SIGTSTP, &default).expect("signal default");
                 sigaction(Signal::SIGTTIN, &default).expect("signal default");
                 sigaction(Signal::SIGTTOU, &default).expect("signal default");
-
-                // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
-                // sigaction(Signal::SIGCHLD, &ignore).expect("signal default");
-
                 sigaction(Signal::SIGTERM, &default).expect("signal default");
 
                 Ok(())
