@@ -65,15 +65,15 @@ pub trait Debugger: Send {
 pub struct BasicDebugger {
     // pub data: BasicData
     pub instants: Vec<Instant>,
-    pub durations_ms: Vec<u128>,
+    pub durations_us: Vec<u128>,
 }
 
 impl BasicDebugger {
     pub fn report(&self) {
-        println!("Report ({} durations):", self.durations_ms.len());
+        println!("Report ({} durations):", self.durations_us.len());
         println!("=======");
-        for duration in &self.durations_ms {
-            println!("Duration: {:?} ms", duration);
+        for duration in &self.durations_us {
+            println!("Duration: {duration:5} us");
         }
     }
 }
@@ -84,17 +84,17 @@ impl Debugger for BasicDebugger {
         println!(
             "Entered block with debugger! {} timestamps, {} durations",
             self.instants.len(),
-            self.durations_ms.len()
+            self.durations_us.len()
         );
     }
 
     fn on_block_leave(&mut self) {
         let start = self.instants.pop().unwrap();
-        self.durations_ms.push(start.elapsed().as_millis());
+        self.durations_us.push(start.elapsed().as_micros());
         println!(
             "Left block with debugger! {} timestamps, {} durations",
             self.instants.len(),
-            self.durations_ms.len()
+            self.durations_us.len()
         );
     }
 }
