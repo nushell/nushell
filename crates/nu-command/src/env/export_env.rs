@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, redirect_env, CallExt};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -46,6 +47,9 @@ impl Command for ExportEnv {
             input,
             call.redirect_stdout,
             call.redirect_stderr,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         );
 
         redirect_env(engine_state, caller_stack, &callee_stack);

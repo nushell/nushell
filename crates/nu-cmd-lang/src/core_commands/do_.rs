@@ -126,7 +126,7 @@ impl Command for Do {
             call.redirect_stdout,
             // DEBUG TODO
             WithoutDebug,
-            None,
+            &None,
         );
 
         if has_env {

@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Block, Call, CellPath, PathMember};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, FromValue, IntoInterruptiblePipelineData, IntoPipelineData,
@@ -296,6 +297,9 @@ fn update_value_by_closure(
         input_at_path.into_pipeline_data(),
         redirect_stdout,
         redirect_stderr,
+        // DEBUG TODO
+        WithoutDebug,
+        &None,
     )?;
 
     value.update_data_at_cell_path(cell_path, output.into_value(span))

@@ -186,7 +186,7 @@ fn rename(
                                     redirect_stderr,
                                     // DEBUG TODO
                                     WithoutDebug,
-                                    None
+                                    &None
                                 );
                                 match eval_result {
                                     Err(e) => return Value::error(e, span),

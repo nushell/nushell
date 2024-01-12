@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, eval_expression, eval_expression_with_input, CallExt};
 use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Matcher, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
@@ -53,7 +54,9 @@ impl Command for Match {
                     }
 
                     let guard_matches = if let Some(guard) = &match_.0.guard {
-                        let Value::Bool { val, .. } = eval_expression(engine_state, stack, guard)?
+                        // DEBUG TODO
+                        let Value::Bool { val, .. } =
+                            eval_expression(engine_state, stack, guard, WithoutDebug, &None)?
                         else {
                             return Err(ShellError::MatchGuardNotBool { span: guard.span });
                         };
@@ -73,6 +76,9 @@ impl Command for Match {
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
+                                // DEBUG TODO
+                                WithoutDebug,
+                                &None,
                             )
                         } else {
                             eval_expression_with_input(
@@ -82,6 +88,9 @@ impl Command for Match {
                                 input,
                                 call.redirect_stdout,
                                 call.redirect_stderr,
+                                // DEBUG TODO
+                                WithoutDebug,
+                                &None,
                             )
                             .map(|x| x.0)
                         };

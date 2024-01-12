@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 
 use indexmap::IndexMap;
+use nu_protocol::engine::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -254,6 +255,9 @@ fn group_closure(
                 value.clone().into_pipeline_data(),
                 call.redirect_stdout,
                 call.redirect_stderr,
+                // DEBUG TODO
+                WithoutDebug,
+                &None,
             );
 
             let group_key = match pipeline {

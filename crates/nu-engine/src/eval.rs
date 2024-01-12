@@ -1,6 +1,9 @@
 use crate::{current_dir_str, get_full_help};
+use log::debug;
 use nu_path::expand_path_with;
-use nu_protocol::engine::debugger::{BasicDebugger, DebugContext, Debugger, WithDebug};
+use nu_protocol::engine::debugger::{
+    BasicDebugger, DebugContext, Debugger, WithDebug, WithoutDebug,
+};
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -14,16 +17,18 @@ use nu_protocol::{
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use nu_protocol::Value::List;
 
 pub fn eval_call(
     engine_state: &EngineState,
     caller_stack: &mut Stack,
     call: &Call,
     input: PipelineData,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
-    let debug_context = WithDebug;
-    let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
-
+    let cname = engine_state.get_decl(call.decl_id).name();
+    println!("call {}, should debug: {}", cname, debug_context.should_debug());
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
     }
@@ -65,7 +70,8 @@ pub fn eval_call(
                 .expect("internal error: all custom parameters must have var_ids");
 
             if let Some(arg) = call.positional_nth(param_idx) {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
+                let result =
+                    eval_expression(engine_state, caller_stack, arg, debug_context, debugger)?;
                 if required && !result.get_type().is_subtype(&param.shape.to_type()) {
                     return Err(ShellError::CantConvert {
                         to_type: param.shape.to_type().to_string(),
@@ -88,7 +94,7 @@ pub fn eval_call(
             for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
-                |expr| eval_expression(engine_state, caller_stack, expr),
+                |expr| eval_expression(engine_state, caller_stack, expr, debug_context, debugger),
             )? {
                 rest_items.push(result);
             }
@@ -114,7 +120,13 @@ pub fn eval_call(
                     if let (Some(spanned), Some(short)) = (&call_named.1, named.short) {
                         if spanned.item == short.to_string() {
                             if let Some(arg) = &call_named.2 {
-                                let result = eval_expression(engine_state, caller_stack, arg)?;
+                                let result = eval_expression(
+                                    engine_state,
+                                    caller_stack,
+                                    arg,
+                                    debug_context,
+                                    debugger,
+                                )?;
 
                                 callee_stack.add_var(var_id, result);
                             } else if let Some(value) = &named.default_value {
@@ -126,7 +138,13 @@ pub fn eval_call(
                         }
                     } else if call_named.0.item == named.long {
                         if let Some(arg) = &call_named.2 {
-                            let result = eval_expression(engine_state, caller_stack, arg)?;
+                            let result = eval_expression(
+                                engine_state,
+                                caller_stack,
+                                arg,
+                                debug_context,
+                                debugger,
+                            )?;
 
                             callee_stack.add_var(var_id, result);
                         } else if let Some(value) = &named.default_value {
@@ -158,7 +176,7 @@ pub fn eval_call(
             call.redirect_stdout,
             call.redirect_stderr,
             debug_context,
-            Some(debugger), // DEBUG TODO
+            debugger,
         );
 
         if block.redirect_env {
@@ -170,9 +188,22 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        match debug_context {
-            WithDebug => decl.run_debug(engine_state, caller_stack, call, input, debugger),
-            _ => decl.run(engine_state, caller_stack, call, input),
+        if debug_context.should_debug() {
+            if cname == "each" {
+                println!("debugging");
+            }
+            decl.run_debug(
+                engine_state,
+                caller_stack,
+                call,
+                input,
+                debugger.clone().unwrap(),
+            ) // DEBUG TODO
+        } else {
+            if cname == "each" {
+                println!("not debugging");
+            }
+            decl.run(engine_state, caller_stack, call, input)
         }
     }
 }
@@ -280,8 +311,10 @@ pub fn eval_expression(
     engine_state: &EngineState,
     stack: &mut Stack,
     expr: &Expression,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<Value, ShellError> {
-    <EvalRuntime as Eval>::eval(engine_state, stack, expr)
+    <EvalRuntime as Eval>::eval(engine_state, stack, expr, debug_context, debugger)
 }
 
 /// Checks the expression to see if it's a internal or external call. If so, passes the input
@@ -297,7 +330,10 @@ pub fn eval_expression_with_input(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
+    println!("expression {}, should debug: {}", String::from_utf8_lossy(engine_state.get_span_contents(expr.span)), debug_context.should_debug());
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -308,9 +344,9 @@ pub fn eval_expression_with_input(
                 let mut call = call.clone();
                 call.redirect_stdout = redirect_stdout;
                 call.redirect_stderr = redirect_stderr;
-                input = eval_call(engine_state, stack, &call, input)?;
+                input = eval_call(engine_state, stack, &call, input, debug_context, debugger)?;
             } else {
-                input = eval_call(engine_state, stack, call, input)?;
+                input = eval_call(engine_state, stack, call, input, debug_context, debugger)?;
             }
         }
         Expression {
@@ -335,7 +371,7 @@ pub fn eval_expression_with_input(
             let block = engine_state.get_block(*block_id);
 
             // FIXME: protect this collect with ctrl-c
-            input = eval_subexpression(engine_state, stack, block, input)?;
+            input = eval_subexpression(engine_state, stack, block, input, debug_context, debugger)?;
         }
 
         elem @ Expression {
@@ -350,19 +386,22 @@ pub fn eval_expression_with_input(
                 let block = engine_state.get_block(*block_id);
 
                 // FIXME: protect this collect with ctrl-c
-                input = eval_subexpression(engine_state, stack, block, input)?;
+                input =
+                    eval_subexpression(engine_state, stack, block, input, debug_context, debugger)?;
                 let value = input.into_value(*span);
                 input = value
                     .follow_cell_path(&full_cell_path.tail, false)?
                     .into_pipeline_data()
             }
             _ => {
-                input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+                input = eval_expression(engine_state, stack, elem, debug_context, debugger)?
+                    .into_pipeline_data();
             }
         },
 
         elem => {
-            input = eval_expression(engine_state, stack, elem)?.into_pipeline_data();
+            input = eval_expression(engine_state, stack, elem, debug_context, debugger)?
+                .into_pipeline_data();
         }
     };
 
@@ -382,7 +421,10 @@ fn eval_element_with_input(
     redirect_stdout: bool,
     redirect_stderr: bool,
     stderr_writer_jobs: &mut Vec<DataSaveJob>,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
+    println!("element {}, should debug: {}", String::from_utf8_lossy(engine_state.get_span_contents(element.span())), debug_context.should_debug());
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
             engine_state,
@@ -391,6 +433,8 @@ fn eval_element_with_input(
             input,
             redirect_stdout,
             redirect_stderr,
+            debug_context,
+            debugger,
         ),
         PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
             match &expr.expr {
@@ -438,7 +482,15 @@ fn eval_element_with_input(
                         );
                         match out_stream {
                             None => {
-                                eval_call(engine_state, stack, &save_call, input).map(|_| {
+                                eval_call(
+                                    engine_state,
+                                    stack,
+                                    &save_call,
+                                    input,
+                                    debug_context,
+                                    debugger,
+                                )
+                                .map(|_| {
                                     // save is internal command, normally it exists with non-ExternalStream
                                     // but here in redirection context, we make it returns ExternalStream
                                     // So nu handles exit_code correctly
@@ -512,7 +564,15 @@ fn eval_element_with_input(
                         Some((*err_span, err_expr.clone(), *err_append_mode)),
                     );
 
-                    eval_call(engine_state, stack, &save_call, input).map(|_| {
+                    eval_call(
+                        engine_state,
+                        stack,
+                        &save_call,
+                        input,
+                        debug_context,
+                        debugger,
+                    )
+                    .map(|_| {
                         // save is internal command, normally it exists with non-ExternalStream
                         // but here in redirection context, we make it returns ExternalStream
                         // So nu handles exit_code correctly
@@ -566,6 +626,8 @@ fn eval_element_with_input(
                         true,
                         redirect_stderr,
                         stderr_writer_jobs,
+                        debug_context,
+                        debugger,
                     )
                     .map(|x| x.0)?
                 }
@@ -583,6 +645,8 @@ fn eval_element_with_input(
                 redirect_stdout,
                 redirect_stderr,
                 stderr_writer_jobs,
+                debug_context,
+                debugger,
             )
         }
         PipelineElement::And(_, expr) => eval_expression_with_input(
@@ -592,6 +656,8 @@ fn eval_element_with_input(
             input,
             redirect_stdout,
             redirect_stderr,
+            debug_context,
+            debugger,
         ),
         PipelineElement::Or(_, expr) => eval_expression_with_input(
             engine_state,
@@ -600,6 +666,8 @@ fn eval_element_with_input(
             input,
             redirect_stdout,
             redirect_stderr,
+            debug_context,
+            debugger,
         ),
     }
 }
@@ -612,8 +680,9 @@ pub fn eval_block_with_early_return(
     redirect_stdout: bool,
     redirect_stderr: bool,
     debug_context: impl DebugContext,
-    debugger: Option<Arc<Mutex<dyn Debugger>>>,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
+    println!("should debug block early: {}", debug_context.should_debug());
     match eval_block(
         engine_state,
         stack,
@@ -621,6 +690,8 @@ pub fn eval_block_with_early_return(
         input,
         redirect_stdout,
         redirect_stderr,
+        debug_context,
+        debugger,
     ) {
         Err(ShellError::Return { span: _, value }) => Ok(PipelineData::Value(*value, None)),
         x => x,
@@ -634,6 +705,8 @@ pub fn eval_block(
     mut input: PipelineData,
     redirect_stdout: bool,
     redirect_stderr: bool,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
     // if Block contains recursion, make sure we don't recurse too deeply (to avoid stack overflow)
     if let Some(recursive) = block.recursive {
@@ -650,6 +723,9 @@ pub fn eval_block(
             stack.recursion_count += 1;
         }
     }
+
+    println!("should debug block: {}", debug_context.should_debug());
+    debug_context.on_block_enter(debugger);
 
     let num_pipelines = block.len();
 
@@ -709,6 +785,8 @@ pub fn eval_block(
                 redirect_stdout,
                 redirect_stderr,
                 &mut stderr_writer_jobs,
+                debug_context,
+                debugger,
             );
 
             match (eval_result, redirect_stderr) {
@@ -771,6 +849,8 @@ pub fn eval_block(
         }
     }
 
+    debug_context.on_block_leave(debugger);
+
     Ok(input)
 }
 
@@ -779,8 +859,19 @@ pub fn eval_subexpression(
     stack: &mut Stack,
     block: &Block,
     input: PipelineData,
+    debug_context: impl DebugContext,
+    debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
-    eval_block(engine_state, stack, block, input, true, false)
+    eval_block(
+        engine_state,
+        stack,
+        block,
+        input,
+        true,
+        false,
+        debug_context,
+        debugger,
+    )
 }
 
 pub fn eval_variable(
@@ -904,7 +995,14 @@ impl DataSaveJob {
             inner: thread::Builder::new()
                 .name("stderr saver".to_string())
                 .spawn(move || {
-                    let result = eval_call(&engine_state, &mut stack, &save_call, input);
+                    let result = eval_call(
+                        &engine_state,
+                        &mut stack,
+                        &save_call,
+                        input,
+                        WithoutDebug,
+                        &None,
+                    ); // DEBUG TODO
                     if let Err(err) = result {
                         eprintln!("WARNING: error occurred when redirect to stderr: {:?}", err);
                     }
@@ -967,9 +1065,19 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         call: &Call,
         _: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         // FIXME: protect this collect with ctrl-c
-        Ok(eval_call(engine_state, stack, call, PipelineData::empty())?.into_value(call.head))
+        Ok(eval_call(
+            engine_state,
+            stack,
+            call,
+            PipelineData::empty(),
+            debug_context,
+            debugger,
+        )?
+        .into_value(call.head))
     }
 
     fn eval_external_call(
@@ -999,11 +1107,21 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         block_id: usize,
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
 
         // FIXME: protect this collect with ctrl-c
-        Ok(eval_subexpression(engine_state, stack, block, PipelineData::empty())?.into_value(span))
+        Ok(eval_subexpression(
+            engine_state,
+            stack,
+            block,
+            PipelineData::empty(),
+            debug_context,
+            debugger,
+        )?
+        .into_value(span))
     }
 
     fn regex_match(
@@ -1025,29 +1143,31 @@ impl Eval for EvalRuntime {
         assignment: Assignment,
         op_span: Span,
         _expr_span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
-        let rhs = eval_expression(engine_state, stack, rhs)?;
+        let rhs = eval_expression(engine_state, stack, rhs, debug_context, debugger)?;
 
         let rhs = match assignment {
             Assignment::Assign => rhs,
             Assignment::PlusAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression(engine_state, stack, lhs, debug_context, debugger)?;
                 lhs.add(op_span, &rhs, op_span)?
             }
             Assignment::MinusAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression(engine_state, stack, lhs, debug_context, debugger)?;
                 lhs.sub(op_span, &rhs, op_span)?
             }
             Assignment::MultiplyAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression(engine_state, stack, lhs, debug_context, debugger)?;
                 lhs.mul(op_span, &rhs, op_span)?
             }
             Assignment::DivideAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression(engine_state, stack, lhs, debug_context, debugger)?;
                 lhs.div(op_span, &rhs, op_span)?
             }
             Assignment::AppendAssign => {
-                let lhs = eval_expression(engine_state, stack, lhs)?;
+                let lhs = eval_expression(engine_state, stack, lhs, debug_context, debugger)?;
                 lhs.append(op_span, &rhs, op_span)?
             }
         };
@@ -1069,7 +1189,13 @@ impl Eval for EvalRuntime {
                         // As such, give it special treatment here.
                         let is_env = var_id == &ENV_VARIABLE_ID;
                         if is_env || engine_state.get_var(*var_id).mutable {
-                            let mut lhs = eval_expression(engine_state, stack, &cell_path.head)?;
+                            let mut lhs = eval_expression(
+                                engine_state,
+                                stack,
+                                &cell_path.head,
+                                debug_context,
+                                debugger,
+                            )?;
 
                             lhs.upsert_data_at_cell_path(&cell_path.tail, rhs)?;
                             if is_env {
@@ -1150,10 +1276,18 @@ impl Eval for EvalRuntime {
         stack: &mut Stack,
         exprs: &[Expression],
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         let mut parts = vec![];
         for expr in exprs {
-            parts.push(eval_expression(engine_state, stack, expr)?);
+            parts.push(eval_expression(
+                engine_state,
+                stack,
+                expr,
+                debug_context,
+                debugger,
+            )?);
         }
 
         let config = engine_state.get_config();

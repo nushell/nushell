@@ -1,7 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
-use nu_protocol::engine::debugger::{BasicDebugger, NoopDebugger, WithDebug, WithoutDebug};
+use nu_protocol::engine::debugger::{BasicDebugger, DebugContext, NoopDebugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -241,13 +241,12 @@ pub fn eval_source(
         return false;
     }
 
-    let b = if allow_return {
-        // eval_block_with_early_return(engine_state, stack, &block, input, false, false)
+    let debug_context = WithDebug;
+    let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
+    println!("== start ==");
+    println!("should debug: {}", debug_context.should_debug());
 
-        let debug_context = WithDebug;
-        let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
-        // uncomment to disable debugger:
-        // let debug_context = WithoutDebug;
+    let b = if allow_return {
         let res = eval_block_with_early_return(
             engine_state,
             stack,
@@ -256,14 +255,21 @@ pub fn eval_source(
             false,
             false,
             debug_context,
-            Some(debugger.clone()),
+            &Some(debugger.clone()),
         );
-
-        debugger.lock().unwrap().report();
-
         res
     } else {
-        eval_block(engine_state, stack, &block, input, false, false)
+        eval_block(
+            engine_state,
+            stack,
+            &block,
+            input,
+            false,
+            false,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
+        )
     };
 
     match b {
@@ -297,6 +303,9 @@ pub fn eval_source(
             } else {
                 result = pipeline_data.print(engine_state, stack, true, false);
             }
+
+            debugger.lock().unwrap().report();
+            println!("<<< stop >>>>");
 
             match result {
                 Err(err) => {

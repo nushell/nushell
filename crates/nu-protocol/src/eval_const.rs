@@ -1,3 +1,4 @@
+use crate::engine::debugger::{DebugContext, Debugger, WithoutDebug};
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PipelineElement},
     engine::{EngineState, StateWorkingSet},
@@ -6,6 +7,7 @@ use crate::{
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -263,7 +265,8 @@ pub fn eval_constant(
     working_set: &StateWorkingSet,
     expr: &Expression,
 ) -> Result<Value, ShellError> {
-    <EvalConst as Eval>::eval(working_set, &mut (), expr)
+    // DEBUG TODO
+    <EvalConst as Eval>::eval(working_set, &mut (), expr, WithoutDebug, &None)
 }
 
 struct EvalConst;
@@ -308,6 +311,8 @@ impl Eval for EvalConst {
         _: &mut (),
         call: &Call,
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         // TODO: eval.rs uses call.head for the span rather than expr.span
         Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
@@ -330,6 +335,8 @@ impl Eval for EvalConst {
         _: &mut (),
         block_id: usize,
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         let block = working_set.get_block(block_id);
         Ok(
@@ -357,6 +364,8 @@ impl Eval for EvalConst {
         _: Assignment,
         _op_span: Span,
         expr_span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
     }
@@ -375,6 +384,8 @@ impl Eval for EvalConst {
         _: &mut (),
         _: &[Expression],
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }

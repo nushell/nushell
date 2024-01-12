@@ -1,10 +1,12 @@
 use nu_engine::eval_expression;
+use nu_protocol::engine::debugger::{DebugContext, Debugger};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
     FromValue, ShellError, Span, Spanned, Value,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::{Arc, Mutex};
 
 /// A representation of the plugin's invocation command including command line args
 ///
@@ -32,15 +34,24 @@ impl EvaluatedCall {
         call: &Call,
         engine_state: &EngineState,
         stack: &mut Stack,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Self, ShellError> {
-        let positional =
-            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
+        let positional = call.rest_iter_flattened(0, |expr| {
+            eval_expression(engine_state, stack, expr, debug_context, debugger)
+        })?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {
             let value = match expr {
                 None => None,
-                Some(expr) => Some(eval_expression(engine_state, stack, expr)?),
+                Some(expr) => Some(eval_expression(
+                    engine_state,
+                    stack,
+                    expr,
+                    debug_context,
+                    debugger,
+                )?),
             };
 
             named.push((string.clone(), value))

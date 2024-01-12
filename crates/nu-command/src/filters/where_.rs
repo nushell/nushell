@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -88,6 +89,9 @@ not supported."#
                     value.clone().into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 );
 
                 match result {

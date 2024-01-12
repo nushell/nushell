@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
@@ -49,7 +50,14 @@ impl Command for While {
                 break;
             }
 
-            let result = eval_expression(engine_state, stack, cond)?;
+            let result = eval_expression(
+                engine_state,
+                stack,
+                cond,
+                // DEBUG TODO
+                WithoutDebug,
+                &None,
+            )?;
             match &result {
                 Value::Bool { val, .. } => {
                     if *val {
@@ -61,6 +69,9 @@ impl Command for While {
                             PipelineData::empty(),
                             call.redirect_stdout,
                             call.redirect_stderr,
+                            // DEBUG TODO
+                            WithoutDebug,
+                            &None,
                         ) {
                             Err(ShellError::Break { .. }) => {
                                 break;

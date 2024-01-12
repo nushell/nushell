@@ -85,7 +85,7 @@ impl Command for SourceEnv {
             call.redirect_stderr,
             // DEBUG TODO
             WithoutDebug,
-            None,
+            &None,
         );
 
         // Merge the block's environment to the current stack

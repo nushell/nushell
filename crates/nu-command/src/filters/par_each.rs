@@ -175,7 +175,7 @@ impl Command for ParEach {
                                 redirect_stderr,
                                 // DEBUG TODO
                                 WithoutDebug,
-                                None,
+                                &None,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -218,7 +218,7 @@ impl Command for ParEach {
                                 redirect_stderr,
                                 // DEBUG TODO
                                 WithoutDebug,
-                                None,
+                                &None,
                             ) {
                                 Ok(v) => v.into_value(span),
                                 Err(error) => Value::error(
@@ -260,7 +260,7 @@ impl Command for ParEach {
                             redirect_stderr,
                             // DEBUG TODO
                             WithoutDebug,
-                            None,
+                            &None,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(
@@ -308,7 +308,7 @@ impl Command for ParEach {
                             redirect_stderr,
                             // DEBUG TODO
                             WithoutDebug,
-                            None,
+                            &None,
                         ) {
                             Ok(v) => v.into_value(span),
                             Err(error) => Value::error(error, span),
@@ -340,7 +340,7 @@ impl Command for ParEach {
                     redirect_stderr,
                     // DEBUG TODO
                     WithoutDebug,
-                    None,
+                    &None,
                 )
             }
         }

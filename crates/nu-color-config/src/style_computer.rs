@@ -8,6 +8,7 @@ use nu_protocol::{
 };
 use std::collections::HashMap;
 
+use nu_protocol::engine::debugger::WithoutDebug;
 use std::fmt::{Debug, Formatter, Result};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
@@ -78,6 +79,9 @@ impl<'a> StyleComputer<'a> {
                             value.clone().into_pipeline_data(),
                             false,
                             false,
+                            // DEBUG TODO
+                            WithoutDebug,
+                            &None,
                         ) {
                             Ok(v) => {
                                 let value = v.into_value(span);

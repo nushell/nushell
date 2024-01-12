@@ -1,6 +1,7 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -93,6 +94,9 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        // DEBUG TODO
+                        WithoutDebug,
+                        &None,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -137,6 +141,9 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                         x.clone().into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        // DEBUG TODO
+                        WithoutDebug,
+                        &None,
                     ) {
                         Ok(v) => {
                             if v.into_value(span).is_true() {
@@ -171,6 +178,9 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     x.clone().into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 ) {
                     Ok(v) => {
                         if v.into_value(span).is_true() {

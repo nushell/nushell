@@ -2,6 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::eval_expression;
 use nu_engine::CallExt;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
@@ -136,7 +137,14 @@ pub fn create_external_command(
     for (arg, spread) in call.rest_iter(1) {
         // TODO: Disallow automatic spreading entirely later. This match block will
         // have to be refactored, and lists will have to be disallowed in the parser too
-        match eval_expression(engine_state, stack, arg)? {
+        match eval_expression(
+            engine_state,
+            stack,
+            arg,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
+        )? {
             Value::List { vals, .. } => {
                 if !spread {
                     nu_protocol::report_error_new(

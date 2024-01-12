@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},
@@ -108,6 +109,9 @@ impl Command for SkipUntil {
                     PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 )
                 .map_or(false, |pipeline_data| {
                     pipeline_data.into_value(span).is_true()

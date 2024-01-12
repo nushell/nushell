@@ -1,4 +1,5 @@
 use nu_engine::eval_block;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack},
     IntoPipelineData, Span, Value,
@@ -62,6 +63,9 @@ impl Completer for NuMenuCompleter {
             input,
             false,
             false,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         );
 
         if let Ok(values) = res {

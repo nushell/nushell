@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
 use nu_protocol::{report_error, PipelineData};
 
@@ -100,6 +101,9 @@ use std pwd
         pipeline_data,
         false,
         false,
+        // DEBUG TODO
+        WithoutDebug,
+        &None,
     )?;
 
     let cwd = current_dir(engine_state, &stack)?;

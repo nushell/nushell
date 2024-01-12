@@ -6,6 +6,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
+use nu_protocol::engine::debugger::WithoutDebug;
 use std::path::Path;
 
 #[derive(Clone)]
@@ -148,6 +149,9 @@ impl Command for OverlayUse {
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 );
 
                 // The export-env block should see the env vars *before* activating this overlay

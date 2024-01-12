@@ -6,6 +6,7 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -128,7 +129,7 @@ impl Command for PluginDeclaration {
 
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
-            call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
+            call: EvaluatedCall::try_from_call(call, engine_state, stack, WithoutDebug, &None)?, // DEBUG TODO
             input,
         });
 

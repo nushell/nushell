@@ -138,7 +138,7 @@ used as the next argument to the closure, otherwise generation stops.
                 redirect_stderr,
                 // DEBUG TODO
                 WithoutDebug,
-                None,
+                &None,
             ) {
                 // no data -> output nothing and stop.
                 Ok(PipelineData::Empty) => (None, None),

@@ -152,6 +152,7 @@ with 'transpose' first."#
 
                     let input_span = x.span();
                     let x_is_error = x.is_error();
+                    println!("--- DEBUG Iter");
 
                     match eval_block_with_early_return(
                         &engine_state,
@@ -161,7 +162,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithDebug,
-                        Some(debugger.clone()),
+                        &Some(debugger.clone()),
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -209,7 +210,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithDebug,
-                        Some(debugger.clone()),
+                        &Some(debugger.clone()),
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -238,7 +239,7 @@ with 'transpose' first."#
                     redirect_stdout,
                     redirect_stderr,
                     WithDebug,
-                    Some(debugger.clone()),
+                    &Some(debugger.clone()),
                 )
             }
         }
@@ -302,7 +303,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithoutDebug,
-                        None,
+                        &None,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -350,7 +351,7 @@ with 'transpose' first."#
                         redirect_stdout,
                         redirect_stderr,
                         WithoutDebug,
-                        None,
+                        &None,
                     ) {
                         Ok(v) => Some(v.into_value(span)),
                         Err(ShellError::Continue { span }) => Some(Value::nothing(span)),
@@ -379,7 +380,7 @@ with 'transpose' first."#
                     redirect_stdout,
                     redirect_stderr,
                     WithoutDebug,
-                    None,
+                    &None,
                 )
             }
         }

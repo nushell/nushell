@@ -161,7 +161,7 @@ impl Command for Reduce {
                 redirect_stderr,
                 // DEBUG TODO
                 WithoutDebug,
-                None,
+                &None,
             )?
             .into_value(span);
 

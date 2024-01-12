@@ -84,7 +84,7 @@ impl Command for Items {
                 redirect_stderr,
                 // DEBUG TODO
                 WithoutDebug,
-                None,
+                &None,
             ) {
                 Ok(v) => Some(v.into_value(span)),
                 Err(ShellError::Break { .. }) => None,

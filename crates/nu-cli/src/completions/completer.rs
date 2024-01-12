@@ -4,6 +4,7 @@ use crate::completions::{
 };
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -89,6 +90,9 @@ impl NuCompleter {
             PipelineData::empty(),
             true,
             true,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         );
 
         match result {

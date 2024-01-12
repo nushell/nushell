@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span,
@@ -48,7 +49,17 @@ impl Command for Try {
 
         let try_block = engine_state.get_block(try_block.block_id);
 
-        let result = eval_block(engine_state, stack, try_block, input, false, false);
+        // DEBUG TODO
+        let result = eval_block(
+            engine_state,
+            stack,
+            try_block,
+            input,
+            false,
+            false,
+            WithoutDebug,
+            &None,
+        );
 
         match result {
             Err(error) => {
@@ -116,6 +127,9 @@ fn handle_catch(
             err_value.into_pipeline_data(),
             false,
             false,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         )
     } else {
         Ok(PipelineData::empty())

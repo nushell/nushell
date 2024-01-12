@@ -1,5 +1,6 @@
 use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},
@@ -71,6 +72,9 @@ impl Completer for CustomCompletion {
                 parser_info: HashMap::new(),
             },
             PipelineData::empty(),
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         );
 
         let mut custom_completion_options = None;

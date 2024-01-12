@@ -58,7 +58,7 @@ impl Command for Source {
             call.redirect_stderr,
             // DEBUG TODO
             WithoutDebug,
-            None,
+            &None,
         )
     }
 

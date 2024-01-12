@@ -15,6 +15,7 @@ use crate::database::SQLiteDatabase;
 #[cfg(feature = "sqlite")]
 use nu_protocol::IntoPipelineData;
 
+use nu_protocol::engine::debugger::WithoutDebug;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -199,7 +200,17 @@ impl Command for Open {
                             let decl = engine_state.get_decl(converter_id);
                             let command_output = if let Some(block_id) = decl.get_block_id() {
                                 let block = engine_state.get_block(block_id);
-                                eval_block(engine_state, stack, block, file_contents, false, false)
+                                eval_block(
+                                    engine_state,
+                                    stack,
+                                    block,
+                                    file_contents,
+                                    false,
+                                    false,
+                                    // DEBUG TODO
+                                    WithoutDebug,
+                                    &None,
+                                )
                             } else {
                                 decl.run(engine_state, stack, &Call::new(call_span), file_contents)
                             };

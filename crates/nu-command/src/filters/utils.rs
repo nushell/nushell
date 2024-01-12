@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, CallExt};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, EngineState, Stack},
@@ -58,6 +59,9 @@ pub fn boolean_fold(
             value.into_pipeline_data(),
             call.redirect_stdout,
             call.redirect_stderr,
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
         );
         match eval {
             Err(e) => {

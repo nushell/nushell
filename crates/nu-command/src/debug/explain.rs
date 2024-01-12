@@ -1,5 +1,6 @@
 use nu_engine::{eval_expression, CallExt};
 use nu_protocol::ast::{Argument, Block, Call, Expr, Expression};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature,
@@ -229,7 +230,14 @@ fn get_expression_as_value(
     stack: &mut Stack,
     inner_expr: &Expression,
 ) -> Value {
-    match eval_expression(engine_state, stack, inner_expr) {
+    match eval_expression(
+        engine_state,
+        stack,
+        inner_expr,
+        // DEBUG TODO
+        WithoutDebug,
+        &None,
+    ) {
         Ok(v) => v,
         Err(error) => Value::error(error, inner_expr.span),
     }

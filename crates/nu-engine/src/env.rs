@@ -6,6 +6,7 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
+use nu_protocol::engine::debugger::WithoutDebug;
 
 use crate::eval_block;
 
@@ -395,6 +396,9 @@ fn get_converted_value(
                         PipelineData::new_with_metadata(None, val_span),
                         true,
                         true,
+                        // TODO DEBUG
+                        WithoutDebug,
+                        &None,
                     );
 
                     match result {

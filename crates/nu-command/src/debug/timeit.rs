@@ -1,4 +1,5 @@
 use nu_engine::{eval_block, eval_expression_with_input};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -60,6 +61,9 @@ impl Command for TimeIt {
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 )?
             } else {
                 eval_expression_with_input(
@@ -69,6 +73,9 @@ impl Command for TimeIt {
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 )
                 .map(|res| res.0)?
             }

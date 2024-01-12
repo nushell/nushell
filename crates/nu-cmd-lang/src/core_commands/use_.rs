@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, find_in_dirs_env, get_dirs_var_from_call, redirect_env};
 use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
@@ -125,6 +126,9 @@ This command is a parser keyword. For details, check:
                     input,
                     call.redirect_stdout,
                     call.redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 )?;
 
                 // Merge the block's environment to the current stack

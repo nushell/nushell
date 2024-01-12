@@ -4,6 +4,8 @@ use std::time::{Duration, Instant, SystemTime};
 
 /// Trait for static dispatching of eval_xxx() and debugger callback calls
 pub trait DebugContext: Clone + Copy {
+    fn should_debug(&self) -> bool;
+
     #[allow(unused_variables)]
     fn on_block_enter(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {}
 
@@ -16,6 +18,9 @@ pub trait DebugContext: Clone + Copy {
 pub struct WithDebug;
 
 impl DebugContext for WithDebug {
+    fn should_debug(&self) -> bool {
+        true
+    }
     fn on_block_enter(&self, debugger: &Option<Arc<Mutex<dyn Debugger>>>) {
         debugger
             .as_ref()
@@ -41,7 +46,11 @@ impl DebugContext for WithDebug {
 #[derive(Clone, Copy)]
 pub struct WithoutDebug;
 
-impl DebugContext for WithoutDebug {}
+impl DebugContext for WithoutDebug {
+    fn should_debug(&self) -> bool {
+        false
+    }
+}
 
 /// Debugger trait that every debugger needs to implement.
 ///

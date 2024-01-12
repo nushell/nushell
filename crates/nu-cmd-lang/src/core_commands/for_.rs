@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, eval_expression, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Block, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, ListStream, PipelineData, ShellError, Signature, SyntaxShape, Type,
@@ -70,7 +71,8 @@ impl Command for For {
             .expect("checked through parser")
             .as_keyword()
             .expect("internal error: missing keyword");
-        let values = eval_expression(engine_state, stack, keyword_expr)?;
+        // DEBUG TODO
+        let values = eval_expression(engine_state, stack, keyword_expr, WithoutDebug, &None)?;
 
         let block: Block = call.req(engine_state, stack, 2)?;
 
@@ -112,6 +114,9 @@ impl Command for For {
                         PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
+                        // DEBUG TODO
+                        WithoutDebug,
+                        &None,
                     ) {
                         Err(ShellError::Break { .. }) => {
                             break;
@@ -158,6 +163,9 @@ impl Command for For {
                         PipelineData::empty(),
                         redirect_stdout,
                         redirect_stderr,
+                        // DEBUG TODO
+                        WithoutDebug,
+                        &None,
                     ) {
                         Err(ShellError::Break { .. }) => {
                             break;
@@ -189,6 +197,9 @@ impl Command for For {
                     PipelineData::empty(),
                     redirect_stdout,
                     redirect_stderr,
+                    // DEBUG TODO
+                    WithoutDebug,
+                    &None,
                 )?
                 .into_value(head);
             }

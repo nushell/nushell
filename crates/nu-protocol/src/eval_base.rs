@@ -1,3 +1,4 @@
+use crate::engine::debugger::{DebugContext, Debugger};
 use crate::{
     ast::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
@@ -6,6 +7,7 @@ use crate::{
     Range, Record, ShellError, Span, Value, VarId,
 };
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -21,6 +23,8 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         expr: &Expression,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         match &expr.expr {
             Expr::Bool(b) => Ok(Value::bool(*b, expr.span)),
@@ -34,7 +38,7 @@ pub trait Eval {
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
             Expr::FullCellPath(cell_path) => {
-                let value = Self::eval(state, mut_state, &cell_path.head)?;
+                let value = Self::eval(state, mut_state, &cell_path.head, debug_context, debugger)?;
 
                 value.follow_cell_path(&cell_path.tail, false)
             }
@@ -43,11 +47,11 @@ pub trait Eval {
                 let mut output = vec![];
                 for expr in x {
                     match &expr.expr {
-                        Expr::Spread(expr) => match Self::eval(state, mut_state, expr)? {
+                        Expr::Spread(expr) => match Self::eval(state, mut_state, expr, debug_context, debugger)? {
                             Value::List { mut vals, .. } => output.append(&mut vals),
                             _ => return Err(ShellError::CannotSpreadAsList { span: expr.span }),
                         },
-                        _ => output.push(Self::eval(state, mut_state, expr)?),
+                        _ => output.push(Self::eval(state, mut_state, expr, debug_context, debugger)?),
                     }
                 }
                 Ok(Value::list(output, expr.span))
@@ -59,7 +63,7 @@ pub trait Eval {
                     match item {
                         RecordItem::Pair(col, val) => {
                             // avoid duplicate cols
-                            let col_name = Self::eval(state, mut_state, col)?.as_string()?;
+                            let col_name = Self::eval(state, mut_state, col, debug_context, debugger)?.as_string()?;
                             if let Some(orig_span) = col_names.get(&col_name) {
                                 return Err(ShellError::ColumnDefinedTwice {
                                     col_name,
@@ -68,11 +72,11 @@ pub trait Eval {
                                 });
                             } else {
                                 col_names.insert(col_name.clone(), col.span);
-                                record.push(col_name, Self::eval(state, mut_state, val)?);
+                                record.push(col_name, Self::eval(state, mut_state, val, debug_context, debugger)?);
                             }
                         }
                         RecordItem::Spread(_, inner) => {
-                            match Self::eval(state, mut_state, inner)? {
+                            match Self::eval(state, mut_state, inner, debug_context, debugger)? {
                                 Value::Record { val: inner_val, .. } => {
                                     for (col_name, val) in inner_val {
                                         if let Some(orig_span) = col_names.get(&col_name) {
@@ -102,7 +106,7 @@ pub trait Eval {
             Expr::Table(headers, vals) => {
                 let mut output_headers = vec![];
                 for expr in headers {
-                    let header = Self::eval(state, mut_state, expr)?.as_string()?;
+                    let header = Self::eval(state, mut_state, expr, debug_context, debugger)?.as_string()?;
                     if let Some(idx) = output_headers
                         .iter()
                         .position(|existing| existing == &header)
@@ -121,7 +125,7 @@ pub trait Eval {
                 for val in vals {
                     let mut row = vec![];
                     for expr in val {
-                        row.push(Self::eval(state, mut_state, expr)?);
+                        row.push(Self::eval(state, mut_state, expr, debug_context, debugger)?);
                     }
                     // length equality already ensured in parser
                     output_rows.push(Value::record(
@@ -131,10 +135,10 @@ pub trait Eval {
                 }
                 Ok(Value::list(output_rows, expr.span))
             }
-            Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr),
+            Expr::Keyword(_, _, expr) => Self::eval(state, mut_state, expr, debug_context, debugger),
             Expr::String(s) => Ok(Value::string(s.clone(), expr.span)),
             Expr::Nothing => Ok(Value::nothing(expr.span)),
-            Expr::ValueWithUnit(e, unit) => match Self::eval(state, mut_state, e)? {
+            Expr::ValueWithUnit(e, unit) => match Self::eval(state, mut_state, e, debug_context, debugger)? {
                 Value::Int { val, .. } => unit.item.to_value(val, unit.span),
                 x => Err(ShellError::CantConvert {
                     to_type: "unit value".into(),
@@ -143,28 +147,28 @@ pub trait Eval {
                     help: None,
                 }),
             },
-            Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span),
+            Expr::Call(call) => Self::eval_call(state, mut_state, call, expr.span, debug_context, debugger),
             Expr::ExternalCall(head, args, is_subexpression) => {
                 Self::eval_external_call(state, mut_state, head, args, *is_subexpression, expr.span)
             }
             Expr::Subexpression(block_id) => {
-                Self::eval_subexpression(state, mut_state, *block_id, expr.span)
+                Self::eval_subexpression(state, mut_state, *block_id, expr.span, debug_context, debugger)
             }
             Expr::Range(from, next, to, operator) => {
                 let from = if let Some(f) = from {
-                    Self::eval(state, mut_state, f)?
+                    Self::eval(state, mut_state, f, debug_context, debugger)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
                 let next = if let Some(s) = next {
-                    Self::eval(state, mut_state, s)?
+                    Self::eval(state, mut_state, s, debug_context, debugger)?
                 } else {
                     Value::nothing(expr.span)
                 };
 
                 let to = if let Some(t) = to {
-                    Self::eval(state, mut_state, t)?
+                    Self::eval(state, mut_state, t, debug_context, debugger)?
                 } else {
                     Value::nothing(expr.span)
                 };
@@ -174,7 +178,7 @@ pub trait Eval {
                 ))
             }
             Expr::UnaryNot(expr) => {
-                let lhs = Self::eval(state, mut_state, expr)?;
+                let lhs = Self::eval(state, mut_state, expr, debug_context, debugger)?;
                 match lhs {
                     Value::Bool { val, .. } => Ok(Value::bool(!val, expr.span)),
                     other => Err(ShellError::TypeMismatch {
@@ -189,13 +193,13 @@ pub trait Eval {
 
                 match op {
                     Operator::Boolean(boolean) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs, debug_context, debugger)?;
                         match boolean {
                             Boolean::And => {
                                 if lhs.is_false() {
                                     Ok(Value::bool(false, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, mut_state, rhs)?;
+                                    let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
                                     lhs.and(op_span, &rhs, expr.span)
                                 }
                             }
@@ -203,19 +207,19 @@ pub trait Eval {
                                 if lhs.is_true() {
                                     Ok(Value::bool(true, expr.span))
                                 } else {
-                                    let rhs = Self::eval(state, mut_state, rhs)?;
+                                    let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
                                     lhs.or(op_span, &rhs, expr.span)
                                 }
                             }
                             Boolean::Xor => {
-                                let rhs = Self::eval(state, mut_state, rhs)?;
+                                let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
                                 lhs.xor(op_span, &rhs, expr.span)
                             }
                         }
                     }
                     Operator::Math(math) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs, debug_context, debugger)?;
+                        let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
 
                         match math {
                             Math::Plus => lhs.add(op_span, &rhs, expr.span),
@@ -229,8 +233,8 @@ pub trait Eval {
                         }
                     }
                     Operator::Comparison(comparison) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs, debug_context, debugger)?;
+                        let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
                         match comparison {
                             Comparison::LessThan => lhs.lt(op_span, &rhs, expr.span),
                             Comparison::LessThanOrEqual => lhs.lte(op_span, &rhs, expr.span),
@@ -251,8 +255,8 @@ pub trait Eval {
                         }
                     }
                     Operator::Bits(bits) => {
-                        let lhs = Self::eval(state, mut_state, lhs)?;
-                        let rhs = Self::eval(state, mut_state, rhs)?;
+                        let lhs = Self::eval(state, mut_state, lhs, debug_context, debugger)?;
+                        let rhs = Self::eval(state, mut_state, rhs, debug_context, debugger)?;
                         match bits {
                             Bits::BitAnd => lhs.bit_and(op_span, &rhs, expr.span),
                             Bits::BitOr => lhs.bit_or(op_span, &rhs, expr.span),
@@ -262,7 +266,7 @@ pub trait Eval {
                         }
                     }
                     Operator::Assignment(assignment) => Self::eval_assignment(
-                        state, mut_state, lhs, rhs, assignment, op_span, expr.span,
+                        state, mut_state, lhs, rhs, assignment, op_span, expr.span, debug_context, debugger
                     ),
                 }
             }
@@ -271,7 +275,7 @@ pub trait Eval {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
+                Self::eval_string_interpolation(state, mut_state, exprs, expr.span, debug_context, debugger)
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern) => {
@@ -313,6 +317,8 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         call: &Call,
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError>;
 
     fn eval_external_call(
@@ -329,6 +335,8 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         block_id: usize,
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError>;
 
     fn regex_match(
@@ -348,6 +356,8 @@ pub trait Eval {
         assignment: Assignment,
         op_span: Span,
         expr_span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError>;
 
     fn eval_row_condition_or_closure(
@@ -362,6 +372,8 @@ pub trait Eval {
         mut_state: &mut Self::MutState,
         exprs: &[Expression],
         span: Span,
+        debug_context: impl DebugContext,
+        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError>;
 
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;

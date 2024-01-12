@@ -1,5 +1,6 @@
 use nu_engine::eval_expression;
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, SyntaxShape,
@@ -48,7 +49,16 @@ impl Command for BytesBuild {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut output = vec![];
-        for val in call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))? {
+        for val in call.rest_iter_flattened(0, |expr| {
+            eval_expression(
+                engine_state,
+                stack,
+                expr,
+                // DEBUG TODO
+                WithoutDebug,
+                &None,
+            )
+        })? {
             match val {
                 Value::Binary { mut val, .. } => output.append(&mut val),
                 // Explicitly propagate errors instead of dropping them.

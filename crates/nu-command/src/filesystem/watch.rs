@@ -11,6 +11,7 @@ use notify_debouncer_full::{
 };
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::engine::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,
@@ -216,6 +217,9 @@ impl Command for Watch {
                         Value::nothing(call.span()).into_pipeline_data(),
                         call.redirect_stdout,
                         call.redirect_stderr,
+                        // DEBUG TODO
+                        WithoutDebug,
+                        &None,
                     );
 
                     match eval_result {
