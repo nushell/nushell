@@ -70,7 +70,7 @@ fn test_check_symlink_exists() {
 
     let symlink_target = "symlink_target";
     let symlink = "symlink";
-    Playground::setup("rm_test_symlink", |dirs, sandbox| {
+    Playground::setup("path_exists_5", |dirs, sandbox| {
         #[cfg(not(windows))]
         std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
             .unwrap();
