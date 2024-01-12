@@ -94,6 +94,16 @@ impl Command for UCp {
                 example: "cp -u a b",
                 result: None,
             },
+            Example {
+                description: "Copy file preserving mode and timestamps attributes",
+                example: "cp --preserve [ mode timestamps ] a b",
+                result: None,
+            },
+            Example {
+                description: "Copy file erasing all attributes",
+                example: "cp --preserve [] a b",
+                result: None,
+            },
         ]
     }
 
