@@ -281,7 +281,7 @@ impl Command for UCp {
 }
 
 const ATTR_UNSET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
-const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::No { explicit: true };
+const ATTR_SET: uu_cp::Preserve = uu_cp::Preserve::Yes { required: true };
 
 fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellError> {
     if let Some(preserve) = preserve {
