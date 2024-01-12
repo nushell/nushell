@@ -42,11 +42,17 @@ pub fn eval_call(
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        for (param_idx, param) in decl
+        for (param_idx, (param, required)) in decl
             .signature()
             .required_positional
             .iter()
-            .chain(decl.signature().optional_positional.iter())
+            .map(|p| (p, true))
+            .chain(
+                decl.signature()
+                    .optional_positional
+                    .iter()
+                    .map(|p| (p, false)),
+            )
             .enumerate()
         {
             let var_id = param
@@ -55,6 +61,14 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
+                if required && !result.get_type().is_subtype(&param.shape.to_type()) {
+                    return Err(ShellError::CantConvert {
+                        to_type: param.shape.to_type().to_string(),
+                        from_type: result.get_type().to_string(),
+                        span: result.span(),
+                        help: None,
+                    });
+                }
                 callee_stack.add_var(var_id, result);
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());

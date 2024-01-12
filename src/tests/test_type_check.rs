@@ -115,6 +115,14 @@ fn record_subtyping_allows_general_inner() -> TestResult {
 }
 
 #[test]
+fn record_subtyping_works() -> TestResult {
+    run_test(
+        r#"def merge_records [other: record<bar: int>] { "" }; merge_records {"bar": 3, "foo": 4}"#,
+        "",
+    )
+}
+
+#[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(
         "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
