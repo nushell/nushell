@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use nu_engine::{current_dir, current_dir_const};
+use nu_engine::{current_dir, current_dir_const, CallExt};
 use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
@@ -61,7 +61,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         let head = call.head;
         let args = Arguments {
             pwd: current_dir(engine_state, stack)?,
-            not_follow_symlink: call.has_flag("no-symlink"),
+            not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
@@ -82,7 +82,7 @@ If you need to distinguish dirs and files, please use `path type`."#
         let head = call.head;
         let args = Arguments {
             pwd: current_dir_const(working_set)?,
-            not_follow_symlink: call.has_flag("no-symlink"),
+            not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
         if matches!(input, PipelineData::Empty) {
