@@ -549,6 +549,26 @@ pub fn evaluate_repl(
                         }
                     }
 
+                    if shell_integration {
+                        if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                            let path = cwd.as_string()?;
+
+                            // Try to abbreviate string for windows title
+                            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                                path.replace(&p.as_path().display().to_string(), "~")
+                            } else {
+                                path
+                            };
+                            let binary_name = s.split_whitespace().next();
+
+                            if let Some(binary_name) = binary_name {
+                                run_ansi_sequence(&format!(
+                                    "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
+                                ))?;
+                            }
+                        }
+                    }
+
                     eval_source(
                         engine_state,
                         stack,
