@@ -1940,4 +1940,76 @@ mod tests {
 
         assert!(true);
     }
+
+
+    #[test]
+    fn verify_equation_1() {
+        let nm1: String = String::from("X-var");
+        let nm2: String = String::from("Y-var");
+        let val1: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let val2: Vec<f64> = vec![10.0, 20.0, 30.0, 40.0];
+
+        // EQUATION d : y = 10 * x
+        let dt: DataSet = DataSet::new(nm1.clone(), nm2.clone(), val1.clone(), val2.clone());
+
+        // println!("{:?}", dt.equation_linear_regression());
+        assert_eq!(dt.equation_linear_regression(), "d : y = 10.0000000000 * x");
+    }
+
+
+    #[test]
+    fn verify_equation_2() {
+        let nm1: String = String::from("X-var");
+        let nm2: String = String::from("Y-var");
+        let val1: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let val2: Vec<f64> = vec![11.0, 11.0, 11.0, 11.0];
+
+        // EQUATION d : y = 11
+        let dt: DataSet = DataSet::new(nm1.clone(), nm2.clone(), val1.clone(), val2.clone());
+
+        // println!("{:?}", dt.equation_linear_regression());
+        assert_eq!(dt.equation_linear_regression(), "d : y = 11.0000000000");
+    }
+
+    #[test]
+    fn verify_equation_3() {
+        let nm1: String = String::from("X-var");
+        let nm2: String = String::from("Y-var");
+        let val1: Vec<f64> = vec![7.0, 7.0, 7.0, 7.0];
+        let val2: Vec<f64> = vec![1.0, 1.5, 2.5, 4.0];
+
+        // EQUATION d : x = 7
+        let dt: DataSet = DataSet::new(nm1.clone(), nm2.clone(), val1.clone(), val2.clone());
+
+        // println!("{:?}", dt.equation_linear_regression());
+        assert_eq!(dt.equation_linear_regression(), "d : x = 7.0000000000");
+    }
+
+    #[test]
+    fn verify_equation_4() {
+        let nm1: String = String::from("X-var");
+        let nm2: String = String::from("Y-var");
+        let val1: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let val2: Vec<f64> = vec![14.5, 140.1, 201.3, 220.5];
+
+        // EQUATION d : y = 67.92 * x - 25.70
+        let dt: DataSet = DataSet::new(nm1.clone(), nm2.clone(), val1.clone(), val2.clone());
+
+        // println!("{:?}", dt.equation_linear_regression());
+        assert_eq!(dt.equation_linear_regression(), "d : y = 67.9200000000 * x - 25.7000000000");
+    }
+
+    #[test]
+    fn verify_equation_5() {
+        let nm1: String = String::from("X-var");
+        let nm2: String = String::from("Y-var");
+        let val1: Vec<f64> = vec![1.0, 2.0, 3.0, 4.0];
+        let val2: Vec<f64> = vec![220.5, 201.3, 140.1, 14.5];
+
+        // EQUATION d : y = -67.919 * x + 313.9
+        let dt: DataSet = DataSet::new(nm1.clone(), nm2.clone(), val1.clone(), val2.clone());
+
+        // to display : println!("{:?}", dt.equation_linear_regression());
+        assert_eq!(dt.equation_linear_regression(), "d : y = -67.9200000000 * x + 313.9000000000");
+    }
 }

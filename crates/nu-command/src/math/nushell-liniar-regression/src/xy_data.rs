@@ -154,7 +154,7 @@ impl DataSet {
     pub fn equation_linear_regression(&self) -> String {
         match self.compute_linear_regression() {
             Ok(line) => {
-                return format!("d : y = a * {:.10} + {:.10}", line.slope, line.intercept);
+                return display_line(line);
             },
             Err(bar) => {
                 return format!("d : x = {:.10}", bar.x);
@@ -164,10 +164,42 @@ impl DataSet {
 }
 
 
+fn display_line(line: Line) -> String {
+    // d : y = a * x + b
+    let a: f64 = line.slope;
+    let b: f64 = line.intercept;
+
+    let tolerance: f64 = 1e-10; // comparison with 10 decimals
+
+    if a.abs() < tolerance && b.abs() < tolerance {   // d : y = 0
+        return format!("d : y = {:.10}", 0);
+    }
+
+
+    if a.abs() < tolerance && b.abs() < tolerance {    // d : y = b
+        return format!("d : y = -{:.10}", -b);
+    }
+
+    if a.abs() < tolerance && b > 0.0 {    // d : y = b
+        return format!("d : y = {:.10}", b);
+    }
+
+
+    if a != 0.0 && b.abs() < tolerance {   // d : y = a * x
+        return format!("d : y = {:.10} * x", a);
+    }
+
+    // d : y = a * x + b
+    if b < 0.0 {
+        return format!("d : y = {:.10} * x - {:.10}", a, -b);
+    }
+    return format!("d : y = {:.10} * x + {:.10}", a, b);
+}
+
+
 impl DataSet {
-    pub fn disp(&self) {
+    pub fn display_variables(&self) {
         println!("\"{}\": {:?}", self.x_name, self.x_values);
         println!("\"{}\": {:?}", self.y_name, self.y_values);
     }
-
 }
