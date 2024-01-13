@@ -1,0 +1,10 @@
+pub mod create;
+pub mod determinant;
+pub mod empty;
+pub mod eye;
+pub mod inverse;
+pub mod multiply;
+pub mod ones;
+pub mod shape;
+pub mod transpose;
+pub mod zeros;
