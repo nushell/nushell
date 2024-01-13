@@ -657,7 +657,10 @@ pub fn evaluate_repl(
                 line_editor.run_edit_commands(&[
                     EditCommand::Clear,
                     EditCommand::InsertString(repl.buffer.to_string()),
-                    EditCommand::MoveToPosition(repl.cursor_pos),
+                    EditCommand::MoveToPosition {
+                        position: repl.cursor_pos,
+                        select: false,
+                    },
                 ]);
                 repl.buffer = "".to_string();
                 repl.cursor_pos = 0;

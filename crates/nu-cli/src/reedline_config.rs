@@ -861,22 +861,82 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     let edit = match name {
-        "movetostart" => EditCommand::MoveToStart,
-        "movetolinestart" => EditCommand::MoveToLineStart,
-        "movetoend" => EditCommand::MoveToEnd,
-        "movetolineend" => EditCommand::MoveToLineEnd,
-        "moveleft" => EditCommand::MoveLeft,
-        "moveright" => EditCommand::MoveRight,
-        "movewordleft" => EditCommand::MoveWordLeft,
-        "movebigwordleft" => EditCommand::MoveBigWordLeft,
-        "movewordright" => EditCommand::MoveWordRight,
-        "movewordrightend" => EditCommand::MoveWordRightEnd,
-        "movebigwordrightend" => EditCommand::MoveBigWordRightEnd,
-        "movewordrightstart" => EditCommand::MoveWordRightStart,
-        "movebigwordrightstart" => EditCommand::MoveBigWordRightStart,
+        "movetostart" => EditCommand::MoveToStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movetolinestart" => EditCommand::MoveToLineStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+
+        "movetoend" => EditCommand::MoveToEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movetolineend" => EditCommand::MoveToLineEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "moveleft" => EditCommand::MoveLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "moveright" => EditCommand::MoveRight {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordleft" => EditCommand::MoveWordLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordleft" => EditCommand::MoveBigWordLeft {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordright" => EditCommand::MoveWordRight {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordrightend" => EditCommand::MoveWordRightEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordrightend" => EditCommand::MoveBigWordRightEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movewordrightstart" => EditCommand::MoveWordRightStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        "movebigwordrightstart" => EditCommand::MoveBigWordRightStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
         "movetoposition" => {
             let value = extract_value("value", record, span)?;
-            EditCommand::MoveToPosition(value.as_int()? as usize)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+
+            EditCommand::MoveToPosition {
+                position: value.as_int()? as usize,
+                select,
+            }
         }
         "insertchar" => {
             let value = extract_value("value", record, span)?;
@@ -928,12 +988,18 @@ fn edit_from_record(
         "moverightuntil" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveRightUntil(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveRightUntil { c: char, select }
         }
         "moverightbefore" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveRightBefore(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveRightBefore { c: char, select }
         }
         "cutleftuntil" => {
             let value = extract_value("value", record, span)?;
@@ -948,14 +1014,23 @@ fn edit_from_record(
         "moveleftuntil" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveLeftUntil(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveLeftUntil { c: char, select }
         }
         "moveleftbefore" => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value, config)?;
-            EditCommand::MoveLeftBefore(char)
+            let select = extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false);
+            EditCommand::MoveLeftBefore { c: char, select }
         }
         "complete" => EditCommand::Complete,
+        "cutselection" => EditCommand::CutSelection,
+        "copyselection" => EditCommand::CopySelection,
+        "selectall" => EditCommand::SelectAll,
         e => {
             return Err(ShellError::UnsupportedConfigValue {
                 expected: "reedline EditCommand".to_string(),
@@ -1108,5 +1183,58 @@ mod test {
         let span = Span::test_data();
         let b = EventType::try_from_record(&event, span);
         assert!(matches!(b, Err(ShellError::MissingConfigValue { .. })));
+    }
+
+    #[test]
+    fn test_move_without_optional_select() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft")
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: false
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_move_with_select_false() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft"),
+            "select" => Value::test_bool(false)
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: false
+            }]))
+        );
+    }
+
+    #[test]
+    fn test_move_with_select_true() {
+        let event = record! {
+            "edit" => Value::test_string("moveleft"),
+            "select" => Value::test_bool(true)
+        };
+        let event = Value::test_record(event);
+        let config = Config::default();
+
+        let parsed_event = parse_event(&event, &config).unwrap();
+        assert_eq!(
+            parsed_event,
+            Some(ReedlineEvent::Edit(vec![EditCommand::MoveLeft {
+                select: true
+            }]))
+        );
     }
 }
