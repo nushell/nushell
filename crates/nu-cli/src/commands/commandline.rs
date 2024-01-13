@@ -111,7 +111,7 @@ impl Command for Commandline {
         } else {
             let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
             if call.has_flag(engine_state, stack, "cursor-end")? {
-                repl.cursor_pos = repl.buffer.graphemes(true).count();
+                repl.cursor_pos = repl.buffer.len();
                 Ok(Value::nothing(call.head).into_pipeline_data())
             } else if call.has_flag(engine_state, stack, "cursor")? {
                 let char_pos = repl
