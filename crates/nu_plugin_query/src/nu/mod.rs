@@ -32,7 +32,7 @@ impl Plugin for Query {
             )
             .named(
                 "as-table",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "find table based on column header list",
                 Some('t'),
             )
