@@ -139,7 +139,7 @@ extern "C" fn restore_terminal() {
 #[cfg(unix)]
 extern "C" fn sigterm_handler(_signum: libc::c_int) {
     // Safety: can only call async-signal-safe functions here
-    // `restore_terminal`, `sigaction`, and `raise` are all async-signal-safe
+    // `restore_terminal`, `sigaction`, `raise`, and `_exit` are all async-signal-safe
 
     restore_terminal();
 
@@ -149,10 +149,10 @@ extern "C" fn sigterm_handler(_signum: libc::c_int) {
         // This should not be possible, but if it does happen,
         // then this could result in an infinite loop due to the raise below.
         // So, we'll just exit immediately if this happens.
-        std::process::exit(1);
+        unsafe { libc::_exit(1) };
     };
 
     if raise(Signal::SIGTERM).is_err() {
-        std::process::exit(1);
+        unsafe { libc::_exit(1) };
     };
 }
