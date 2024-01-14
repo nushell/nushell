@@ -390,7 +390,7 @@ impl Job {
         }
 
         let content_text = format!("{} {}", tag, content);
-        // PI content must NOT be escpaed
+        // PI content must NOT be escaped
         // https://www.w3.org/TR/xml/#sec-pi
         let pi_content = BytesText::from_escaped(content_text.as_str());
 
