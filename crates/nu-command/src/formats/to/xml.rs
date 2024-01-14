@@ -7,7 +7,9 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
 };
+use quick_xml::escape;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
+use std::borrow::Cow;
 use std::io::Cursor;
 use std::io::Write;
 
@@ -27,6 +29,11 @@ impl Command for ToXml {
                 SyntaxShape::Int,
                 "Formats the XML text with the provided indentation setting",
                 Some('i'),
+            )
+            .switch(
+                "partial-escape",
+                "Only escape mandatory characters in text and attributes",
+                Some('p'),
             )
             .category(Category::Formats)
     }
@@ -65,6 +72,13 @@ Additionally any field which is: empty record, empty list or null, can be omitte
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
             },
+            Example {
+                description: "Produce less escaping sequences in resulting xml",
+                example: r#"{tag: note attributes: {a: "'qwe'\\"} content: ["\"'"]} | to xml --partial-escape"#,
+                result: Some(Value::test_string(
+                    r#"<note a="'qwe'\">"'</note>"#
+                ))
+            }
         ]
     }
 
@@ -81,8 +95,9 @@ Additionally any field which is: empty record, empty list or null, can be omitte
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
+        let partial_escape = call.has_flag(engine_state, stack, "partial-escape")?;
 
-        let mut job = Job::new(indent);
+        let mut job = Job::new(indent, partial_escape);
         let input = input.try_expand_range()?;
         job.run(input, head)
     }
@@ -90,16 +105,20 @@ Additionally any field which is: empty record, empty list or null, can be omitte
 
 struct Job {
     writer: quick_xml::Writer<Cursor<Vec<u8>>>,
+    partial_escape: bool,
 }
 
 impl Job {
-    fn new(indent: Option<Spanned<i64>>) -> Self {
+    fn new(indent: Option<Spanned<i64>>, partial_escape: bool) -> Self {
         let writer = indent.as_ref().map_or_else(
             || quick_xml::Writer::new(Cursor::new(Vec::new())),
             |p| quick_xml::Writer::new_with_indent(Cursor::new(Vec::new()), b' ', p.item as usize),
         );
 
-        Self { writer }
+        Self {
+            writer,
+            partial_escape,
+        }
     }
 
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
@@ -116,9 +135,48 @@ impl Job {
         })
     }
 
-    fn add_attributes<'a>(element: &mut BytesStart<'a>, attributes: &'a IndexMap<String, String>) {
+    fn add_attributes<'a>(
+        &self,
+        element: &mut BytesStart<'a>,
+        attributes: &'a IndexMap<String, String>,
+    ) {
         for (k, v) in attributes {
-            element.push_attribute((k.as_str(), v.as_str()));
+            if self.partial_escape {
+                element.push_attribute((k.as_bytes(), Self::partial_escape_attribute(v).as_ref()))
+            } else {
+                element.push_attribute((k.as_bytes(), escape::escape(v).as_bytes()))
+            };
+        }
+    }
+
+    fn partial_escape_attribute(raw: &str) -> Cow<[u8]> {
+        let bytes = raw.as_bytes();
+        let mut escaped: Vec<u8> = Vec::new();
+        let mut iter = bytes.iter().enumerate();
+        let mut pos = 0;
+        while let Some((new_pos, byte)) =
+            iter.find(|(_, &ch)| matches!(ch, b'<' | b'>' | b'&' | b'"'))
+        {
+            escaped.extend_from_slice(&bytes[pos..new_pos]);
+            match byte {
+                b'<' => escaped.extend_from_slice(b"&lt;"),
+                b'>' => escaped.extend_from_slice(b"&gt;"),
+                b'&' => escaped.extend_from_slice(b"&amp;"),
+                b'"' => escaped.extend_from_slice(b"&quot;"),
+
+                _ => unreachable!("Only '<', '>','&', '\"' are escaped"),
+            }
+            pos = new_pos + 1;
+        }
+
+        if !escaped.is_empty() {
+            if let Some(raw) = bytes.get(pos..) {
+                escaped.extend_from_slice(raw);
+            }
+
+            Cow::Owned(escaped)
+        } else {
+            Cow::Borrowed(bytes)
         }
     }
 
@@ -295,7 +353,11 @@ impl Job {
     ) -> Result<(), ShellError> {
         match (attrs, content) {
             (Value::Nothing { .. }, Value::String { val, .. }) => {
-                let comment_content = BytesText::new(val.as_str());
+                let comment_content = if self.partial_escape {
+                    BytesText::from_escaped(escape::partial_escape(val.as_str()))
+                } else {
+                    BytesText::new(val.as_str())
+                };
                 self.writer
                     .write_event(Event::Comment(comment_content))
                     .map_err(|_| ShellError::CantConvert {
@@ -331,7 +393,12 @@ impl Job {
         }
 
         let content_text = format!("{} {}", tag, content);
-        let pi_content = BytesText::new(content_text.as_str());
+        let pi_content = if self.partial_escape {
+            BytesText::from_escaped(escape::partial_escape(content_text.as_str()))
+        } else {
+            BytesText::new(content_text.as_str())
+        };
+
         self.writer
             .write_event(Event::PI(pi_content))
             .map_err(|_| ShellError::CantConvert {
@@ -364,7 +431,7 @@ impl Job {
 
         let attributes = Self::parse_attributes(attrs)?;
         let mut open_tag_event = BytesStart::new(tag.clone());
-        Self::add_attributes(&mut open_tag_event, &attributes);
+        self.add_attributes(&mut open_tag_event, &attributes);
 
         self.writer
             .write_event(Event::Start(open_tag_event))
@@ -408,7 +475,12 @@ impl Job {
     }
 
     fn to_xml_text(&mut self, val: &str, span: Span) -> Result<(), ShellError> {
-        let text = Event::Text(BytesText::new(val));
+        let text = Event::Text(if self.partial_escape {
+            BytesText::from_escaped(escape::partial_escape(val))
+        } else {
+            BytesText::new(val)
+        });
+
         self.writer
             .write_event(text)
             .map_err(|_| ShellError::CantConvert {
