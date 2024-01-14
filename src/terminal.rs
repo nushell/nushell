@@ -1,10 +1,8 @@
-#[cfg(unix)]
 use std::{
     io::IsTerminal,
     sync::atomic::{AtomicI32, Ordering},
 };
 
-#[cfg(unix)]
 use nix::{
     errno::Errno,
     libc,
@@ -12,11 +10,9 @@ use nix::{
     unistd::{self, Pid},
 };
 
-#[cfg(unix)]
 static INITIAL_PGID: AtomicI32 = AtomicI32::new(-1);
 
-#[cfg(unix)]
-pub(crate) fn acquire_terminal(interactive: bool) {
+pub(crate) fn acquire(interactive: bool) {
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
 
@@ -65,12 +61,8 @@ pub(crate) fn acquire_terminal(interactive: bool) {
     }
 }
 
-#[cfg(not(unix))]
-pub(crate) fn acquire_terminal(_: bool) {}
-
 // Inspired by fish's acquire_tty_or_exit
 // Returns our original pgid
-#[cfg(unix)]
 fn take_control() -> Pid {
     let shell_pgid = unistd::getpgrp();
 
@@ -126,7 +118,6 @@ fn take_control() -> Pid {
     std::process::exit(1);
 }
 
-#[cfg(unix)]
 extern "C" fn restore_terminal() {
     // Safety: can only call async-signal-safe functions here
     // `tcsetpgrp` and `getpgrp` are async-signal-safe
@@ -136,7 +127,6 @@ extern "C" fn restore_terminal() {
     }
 }
 
-#[cfg(unix)]
 extern "C" fn sigterm_handler(_signum: libc::c_int) {
     // Safety: can only call async-signal-safe functions here
     // `restore_terminal`, `sigaction`, `raise`, and `_exit` are all async-signal-safe
