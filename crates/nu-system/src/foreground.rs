@@ -160,7 +160,7 @@ mod foreground_pgroup {
     /// Reset the foreground process group to the shell
     pub fn reset() {
         if let Err(e) = unistd::tcsetpgrp(libc::STDIN_FILENO, unistd::getpgrp()) {
-            println!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
+            eprintln!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
         }
     }
 }
