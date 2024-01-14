@@ -11,7 +11,6 @@ use quick_xml::escape;
 use quick_xml::events::{BytesEnd, BytesStart, BytesText, Event};
 use std::borrow::Cow;
 use std::io::Cursor;
-use std::io::Write;
 
 #[derive(Clone)]
 pub struct ToXml;
@@ -97,7 +96,7 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
         let partial_escape = call.has_flag(engine_state, stack, "partial-escape")?;
 
-        let mut job = Job::new(indent, partial_escape);
+        let job = Job::new(indent, partial_escape);
         let input = input.try_expand_range()?;
         job.run(input, head)
     }
@@ -353,11 +352,9 @@ impl Job {
     ) -> Result<(), ShellError> {
         match (attrs, content) {
             (Value::Nothing { .. }, Value::String { val, .. }) => {
-                let comment_content = if self.partial_escape {
-                    BytesText::from_escaped(escape::partial_escape(val.as_str()))
-                } else {
-                    BytesText::new(val.as_str())
-                };
+                // Text in comments must NOT be escaped
+                // https://www.w3.org/TR/xml/#sec-comments
+                let comment_content = BytesText::from_escaped(val.as_str());
                 self.writer
                     .write_event(Event::Comment(comment_content))
                     .map_err(|_| ShellError::CantConvert {
@@ -393,11 +390,9 @@ impl Job {
         }
 
         let content_text = format!("{} {}", tag, content);
-        let pi_content = if self.partial_escape {
-            BytesText::from_escaped(escape::partial_escape(content_text.as_str()))
-        } else {
-            BytesText::new(content_text.as_str())
-        };
+        // PI content must NOT be escpaed
+        // https://www.w3.org/TR/xml/#sec-pi
+        let pi_content = BytesText::from_escaped(content_text.as_str());
 
         self.writer
             .write_event(Event::PI(pi_content))
