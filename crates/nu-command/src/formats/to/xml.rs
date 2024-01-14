@@ -123,7 +123,7 @@ impl Job {
     fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         let value = input.into_value(head);
 
-        self.to_xml_entry(value, true).and_then(|_| {
+        self.write_xml_entry(value, true).and_then(|_| {
             let b = self.writer.into_inner().into_inner();
             let s = if let Ok(s) = String::from_utf8(b) {
                 s
@@ -179,7 +179,7 @@ impl Job {
         }
     }
 
-    fn to_xml_entry(&mut self, entry: Value, top_level: bool) -> Result<(), ShellError> {
+    fn write_xml_entry(&mut self, entry: Value, top_level: bool) -> Result<(), ShellError> {
         let entry_span = entry.span();
         let span = entry.span();
 
@@ -189,7 +189,7 @@ impl Job {
         // instead of longer
         // {tag: a content: [{content: 'qwe'}]}
         if let (Value::String { val, .. }, false) = (&entry, top_level) {
-            return self.to_xml_text(val.as_str(), span);
+            return self.write_xml_text(val.as_str(), span);
         }
 
         if let Value::Record { val: record, .. } = &entry {
@@ -233,10 +233,10 @@ impl Job {
                             help: Some("Strings can not be a root element of document".into()),
                         });
                     }
-                    self.to_xml_text(val.as_str(), content_span)
+                    self.write_xml_text(val.as_str(), content_span)
                 }
                 (Value::String { val: tag_name, .. }, attrs, children) => {
-                    self.to_tag_like(entry_span, tag_name, tag_span, attrs, children, top_level)
+                    self.write_tag_like(entry_span, tag_name, tag_span, attrs, children, top_level)
                 }
                 _ => Err(ShellError::CantConvert {
                     to_type: "XML".into(),
@@ -264,7 +264,7 @@ impl Job {
     }
 
     /// Convert record to tag-like entry: tag, PI, comment.
-    fn to_tag_like(
+    fn write_tag_like(
         &mut self,
         entry_span: Span,
         tag: String,
@@ -284,7 +284,7 @@ impl Job {
                 });
             }
 
-            self.to_comment(entry_span, attrs, content)
+            self.write_comment(entry_span, attrs, content)
         } else if let Some(tag) = tag.strip_prefix('?') {
             // PIs can not appear on top level of document
             if top_level {
@@ -309,7 +309,7 @@ impl Job {
                 }
             };
 
-            self.to_processing_instruction(entry_span, tag, attrs, content)
+            self.write_processing_instruction(entry_span, tag, attrs, content)
         } else {
             // Allow tag to have no attributes or content for short hand input
             // alternatives like {tag: a attributes: {} content: []}, {tag: a attribbutes: null
@@ -340,11 +340,11 @@ impl Job {
                 }
             };
 
-            self.to_tag(entry_span, tag, tag_span, attrs, content)
+            self.write_tag(entry_span, tag, tag_span, attrs, content)
         }
     }
 
-    fn to_comment(
+    fn write_comment(
         &mut self,
         entry_span: Span,
         attrs: Value,
@@ -373,7 +373,7 @@ impl Job {
         }
     }
 
-    fn to_processing_instruction(
+    fn write_processing_instruction(
         &mut self,
         entry_span: Span,
         tag: &str,
@@ -404,7 +404,7 @@ impl Job {
             })
     }
 
-    fn to_tag(
+    fn write_tag(
         &mut self,
         entry_span: Span,
         tag: String,
@@ -439,7 +439,7 @@ impl Job {
 
         children
             .into_iter()
-            .try_for_each(|child| self.to_xml_entry(child, false))?;
+            .try_for_each(|child| self.write_xml_entry(child, false))?;
 
         let close_tag_event = BytesEnd::new(tag);
         self.writer
@@ -469,7 +469,7 @@ impl Job {
         Ok(h)
     }
 
-    fn to_xml_text(&mut self, val: &str, span: Span) -> Result<(), ShellError> {
+    fn write_xml_text(&mut self, val: &str, span: Span) -> Result<(), ShellError> {
         let text = Event::Text(if self.partial_escape {
             BytesText::from_escaped(escape::partial_escape(val))
         } else {
