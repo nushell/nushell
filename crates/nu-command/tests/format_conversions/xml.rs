@@ -58,3 +58,18 @@ fn to_xml_error_tag_not_string() {
 
     assert!(actual.err.contains("not a string"));
 }
+
+#[test]
+fn to_xml_partial_escape() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            {
+                tag: a
+                attributes: { a: "'a'\\" }
+                content: [ `'"qwe\` { tag: ! content: `'"qwe\`} ]
+            } | to xml --partial-escape
+        "#
+    ));
+    assert_eq!(actual.out, r#"<a a="'a'\">'"qwe\<!--'"qwe\--></a>"#);
+}
