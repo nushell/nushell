@@ -1,27 +1,28 @@
 use nu_cmd_base::hook::eval_hook;
-use nu_engine::env_to_strings;
-use nu_engine::eval_expression;
-use nu_engine::CallExt;
-use nu_protocol::NuPath;
+use nu_engine::{env_to_strings, eval_expression, CallExt};
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, ListStream, NuPath, PipelineData, RawStream, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
-use std::process::{Command as CommandSys, Stdio};
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{self, SyncSender};
-use std::sync::Arc;
-use std::thread;
+use std::{
+    collections::HashMap,
+    io::{BufRead, BufReader, Read, Write},
+    path::{Path, PathBuf},
+    process::{Command as CommandSys, Stdio},
+    sync::{
+        atomic::AtomicBool,
+        mpsc::{self, SyncSender},
+        Arc,
+    },
+    thread,
+};
 
 const OUTPUT_BUFFER_SIZE: usize = 1024;
 const OUTPUT_BUFFERS_IN_FLIGHT: usize = 3;
