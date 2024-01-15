@@ -61,11 +61,11 @@ fn prepare_interactive(command: &mut Command) {
             // Reset signal handlers for child, sync with `terminal.rs`
             let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
             // SIGINT has special handling
-            sigaction(Signal::SIGQUIT, &default).expect("signal default");
-            sigaction(Signal::SIGTSTP, &default).expect("signal default");
-            sigaction(Signal::SIGTTIN, &default).expect("signal default");
-            sigaction(Signal::SIGTTOU, &default).expect("signal default");
-            sigaction(Signal::SIGTERM, &default).expect("signal default");
+            let _ = sigaction(Signal::SIGQUIT, &default);
+            let _ = sigaction(Signal::SIGTSTP, &default);
+            let _ = sigaction(Signal::SIGTTIN, &default);
+            let _ = sigaction(Signal::SIGTTOU, &default);
+            let _ = sigaction(Signal::SIGTERM, &default);
 
             Ok(())
         });
