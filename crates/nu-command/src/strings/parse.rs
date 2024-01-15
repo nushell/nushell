@@ -321,9 +321,7 @@ impl Iterator for ParseStreamer {
                 }
             }
 
-            let Some(v) = self.stream.next() else {
-                return None;
-            };
+            let v = self.stream.next()?;
 
             let Ok(s) = v.as_string() else {
                 return Some(Value::error(
