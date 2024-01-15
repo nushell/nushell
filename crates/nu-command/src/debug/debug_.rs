@@ -22,7 +22,6 @@ impl Command for Debug {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::String)),
                 ),
-                (Type::Table(vec![]), Type::List(Box::new(Type::String))),
                 (Type::Any, Type::String),
             ])
             .category(Category::Debug)

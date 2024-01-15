@@ -62,6 +62,7 @@ impl Type {
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
             }
+            (Type::Table(_), Type::List(_)) => true,
             _ => false,
         }
     }

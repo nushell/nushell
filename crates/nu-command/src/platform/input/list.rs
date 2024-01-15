@@ -39,10 +39,6 @@ impl Command for InputList {
     fn signature(&self) -> Signature {
         Signature::build("input list")
             .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
                 (Type::List(Box::new(Type::Any)), Type::Any),
                 (Type::Range, Type::Int),
             ])
