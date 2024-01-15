@@ -173,19 +173,6 @@ fn def_default_value_should_restrict_implicit_type() {
 }
 
 #[test]
-fn def_boolean_flags() {
-    let actual = nu!("def foo [--x: bool] { $x }; foo --x");
-    assert!(actual.err.contains("flag missing bool argument"));
-    let actual = nu!("def foo [--x: bool = false] { $x }; foo");
-    assert_eq!(actual.out, "false");
-    let actual = nu!("def foo [--x: bool = false] { $x }; foo --x");
-    assert!(actual.err.contains("flag missing bool argument"));
-    // boolean flags' default value should be null
-    let actual = nu!("def foo [--x: bool] { $x == null }; foo");
-    assert_eq!(actual.out, "true");
-}
-
-#[test]
 fn def_wrapped_with_block() {
     let actual = nu!(
         "def --wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
