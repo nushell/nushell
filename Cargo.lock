@@ -2637,7 +2637,6 @@ dependencies = [
  "rstest",
  "serde_json",
  "serial_test",
- "signal-hook",
  "simplelog",
  "tempfile",
  "time",
