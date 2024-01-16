@@ -172,7 +172,7 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut( |key, value| {
+            val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
@@ -364,7 +364,7 @@ impl Value {
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
                                     "vi_normal" => &mut config.cursor_shape_vi_normal,
-                                    "emacs" =>  &mut config.cursor_shape_emacs,
+                                    "emacs" => &mut config.cursor_shape_emacs,
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -720,12 +720,12 @@ impl Value {
                     }
                     // Catch all
                     _ => {
-                    report_invalid_key(&[key], span, &mut errors);
+                        report_invalid_key(&[key], span, &mut errors);
                         return false;
                     }
-            };
-            true
-        });
+                };
+                true
+            });
         } else {
             return (
                 config,
