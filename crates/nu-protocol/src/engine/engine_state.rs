@@ -5,8 +5,8 @@ use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::ast::Block;
 use crate::{
-    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
-    Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::borrow::Borrow;
@@ -96,7 +96,7 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     config_path: HashMap<String, PathBuf>,
-    pub history_enabled: bool,
+    history_enabled: bool,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub(super) currently_parsed_cwd: Option<PathBuf>,
@@ -720,6 +720,19 @@ impl EngineState {
     /// the plugin name to use will be `"example"`
     pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
         self.config.plugins.get(plugin)
+    }
+
+    /// Returns the configuration settings for command history or `None` if history is disabled
+    pub fn history(&self) -> Option<HistoryConfig> {
+        if self.history_enabled {
+            Some(self.config.history)
+        } else {
+            None
+        }
+    }
+
+    pub fn set_history_enabled(&mut self, enabled: bool) {
+        self.history_enabled = enabled;
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {
