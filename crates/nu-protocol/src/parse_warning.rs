@@ -3,7 +3,6 @@ use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
 pub enum ParseWarning {
     #[error("Deprecated: {0}")]
