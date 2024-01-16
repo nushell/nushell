@@ -109,7 +109,7 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    if let Some(history) = engine_state.history() {
+    if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
 
         // Setup history_isolation aka "history per session"
@@ -318,7 +318,7 @@ pub fn evaluate_repl(
             use_color,
         );
 
-        if let Some(history) = engine_state.history() {
+        if let Some(history) = engine_state.history_config() {
             start_time = std::time::Instant::now();
             if history.sync_on_enter {
                 if let Err(e) = line_editor.sync_history() {
@@ -426,7 +426,7 @@ pub fn evaluate_repl(
             Ok(Signal::Success(s)) => {
                 let hostname = System::host_name();
                 let history_supports_meta = matches!(
-                    engine_state.history().map(|h| h.file_format),
+                    engine_state.history_config().map(|h| h.file_format),
                     Some(HistoryFileFormat::Sqlite)
                 );
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -840,7 +840,7 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
-    let history = engine_state.history().unwrap();
+    let history = engine_state.history_config().unwrap();
     let history_path =
         crate::config_files::get_history_path("nushell", history.file_format).unwrap();
     let line_editor = reedline::Reedline::create();

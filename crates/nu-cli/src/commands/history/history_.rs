@@ -44,7 +44,7 @@ impl Command for History {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let Some(history) = engine_state.history() else {
+        let Some(history) = engine_state.history_config() else {
             return Ok(PipelineData::empty());
         };
 
