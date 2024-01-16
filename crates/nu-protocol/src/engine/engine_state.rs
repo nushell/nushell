@@ -96,6 +96,7 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     config_path: HashMap<String, PathBuf>,
+    pub history_enabled: bool,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub(super) currently_parsed_cwd: Option<PathBuf>,
@@ -151,6 +152,7 @@ impl EngineState {
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             config_path: HashMap::new(),
+            history_enabled: true,
             history_session_id: 0,
             currently_parsed_cwd: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(

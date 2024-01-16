@@ -44,6 +44,10 @@ impl Command for History {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
+        if !engine_state.history_enabled {
+            return Ok(PipelineData::empty());
+        }
+
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
             let clear = call.has_flag(engine_state, stack, "clear")?;

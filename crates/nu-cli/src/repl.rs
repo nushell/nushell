@@ -109,31 +109,33 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    // Setup history_isolation aka "history per session"
-    let history_isolation = engine_state.get_config().history_isolation;
-    let history_session_id = if history_isolation {
-        Reedline::create_history_session_id()
-    } else {
-        None
-    };
+    if engine_state.history_enabled {
+        start_time = std::time::Instant::now();
 
-    start_time = std::time::Instant::now();
-    let history_path = crate::config_files::get_history_path(
-        nushell_path,
-        engine_state.config.history_file_format,
-    );
-    if let Some(history_path) = history_path.as_deref() {
-        line_editor =
-            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
-    };
-    perf(
-        "setup history",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+        // Setup history_isolation aka "history per session"
+        let history_session_id = if engine_state.config.history_isolation {
+            Reedline::create_history_session_id()
+        } else {
+            None
+        };
+
+        if let Some(path) = crate::config_files::get_history_path(
+            nushell_path,
+            engine_state.config.history_file_format,
+        ) {
+            line_editor =
+                update_line_editor_history(engine_state, &path, line_editor, history_session_id)?
+        };
+
+        perf(
+            "setup history",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
 
     if let Some(s) = prerun_command {
         eval_source(
@@ -313,20 +315,22 @@ pub fn evaluate_repl(
             use_color,
         );
 
-        start_time = std::time::Instant::now();
-        if config.sync_history_on_enter {
-            if let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {}", e);
+        if engine_state.history_enabled {
+            start_time = std::time::Instant::now();
+            if config.sync_history_on_enter {
+                if let Err(e) = line_editor.sync_history() {
+                    warn!("Failed to sync history: {}", e);
+                }
             }
+            perf(
+                "sync_history",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
         }
-        perf(
-            "sync_history",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
 
         start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
@@ -418,8 +422,8 @@ pub fn evaluate_repl(
         match input {
             Ok(Signal::Success(s)) => {
                 let hostname = System::host_name();
-                let history_supports_meta =
-                    matches!(config.history_file_format, HistoryFileFormat::Sqlite);
+                let history_supports_meta = engine_state.history_enabled
+                    && matches!(config.history_file_format, HistoryFileFormat::Sqlite);
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
                 {
                     line_editor

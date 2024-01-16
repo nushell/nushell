@@ -98,6 +98,7 @@ pub(crate) fn parse_commandline_args(
             #[cfg(feature = "plugin")]
             let plugin_file = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
+            let no_history = call.get_named_arg("no-hist");
             let no_std_lib = call.get_named_arg("no-std-lib");
             let config_file = call.get_flag_expr("config");
             let env_file = call.get_flag_expr("env-config");
@@ -184,6 +185,7 @@ pub(crate) fn parse_commandline_args(
                 #[cfg(feature = "plugin")]
                 plugin_file,
                 no_config_file,
+                no_history,
                 no_std_lib,
                 config_file,
                 env_file,
@@ -223,6 +225,7 @@ pub(crate) struct NushellCliArgs {
     #[cfg(feature = "plugin")]
     pub(crate) plugin_file: Option<Spanned<String>>,
     pub(crate) no_config_file: Option<Spanned<String>>,
+    pub(crate) no_history: Option<Spanned<String>>,
     pub(crate) no_std_lib: Option<Spanned<String>>,
     pub(crate) config_file: Option<Spanned<String>>,
     pub(crate) env_file: Option<Spanned<String>>,
@@ -280,6 +283,11 @@ impl Command for Nu {
                 "no-config-file",
                 "start with no config file and no env file",
                 Some('n'),
+            )
+            .switch(
+                "no-hist",
+                "disable reading and writing to command history",
+                None,
             )
             .switch("no-std-lib", "start with no standard library", None)
             .named(
