@@ -96,7 +96,7 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     config_path: HashMap<String, PathBuf>,
-    history_enabled: bool,
+    pub history_enabled: bool,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub(super) currently_parsed_cwd: Option<PathBuf>,
@@ -729,10 +729,6 @@ impl EngineState {
         } else {
             None
         }
-    }
-
-    pub fn set_history_enabled(&mut self, enabled: bool) {
-        self.history_enabled = enabled;
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {

@@ -128,7 +128,7 @@ fn main() -> Result<()> {
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
-    engine_state.set_history_enabled(parsed_nu_cli_args.no_history.is_none());
+    engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
 
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args

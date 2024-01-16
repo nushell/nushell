@@ -188,6 +188,11 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     record.push("is-login", Value::bool(engine_state.is_login, span));
 
     record.push(
+        "history-enabled",
+        Value::bool(engine_state.history_enabled, span),
+    );
+
+    record.push(
         "current-exe",
         if let Ok(current_exe) = std::env::current_exe() {
             Value::string(current_exe.to_string_lossy(), span)
