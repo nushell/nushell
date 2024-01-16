@@ -285,7 +285,7 @@ impl Command for Nu {
                 Some('n'),
             )
             .switch(
-                "no-hist",
+                "no-history",
                 "disable reading and writing to command history",
                 None,
             )
