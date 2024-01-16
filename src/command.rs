@@ -98,7 +98,7 @@ pub(crate) fn parse_commandline_args(
             #[cfg(feature = "plugin")]
             let plugin_file = call.get_flag_expr("plugin-config");
             let no_config_file = call.get_named_arg("no-config-file");
-            let no_history = call.get_named_arg("no-hist");
+            let no_history = call.get_named_arg("no-history");
             let no_std_lib = call.get_named_arg("no-std-lib");
             let config_file = call.get_flag_expr("config");
             let env_file = call.get_flag_expr("env-config");
