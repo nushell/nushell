@@ -28,7 +28,7 @@ use reedline::{
 use std::{
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    path::Path,
+    path::PathBuf,
     sync::atomic::Ordering,
     time::Instant,
 };
@@ -123,7 +123,7 @@ pub fn evaluate_repl(
         {
             line_editor = update_line_editor_history(
                 engine_state,
-                &path,
+                path,
                 history,
                 line_editor,
                 history_session_id,
@@ -724,14 +724,14 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
 
 fn update_line_editor_history(
     engine_state: &mut EngineState,
-    history_path: &Path,
+    history_path: PathBuf,
     history: HistoryConfig,
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
     let history: Box<dyn reedline::History> = match history.file_format {
         HistoryFileFormat::PlainText => Box::new(
-            FileBackedHistory::with_file(history.max_size as usize, history_path.to_path_buf())
+            FileBackedHistory::with_file(history.max_size as usize, history_path)
                 .into_diagnostic()?,
         ),
         HistoryFileFormat::Sqlite => Box::new(
@@ -847,7 +847,7 @@ fn are_session_ids_in_sync() {
     let history_session_id = reedline::Reedline::create_history_session_id();
     let line_editor = update_line_editor_history(
         engine_state,
-        &history_path,
+        history_path,
         history,
         line_editor,
         history_session_id,
