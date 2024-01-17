@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -23,10 +24,7 @@ impl Command for History {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Table(vec![])),
-                (Type::Nothing, Type::Nothing),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .switch("clear", "Clears out the history entries", Some('c'))
             .switch(
@@ -40,7 +38,7 @@ impl Command for History {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -48,8 +46,8 @@ impl Command for History {
 
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
-            let clear = call.has_flag("clear");
-            let long = call.has_flag("long");
+            let clear = call.has_flag(engine_state, stack, "clear")?;
+            let long = call.has_flag(engine_state, stack, "long")?;
             let ctrlc = engine_state.ctrlc.clone();
 
             let mut history_path = config_path;

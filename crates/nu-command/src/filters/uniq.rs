@@ -1,5 +1,6 @@
 use crate::formats::value_to_string;
 use itertools::Itertools;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -20,17 +21,10 @@ impl Command for Uniq {
 
     fn signature(&self) -> Signature {
         Signature::build("uniq")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
-                    // -c
-                    Type::List(Box::new(Type::Any)),
-                    Type::Table(vec![]),
-                ),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .switch(
                 "count",
                 "Return a table containing the distinct input values together with their counts",
@@ -247,7 +241,7 @@ fn generate_results_with_count(head: Span, uniq_values: Vec<ValueCounter>) -> Ve
 
 pub fn uniq(
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
     input: Vec<Value>,
     item_mapper: Box<dyn Fn(ItemMapperState) -> ValueCounter>,
@@ -255,10 +249,10 @@ pub fn uniq(
 ) -> Result<PipelineData, ShellError> {
     let ctrlc = engine_state.ctrlc.clone();
     let head = call.head;
-    let flag_show_count = call.has_flag("count");
-    let flag_show_repeated = call.has_flag("repeated");
-    let flag_ignore_case = call.has_flag("ignore-case");
-    let flag_only_uniques = call.has_flag("unique");
+    let flag_show_count = call.has_flag(engine_state, stack, "count")?;
+    let flag_show_repeated = call.has_flag(engine_state, stack, "repeated")?;
+    let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+    let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
     let uniq_values = input
         .into_iter()

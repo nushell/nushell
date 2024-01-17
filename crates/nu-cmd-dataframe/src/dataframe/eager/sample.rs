@@ -88,8 +88,8 @@ fn command(
     let seed: Option<u64> = call
         .get_flag::<i64>(engine_state, stack, "seed")?
         .map(|val| val as u64);
-    let replace: bool = call.has_flag("replace");
-    let shuffle: bool = call.has_flag("shuffle");
+    let replace: bool = call.has_flag(engine_state, stack, "replace")?;
+    let shuffle: bool = call.has_flag(engine_state, stack, "shuffle")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 

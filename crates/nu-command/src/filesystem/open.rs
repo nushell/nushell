@@ -59,7 +59,7 @@ impl Command for Open {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;

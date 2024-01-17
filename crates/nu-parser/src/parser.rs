@@ -12,9 +12,9 @@ use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     ast::{
         Argument, Assignment, Bits, Block, Boolean, Call, CellPath, Comparison, Expr, Expression,
-        FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember, MatchPattern, Math,
-        Operator, PathMember, Pattern, Pipeline, PipelineElement, RangeInclusion, RangeOperator,
-        RecordItem,
+        ExternalArgument, FullCellPath, ImportPattern, ImportPatternHead, ImportPatternMember,
+        MatchPattern, Math, Operator, PathMember, Pattern, Pipeline, PipelineElement,
+        RangeInclusion, RangeOperator, RecordItem,
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
@@ -266,13 +266,22 @@ pub fn check_name<'a>(working_set: &mut StateWorkingSet, spans: &'a [Span]) -> O
     }
 }
 
-fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$") || contents.starts_with(b"(") {
-        parse_dollar_expr(working_set, span)
+        ExternalArgument::Regular(parse_dollar_expr(working_set, span))
     } else if contents.starts_with(b"[") {
-        parse_list_expression(working_set, span, &SyntaxShape::Any)
+        ExternalArgument::Regular(parse_list_expression(working_set, span, &SyntaxShape::Any))
+    } else if contents.len() > 3
+        && contents.starts_with(b"...")
+        && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+    {
+        ExternalArgument::Spread(parse_value(
+            working_set,
+            Span::new(span.start + 3, span.end),
+            &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+        ))
     } else {
         // Eval stage trims the quotes, so we don't have to do the same thing when parsing.
         let contents = if contents.starts_with(b"\"") {
@@ -285,12 +294,12 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expressi
             String::from_utf8_lossy(contents).to_string()
         };
 
-        Expression {
+        ExternalArgument::Regular(Expression {
             expr: Expr::String(contents),
             span,
             ty: Type::String,
             custom_completion: None,
-        }
+        })
     }
 }
 
@@ -976,6 +985,49 @@ pub fn parse_internal_call(
 
             spans_idx += 1;
             continue;
+        }
+
+        {
+            let contents = working_set.get_span_contents(spans[spans_idx]);
+
+            if contents.len() > 3
+                && contents.starts_with(b"...")
+                && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+            {
+                if signature.rest_positional.is_none() && !signature.allows_unknown_args {
+                    working_set.error(ParseError::UnexpectedSpreadArg(
+                        signature.call_signature(),
+                        arg_span,
+                    ));
+                    call.add_positional(Expression::garbage(arg_span));
+                } else if positional_idx < signature.required_positional.len() {
+                    working_set.error(ParseError::MissingPositional(
+                        signature.required_positional[positional_idx].name.clone(),
+                        Span::new(spans[spans_idx].start, spans[spans_idx].start),
+                        signature.call_signature(),
+                    ));
+                    call.add_positional(Expression::garbage(arg_span));
+                } else {
+                    let rest_shape = match &signature.rest_positional {
+                        Some(arg) => arg.shape.clone(),
+                        None => SyntaxShape::Any,
+                    };
+                    // Parse list of arguments to be spread
+                    let args = parse_value(
+                        working_set,
+                        Span::new(arg_span.start + 3, arg_span.end),
+                        &SyntaxShape::List(Box::new(rest_shape)),
+                    );
+
+                    call.add_spread(args);
+                    // Let the parser know that it's parsing rest arguments now
+                    positional_idx =
+                        signature.required_positional.len() + signature.optional_positional.len();
+                }
+
+                spans_idx += 1;
+                continue;
+            }
         }
 
         // Parse a positional arg if there is one
@@ -5272,15 +5324,43 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
             idx += 1;
             if idx == tokens.len() {
-                working_set.error(ParseError::Expected("record", span));
-                return garbage(span);
+                working_set.error(ParseError::Expected(
+                    "':'",
+                    Span::new(curr_span.end, curr_span.end),
+                ));
+                output.push(RecordItem::Pair(
+                    garbage(curr_span),
+                    garbage(Span::new(curr_span.end, curr_span.end)),
+                ));
+                break;
             }
-            let colon = working_set.get_span_contents(tokens[idx].span);
+            let colon_span = tokens[idx].span;
+            let colon = working_set.get_span_contents(colon_span);
             idx += 1;
-            if idx == tokens.len() || colon != b":" {
-                //FIXME: need better error
-                working_set.error(ParseError::Expected("record", span));
-                return garbage(span);
+            if colon != b":" {
+                working_set.error(ParseError::Expected(
+                    "':'",
+                    Span::new(colon_span.start, colon_span.start),
+                ));
+                output.push(RecordItem::Pair(
+                    field,
+                    garbage(Span::new(
+                        colon_span.start,
+                        tokens[tokens.len() - 1].span.end,
+                    )),
+                ));
+                break;
+            }
+            if idx == tokens.len() {
+                working_set.error(ParseError::Expected(
+                    "value for record field",
+                    Span::new(colon_span.end, colon_span.end),
+                ));
+                output.push(RecordItem::Pair(
+                    garbage(Span::new(curr_span.start, colon_span.end)),
+                    garbage(Span::new(colon_span.end, tokens[tokens.len() - 1].span.end)),
+                ));
+                break;
             }
             let value = parse_value(working_set, tokens[idx].span, &SyntaxShape::Any);
             idx += 1;
@@ -5857,22 +5937,27 @@ pub fn discover_captures_in_expr(
                 }
             }
 
-            for named in call.named_iter() {
-                if let Some(arg) = &named.2 {
-                    discover_captures_in_expr(working_set, arg, seen, seen_blocks, output)?;
+            for arg in &call.arguments {
+                match arg {
+                    Argument::Named(named) => {
+                        if let Some(arg) = &named.2 {
+                            discover_captures_in_expr(working_set, arg, seen, seen_blocks, output)?;
+                        }
+                    }
+                    Argument::Positional(expr)
+                    | Argument::Unknown(expr)
+                    | Argument::Spread(expr) => {
+                        discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
+                    }
                 }
-            }
-
-            for positional in call.positional_iter() {
-                discover_captures_in_expr(working_set, positional, seen, seen_blocks, output)?;
             }
         }
         Expr::CellPath(_) => {}
         Expr::DateTime(_) => {}
-        Expr::ExternalCall(head, exprs, _) => {
+        Expr::ExternalCall(head, args, _) => {
             discover_captures_in_expr(working_set, head, seen, seen_blocks, output)?;
 
-            for expr in exprs {
+            for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }

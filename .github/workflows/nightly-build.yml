@@ -119,7 +119,7 @@ jobs:
           os: ubuntu-20.04
           target_rustflags: ''
         - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-20.04
+          os: ubuntu-latest
           target_rustflags: ''
 
     runs-on: ${{matrix.os}}
@@ -135,7 +135,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''
@@ -249,7 +249,7 @@ jobs:
         echo "targets = ['${{matrix.target}}']" >> rust-toolchain.toml
 
     - name: Setup Rust toolchain and cache
-      uses: actions-rust-lang/setup-rust-toolchain@v1.6.0
+      uses: actions-rust-lang/setup-rust-toolchain@v1.8.0
       # WARN: Keep the rustflags to prevent from the winget submission error: `CAQuietExec:  Error 0xc0000135`
       with:
         rustflags: ''

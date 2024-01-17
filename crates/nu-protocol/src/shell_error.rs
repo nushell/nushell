@@ -1281,15 +1281,15 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    /// Tried spreading a non-list inside a list.
+    /// Tried spreading a non-list inside a list or command call.
     ///
     /// ## Resolution
     ///
-    /// Only lists can be spread inside lists. Try converting the value to a list before spreading.
+    /// Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.
     #[error("Not a list")]
     #[diagnostic(
         code(nu::shell::cannot_spread_as_list),
-        help("Only lists can be spread inside lists. Try converting the value to a list before spreading")
+        help("Only lists can be spread inside lists and command calls. Try converting the value to a list before spreading.")
     )]
     CannotSpreadAsList {
         #[label = "cannot spread value"]

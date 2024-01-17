@@ -239,11 +239,11 @@ fn to_html(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let html_color = call.has_flag("html-color");
-    let no_color = call.has_flag("no-color");
-    let dark = call.has_flag("dark");
-    let partial = call.has_flag("partial");
-    let list = call.has_flag("list");
+    let html_color = call.has_flag(engine_state, stack, "html-color")?;
+    let no_color = call.has_flag(engine_state, stack, "no-color")?;
+    let dark = call.has_flag(engine_state, stack, "dark")?;
+    let partial = call.has_flag(engine_state, stack, "partial")?;
+    let list = call.has_flag(engine_state, stack, "list")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = engine_state.get_config();
 

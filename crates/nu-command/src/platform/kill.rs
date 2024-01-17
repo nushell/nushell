@@ -58,9 +58,9 @@ impl Command for Kill {
     ) -> Result<PipelineData, ShellError> {
         let pid: i64 = call.req(engine_state, stack, 0)?;
         let rest: Vec<i64> = call.rest(engine_state, stack, 1)?;
-        let force: bool = call.has_flag("force");
+        let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
-        let quiet: bool = call.has_flag("quiet");
+        let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
 
         let mut cmd = if cfg!(windows) {
             let mut cmd = CommandSys::new("taskkill");

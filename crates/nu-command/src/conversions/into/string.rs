@@ -11,7 +11,6 @@ use num_format::ToFormattedString;
 
 struct Arguments {
     decimals_value: Option<i64>,
-    decimals: bool,
     cell_paths: Option<Vec<CellPath>>,
     config: Config,
 }
@@ -148,11 +147,10 @@ fn string_helper(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let decimals = call.has_flag("decimals");
     let head = call.head;
     let decimals_value: Option<i64> = call.get_flag(engine_state, stack, "decimals")?;
     if let Some(decimal_val) = decimals_value {
-        if decimals && decimal_val.is_negative() {
+        if decimal_val.is_negative() {
             return Err(ShellError::TypeMismatch {
                 err_message: "Cannot accept negative integers for decimals arguments".to_string(),
                 span: head,
@@ -164,7 +162,6 @@ fn string_helper(
     let config = engine_state.get_config().clone();
     let args = Arguments {
         decimals_value,
-        decimals,
         cell_paths,
         config,
     };
@@ -186,7 +183,6 @@ fn string_helper(
 }
 
 fn action(input: &Value, args: &Arguments, span: Span) -> Value {
-    let decimals = args.decimals;
     let digits = args.decimals_value;
     let config = &args.config;
     match input {
@@ -196,8 +192,8 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            if decimals {
-                let decimal_value = digits.unwrap_or(2) as usize;
+            if let Some(decimal_value) = digits {
+                let decimal_value = decimal_value as usize;
                 Value::string(format!("{val:.decimal_value$}"), span)
             } else {
                 Value::string(val.to_string(), span)

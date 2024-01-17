@@ -2,8 +2,8 @@ use crate::{current_dir_str, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
-        Argument, Assignment, Block, Call, Expr, Expression, PathMember, PipelineElement,
-        Redirection,
+        Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
+        PipelineElement, Redirection,
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
@@ -42,11 +42,17 @@ pub fn eval_call(
 
         let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
 
-        for (param_idx, param) in decl
+        for (param_idx, (param, required)) in decl
             .signature()
             .required_positional
             .iter()
-            .chain(decl.signature().optional_positional.iter())
+            .map(|p| (p, true))
+            .chain(
+                decl.signature()
+                    .optional_positional
+                    .iter()
+                    .map(|p| (p, false)),
+            )
             .enumerate()
         {
             let var_id = param
@@ -55,6 +61,14 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
+                if required && !result.get_type().is_subtype(&param.shape.to_type()) {
+                    return Err(ShellError::CantConvert {
+                        to_type: param.shape.to_type().to_string(),
+                        from_type: result.get_type().to_string(),
+                        span: result.span(),
+                        help: None,
+                    });
+                }
                 callee_stack.add_var(var_id, result);
             } else if let Some(value) = &param.default_value {
                 callee_stack.add_var(var_id, value.to_owned());
@@ -66,11 +80,11 @@ pub fn eval_call(
         if let Some(rest_positional) = decl.signature().rest_positional {
             let mut rest_items = vec![];
 
-            for arg in call.positional_iter().skip(
+            for result in call.rest_iter_flattened(
                 decl.signature().required_positional.len()
                     + decl.signature().optional_positional.len(),
-            ) {
-                let result = eval_expression(engine_state, caller_stack, arg)?;
+                |expr| eval_expression(engine_state, caller_stack, expr),
+            )? {
                 rest_items.push(result);
             }
 
@@ -182,7 +196,7 @@ fn eval_external(
     engine_state: &EngineState,
     stack: &mut Stack,
     head: &Expression,
-    args: &[Expression],
+    args: &[ExternalArgument],
     input: PipelineData,
     redirect_target: RedirectTarget,
     is_subexpression: bool,
@@ -198,7 +212,10 @@ fn eval_external(
     call.add_positional(head.clone());
 
     for arg in args {
-        call.add_positional(arg.clone())
+        match arg {
+            ExternalArgument::Regular(expr) => call.add_positional(expr.clone()),
+            ExternalArgument::Spread(expr) => call.add_spread(expr.clone()),
+        }
     }
 
     match redirect_target {
@@ -947,7 +964,7 @@ impl Eval for EvalRuntime {
         engine_state: &EngineState,
         stack: &mut Stack,
         head: &Expression,
-        args: &[Expression],
+        args: &[ExternalArgument],
         is_subexpression: bool,
         _: Span,
     ) -> Result<Value, ShellError> {
@@ -1099,7 +1116,18 @@ impl Eval for EvalRuntime {
             .get_block(block_id)
             .captures
             .iter()
-            .map(|&id| stack.get_var(id, span).map(|var| (id, var)))
+            .map(|&id| {
+                stack
+                    .get_var(id, span)
+                    .or_else(|_| {
+                        engine_state
+                            .get_var(id)
+                            .const_val
+                            .clone()
+                            .ok_or(ShellError::VariableNotFoundAtRuntime { span })
+                    })
+                    .map(|var| (id, var))
+            })
             .collect::<Result<_, _>>()?;
 
         Ok(Value::closure(Closure { block_id, captures }, span))

@@ -110,7 +110,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let other: Value = call.req(engine_state, stack, 0)?;
 
-    let axis = if call.has_flag("col") {
+    let axis = if call.has_flag(engine_state, stack, "col")? {
         Axis::Column
     } else {
         Axis::Row

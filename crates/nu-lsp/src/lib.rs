@@ -180,7 +180,7 @@ impl LanguageServer {
     }
 
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
-        let line = rope_of_file.char_to_line(span.start - offset);
+        let line = rope_of_file.byte_to_line(span.start - offset);
         let character = span.start - offset - rope_of_file.line_to_char(line);
 
         let start = lsp_types::Position {
@@ -188,7 +188,7 @@ impl LanguageServer {
             character: character as u32,
         };
 
-        let line = rope_of_file.char_to_line(span.end - offset);
+        let line = rope_of_file.byte_to_line(span.end - offset);
         let character = span.end - offset - rope_of_file.line_to_char(line);
 
         let end = lsp_types::Position {
@@ -550,7 +550,7 @@ impl LanguageServer {
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
-        let results = completer.complete(&rope_of_file.to_string(), location);
+        let results = completer.complete(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
             None
         } else {
@@ -704,8 +704,16 @@ mod tests {
         assert_json_eq!(result, serde_json::json!(null));
     }
 
-    pub fn open(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
-        let text = std::fs::read_to_string(uri.to_file_path().unwrap()).unwrap();
+    pub fn open_unchecked(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
+        open(client_connection, uri).unwrap()
+    }
+
+    pub fn open(
+        client_connection: &Connection,
+        uri: Url,
+    ) -> Result<lsp_server::Notification, String> {
+        let text =
+            std::fs::read_to_string(uri.to_file_path().unwrap()).map_err(|e| e.to_string())?;
 
         client_connection
             .sender
@@ -721,17 +729,17 @@ mod tests {
                 })
                 .unwrap(),
             }))
-            .unwrap();
+            .map_err(|e| e.to_string())?;
 
         let notification = client_connection
             .receiver
             .recv_timeout(Duration::from_secs(2))
-            .unwrap();
+            .map_err(|e| e.to_string())?;
 
         if let Message::Notification(n) = notification {
-            n
+            Ok(n)
         } else {
-            panic!();
+            Err(String::from("Did not receive a notification from server"))
         }
     }
 
@@ -813,7 +821,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 2, 12);
         let result = if let Message::Response(response) = resp {
@@ -844,7 +852,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 4, 1);
         let result = if let Message::Response(response) = resp {
@@ -875,7 +883,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 1, 14);
         let result = if let Message::Response(response) = resp {
@@ -929,7 +937,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = hover(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
@@ -956,7 +964,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = hover(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
@@ -1011,7 +1019,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = complete(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
@@ -1047,7 +1055,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = complete(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
@@ -1068,6 +1076,43 @@ mod tests {
                         "end": { "line": 0, "character": 8 },
                      },
                      "newText": "config nu"
+                  }
+               }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_command_with_utf_line() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("utf_pipeline.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 14);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!([
+               {
+                  "label": "str trim",
+                  "detail": "Trim whitespace or specific character.",
+                  "textEdit": {
+                     "range": {
+                        "start": { "line": 0, "character": 9 },
+                        "end": { "line": 0, "character": 14 },
+                     },
+                     "newText": "str trim"
                   }
                }
             ])

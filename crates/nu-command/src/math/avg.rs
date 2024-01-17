@@ -2,8 +2,11 @@ use crate::math::reducers::{reducer_for, Reduce};
 use crate::math::utils::run_with_function;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
+const NS_PER_SEC: i64 = 1_000_000_000;
 #[derive(Clone)]
 pub struct SubCommand;
 
@@ -18,6 +21,9 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Number)), Type::Number),
                 (Type::List(Box::new(Type::Duration)), Type::Duration),
                 (Type::List(Box::new(Type::Filesize)), Type::Filesize),
+                (Type::Range, Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -42,11 +48,26 @@ impl Command for SubCommand {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Compute the average of a list of numbers",
-            example: "[-50 100.0 25] | math avg",
-            result: Some(Value::test_float(25.0)),
-        }]
+        vec![
+            Example {
+                description: "Compute the average of a list of numbers",
+                example: "[-50 100.0 25] | math avg",
+                result: Some(Value::test_float(25.0)),
+            },
+            Example {
+                description: "Compute the average of a list of durations",
+                example: "[2sec 1min] | math avg",
+                result: Some(Value::test_duration(31 * NS_PER_SEC)),
+            },
+            Example {
+                description: "Compute the average of each column in a table",
+                example: "[[a b]; [1 2] [3 4]] | math avg",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(2),
+                    "b" => Value::test_int(3),
+                })),
+            },
+        ]
     }
 }
 

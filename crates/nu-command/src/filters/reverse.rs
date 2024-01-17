@@ -15,13 +15,10 @@ impl Command for Reverse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("reverse")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (Type::Table(vec![]), Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .category(Category::Filters)
     }
 

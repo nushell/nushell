@@ -217,6 +217,7 @@ pub fn get_signature(
 ///     fn run(
 ///         &mut self,
 ///         name: &str,
+///         config: &Option<Value>,
 ///         call: &EvaluatedCall,
 ///         input: &Value,
 ///     ) -> Result<Value, LabeledError> {
@@ -246,6 +247,7 @@ pub trait Plugin {
     fn run(
         &mut self,
         name: &str,
+        config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError>;
@@ -264,7 +266,7 @@ pub trait Plugin {
 /// # impl MyPlugin { fn new() -> Self { Self }}
 /// # impl Plugin for MyPlugin {
 /// #     fn signature(&self) -> Vec<PluginSignature> {todo!();}
-/// #     fn run(&mut self, name: &str, call: &EvaluatedCall, input: &Value)
+/// #     fn run(&mut self, name: &str, config: &Option<Value>, call: &EvaluatedCall, input: &Value)
 /// #         -> Result<Value, LabeledError> {todo!();}
 /// # }
 /// fn main() {
@@ -333,7 +335,9 @@ pub fn serve_plugin(plugin: &mut impl Plugin, encoder: impl PluginEncoder) {
                     };
 
                     let value = match input {
-                        Ok(input) => plugin.run(&call_info.name, &call_info.call, &input),
+                        Ok(input) => {
+                            plugin.run(&call_info.name, &call_info.config, &call_info.call, &input)
+                        }
                         Err(err) => Err(err.into()),
                     };
 

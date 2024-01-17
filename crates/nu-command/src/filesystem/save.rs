@@ -63,10 +63,10 @@ impl Command for Save {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let append = call.has_flag("append");
-        let force = call.has_flag("force");
-        let progress = call.has_flag("progress");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let append = call.has_flag(engine_state, stack, "append")?;
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
         let out_append = if let Some(Expression {
             expr: Expr::Bool(out_append),
             ..

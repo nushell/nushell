@@ -267,12 +267,17 @@ fn limit_to_value(limit: rlim_t, multiplier: rlim_t, span: Span) -> Result<Value
 }
 
 /// Get maximum length of all flag descriptions
-fn max_desc_len(call: &Call, print_all: bool) -> usize {
+fn max_desc_len(
+    call: &Call,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    print_all: bool,
+) -> Result<usize, ShellError> {
     let mut desc_len = 0;
     let mut unit_len = 0;
 
     for res in RESOURCE_ARRAY.iter() {
-        if !print_all && !call.has_flag(res.name) {
+        if !print_all && !call.has_flag(engine_state, stack, res.name)? {
             continue;
         }
 
@@ -288,7 +293,7 @@ fn max_desc_len(call: &Call, print_all: bool) -> usize {
     }
 
     // desc.len() + unit.len() + '-X)'.len()
-    desc_len + unit_len + 3
+    Ok(desc_len + unit_len + 3)
 }
 
 /// Fill `ResourceInfo` to the record entry
@@ -359,18 +364,20 @@ fn set_limits(
 /// Print limits
 fn print_limits(
     call: &Call,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     print_all: bool,
     soft: bool,
     hard: bool,
 ) -> Result<PipelineData, ShellError> {
     let mut output = Vec::new();
     let mut print_default_limit = true;
-    let max_len = max_desc_len(call, print_all);
+    let max_len = max_desc_len(call, engine_state, stack, print_all)?;
 
     for res in RESOURCE_ARRAY.iter() {
         if !print_all {
             // Print specified limit.
-            if !call.has_flag(res.name) {
+            if !call.has_flag(engine_state, stack, res.name)? {
                 continue;
             }
         }
@@ -503,10 +510,7 @@ impl Command for ULimit {
 
     fn signature(&self) -> Signature {
         let mut sig = Signature::build("ulimit")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Table(vec![])),
-                (Type::Nothing, Type::Nothing),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))
@@ -527,9 +531,9 @@ impl Command for ULimit {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut soft = call.has_flag("soft");
-        let mut hard = call.has_flag("hard");
-        let all = call.has_flag("all");
+        let mut soft = call.has_flag(engine_state, stack, "soft")?;
+        let mut hard = call.has_flag(engine_state, stack, "hard")?;
+        let all = call.has_flag(engine_state, stack, "all")?;
 
         if !hard && !soft {
             // Set both hard and soft limits if neither was specified.
@@ -541,7 +545,7 @@ impl Command for ULimit {
             let mut set_default_limit = true;
 
             for res in RESOURCE_ARRAY.iter() {
-                if call.has_flag(res.name) {
+                if call.has_flag(engine_state, stack, res.name)? {
                     set_limits(&limit_value, res, soft, hard, call.head)?;
 
                     if set_default_limit {
@@ -558,7 +562,7 @@ impl Command for ULimit {
 
             Ok(PipelineData::Empty)
         } else {
-            print_limits(call, all, soft, hard)
+            print_limits(call, engine_state, stack, all, soft, hard)
         }
     }
 

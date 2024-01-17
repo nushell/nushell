@@ -10,7 +10,7 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 
-use super::client::RequestFlags;
+use super::client::{RedirectMode, RequestFlags};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -139,11 +139,11 @@ fn run_get(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        insecure: call.has_flag("insecure"),
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
-        allow_errors: call.has_flag("allow-errors"),
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -160,7 +160,7 @@ fn helper(
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
 
-    let client = http_client(args.insecure, engine_state, stack)?;
+    let client = http_client(args.insecure, RedirectMode::Follow, engine_state, stack)?;
     let mut request = client.request("OPTIONS", &requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
