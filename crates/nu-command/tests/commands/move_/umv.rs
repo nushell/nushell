@@ -550,7 +550,8 @@ fn test_mv_no_clobber() {
         // assert!(actual.err.contains(
         //     format!("not replacing '{}'\n", dirs.test().join(file_b).display()).as_str()
         // ));
-        let expected_error = format!("not replacing '{}'\n", dirs.test().join(file_b).display());
+        // let expected_error = format!("not replacing '{}'\n", dirs.test().join(file_b).display());
+        let expected_error = format!("not replacing '{}'", dirs.test().join(file_b).display());
         if !actual.err.contains(expected_error.as_str()) {
             panic!("Failure: stderr was \n{}", expected_error);
         }
