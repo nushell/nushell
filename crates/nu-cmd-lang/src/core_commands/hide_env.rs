@@ -42,7 +42,7 @@ impl Command for HideEnv {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let env_var_names: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         for name in env_var_names {
             if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {

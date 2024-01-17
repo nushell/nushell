@@ -85,7 +85,7 @@ fn execute_binary_in_string() {
 
 #[test]
 fn single_quote_dollar_external() {
-    let actual = nu!("let author = 'JT'; ^echo $'foo=($author)'");
+    let actual = nu!("let author = 'JT'; nu --testbin cococo $'foo=($author)'");
 
     assert_eq!(actual.out, "foo=JT");
 }
@@ -354,7 +354,7 @@ mod nu_commands {
     #[test]
     fn command_list_arg_test() {
         let actual = nu!("
-        nu ['-c' 'version']
+        nu ...['-c' 'version']
         ");
 
         assert!(actual.out.contains("version"));
@@ -365,7 +365,7 @@ mod nu_commands {
     #[test]
     fn command_cell_path_arg_test() {
         let actual = nu!("
-        nu ([ '-c' 'version' ])
+        nu ...([ '-c' 'version' ])
         ");
 
         assert!(actual.out.contains("version"));
@@ -436,7 +436,7 @@ mod external_command_arguments {
                 let actual = nu!(
                 cwd: dirs.test(), pipeline(
                 "
-                    nu --testbin cococo (ls | get name)
+                    nu --testbin cococo ...(ls | get name)
                 "
                 ));
 
@@ -493,18 +493,16 @@ mod external_command_arguments {
         )
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn semicolons_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("^echo \"a;b\"");
+        let actual = nu!("nu --testbin cococo \"a;b\"");
 
         assert_eq!(actual.out, "a;b");
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn ampersands_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("^echo \"a&b\"");
+        let actual = nu!("nu --testbin cococo \"a&b\"");
 
         assert_eq!(actual.out, "a&b");
     }

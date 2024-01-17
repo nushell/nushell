@@ -27,9 +27,6 @@ impl CmdArgument for Arguments {
 #[derive(Clone)]
 pub struct SubCommand;
 
-#[derive(Clone)]
-pub struct IndexOfOptionalBounds(i32, i32);
-
 impl Command for SubCommand {
     fn name(&self) -> &str {
         "str index-of"
@@ -91,9 +88,9 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: substring.item,
             range: call.get_flag(engine_state, stack, "range")?,
-            end: call.has_flag("end"),
+            end: call.has_flag(engine_state, stack, "end")?,
             cell_paths,
-            graphemes: grapheme_flags(call)?,
+            graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

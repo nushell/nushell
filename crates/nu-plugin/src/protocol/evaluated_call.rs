@@ -33,10 +33,8 @@ impl EvaluatedCall {
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
-        let positional = call
-            .positional_iter()
-            .map(|expr| eval_expression(engine_state, stack, expr))
-            .collect::<Result<Vec<Value>, ShellError>>()?;
+        let positional =
+            call.rest_iter_flattened(0, |expr| eval_expression(engine_state, stack, expr))?;
 
         let mut named = Vec::with_capacity(call.named_len());
         for (string, _, expr) in call.named_iter() {

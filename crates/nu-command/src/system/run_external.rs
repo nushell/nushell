@@ -1,14 +1,15 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
+use nu_engine::eval_expression;
 use nu_engine::CallExt;
 use nu_protocol::{
-    ast::{Call, Expr, Expression},
+    ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use nu_system::ForegroundProcess;
+use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
@@ -59,10 +60,10 @@ impl Command for External {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let redirect_stdout = call.has_flag("redirect-stdout");
-        let redirect_stderr = call.has_flag("redirect-stderr");
-        let redirect_combine = call.has_flag("redirect-combine");
-        let trim_end_newline = call.has_flag("trim-end-newline");
+        let redirect_stdout = call.has_flag(engine_state, stack, "redirect-stdout")?;
+        let redirect_stderr = call.has_flag(engine_state, stack, "redirect-stderr")?;
+        let redirect_combine = call.has_flag(engine_state, stack, "redirect-combine")?;
+        let trim_end_newline = call.has_flag(engine_state, stack, "trim-end-newline")?;
 
         if redirect_combine && (redirect_stdout || redirect_stderr) {
             return Err(ShellError::ExternalCommand {
@@ -113,7 +114,6 @@ pub fn create_external_command(
     trim_end_newline: bool,
 ) -> Result<ExternalCommand, ShellError> {
     let name: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let args: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
     // Translate environment variables from Values to Strings
     let env_vars_str = env_to_strings(engine_state, stack)?;
@@ -132,11 +132,24 @@ pub fn create_external_command(
     }
 
     let mut spanned_args = vec![];
-    let args_expr: Vec<Expression> = call.positional_iter().skip(1).cloned().collect();
     let mut arg_keep_raw = vec![];
-    for (one_arg, one_arg_expr) in args.into_iter().zip(args_expr) {
-        match one_arg {
+    for (arg, spread) in call.rest_iter(1) {
+        // TODO: Disallow automatic spreading entirely later. This match block will
+        // have to be refactored, and lists will have to be disallowed in the parser too
+        match eval_expression(engine_state, stack, arg)? {
             Value::List { vals, .. } => {
+                if !spread {
+                    nu_protocol::report_error_new(
+                        engine_state,
+                        &ShellError::GenericError {
+                            error: "Automatically spreading lists is deprecated".into(),
+                            msg: "Spreading lists automatically when calling external commands is deprecated and will be removed in 0.91.".into(),
+                            span: Some(arg.span),
+                            help: Some("Use the spread operator (put a '...' before the argument)".into()),
+                            inner: vec![],
+                        },
+                    );
+                }
                 // turn all the strings in the array into params.
                 // Example: one_arg may be something like ["ls" "-a"]
                 // convert it to "ls" "-a"
@@ -147,15 +160,20 @@ pub fn create_external_command(
                 }
             }
             val => {
-                spanned_args.push(value_as_spanned(val)?);
-                match one_arg_expr.expr {
-                    // refer to `parse_dollar_expr` function
-                    // the expression type of $variable_name, $"($variable_name)"
-                    // will be Expr::StringInterpolation, Expr::FullCellPath
-                    Expr::StringInterpolation(_) | Expr::FullCellPath(_) => arg_keep_raw.push(true),
-                    _ => arg_keep_raw.push(false),
+                if spread {
+                    return Err(ShellError::CannotSpreadAsList { span: arg.span });
+                } else {
+                    spanned_args.push(value_as_spanned(val)?);
+                    match arg.expr {
+                        // refer to `parse_dollar_expr` function
+                        // the expression type of $variable_name, $"($variable_name)"
+                        // will be Expr::StringInterpolation, Expr::FullCellPath
+                        Expr::StringInterpolation(_) | Expr::FullCellPath(_) => {
+                            arg_keep_raw.push(true)
+                        }
+                        _ => arg_keep_raw.push(false),
+                    }
                 }
-                {}
             }
         }
     }
@@ -198,82 +216,69 @@ impl ExternalCommand {
 
         #[allow(unused_mut)]
         let (cmd, mut reader) = self.create_process(&input, false, head)?;
-        let mut fg_process =
-            ForegroundProcess::new(cmd, engine_state.pipeline_externals_state.clone());
-        // mut is used in the windows branch only, suppress warning on other platforms
-        #[allow(unused_mut)]
-        let mut child;
+
+        #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
+        let child = ForegroundChild::spawn(cmd);
 
         #[cfg(windows)]
-        {
-            // Running external commands on Windows has 2 points of complication:
-            // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-            // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+        let child = match ForegroundChild::spawn(cmd) {
+            Ok(child) => Ok(child),
+            Err(err) => {
+                // Running external commands on Windows has 2 points of complication:
+                // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+                // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
 
-            // To support these situations, we have a fallback path that gets run if a command
-            // fails to be run as a normal executable:
-            // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-            // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-            match fg_process.spawn(engine_state.is_interactive) {
-                Err(err) => {
-                    // set the default value, maybe we'll override it later
-                    child = Err(err);
+                // To support these situations, we have a fallback path that gets run if a command
+                // fails to be run as a normal executable:
+                // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+                // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
 
-                    // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                    const CMD_INTERNAL_COMMANDS: [&str; 9] = [
-                        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
-                    ];
-                    let command_name = &self.name.item;
-                    let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
-                        .iter()
-                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+                // set the default value, maybe we'll override it later
+                let mut child = Err(err);
 
-                    if looks_like_cmd_internal {
-                        let (cmd, new_reader) = self.create_process(&input, true, head)?;
-                        reader = new_reader;
-                        let mut cmd_process = ForegroundProcess::new(
-                            cmd,
-                            engine_state.pipeline_externals_state.clone(),
-                        );
-                        child = cmd_process.spawn(engine_state.is_interactive);
-                    } else {
-                        #[cfg(feature = "which-support")]
+                // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+                // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+                    "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+                ];
+                let command_name = &self.name.item;
+                let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+                    .iter()
+                    .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+
+                if looks_like_cmd_internal {
+                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                    reader = new_reader;
+                    child = ForegroundChild::spawn(cmd);
+                } else {
+                    #[cfg(feature = "which-support")]
+                    {
+                        // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                        // TODO: clean this up with an if-let chain once those are stable
+                        if let Ok(path) =
+                            nu_engine::env::path_str(engine_state, stack, self.name.span)
                         {
-                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                            // TODO: clean this up with an if-let chain once those are stable
-                            if let Ok(path) =
-                                nu_engine::env::path_str(engine_state, stack, self.name.span)
-                            {
-                                if let Some(cwd) = self.env_vars.get("PWD") {
-                                    // append cwd to PATH so `which-rs` looks in the cwd too.
-                                    // this approximates what cmd.exe does.
-                                    let path_with_cwd = format!("{};{}", cwd, path);
-                                    if let Ok(which_path) =
-                                        which::which_in(&self.name.item, Some(path_with_cwd), cwd)
-                                    {
-                                        if let Some(file_name) = which_path.file_name() {
-                                            if !file_name
-                                                .to_string_lossy()
-                                                .eq_ignore_case(command_name)
-                                            {
-                                                // which-rs found an executable file with a slightly different name
-                                                // than the one the user tried. Let's try running it
-                                                let mut new_command = self.clone();
-                                                new_command.name = Spanned {
-                                                    item: file_name.to_string_lossy().to_string(),
-                                                    span: self.name.span,
-                                                };
-                                                let (cmd, new_reader) = new_command
-                                                    .create_process(&input, true, head)?;
-                                                reader = new_reader;
-                                                let mut cmd_process = ForegroundProcess::new(
-                                                    cmd,
-                                                    engine_state.pipeline_externals_state.clone(),
-                                                );
-                                                child =
-                                                    cmd_process.spawn(engine_state.is_interactive);
-                                            }
+                            if let Some(cwd) = self.env_vars.get("PWD") {
+                                // append cwd to PATH so `which-rs` looks in the cwd too.
+                                // this approximates what cmd.exe does.
+                                let path_with_cwd = format!("{};{}", cwd, path);
+                                if let Ok(which_path) =
+                                    which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                                {
+                                    if let Some(file_name) = which_path.file_name() {
+                                        if !file_name.to_string_lossy().eq_ignore_case(command_name)
+                                        {
+                                            // which-rs found an executable file with a slightly different name
+                                            // than the one the user tried. Let's try running it
+                                            let mut new_command = self.clone();
+                                            new_command.name = Spanned {
+                                                item: file_name.to_string_lossy().to_string(),
+                                                span: self.name.span,
+                                            };
+                                            let (cmd, new_reader) =
+                                                new_command.create_process(&input, true, head)?;
+                                            reader = new_reader;
+                                            child = ForegroundChild::spawn(cmd);
                                         }
                                     }
                                 }
@@ -281,16 +286,17 @@ impl ExternalCommand {
                         }
                     }
                 }
-                Ok(process) => {
-                    child = Ok(process);
-                }
-            }
-        }
 
-        #[cfg(not(windows))]
-        {
-            child = fg_process.spawn(engine_state.is_interactive)
-        }
+                child
+            }
+        };
+
+        #[cfg(unix)]
+        let child = ForegroundChild::spawn(
+            cmd,
+            engine_state.is_interactive,
+            &engine_state.pipeline_externals_state,
+        );
 
         match child {
             Err(err) => {

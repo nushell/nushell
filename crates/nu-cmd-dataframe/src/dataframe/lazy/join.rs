@@ -171,9 +171,9 @@ impl Command for LazyJoin {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let left = call.has_flag("left");
-        let outer = call.has_flag("outer");
-        let cross = call.has_flag("cross");
+        let left = call.has_flag(engine_state, stack, "left")?;
+        let outer = call.has_flag(engine_state, stack, "outer")?;
+        let cross = call.has_flag(engine_state, stack, "cross")?;
 
         let how = if left {
             JoinType::Left

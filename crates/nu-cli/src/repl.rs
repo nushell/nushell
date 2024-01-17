@@ -32,7 +32,7 @@ use std::{
     sync::atomic::Ordering,
     time::Instant,
 };
-use sysinfo::SystemExt;
+use sysinfo::System;
 
 // According to Daniel Imms @Tyriar, we need to do these this way:
 // <133 A><prompt><133 B><command><133 C><command output>
@@ -128,17 +128,6 @@ pub fn evaluate_repl(
     };
     perf(
         "setup history",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
-
-    start_time = std::time::Instant::now();
-    let sys = sysinfo::System::new();
-    perf(
-        "get sysinfo",
         start_time,
         file!(),
         line!(),
@@ -428,7 +417,7 @@ pub fn evaluate_repl(
 
         match input {
             Ok(Signal::Success(s)) => {
-                let hostname = sys.host_name();
+                let hostname = System::host_name();
                 let history_supports_meta =
                     matches!(config.history_file_format, HistoryFileFormat::Sqlite);
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
@@ -556,6 +545,26 @@ pub fn evaluate_repl(
                                     drop(line_editor);
                                     std::process::exit(0);
                                 }
+                            }
+                        }
+                    }
+
+                    if shell_integration {
+                        if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+                            let path = cwd.as_string()?;
+
+                            // Try to abbreviate string for windows title
+                            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                                path.replace(&p.as_path().display().to_string(), "~")
+                            } else {
+                                path
+                            };
+                            let binary_name = s.split_whitespace().next();
+
+                            if let Some(binary_name) = binary_name {
+                                run_ansi_sequence(&format!(
+                                    "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
+                                ))?;
                             }
                         }
                     }

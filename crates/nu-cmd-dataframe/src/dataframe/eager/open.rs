@@ -147,7 +147,7 @@ fn from_parquet(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy") {
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let args = ScanArgsParquet {
             n_rows: None,
@@ -246,7 +246,7 @@ fn from_ipc(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<Value, ShellError> {
-    if call.has_flag("lazy") {
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let args = ScanArgsIpc {
             n_rows: None,
@@ -389,7 +389,7 @@ fn from_csv(
     call: &Call,
 ) -> Result<Value, ShellError> {
     let delimiter: Option<Spanned<String>> = call.get_flag(engine_state, stack, "delimiter")?;
-    let no_header: bool = call.has_flag("no-header");
+    let no_header: bool = call.has_flag(engine_state, stack, "no-header")?;
     let infer_schema: Option<usize> = call.get_flag(engine_state, stack, "infer-schema")?;
     let skip_rows: Option<usize> = call.get_flag(engine_state, stack, "skip-rows")?;
     let columns: Option<Vec<String>> = call.get_flag(engine_state, stack, "columns")?;
@@ -399,7 +399,7 @@ fn from_csv(
         .map(|schema| NuSchema::try_from(&schema))
         .transpose()?;
 
-    if call.has_flag("lazy") {
+    if call.has_flag(engine_state, stack, "lazy")? {
         let file: String = call.req(engine_state, stack, 0)?;
         let csv_reader = LazyCsvReader::new(file);
 

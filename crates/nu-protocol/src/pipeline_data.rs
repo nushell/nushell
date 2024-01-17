@@ -4,6 +4,7 @@ use crate::{
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
+use std::path::PathBuf;
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 
@@ -62,6 +63,7 @@ pub struct PipelineMetadata {
 pub enum DataSource {
     Ls,
     HtmlThemes,
+    FilePath(PathBuf),
 }
 
 impl PipelineData {
@@ -859,10 +861,13 @@ pub fn print_if_stream(
     // NOTE: currently we don't need anything from stderr
     // so we just consume and throw away `stderr_stream` to make sure the pipe doesn't fill up
 
-    thread::Builder::new()
-        .name("stderr consumer".to_string())
-        .spawn(move || stderr_stream.map(|x| x.into_bytes()))
-        .expect("could not create thread");
+    if let Some(stderr_stream) = stderr_stream {
+        thread::Builder::new()
+            .name("stderr consumer".to_string())
+            .spawn(move || stderr_stream.into_bytes())
+            .expect("could not create thread");
+    }
+
     if let Some(stream) = stream {
         for s in stream {
             let s_live = s?;

@@ -86,6 +86,12 @@ impl Command for Metadata {
                         PipelineMetadata {
                             data_source: DataSource::HtmlThemes,
                         } => record.push("source", Value::string("into html --list", head)),
+                        PipelineMetadata {
+                            data_source: DataSource::FilePath(path),
+                        } => record.push(
+                            "source",
+                            Value::string(path.to_string_lossy().to_string(), head),
+                        ),
                     }
                 }
 
@@ -133,6 +139,12 @@ fn build_metadata_record(arg: &Value, metadata: Option<&PipelineMetadata>, head:
             PipelineMetadata {
                 data_source: DataSource::HtmlThemes,
             } => record.push("source", Value::string("into html --list", head)),
+            PipelineMetadata {
+                data_source: DataSource::FilePath(path),
+            } => record.push(
+                "source",
+                Value::string(path.to_string_lossy().to_string(), head),
+            ),
         }
     }
 

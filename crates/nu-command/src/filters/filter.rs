@@ -31,7 +31,6 @@ a variable. On the other hand, the "row condition" syntax is not supported."#
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Table(vec![]), Type::Table(vec![])),
                 (Type::Range, Type::List(Box::new(Type::Any))),
             ])
             .required(

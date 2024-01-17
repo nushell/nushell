@@ -85,7 +85,7 @@ There are 4 `key_type` variants:
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
-        let add_raw = call.has_flag("raw");
+        let add_raw = call.has_flag(engine_state, stack, "raw")?;
 
         terminal::enable_raw_mode()?;
         let console_state = event_type_filter.enable_events()?;

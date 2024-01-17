@@ -32,7 +32,7 @@ impl Plugin for Query {
             )
             .named(
                 "as-table",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "find table based on column header list",
                 Some('t'),
             )
@@ -48,6 +48,7 @@ impl Plugin for Query {
     fn run(
         &mut self,
         name: &str,
+        _config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {

@@ -508,9 +508,7 @@ impl Command for AnsiCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("ansi")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Table(vec![]))])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .optional(
                 "code",
                 SyntaxShape::Any,
@@ -653,9 +651,9 @@ Operating system commands:
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list: bool = call.has_flag("list");
-        let escape: bool = call.has_flag("escape");
-        let osc: bool = call.has_flag("osc");
+        let list: bool = call.has_flag(engine_state, stack, "list")?;
+        let escape: bool = call.has_flag(engine_state, stack, "escape")?;
+        let osc: bool = call.has_flag(engine_state, stack, "osc")?;
         let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
 
         if list {

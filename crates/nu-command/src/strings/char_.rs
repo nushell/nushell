@@ -158,10 +158,7 @@ impl Command for Char {
 
     fn signature(&self) -> Signature {
         Signature::build("char")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .optional(
                 "character",
                 SyntaxShape::Any,
@@ -229,7 +226,7 @@ impl Command for Char {
     ) -> Result<PipelineData, ShellError> {
         let call_span = call.head;
         // handle -l flag
-        if call.has_flag("list") {
+        if call.has_flag(engine_state, stack, "list")? {
             return Ok(CHAR_MAP
                 .iter()
                 .map(move |(name, s)| {
@@ -251,7 +248,7 @@ impl Command for Char {
                 .into_pipeline_data(engine_state.ctrlc.clone()));
         }
         // handle -u flag
-        if call.has_flag("integer") {
+        if call.has_flag(engine_state, stack, "integer")? {
             let args: Vec<i64> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
                 return Err(ShellError::MissingParameter {
@@ -268,7 +265,7 @@ impl Command for Char {
                 multi_byte.push(integer_to_unicode_char(arg, span)?)
             }
             Ok(Value::string(multi_byte, call_span).into_pipeline_data())
-        } else if call.has_flag("unicode") {
+        } else if call.has_flag(engine_state, stack, "unicode")? {
             let args: Vec<String> = call.rest(engine_state, stack, 0)?;
             if args.is_empty() {
                 return Err(ShellError::MissingParameter {

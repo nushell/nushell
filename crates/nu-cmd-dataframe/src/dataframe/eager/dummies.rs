@@ -1,4 +1,5 @@
 use super::super::values::NuDataFrame;
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -78,12 +79,12 @@ impl Command for Dummies {
 }
 
 fn command(
-    _engine_state: &EngineState,
-    _stack: &mut Stack,
+    engine_state: &EngineState,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let drop_first: bool = call.has_flag("drop-first");
+    let drop_first: bool = call.has_flag(engine_state, stack, "drop-first")?;
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
     df.as_ref()

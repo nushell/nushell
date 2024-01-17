@@ -3,6 +3,22 @@ use nu_protocol::{Record, Value};
 pub struct Example;
 
 impl Example {
+    pub fn config(
+        &self,
+        config: &Option<Value>,
+        call: &EvaluatedCall,
+    ) -> Result<Value, LabeledError> {
+        match config {
+            Some(config) => Ok(config.clone()),
+            None => Err(LabeledError {
+                label: "No config sent".into(),
+                msg: "Configuration for this plugin was not found in `$env.config.plugins.example`"
+                    .into(),
+                span: Some(call.head),
+            }),
+        }
+    }
+
     fn print_values(
         &self,
         index: u32,

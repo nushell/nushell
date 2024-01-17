@@ -100,7 +100,7 @@ fn dataframe_command(
     input: Value,
 ) -> Result<PipelineData, ShellError> {
     let rows: Option<usize> = call.get_flag(engine_state, stack, "rows")?;
-    let tail: bool = call.has_flag("tail");
+    let tail: bool = call.has_flag(engine_state, stack, "tail")?;
 
     let df = NuDataFrame::try_from_value(input)?;
 

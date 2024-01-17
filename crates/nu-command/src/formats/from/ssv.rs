@@ -289,8 +289,8 @@ fn from_ssv(
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
 
-    let noheaders = call.has_flag("noheaders");
-    let aligned_columns = call.has_flag("aligned-columns");
+    let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
+    let aligned_columns = call.has_flag(engine_state, stack, "aligned-columns")?;
     let minimum_spaces: Option<Spanned<usize>> =
         call.get_flag(engine_state, stack, "minimum-spaces")?;
 

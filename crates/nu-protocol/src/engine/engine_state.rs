@@ -712,6 +712,14 @@ impl EngineState {
         self.config = conf;
     }
 
+    /// Fetch the configuration for a plugin
+    ///
+    /// The `plugin` must match the registered name of a plugin.  For `register nu_plugin_example`
+    /// the plugin name to use will be `"example"`
+    pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
+        self.config.plugins.get(plugin)
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id)
@@ -971,5 +979,28 @@ mod engine_state_tests {
             .collect::<Result<Vec<&str>, Utf8Error>>()?;
         assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())
+    }
+
+    #[test]
+    fn get_plugin_config() {
+        let mut engine_state = EngineState::new();
+
+        assert!(
+            engine_state.get_plugin_config("example").is_none(),
+            "Unexpected plugin configuration"
+        );
+
+        let mut plugins = HashMap::new();
+        plugins.insert("example".into(), Value::string("value", Span::test_data()));
+
+        let mut config = engine_state.get_config().clone();
+        config.plugins = plugins;
+
+        engine_state.set_config(config);
+
+        assert!(
+            engine_state.get_plugin_config("example").is_some(),
+            "Plugin configuration not found"
+        );
     }
 }

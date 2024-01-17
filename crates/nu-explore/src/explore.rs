@@ -64,9 +64,9 @@ impl Command for Explore {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let show_head: bool = call.get_flag(engine_state, stack, "head")?.unwrap_or(true);
-        let show_index: bool = call.has_flag("index");
-        let is_reverse: bool = call.has_flag("reverse");
-        let peek_value: bool = call.has_flag("peek");
+        let show_index: bool = call.has_flag(engine_state, stack, "index")?;
+        let is_reverse: bool = call.has_flag(engine_state, stack, "reverse")?;
+        let peek_value: bool = call.has_flag(engine_state, stack, "peek")?;
 
         let ctrlc = engine_state.ctrlc.clone();
         let nu_config = engine_state.get_config();
