@@ -77,10 +77,10 @@ impl Command for UMv {
         // -i, --interactive            prompt before overwrite
         // v, --verbose                explain what is being done
 
-        let interactive = call.has_flag("interactive");
-        let no_clobber = call.has_flag("no-clobber");
-        let progress = call.has_flag("progress");
-        let verbose = call.has_flag("verbose");
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let overwrite = if no_clobber {
             uu_mv::OverwriteMode::NoClobber
         } else if interactive {
