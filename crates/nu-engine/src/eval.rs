@@ -4,6 +4,7 @@ use nu_path::expand_path_with;
 use nu_protocol::engine::debugger::{
     BasicDebugger, DebugContext, Debugger, WithDebug, WithoutDebug,
 };
+use nu_protocol::Value::List;
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -17,7 +18,6 @@ use nu_protocol::{
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use nu_protocol::Value::List;
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -28,7 +28,11 @@ pub fn eval_call(
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
     let cname = engine_state.get_decl(call.decl_id).name();
-    println!("call {}, should debug: {}", cname, debug_context.should_debug());
+    println!(
+        "call {}, should debug: {}",
+        cname,
+        debug_context.should_debug()
+    );
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
     }
@@ -333,7 +337,11 @@ pub fn eval_expression_with_input(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    println!("expression {}, should debug: {}", String::from_utf8_lossy(engine_state.get_span_contents(expr.span)), debug_context.should_debug());
+    println!(
+        "expression {}, should debug: {}",
+        String::from_utf8_lossy(engine_state.get_span_contents(expr.span)),
+        debug_context.should_debug()
+    );
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -424,7 +432,11 @@ fn eval_element_with_input(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    println!("element {}, should debug: {}", String::from_utf8_lossy(engine_state.get_span_contents(element.span())), debug_context.should_debug());
+    println!(
+        "element {}, should debug: {}",
+        String::from_utf8_lossy(engine_state.get_span_contents(element.span())),
+        debug_context.should_debug()
+    );
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
             engine_state,
