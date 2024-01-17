@@ -293,11 +293,9 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "umv mydir mydir/mydir_2/"
         );
-        if !actual
-            .err
-            .contains(format!("cannot move '{}'", dirs.test().join("mydir").display()).as_str())
-        {
-            panic!("Failure: stderr was \n{}", actual.err);
+        let expected_error = format!("cannot move '{}'", dirs.test().join("mydir").display());
+        if !actual.err.contains(expected_error.as_str()) {
+            panic!("Failure: expected err was \n{}", expected_error);
         }
         assert!(actual.err.contains("to a subdirectory of"));
     });
@@ -448,15 +446,15 @@ fn mv_change_case_of_directory() {
 
         // Doing this instead of `Path::exists()` because we need to check file existence in
         // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
-        let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+        let _files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
 
         #[cfg(target_os = "linux")]
         assert!(
-            !files_in_test_directory.contains(&original_dir)
-                && files_in_test_directory.contains(&new_dir)
+            !_files_in_test_directory.contains(&original_dir)
+                && _files_in_test_directory.contains(&new_dir)
         );
 
         #[cfg(target_os = "linux")]
@@ -485,15 +483,15 @@ fn mv_change_case_of_file() {
 
         // Doing this instead of `Path::exists()` because we need to check file existence in
         // a case-sensitive way. `Path::exists()` is understandably case-insensitive on NTFS
-        let files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
+        let _files_in_test_directory: Vec<String> = std::fs::read_dir(dirs.test())
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
         // in macOS this assert below fails, but ubuntu passes. Windows???
         #[cfg(target_os = "linux")]
         assert!(
-            !files_in_test_directory.contains(&original_file_name)
-                && files_in_test_directory.contains(&new_file_name)
+            !_files_in_test_directory.contains(&original_file_name)
+                && _files_in_test_directory.contains(&new_file_name)
         );
         // assert!(files_in_test_directory.contains(&new_file_name));
         #[cfg(not(target_os = "linux"))]
@@ -552,11 +550,9 @@ fn test_mv_no_clobber() {
         // assert!(actual.err.contains(
         //     format!("not replacing '{}'\n", dirs.test().join(file_b).display()).as_str()
         // ));
-        if !actual
-            .err
-            .contains(format!("not replacing '{}'\n", dirs.test().join(file_b).display()).as_str())
-        {
-            panic!("Failure: stderr was \n{}", actual.err);
+        let expected_error = format!("not replacing '{}'\n", dirs.test().join(file_b).display());
+        if !actual.err.contains(expected_error.as_str()) {
+            panic!("Failure: stderr was \n{}", expected_error);
         }
     })
 }
