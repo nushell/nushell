@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use nu_engine::{eval_block, redirect_env, CallExt};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
@@ -7,6 +6,7 @@ use nu_protocol::{
     Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
     Value,
 };
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct Collect;
@@ -120,9 +120,9 @@ impl Command for Collect {
             call.redirect_stdout,
             call.redirect_stderr,
             WithDebug,
-            &Some(debugger)
+            &Some(debugger),
         )
-            .map(|x| x.set_metadata(metadata));
+        .map(|x| x.set_metadata(metadata));
 
         if call.has_flag(engine_state, stack, "keep-env")? {
             redirect_env(engine_state, stack, &stack_captures);
