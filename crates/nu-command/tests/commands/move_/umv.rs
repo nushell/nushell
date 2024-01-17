@@ -204,17 +204,12 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.test(),
             "umv non-existing-file test_folder/"
         );
-        // assert!(actual.err.contains("File(s) not found"));
         assert!(actual.err.contains("file not found"));
     })
 }
 
 #[test]
 #[ignore = "GNU/uutils overwrites rather than error out"]
-// touch a b
-// mv a b
-// uutils a b
-// ^mv a b
 fn error_if_moving_to_existing_file_without_force() {
     Playground::setup("umv_test_10_0", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("andres.txt"), EmptyFile("jttxt")]);
@@ -234,9 +229,6 @@ fn errors_if_destination_doesnt_exist() {
 
         let actual = nu!(
             cwd: dirs.test(),
-            // Discuss here since do/not is considered as a file instead
-            // in both GNU and uutils
-            // THus it will still fail but with different error message
             "umv empty.txt does/not/exist/"
         );
 
@@ -246,7 +238,6 @@ fn errors_if_destination_doesnt_exist() {
 
 #[test]
 #[ignore = "GNU/uutils doesnt expand, rather cannot stat 'file?.txt'"]
-// what to do about differing behavior?
 fn errors_if_multiple_sources_but_destination_not_a_directory() {
     Playground::setup("umv_test_10_2", |dirs, sandbox| {
         sandbox.with_files(vec![
@@ -277,8 +268,6 @@ fn errors_if_renaming_directory_to_an_existing_file() {
             cwd: dirs.test(),
             "umv mydir empty.txt"
         );
-
-        // assert!(actual.err.contains("Can't move a directory"),);
         assert!(actual.err.contains("cannot overwrite non-directory"),);
         assert!(actual.err.contains("with directory"),);
     })
@@ -293,8 +282,7 @@ fn errors_if_moving_to_itself() {
             cwd: dirs.test(),
             "umv mydir mydir/mydir_2/"
         );
-        let expected_error = "cannot move";
-        assert!(actual.err.contains(expected_error));
+        assert!(actual.err.contains("cannot move"));
         assert!(actual.err.contains("to a subdirectory of"));
     });
 }
@@ -416,8 +404,6 @@ fn mv_directory_with_same_name() {
                  umv testdir ..
             "#
         );
-
-        // assert!(actual.err.contains("is not empty"));
         assert!(actual.err.contains("Directory not empty"));
     })
 }
@@ -426,8 +412,9 @@ fn mv_directory_with_same_name() {
 // Test that changing the case of a file/directory name works;
 // this is an important edge case on Windows (and any other case-insensitive file systems).
 // We were bitten badly by this once: https://github.com/nushell/nushell/issues/6583
-// Currently as we are using `uutils` this should succeed on Linux, but fail on both
-// macOS and Windows.
+
+// Currently as we are using `uutils` and have no say in the behavior, this should succeed on Linux,
+// but fail on both macOS and Windows.
 fn mv_change_case_of_directory() {
     Playground::setup("mv_change_case_of_directory", |dirs, sandbox| {
         sandbox
@@ -467,6 +454,8 @@ fn mv_change_case_of_directory() {
 }
 
 #[test]
+// Currently as we are using `uutils` and have no say in the behavior, this should succeed on Linux,
+// but fail on both macOS and Windows.
 fn mv_change_case_of_file() {
     Playground::setup("mv_change_case_of_file", |dirs, sandbox| {
         sandbox.with_files(vec![EmptyFile("somefile.txt")]);
@@ -485,13 +474,11 @@ fn mv_change_case_of_file() {
             .unwrap()
             .map(|de| de.unwrap().file_name().to_string_lossy().into_owned())
             .collect();
-        // in macOS this assert below fails, but ubuntu passes. Windows???
         #[cfg(target_os = "linux")]
         assert!(
             !_files_in_test_directory.contains(&original_file_name)
                 && _files_in_test_directory.contains(&new_file_name)
         );
-        // assert!(files_in_test_directory.contains(&new_file_name));
         #[cfg(not(target_os = "linux"))]
         _actual.err.contains("are the same file");
     })
@@ -525,11 +512,6 @@ fn mv_with_update_flag() {
     });
 }
 
-// ABOVE ARE ALL THE NUSHELL TESTS. START SOME OF THE UUTILS TESTS BELOW
-// COVER FLAGS NOT COVERED ON NU
-// -n, --no-clobber
-// -i, --interactive //TODO? How to test this?
-// --progress? Not sure is doing anything either on uutils
 #[test]
 fn test_mv_no_clobber() {
     Playground::setup("umv_test_13", |dirs, sandbox| {
@@ -590,10 +572,6 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
         let src = dirs.test().join(src_name);
 
-        // -- open command doesn't like file name
-        //// Get the hash of the file content to check integrity after copy.
-        //let src_hash = get_file_hash(src.display());
-
         let actual = nu!(
             cwd: dirs.test(),
             "umv {} {}",
@@ -603,10 +581,6 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
         assert!(actual.err.is_empty());
         assert!(dirs.test().join("hello_world_dest").exists());
-
-        //// Get the hash of the copied file content to check against first_hash.
-        //let after_cp_hash = get_file_hash(dirs.test().join(TEST_HELLO_WORLD_DEST).display());
-        //assert_eq!(src_hash, after_cp_hash);
     });
 }
 

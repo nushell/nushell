@@ -72,11 +72,6 @@ impl Command for UMv {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        //MVPS
-        // -f, --force                  do not prompt before overwriting
-        // -i, --interactive            prompt before overwrite
-        // v, --verbose                explain what is being done
-
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
