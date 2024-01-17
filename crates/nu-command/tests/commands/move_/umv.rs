@@ -294,6 +294,8 @@ fn errors_if_moving_to_itself() {
             "umv mydir mydir/mydir_2/"
         );
         let expected_error = format!("cannot move '{}'", dirs.test().join("mydir").display());
+        // will this solve it? who knows
+        let expected_error = expected_error.replace("\n", "");
         if !actual.err.contains(expected_error.as_str()) {
             panic!("Failure: expected err was \n{}", expected_error);
         }
@@ -552,7 +554,10 @@ fn test_mv_no_clobber() {
         // ));
         // let expected_error = format!("not replacing '{}'\n", dirs.test().join(file_b).display());
         let expected_error = format!("not replacing '{}'", dirs.test().join(file_b).display());
-        if !actual.err.contains(expected_error.as_str()) {
+        // apparently this contains a new line that is driving me INSANE, so i need to replace it
+        // on ubuntu it runs just fine, but in macos it fails due to new line on string ?????
+        let expected_error = expected_error.replace("\n", "");
+        if !actual.err.contains(&expected_error) {
             panic!("Failure: stderr was \n{}", expected_error);
         }
     })
