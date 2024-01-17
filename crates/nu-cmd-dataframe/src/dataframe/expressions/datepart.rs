@@ -47,10 +47,13 @@ impl Command for ExprDatePart {
                 description: "Creates an expression to capture the year date part",
                 example: r#"[["2021-12-30T01:02:03.123456789"]] | dfr into-df | dfr as-datetime "%Y-%m-%dT%H:%M:%S.%9f" | dfr with-column [(dfr col datetime | dfr datepart year | dfr as datetime_year )]"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
-                        Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
+                            Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -66,16 +69,22 @@ impl Command for ExprDatePart {
                 (dfr col datetime | dfr datepart second | dfr as datetime_second ),
                 (dfr col datetime | dfr datepart nanosecond | dfr as datetime_ns ) ]"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
-                        Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
-                        Column::new("datetime_month".to_string(), vec![Value::test_int(12)]),
-                        Column::new("datetime_day".to_string(), vec![Value::test_int(30)]),
-                        Column::new("datetime_hour".to_string(), vec![Value::test_int(1)]),
-                        Column::new("datetime_minute".to_string(), vec![Value::test_int(2)]),
-                        Column::new("datetime_second".to_string(), vec![Value::test_int(3)]),
-                        Column::new("datetime_ns".to_string(), vec![Value::test_int(123456789)]),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("datetime".to_string(), vec![Value::test_date(dt)]),
+                            Column::new("datetime_year".to_string(), vec![Value::test_int(2021)]),
+                            Column::new("datetime_month".to_string(), vec![Value::test_int(12)]),
+                            Column::new("datetime_day".to_string(), vec![Value::test_int(30)]),
+                            Column::new("datetime_hour".to_string(), vec![Value::test_int(1)]),
+                            Column::new("datetime_minute".to_string(), vec![Value::test_int(2)]),
+                            Column::new("datetime_second".to_string(), vec![Value::test_int(3)]),
+                            Column::new(
+                                "datetime_ns".to_string(),
+                                vec![Value::test_int(123456789)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

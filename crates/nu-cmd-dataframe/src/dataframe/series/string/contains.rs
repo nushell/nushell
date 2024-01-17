@@ -39,14 +39,17 @@ impl Command for Contains {
             description: "Returns boolean indicating if pattern was found",
             example: "[abc acb acb] | dfr into-df | dfr contains ab",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                        Value::test_bool(false),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_bool(true),
+                            Value::test_bool(false),
+                            Value::test_bool(false),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

@@ -3,8 +3,9 @@ use std::sync::Arc;
 use nu_protocol::{Record, ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaRef, TimeUnit};
 
+#[derive(Debug, Clone)]
 pub struct NuSchema {
-    schema: SchemaRef,
+    pub schema: SchemaRef,
 }
 
 impl NuSchema {

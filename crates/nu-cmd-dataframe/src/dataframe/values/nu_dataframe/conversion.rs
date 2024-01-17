@@ -17,6 +17,8 @@ use polars::prelude::{
 
 use nu_protocol::{Record, ShellError, Span, Value};
 
+use crate::dataframe::values::NuSchema;
+
 use super::{DataFrameValue, NuDataFrame};
 
 const NANOS_PER_DAY: i64 = 86_400_000_000_000;
@@ -164,9 +166,13 @@ pub fn add_separator(values: &mut Vec<Value>, df: &DataFrame, span: Span) {
 }
 
 // Inserting the values found in a Value::List or Value::Record
-pub fn insert_record(column_values: &mut ColumnMap, record: Record) -> Result<(), ShellError> {
+pub fn insert_record(
+    column_values: &mut ColumnMap,
+    record: Record,
+    maybe_schema: &Option<NuSchema>,
+) -> Result<(), ShellError> {
     for (col, value) in record {
-        insert_value(value, col, column_values)?;
+        insert_value(value, col, column_values, maybe_schema)?;
     }
 
     Ok(())
@@ -176,16 +182,26 @@ pub fn insert_value(
     value: Value,
     key: String,
     column_values: &mut ColumnMap,
+    maybe_schema: &Option<NuSchema>,
 ) -> Result<(), ShellError> {
     let col_val = match column_values.entry(key.clone()) {
-        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key)),
+        Entry::Vacant(entry) => entry.insert(TypedColumn::new_empty(key.clone())),
         Entry::Occupied(entry) => entry.into_mut(),
     };
 
     // Checking that the type for the value is the same
     // for the previous value in the column
     if col_val.values.is_empty() {
-        col_val.column_type = Some(value_to_input_type(&value));
+        if let Some(schema) = maybe_schema {
+            if let Some(field) = schema.schema.get_field(&key) {
+                col_val.column_type = Some(field.data_type().clone());
+            }
+        }
+
+        if col_val.column_type.is_none() {
+            col_val.column_type = Some(value_to_input_type(&value));
+        }
+
         col_val.values.push(value);
     } else {
         let prev_value = &col_val.values[col_val.values.len() - 1];
@@ -245,7 +261,6 @@ fn value_to_input_type(value: &Value) -> DataType {
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
 pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, ShellError> {
-    println!("column_values: {:?}", column_values);
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
         if let Some(column_type) = &column.column_type {

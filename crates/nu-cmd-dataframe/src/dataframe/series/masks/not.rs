@@ -34,14 +34,17 @@ impl Command for NotSeries {
             description: "Inverts boolean mask",
             example: "[true false true] | dfr into-df | dfr not",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_bool(false),
-                        Value::test_bool(true),
-                        Value::test_bool(false),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_bool(false),
+                            Value::test_bool(true),
+                            Value::test_bool(false),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

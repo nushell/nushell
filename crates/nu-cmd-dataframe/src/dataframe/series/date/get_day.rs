@@ -35,10 +35,13 @@ impl Command for GetDay {
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-day"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(4), Value::test_int(4)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(4), Value::test_int(4)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

@@ -34,10 +34,13 @@ impl Command for ShapeDF {
             description: "Shows row and column shape",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr shape",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("rows".to_string(), vec![Value::test_int(2)]),
-                    Column::new("columns".to_string(), vec![Value::test_int(2)]),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("rows".to_string(), vec![Value::test_int(2)]),
+                        Column::new("columns".to_string(), vec![Value::test_int(2)]),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -70,7 +73,7 @@ fn command(
     let rows_col = Column::new("rows".to_string(), vec![rows]);
     let cols_col = Column::new("columns".to_string(), vec![cols]);
 
-    NuDataFrame::try_from_columns(vec![rows_col, cols_col])
+    NuDataFrame::try_from_columns(vec![rows_col, cols_col], None)
         .map(|df| PipelineData::Value(df.into_value(call.head), None))
 }
 

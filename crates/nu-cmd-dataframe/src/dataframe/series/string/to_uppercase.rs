@@ -37,14 +37,17 @@ impl Command for ToUpperCase {
             description: "Modifies strings to uppercase",
             example: "[Abc aBc abC] | dfr into-df | dfr uppercase",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("ABC"),
-                        Value::test_string("ABC"),
-                        Value::test_string("ABC"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("ABC"),
+                            Value::test_string("ABC"),
+                            Value::test_string("ABC"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

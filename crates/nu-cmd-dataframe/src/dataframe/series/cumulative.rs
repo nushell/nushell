@@ -69,16 +69,19 @@ impl Command for Cumulative {
             description: "Cumulative sum for a series",
             example: "[1 2 3 4 5] | dfr into-df | dfr cumulative sum",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0_cumulative_sum".to_string(),
-                    vec![
-                        Value::test_int(1),
-                        Value::test_int(3),
-                        Value::test_int(6),
-                        Value::test_int(10),
-                        Value::test_int(15),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0_cumulative_sum".to_string(),
+                        vec![
+                            Value::test_int(1),
+                            Value::test_int(3),
+                            Value::test_int(6),
+                            Value::test_int(10),
+                            Value::test_int(15),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

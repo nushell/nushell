@@ -37,16 +37,19 @@ impl Command for LazyFillNull {
             description: "Fills the null values by 0",
             example: "[1 2 2 3 3] | dfr into-df | dfr shift 2 | dfr fill-null 0",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_int(0),
-                        Value::test_int(0),
-                        Value::test_int(1),
-                        Value::test_int(2),
-                        Value::test_int(2),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_int(0),
+                            Value::test_int(0),
+                            Value::test_int(1),
+                            Value::test_int(2),
+                            Value::test_int(2),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

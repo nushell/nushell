@@ -38,10 +38,13 @@ impl Command for LazyQuantile {
             description: "quantile value from columns in a dataframe",
             example: "[[a b]; [6 2] [1 4] [4 1]] | dfr into-df | dfr quantile 0.5",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_float(4.0)]),
-                    Column::new("b".to_string(), vec![Value::test_float(2.0)]),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_float(4.0)]),
+                        Column::new("b".to_string(), vec![Value::test_float(2.0)]),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

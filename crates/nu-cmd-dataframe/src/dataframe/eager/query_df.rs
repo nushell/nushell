@@ -44,10 +44,13 @@ impl Command for QueryDf {
             description: "Query dataframe using SQL",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr query 'select a from df'",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(1), Value::test_int(3)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(1), Value::test_int(3)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

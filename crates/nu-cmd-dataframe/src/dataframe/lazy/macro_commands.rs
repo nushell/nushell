@@ -124,16 +124,19 @@ lazy_command!(
         description: "Reverses the dataframe.",
         example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr reverse",
         result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new(
-                    "a".to_string(),
-                    vec![Value::test_int(2), Value::test_int(4), Value::test_int(6),],
-                ),
-                Column::new(
-                    "b".to_string(),
-                    vec![Value::test_int(2), Value::test_int(2), Value::test_int(2),],
-                ),
-            ])
+            NuDataFrame::try_from_columns(
+                vec![
+                    Column::new(
+                        "a".to_string(),
+                        vec![Value::test_int(2), Value::test_int(4), Value::test_int(6),],
+                    ),
+                    Column::new(
+                        "b".to_string(),
+                        vec![Value::test_int(2), Value::test_int(2), Value::test_int(2),],
+                    ),
+                ],
+                None
+            )
             .expect("simple df for test should not fail")
             .into_value(Span::test_data()),
         ),
@@ -167,10 +170,13 @@ lazy_command!(
         description: "Median value from columns in a dataframe",
         example: "[[a b]; [6 2] [4 2] [2 2]] | dfr into-df | dfr median",
         result: Some(
-            NuDataFrame::try_from_columns(vec![
-                Column::new("a".to_string(), vec![Value::test_float(4.0)],),
-                Column::new("b".to_string(), vec![Value::test_float(2.0)],),
-            ])
+            NuDataFrame::try_from_columns(
+                vec![
+                    Column::new("a".to_string(), vec![Value::test_float(4.0)],),
+                    Column::new("b".to_string(), vec![Value::test_float(2.0)],),
+                ],
+                None
+            )
             .expect("simple df for test should not fail")
             .into_value(Span::test_data()),
         ),

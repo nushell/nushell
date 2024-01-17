@@ -36,14 +36,17 @@ impl Command for StrSlice {
             description: "Creates slices from the strings",
             example: "[abcded abc321 abc123] | dfr into-df | dfr str-slice 1 --length 2",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
-                        Value::test_string("bc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("bc"),
+                            Value::test_string("bc"),
+                            Value::test_string("bc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

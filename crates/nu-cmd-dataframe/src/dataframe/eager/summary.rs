@@ -46,53 +46,56 @@ impl Command for Summary {
             description: "list dataframe descriptives",
             example: "[[a b]; [1 1] [1 1]] | dfr into-df | dfr summary",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "descriptor".to_string(),
-                        vec![
-                            Value::test_string("count"),
-                            Value::test_string("sum"),
-                            Value::test_string("mean"),
-                            Value::test_string("median"),
-                            Value::test_string("std"),
-                            Value::test_string("min"),
-                            Value::test_string("25%"),
-                            Value::test_string("50%"),
-                            Value::test_string("75%"),
-                            Value::test_string("max"),
-                        ],
-                    ),
-                    Column::new(
-                        "a (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                    Column::new(
-                        "b (i64)".to_string(),
-                        vec![
-                            Value::test_float(2.0),
-                            Value::test_float(2.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(0.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                            Value::test_float(1.0),
-                        ],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "descriptor".to_string(),
+                            vec![
+                                Value::test_string("count"),
+                                Value::test_string("sum"),
+                                Value::test_string("mean"),
+                                Value::test_string("median"),
+                                Value::test_string("std"),
+                                Value::test_string("min"),
+                                Value::test_string("25%"),
+                                Value::test_string("50%"),
+                                Value::test_string("75%"),
+                                Value::test_string("max"),
+                            ],
+                        ),
+                        Column::new(
+                            "a (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                        Column::new(
+                            "b (i64)".to_string(),
+                            vec![
+                                Value::test_float(2.0),
+                                Value::test_float(2.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(0.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                                Value::test_float(1.0),
+                            ],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
