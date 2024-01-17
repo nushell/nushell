@@ -66,7 +66,7 @@ fn custom_completer() -> NuCompleter {
 
     // Add record value as example
     let record = r#"
-        let external_completer = {|spans| 
+        let external_completer = {|spans|
             $spans
         }
 
@@ -684,13 +684,14 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(14, suggestions.len());
+    assert_eq!(15, suggestions.len());
 
     let expected: Vec<String> = vec![
         "config-path".into(),
         "current-exe".into(),
         "default-config-dir".into(),
         "env-path".into(),
+        "history-enabled".into(),
         "history-path".into(),
         "home-path".into(),
         "is-interactive".into(),
@@ -709,9 +710,13 @@ fn variables_completions() {
     // Test completions for $nu.h (filter)
     let suggestions = completer.complete("$nu.h", 5);
 
-    assert_eq!(2, suggestions.len());
+    assert_eq!(3, suggestions.len());
 
-    let expected: Vec<String> = vec!["history-path".into(), "home-path".into()];
+    let expected: Vec<String> = vec![
+        "history-enabled".into(),
+        "history-path".into(),
+        "home-path".into(),
+    ];
 
     // Match results
     match_suggestions(expected, suggestions);
