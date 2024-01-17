@@ -60,10 +60,9 @@ fn value_to_schema(value: &Value, span: Span) -> Result<Schema, ShellError> {
 }
 
 fn value_to_fields(value: &Value, span: Span) -> Result<Vec<Field>, ShellError> {
-    let Record { cols, vals } = value.as_record()?;
-    let fields = cols
-        .iter()
-        .zip(vals.iter())
+    let fields = value
+        .as_record()?
+        .into_iter()
         .map(|(col, val)| match val {
             Value::Record { .. } => {
                 let fields = value_to_fields(val, span)?;
@@ -191,9 +190,9 @@ mod test {
     #[test]
     fn test_value_to_schema() {
         let value = Value::Record {
-            val: Record {
-                cols: vec!["name".into(), "age".into(), "address".into()],
-                vals: vec![
+            val: Record::from_raw_cols_vals(
+                vec!["name".into(), "age".into(), "address".into()],
+                vec![
                     Value::String {
                         val: "str".into(),
                         internal_span: Span::test_data(),
@@ -203,9 +202,9 @@ mod test {
                         internal_span: Span::test_data(),
                     },
                     Value::Record {
-                        val: Record {
-                            cols: vec!["street".into(), "city".into()],
-                            vals: vec![
+                        val: Record::from_raw_cols_vals(
+                            vec!["street".into(), "city".into()],
+                            vec![
                                 Value::String {
                                     val: "str".into(),
                                     internal_span: Span::test_data(),
@@ -215,11 +214,11 @@ mod test {
                                     internal_span: Span::test_data(),
                                 },
                             ],
-                        },
+                        ),
                         internal_span: Span::test_data(),
                     },
                 ],
-            },
+            ),
             internal_span: Span::test_data(),
         };
         let schema = value_to_schema(&value, Span::unknown()).unwrap();
