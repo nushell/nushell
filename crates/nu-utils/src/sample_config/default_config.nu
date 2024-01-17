@@ -138,7 +138,7 @@ let light_theme = {
 
 # External completer example
 # let carapace_completer = {|spans|
-#     carapace $spans.0 nushell $spans | from json
+#     carapace $spans.0 nushell ...$spans | from json
 # }
 
 # The default config record. This is where much of your global configuration is setup.
@@ -237,6 +237,8 @@ $env.config = {
     render_right_prompt_on_last_line: false # true or false to enable or disable right prompt to be rendered on last line of the prompt.
     use_kitty_protocol: false # enables keyboard enhancement protocol implemented by kitty console, only if your terminal support this.
     highlight_resolved_externals: false # true enables highlighting of external commands in the repl resolved by which.
+
+    plugins: {} # Per-plugin configuration. See https://www.nushell.sh/contributor-book/plugins.html#configuration.
 
     hooks: {
         pre_prompt: [{ null }] # run before the prompt is shown

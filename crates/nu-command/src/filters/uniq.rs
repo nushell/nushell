@@ -21,17 +21,10 @@ impl Command for Uniq {
 
     fn signature(&self) -> Signature {
         Signature::build("uniq")
-            .input_output_types(vec![
-                (
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
-                    // -c
-                    Type::List(Box::new(Type::Any)),
-                    Type::Table(vec![]),
-                ),
-            ])
+            .input_output_types(vec![(
+                Type::List(Box::new(Type::Any)),
+                Type::List(Box::new(Type::Any)),
+            )])
             .switch(
                 "count",
                 "Return a table containing the distinct input values together with their counts",

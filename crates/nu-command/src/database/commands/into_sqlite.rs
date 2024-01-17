@@ -1,13 +1,17 @@
 use crate::database::values::sqlite::open_sqlite_db;
-use itertools::Itertools;
+
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, Record, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+pub const DEFAULT_TABLE_NAME: &str = "main";
 
 #[derive(Clone)]
 pub struct IntoSqliteDb;
@@ -19,21 +23,23 @@ impl Command for IntoSqliteDb {
 
     fn signature(&self) -> Signature {
         Signature::build("into sqlite")
-            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .category(Category::Conversions)
+            .input_output_types(vec![
+                (Type::Table(vec![]), Type::Nothing),
+                (Type::Record(vec![]), Type::Nothing),
+            ])
             .allow_variants_without_examples(true)
-            // TODO: narrow disallowed types
             .required(
-                "file_name",
+                "file-name",
                 SyntaxShape::String,
                 "Specify the filename to save the database to.",
             )
             .named(
-                "table_name",
+                "table-name",
                 SyntaxShape::String,
                 "Specify table name to store the data in",
                 Some('t'),
             )
-            .category(Category::Conversions)
     }
 
     fn run(
@@ -55,26 +61,96 @@ impl Command for IntoSqliteDb {
     }
 
     fn examples(&self) -> Vec<Example> {
-        vec![Example {
-            description: "Convert ls entries into a SQLite database with 'main' as the table name",
-            example: "ls | into sqlite my_ls.db",
-            result: None,
-        },
-        Example {
-            description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
-            example: "ls | into sqlite my_ls.db -t my_table",
-            result: None,
-        },
-        Example {
-            description: "Convert table literal into a SQLite database with 'main' as the table name",
-            example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
-            result: None,
-        },
-        Example {
-            description: "Convert a variety of values in table literal form into a SQLite database",
-            example: "[one 2 5.2 six true 100mib 25sec] | into sqlite variety.db",
-            result: None,
-        }]
+        vec![
+            Example {
+                description: "Convert ls entries into a SQLite database with 'main' as the table name",
+                example: "ls | into sqlite my_ls.db",
+                result: None,
+            },
+            Example {
+                description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
+                example: "ls | into sqlite my_ls.db -t my_table",
+                result: None,
+            },
+            Example {
+                description: "Convert table literal into a SQLite database with 'main' as the table name",
+                example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
+                result: None,
+            },
+            Example {
+                description: "Insert a single record into a SQLite database",
+                example: "{ foo: bar, baz: quux } | into sqlite filename.db",
+                result: None,
+            },
+        ]
+    }
+}
+
+struct Table {
+    conn: rusqlite::Connection,
+    table_name: String,
+}
+
+impl Table {
+    pub fn new(
+        db_path: &Spanned<String>,
+        table_name: Option<Spanned<String>>,
+    ) -> Result<Self, nu_protocol::ShellError> {
+        let table_name = if let Some(table_name) = table_name {
+            table_name.item
+        } else {
+            DEFAULT_TABLE_NAME.to_string()
+        };
+
+        // create the sqlite database table
+        let conn = open_sqlite_db(Path::new(&db_path.item), db_path.span)?;
+
+        Ok(Self { conn, table_name })
+    }
+
+    pub fn name(&self) -> &String {
+        &self.table_name
+    }
+
+    fn try_init(
+        &mut self,
+        record: &Record,
+    ) -> Result<rusqlite::Transaction, nu_protocol::ShellError> {
+        let columns = get_columns_with_sqlite_types(record)?;
+
+        // create a string for sql table creation
+        let create_statement = format!(
+            "CREATE TABLE IF NOT EXISTS [{}] ({})",
+            self.table_name,
+            columns
+                .into_iter()
+                .map(|(col_name, sql_type)| format!("{col_name} {sql_type}"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+
+        // execute the statement
+        self.conn.execute(&create_statement, []).map_err(|err| {
+            eprintln!("{:?}", err);
+
+            ShellError::GenericError {
+                error: "Failed to create table".into(),
+                msg: err.to_string(),
+                span: None,
+                help: None,
+                inner: Vec::new(),
+            }
+        })?;
+
+        self.conn
+            .transaction()
+            .map_err(|err| ShellError::GenericError {
+                error: "Failed to open transaction".into(),
+                msg: err.to_string(),
+                span: None,
+                help: None,
+                inner: Vec::new(),
+            })
     }
 }
 
@@ -87,180 +163,164 @@ fn operate(
     let span = call.head;
     let file_name: Spanned<String> = call.req(engine_state, stack, 0)?;
     let table_name: Option<Spanned<String>> = call.get_flag(engine_state, stack, "table_name")?;
+    let table = Table::new(&file_name, table_name)?;
 
-    // collect the input into a value
-    let table_entries = input.into_value(span);
-
-    match action(&table_entries, table_name, file_name, span) {
+    match action(input, table, span) {
         Ok(val) => Ok(val.into_pipeline_data()),
         Err(e) => Err(e),
     }
 }
 
-fn action(
-    input: &Value,
-    table: Option<Spanned<String>>,
-    file: Spanned<String>,
+fn action(input: PipelineData, table: Table, span: Span) -> Result<Value, ShellError> {
+    match input {
+        PipelineData::ListStream(list_stream, _) => {
+            insert_in_transaction(list_stream.stream, list_stream.ctrlc, span, table)
+        }
+        PipelineData::Value(
+            Value::List {
+                vals,
+                internal_span,
+            },
+            _,
+        ) => insert_in_transaction(vals.into_iter(), None, internal_span, table),
+        PipelineData::Value(val, _) => {
+            insert_in_transaction(std::iter::once(val), None, span, table)
+        }
+        _ => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list".into(),
+            wrong_type: "".into(),
+            dst_span: span,
+            src_span: span,
+        }),
+    }
+}
+
+fn insert_in_transaction(
+    stream: impl Iterator<Item = Value>,
+    ctrlc: Option<Arc<AtomicBool>>,
     span: Span,
+    mut table: Table,
 ) -> Result<Value, ShellError> {
-    let table_name = if let Some(table_name) = table {
-        table_name.item
-    } else {
-        "main".to_string()
+    let mut stream = stream.peekable();
+    let first_val = match stream.peek() {
+        None => return Ok(Value::nothing(span)),
+        Some(val) => val.as_record()?,
     };
 
-    let val_span = input.span();
-    match input {
-        Value::List { vals, .. } => {
-            // find the column names, and sqlite data types
-            let columns = get_columns_with_sqlite_types(vals);
+    let table_name = table.name().clone();
+    let tx = table.try_init(first_val)?;
+    let insert_statement = format!(
+        "INSERT INTO [{}] VALUES ({})",
+        table_name,
+        ["?"].repeat(first_val.values().len()).join(", ")
+    );
 
-            let table_columns_creation = columns
-                .iter()
-                .map(|(name, sql_type)| format!("\"{name}\" {sql_type}"))
-                .join(",");
-
-            // get the values
-            let table_values = vals
-                .iter()
-                .map(|list_value| {
-                    format!(
-                        "({})",
-                        match list_value {
-                            Value::Record { val, .. } => {
-                                val.values()
-                                    .map(|rec_val| {
-                                        format!("'{}'", nu_value_to_string(rec_val.clone(), ""))
-                                    })
-                                    .join(",")
-                            }
-                            // Number formats so keep them without quotes
-                            Value::Int { .. }
-                            | Value::Float { .. }
-                            | Value::Filesize { .. }
-                            | Value::Duration { .. } => nu_value_to_string(list_value.clone(), ""),
-                            _ =>
-                            // String formats so add quotes around them
-                                format!("'{}'", nu_value_to_string(list_value.clone(), "")),
-                        }
-                    )
-                })
-                .join(",");
-
-            // create the sqlite database table
-            let conn = open_sqlite_db(Path::new(&file.item), file.span)?;
-
-            // create a string for sql table creation
-            let create_statement =
-                format!("CREATE TABLE IF NOT EXISTS [{table_name}] ({table_columns_creation})");
-
-            // prepare the string as a sqlite statement
-            let mut stmt =
-                conn.prepare(&create_statement)
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Failed to prepare SQLite statement".into(),
-                        msg: e.to_string(),
-                        span: Some(file.span),
-                        help: None,
-                        inner: vec![],
-                    })?;
-
-            // execute the statement
-            stmt.execute([]).map_err(|e| ShellError::GenericError {
-                error: "Failed to execute SQLite statement".into(),
+    let mut insert_statement =
+        tx.prepare(&insert_statement)
+            .map_err(|e| ShellError::GenericError {
+                error: "Failed to prepare SQLite statement".into(),
                 msg: e.to_string(),
-                span: Some(file.span),
+                span: None,
                 help: None,
-                inner: vec![],
+                inner: Vec::new(),
             })?;
 
-            // use normal sql to create the table
-            // insert into table_name
-            // values
-            // ('xx', 'yy', 'zz'),
-            // ('aa', 'bb', 'cc'),
-            // ('dd', 'ee', 'ff')
-
-            // create the string for inserting data into the table
-            let insert_statement = format!("INSERT INTO [{table_name}] VALUES {table_values}");
-
-            // prepare the string as a sqlite statement
-            let mut stmt =
-                conn.prepare(&insert_statement)
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Failed to prepare SQLite statement".into(),
-                        msg: e.to_string(),
-                        span: Some(file.span),
-                        help: None,
-                        inner: vec![],
-                    })?;
-
-            // execute the statement
-            stmt.execute([]).map_err(|e| ShellError::GenericError {
-                error: "Failed to execute SQLite statement".into(),
-                msg: e.to_string(),
-                span: Some(file.span),
-                help: None,
-                inner: vec![],
-            })?;
-
-            // and we're done
-            Ok(Value::nothing(val_span))
+    // insert all the records
+    stream.try_for_each(|stream_value| {
+        if let Some(ref ctrlc) = ctrlc {
+            if ctrlc.load(Ordering::Relaxed) {
+                return Err(ShellError::InterruptedByUser { span: None });
+            }
         }
-        // Propagate errors by explicitly matching them before the final case.
-        Value::Error { error, .. } => Err(*error.clone()),
-        other => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "list".into(),
-            wrong_type: other.get_type().to_string(),
-            dst_span: span,
-            src_span: other.span(),
+
+        insert_value(stream_value, &mut insert_statement)
+    })?;
+
+    insert_statement
+        .finalize()
+        .map_err(|e| ShellError::GenericError {
+            error: "Failed to finalize SQLite prepared statement".into(),
+            msg: e.to_string(),
+            span: None,
+            help: None,
+            inner: Vec::new(),
+        })?;
+
+    tx.commit().map_err(|e| ShellError::GenericError {
+        error: "Failed to commit SQLite transaction".into(),
+        msg: e.to_string(),
+        span: None,
+        help: None,
+        inner: Vec::new(),
+    })?;
+
+    Ok(Value::nothing(span))
+}
+
+fn insert_value(
+    stream_value: Value,
+    insert_statement: &mut rusqlite::Statement<'_>,
+) -> Result<(), ShellError> {
+    match stream_value {
+        // map each column value into its SQL representation
+        Value::Record { val, .. } => {
+            let sql_vals = values_to_sql(val.into_values())?;
+
+            insert_statement
+                .execute(rusqlite::params_from_iter(sql_vals))
+                .map_err(|e| ShellError::GenericError {
+                    error: "Failed to execute SQLite statement".into(),
+                    msg: e.to_string(),
+                    span: None,
+                    help: None,
+                    inner: Vec::new(),
+                })?;
+
+            Ok(())
+        }
+        val => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "record".into(),
+            wrong_type: val.get_type().to_string(),
+            dst_span: Span::unknown(),
+            src_span: val.span(),
         }),
     }
 }
 
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
-fn nu_value_to_string(value: Value, separator: &str) -> String {
-    match value {
-        Value::Bool { val, .. } => val.to_string(),
-        Value::Int { val, .. } => val.to_string(),
-        Value::Float { val, .. } => val.to_string(),
-        Value::Filesize { val, .. } => val.to_string(),
-        Value::Duration { val, .. } => val.to_string(),
-        Value::Date { val, .. } => val.to_string(),
-        Value::Range { val, .. } => {
-            format!(
-                "{}..{}",
-                nu_value_to_string(val.from, ", "),
-                nu_value_to_string(val.to, ", ")
-            )
-        }
+fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
+    Ok(match value {
+        Value::Bool { val, .. } => Box::new(val),
+        Value::Int { val, .. } => Box::new(val),
+        Value::Float { val, .. } => Box::new(val),
+        Value::Filesize { val, .. } => Box::new(val),
+        Value::Duration { val, .. } => Box::new(val),
+        Value::Date { val, .. } => Box::new(val),
         Value::String { val, .. } => {
             // don't store ansi escape sequences in the database
             // escape single quotes
-            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
+            Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
         }
-        Value::List { vals: val, .. } => val
-            .into_iter()
-            .map(|x| nu_value_to_string(x, ", "))
-            .collect::<Vec<_>>()
-            .join(separator),
-        Value::Record { val, .. } => val
-            .into_iter()
-            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y, ", ")))
-            .collect::<Vec<_>>()
-            .join(separator),
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => nu_value_to_string(val, separator),
-            Err(error) => format!("{error:?}"),
-        },
-        Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {}>", val.block_id),
-        Value::Nothing { .. } => String::new(),
-        Value::Error { error, .. } => format!("{error:?}"),
-        Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.to_string(),
-        Value::CustomValue { val, .. } => val.value_string(),
-    }
+        Value::Binary { val, .. } => Box::new(val),
+        val => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type:
+                    "bool, int, float, filesize, duration, date, string, nothing, binary".into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: val.span(),
+            })
+        }
+    })
+}
+
+fn values_to_sql(
+    values: impl IntoIterator<Item = Value>,
+) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
+    values
+        .into_iter()
+        .map(value_to_sql)
+        .collect::<Result<Vec<_>, _>>()
 }
 
 // Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
@@ -269,50 +329,52 @@ fn nu_value_to_string(value: Value, separator: &str) -> String {
 // REAL. The value is a floating point value, stored as an 8-byte IEEE floating point number.
 // TEXT. The value is a text string, stored using the database encoding (UTF-8, UTF-16BE or UTF-16LE).
 // BLOB. The value is a blob of data, stored exactly as it was input.
-fn nu_type_to_sqlite_type(nu_type: Type) -> &'static str {
-    match nu_type {
-        Type::Int => "INTEGER",
-        Type::Float => "REAL",
-        Type::String => "TEXT",
-        Type::Bool => "TEXT",
-        Type::Nothing => "NULL",
-        Type::Filesize => "INTEGER",
-        Type::Date => "TEXT",
-        _ => "TEXT",
+fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
+    match val.get_type() {
+        Type::String => Ok("TEXT"),
+        Type::Int => Ok("INTEGER"),
+        Type::Float => Ok("REAL"),
+        Type::Number => Ok("REAL"),
+        Type::Binary => Ok("BLOB"),
+        Type::Bool => Ok("BOOLEAN"),
+        Type::Date => Ok("DATETIME"),
+        Type::Duration => Ok("BIGINT"),
+        Type::Filesize => Ok("INTEGER"),
+
+        // intentionally enumerated so that any future types get handled
+        Type::Any
+        | Type::Block
+        | Type::CellPath
+        | Type::Closure
+        | Type::Custom(_)
+        | Type::Error
+        | Type::List(_)
+        | Type::ListStream
+        | Type::Nothing
+        | Type::Range
+        | Type::Record(_)
+        | Type::Signature
+        | Type::Table(_) => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "sql".into(),
+            wrong_type: val.get_type().to_string(),
+            dst_span: Span::unknown(),
+            src_span: val.span(),
+        }),
     }
 }
 
-fn get_columns_with_sqlite_types(input: &[Value]) -> Vec<(String, String)> {
-    let mut columns: Vec<(String, String)> = vec![];
-    let mut added = false;
+fn get_columns_with_sqlite_types(
+    record: &Record,
+) -> Result<Vec<(String, &'static str)>, ShellError> {
+    let mut columns: Vec<(String, &'static str)> = vec![];
 
-    for item in input {
-        // let sqlite_type = nu_type_to_sqlite_type(item.get_type());
-        // eprintln!(
-        //     "item_type: {:?}, sqlite_type: {:?}",
-        //     item.get_type(),
-        //     sqlite_type
-        // );
-
-        if let Value::Record { val, .. } = item {
-            for (c, v) in val {
-                if !columns.iter().any(|(name, _)| name == c) {
-                    columns.push((
-                        c.to_string(),
-                        nu_type_to_sqlite_type(v.get_type()).to_string(),
-                    ));
-                }
-            }
-        } else {
-            // force every other type to a string
-            if !added {
-                columns.push(("value".to_string(), "TEXT".to_string()));
-                added = true;
-            }
+    for (c, v) in record {
+        if !columns.iter().any(|(name, _)| name == c) {
+            columns.push((c.clone(), nu_value_to_sqlite_type(v)?));
         }
     }
 
-    columns
+    Ok(columns)
 }
 
 #[cfg(test)]

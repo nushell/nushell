@@ -1,63 +1,46 @@
-#[cfg(unix)]
 use std::{
     io::IsTerminal,
     sync::atomic::{AtomicI32, Ordering},
 };
 
-#[cfg(unix)]
 use nix::{
     errno::Errno,
     libc,
-    sys::signal::{self, raise, signal, SaFlags, SigAction, SigHandler, SigSet, Signal},
+    sys::signal::{killpg, raise, sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal},
     unistd::{self, Pid},
 };
 
-#[cfg(unix)]
 static INITIAL_PGID: AtomicI32 = AtomicI32::new(-1);
 
-#[cfg(unix)]
-pub(crate) fn acquire_terminal(interactive: bool) {
+pub(crate) fn acquire(interactive: bool) {
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
+
+        if unsafe { libc::atexit(restore_terminal) } != 0 {
+            eprintln!("ERROR: failed to set exit function");
+            std::process::exit(1);
+        };
 
         let initial_pgid = take_control();
 
         INITIAL_PGID.store(initial_pgid.into(), Ordering::Relaxed);
 
         unsafe {
-            if libc::atexit(restore_terminal) != 0 {
-                eprintln!("ERROR: failed to set exit function");
-                std::process::exit(1);
-            };
-
             // SIGINT has special handling
-            signal(Signal::SIGQUIT, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTSTP, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTTIN, SigHandler::SigIgn).expect("signal ignore");
-            signal(Signal::SIGTTOU, SigHandler::SigIgn).expect("signal ignore");
-
-            // TODO: determine if this is necessary or not, since this breaks `rm` on macOS
-            // signal(Signal::SIGCHLD, SigHandler::SigIgn).expect("signal ignore");
-
-            signal_hook::low_level::register(signal_hook::consts::SIGTERM, || {
-                // Safety: can only call async-signal-safe functions here
-                // restore_terminal, signal, and raise are all async-signal-safe
-
-                restore_terminal();
-
-                if signal(Signal::SIGTERM, SigHandler::SigDfl).is_err() {
-                    // Failed to set signal handler to default.
-                    // This should not be possible, but if it does happen,
-                    // then this could result in an infitite loop due to the raise below.
-                    // So, we'll just exit immediately if this happens.
-                    std::process::exit(1);
-                };
-
-                if raise(Signal::SIGTERM).is_err() {
-                    std::process::exit(1);
-                };
-            })
-            .expect("signal hook");
+            let ignore = SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty());
+            sigaction(Signal::SIGQUIT, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTSTP, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTTIN, &ignore).expect("signal ignore");
+            sigaction(Signal::SIGTTOU, &ignore).expect("signal ignore");
+            sigaction(
+                Signal::SIGTERM,
+                &SigAction::new(
+                    SigHandler::Handler(sigterm_handler),
+                    SaFlags::empty(),
+                    SigSet::empty(),
+                ),
+            )
+            .expect("signal action");
         }
 
         // Put ourselves in our own process group, if not already
@@ -78,12 +61,8 @@ pub(crate) fn acquire_terminal(interactive: bool) {
     }
 }
 
-#[cfg(not(unix))]
-pub(crate) fn acquire_terminal(_: bool) {}
-
 // Inspired by fish's acquire_tty_or_exit
 // Returns our original pgid
-#[cfg(unix)]
 fn take_control() -> Pid {
     let shell_pgid = unistd::getpgrp();
 
@@ -101,16 +80,12 @@ fn take_control() -> Pid {
     }
 
     // Reset all signal handlers to default
+    let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
     for sig in Signal::iterator() {
-        unsafe {
-            if let Ok(old_act) = signal::sigaction(
-                sig,
-                &SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty()),
-            ) {
-                // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
-                if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
-                    let _ = signal::sigaction(sig, &old_act);
-                }
+        if let Ok(old_act) = unsafe { sigaction(sig, &default) } {
+            // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
+            if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
+                let _ = unsafe { sigaction(sig, &old_act) };
             }
         }
     }
@@ -131,7 +106,7 @@ fn take_control() -> Pid {
             }
             _ => {
                 // fish also has other heuristics than "too many attempts" for the orphan check, but they're optional
-                if signal::killpg(shell_pgid, Signal::SIGTTIN).is_err() {
+                if killpg(shell_pgid, Signal::SIGTTIN).is_err() {
                     eprintln!("ERROR: failed to SIGTTIN ourselves");
                     std::process::exit(1);
                 }
@@ -143,12 +118,31 @@ fn take_control() -> Pid {
     std::process::exit(1);
 }
 
-#[cfg(unix)]
 extern "C" fn restore_terminal() {
     // Safety: can only call async-signal-safe functions here
-    // tcsetpgrp and getpgrp are async-signal-safe
+    // `tcsetpgrp` and `getpgrp` are async-signal-safe
     let initial_pgid = Pid::from_raw(INITIAL_PGID.load(Ordering::Relaxed));
     if initial_pgid.as_raw() > 0 && initial_pgid != unistd::getpgrp() {
         let _ = unistd::tcsetpgrp(libc::STDIN_FILENO, initial_pgid);
     }
+}
+
+extern "C" fn sigterm_handler(_signum: libc::c_int) {
+    // Safety: can only call async-signal-safe functions here
+    // `restore_terminal`, `sigaction`, `raise`, and `_exit` are all async-signal-safe
+
+    restore_terminal();
+
+    let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+    if unsafe { sigaction(Signal::SIGTERM, &default) }.is_err() {
+        // Failed to set signal handler to default.
+        // This should not be possible, but if it does happen,
+        // then this could result in an infinite loop due to the raise below.
+        // So, we'll just exit immediately if this happens.
+        unsafe { libc::_exit(1) };
+    };
+
+    if raise(Signal::SIGTERM).is_err() {
+        unsafe { libc::_exit(1) };
+    };
 }

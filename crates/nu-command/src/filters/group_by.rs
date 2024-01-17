@@ -23,10 +23,7 @@ impl Command for GroupBy {
             // example. Perhaps Table should be a subtype of List, in which case
             // the current signature would suffice even when a Table example
             // exists.
-            .input_output_types(vec![
-                (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
-                (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .switch(
                 "to-table",
                 "Return a table with \"groups\" and \"items\" columns",

@@ -30,11 +30,6 @@ impl Command for Find {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::String, Type::Any),
-                (
-                    // For find -p
-                    Type::Table(vec![]),
-                    Type::Table(vec![]),
-                ),
             ])
             .named(
                 "regex",

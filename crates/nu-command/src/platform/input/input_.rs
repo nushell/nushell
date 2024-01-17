@@ -34,10 +34,7 @@ impl Command for Input {
 
     fn signature(&self) -> Signature {
         Signature::build("input")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Binary),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(

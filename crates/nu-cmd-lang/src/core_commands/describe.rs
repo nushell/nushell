@@ -20,10 +20,7 @@ impl Command for Describe {
 
     fn signature(&self) -> Signature {
         Signature::build("describe")
-            .input_output_types(vec![
-                (Type::Any, Type::String),
-                (Type::Any, Type::Record(vec![])),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "no-collect",
                 "do not collect streams of structured data",

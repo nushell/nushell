@@ -19,10 +19,7 @@ impl Command for ConfigEnv {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch("default", "Print default `env.nu` file instead.", Some('d'))
         // TODO: Signature narrower than what run actually supports theoretically
     }
