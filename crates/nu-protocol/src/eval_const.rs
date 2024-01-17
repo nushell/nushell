@@ -80,7 +80,7 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
         "history-path",
         if let Some(mut path) = nu_path::config_dir() {
             path.push("nushell");
-            match engine_state.config.history_file_format {
+            match engine_state.config.history.file_format {
                 HistoryFileFormat::Sqlite => {
                     path.push("history.sqlite3");
                 }
@@ -186,6 +186,11 @@ pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Valu
     );
 
     record.push("is-login", Value::bool(engine_state.is_login, span));
+
+    record.push(
+        "history-enabled",
+        Value::bool(engine_state.history_enabled, span),
+    );
 
     record.push(
         "current-exe",
