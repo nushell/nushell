@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::NuPath;
 use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
@@ -172,6 +173,23 @@ impl FromValue for String {
         match v {
             Value::CellPath { val, .. } => Ok(val.to_string()),
             Value::String { val, .. } => Ok(val),
+            v => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+}
+
+impl FromValue for NuPath {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::CellPath { val, .. } => Ok(NuPath::UnQuoted(val.to_string())),
+            Value::String { val, .. } => Ok(NuPath::UnQuoted(val)),
+            Value::QuotedString { val, .. } => Ok(NuPath::Quoted(val)),
             v => Err(ShellError::CantConvert {
                 to_type: "string".into(),
                 from_type: v.get_type().to_string(),
