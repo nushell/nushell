@@ -39,7 +39,8 @@ impl Command for Ls {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("ls")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
-            // Using a string instead of a glob pattern shape so it won't auto-expand
+            // LsGlobPattern is similar to string, it won't auto-expand
+            // and we use it to track if the user input is quoted.
             .optional("pattern", SyntaxShape::LsGlobPattern, "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
@@ -168,12 +169,12 @@ impl Command for Ls {
         // so we can do ls for a file or directory like `a[123]b`
         let path = if quoted {
             let p = path.display().to_string();
-            let mut glob_excaped = Pattern::escape(&p);
+            let mut glob_escaped = Pattern::escape(&p);
             if extra_star_under_given_directory {
-                glob_excaped.push(std::path::MAIN_SEPARATOR);
-                glob_excaped.push('*');
+                glob_escaped.push(std::path::MAIN_SEPARATOR);
+                glob_escaped.push('*');
             }
-            glob_excaped
+            glob_escaped
         } else {
             let mut p = path.display().to_string();
             if extra_star_under_given_directory {
