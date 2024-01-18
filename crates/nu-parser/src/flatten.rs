@@ -361,13 +361,13 @@ pub fn flatten_expression(
         Expr::Bool(_) => {
             vec![(expr.span, FlatShape::Bool)]
         }
-        Expr::Filepath(_) => {
+        Expr::Filepath(_, _) => {
             vec![(expr.span, FlatShape::Filepath)]
         }
-        Expr::Directory(_) => {
+        Expr::Directory(_, _) => {
             vec![(expr.span, FlatShape::Directory)]
         }
-        Expr::GlobPattern(_) => {
+        Expr::GlobPattern(_, _) => {
             vec![(expr.span, FlatShape::GlobPattern)]
         }
         Expr::List(list) => {

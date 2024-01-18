@@ -197,8 +197,8 @@ impl Expression {
             }
             Expr::ImportPattern(_) => false,
             Expr::Overlay(_) => false,
-            Expr::Filepath(_) => false,
-            Expr::Directory(_) => false,
+            Expr::Filepath(_, _) => false,
+            Expr::Directory(_, _) => false,
             Expr::Float(_) => false,
             Expr::FullCellPath(full_cell_path) => {
                 if full_cell_path.head.has_in_variable(working_set) {
@@ -208,7 +208,7 @@ impl Expression {
             }
             Expr::Garbage => false,
             Expr::Nothing => false,
-            Expr::GlobPattern(_) => false,
+            Expr::GlobPattern(_, _) => false,
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
             Expr::List(list) => {
@@ -375,8 +375,8 @@ impl Expression {
                     expr.replace_span(working_set, replaced, new_span);
                 }
             }
-            Expr::Filepath(_) => {}
-            Expr::Directory(_) => {}
+            Expr::Filepath(_, _) => {}
+            Expr::Directory(_, _) => {}
             Expr::Float(_) => {}
             Expr::FullCellPath(full_cell_path) => {
                 full_cell_path
@@ -387,7 +387,7 @@ impl Expression {
             Expr::Overlay(_) => {}
             Expr::Garbage => {}
             Expr::Nothing => {}
-            Expr::GlobPattern(_) => {}
+            Expr::GlobPattern(_, _) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),
