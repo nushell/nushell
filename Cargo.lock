@@ -1702,12 +1702,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "htmlescape"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e9025058dae765dee5070ec375f591e2ba14638c63feff74f13805a72e523163"
-
-[[package]]
 name = "http"
 version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2731,7 +2725,6 @@ dependencies = [
  "ahash",
  "fancy-regex",
  "heck",
- "htmlescape",
  "nu-ansi-term",
  "nu-cmd-base",
  "nu-cmd-lang",
@@ -2747,6 +2740,7 @@ dependencies = [
  "rust-embed",
  "serde",
  "serde_urlencoded",
+ "v_htmlescape",
 ]
 
 [[package]]
@@ -2801,7 +2795,6 @@ dependencies = [
  "filesize",
  "filetime",
  "fs_extra",
- "htmlescape",
  "human-date-parser",
  "indexmap",
  "indicatif",
@@ -2871,8 +2864,10 @@ dependencies = [
  "uu_cp",
  "uu_mkdir",
  "uu_mktemp",
+ "uu_mv",
  "uu_whoami",
  "uuid",
+ "v_htmlescape",
  "wax",
  "which 5.0.0",
  "windows 0.52.0",
@@ -5808,6 +5803,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "uu_mv"
+version = "0.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e307e61d34d2e1dba0659ef443ada8340ec3b788bd6c8fc7fdfe0e02c6b4cfc"
+dependencies = [
+ "clap",
+ "fs_extra",
+ "indicatif",
+ "uucore",
+]
+
+[[package]]
 name = "uu_whoami"
 version = "0.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5864,6 +5871,12 @@ checksum = "5e395fcf16a7a3d8127ec99782007af141946b4795001f876d54fb0d55978560"
 dependencies = [
  "getrandom",
 ]
+
+[[package]]
+name = "v_htmlescape"
+version = "0.15.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e8257fbc510f0a46eb602c10215901938b5c2a7d5e70fc11483b1d3c9b5b18c"
 
 [[package]]
 name = "value-trait"

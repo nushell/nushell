@@ -138,7 +138,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string = htmlescape::encode_minimal(header);
+            let escaped_header_string = v_htmlescape::escape(header).to_string();
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
@@ -179,7 +179,8 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                 }
             }
             p => {
-                let value_string = htmlescape::encode_minimal(&p.into_abbreviated_string(config));
+                let value_string =
+                    v_htmlescape::escape(&p.into_abbreviated_string(config)).to_string();
                 escaped_row.push(value_string);
             }
         }
