@@ -438,8 +438,8 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
                 }
                 _ => {
                     return Err(ShellError::GenericError {
-                        error: "Error creating dataframe".into(),
-                        msg: format!("Unsupported type: {column_type:?}"),
+                        error: format!("Error creating dataframe: Unsupported type: {column_type:?}"),
+                        msg: "".into(),
                         span: None,
                         help: None,
                         inner: vec![],
@@ -453,9 +453,9 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         .map(|df| NuDataFrame::new(false, df))
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
-            msg: "".into(),
+            msg: e.to_string(),
             span: None,
-            help: Some(e.to_string()),
+            help: None,
             inner: vec![],
         })
 }
