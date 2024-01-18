@@ -22,7 +22,7 @@ impl Command for ViewSource {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("view source")
             .input_output_types(vec![(Type::Nothing, Type::String)])
-            .required("item", SyntaxShape::Any, "name or block to view")
+            .required("item", SyntaxShape::Any, "Name or block to view.")
             .category(Category::Debug)
     }
 

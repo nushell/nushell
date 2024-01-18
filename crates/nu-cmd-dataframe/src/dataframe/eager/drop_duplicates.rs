@@ -92,7 +92,7 @@ fn command(
 
     let subset_slice = subset.as_ref().map(|cols| &cols[..]);
 
-    let keep_strategy = if call.has_flag("last") {
+    let keep_strategy = if call.has_flag(engine_state, stack, "last")? {
         UniqueKeepStrategy::Last
     } else {
         UniqueKeepStrategy::First

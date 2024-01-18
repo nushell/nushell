@@ -20,7 +20,7 @@ impl Command for Collect {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run once the stream is collected",
+                "The closure to run once the stream is collected.",
             )
             .switch(
                 "keep-env",
@@ -67,7 +67,7 @@ impl Command for Collect {
         )
         .map(|x| x.set_metadata(metadata));
 
-        if call.has_flag("keep-env") {
+        if call.has_flag(engine_state, stack, "keep-env")? {
             redirect_env(engine_state, stack, &stack_captures);
             // for when we support `data | let x = $in;`
             // remove the variables added earlier

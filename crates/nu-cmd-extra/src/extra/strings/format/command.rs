@@ -10,15 +10,15 @@ use nu_protocol::{
 };
 
 #[derive(Clone)]
-pub struct Format;
+pub struct FormatPattern;
 
-impl Command for Format {
+impl Command for FormatPattern {
     fn name(&self) -> &str {
-        "format"
+        "format pattern"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("format")
+        Signature::build("format pattern")
             .input_output_types(vec![
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
                 (Type::Record(vec![]), Type::Any),
@@ -80,12 +80,12 @@ impl Command for Format {
         vec![
             Example {
                 description: "Print filenames with their sizes",
-                example: "ls | format '{name}: {size}'",
+                example: "ls | format pattern '{name}: {size}'",
                 result: None,
             },
             Example {
                 description: "Print elements from some columns of a table",
-                example: "[[col1, col2]; [v1, v2] [v3, v4]] | format '{col2}'",
+                example: "[[col1, col2]; [v1, v2] [v3, v4]] | format pattern '{col2}'",
                 result: Some(Value::list(
                     vec![Value::test_string("v2"), Value::test_string("v4")],
                     Span::test_data(),
@@ -318,8 +318,8 @@ fn format_record(
 mod test {
     #[test]
     fn test_examples() {
-        use super::Format;
+        use super::FormatPattern;
         use crate::test_examples;
-        test_examples(Format {})
+        test_examples(FormatPattern {})
     }
 }

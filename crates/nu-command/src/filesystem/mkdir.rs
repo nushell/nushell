@@ -23,7 +23,7 @@ impl Command for Mkdir {
             .rest(
                 "rest",
                 SyntaxShape::Directory,
-                "the name(s) of the path(s) to create",
+                "The name(s) of the path(s) to create.",
             )
             .switch("verbose", "print created path(s).", Some('v'))
             .category(Category::FileSystem)
@@ -51,7 +51,7 @@ impl Command for Mkdir {
             .map(|dir| path.join(dir))
             .peekable();
 
-        let is_verbose = call.has_flag("verbose");
+        let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
         let mut stream: VecDeque<Value> = VecDeque::new();
 
         if directories.peek().is_none() {

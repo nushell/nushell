@@ -24,7 +24,7 @@ impl Command for Drop {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .optional("rows", SyntaxShape::Int, "The number of items to remove")
+            .optional("rows", SyntaxShape::Int, "The number of items to remove.")
             .category(Category::Filters)
     }
 

@@ -1,4 +1,5 @@
 use crate::formats::to::delimited::to_delimited_data;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -49,12 +50,12 @@ impl Command for ToTsv {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let noheaders = call.has_flag("noheaders");
+        let noheaders = call.has_flag(engine_state, stack, "noheaders")?;
         let config = engine_state.get_config();
         to_tsv(input, noheaders, head, config)
     }

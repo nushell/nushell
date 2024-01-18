@@ -17,8 +17,13 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math max")
             .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::List(Box::new(Type::Filesize)), Type::Filesize),
                 (Type::List(Box::new(Type::Any)), Type::Any),
+                (Type::Range, Type::Number),
                 (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)
@@ -45,7 +50,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![
             Example {
-                description: "Find the maximum of list of numbers",
+                description: "Find the maximum of a list of numbers",
                 example: "[-50 100 25] | math max",
                 result: Some(Value::test_int(100)),
             },
@@ -56,6 +61,13 @@ impl Command for SubCommand {
                     "a" => Value::test_int(2),
                     "b" => Value::test_int(3),
                 })),
+            },
+            Example {
+                description: "Find the maximum of a list of dates",
+                example: "[2022-02-02 2022-12-30 2012-12-12] | math max",
+                result: Some(Value::test_date(
+                    "2022-12-30 00:00:00Z".parse().unwrap_or_default(),
+                )),
             },
         ]
     }

@@ -24,7 +24,7 @@ impl Command for SubCommand {
             .rest(
                 "cell path",
                 SyntaxShape::CellPath,
-                "for a data structure input, remove ANSI sequences from strings at the given cell paths",
+                "For a data structure input, remove ANSI sequences from strings at the given cell paths.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Platform)

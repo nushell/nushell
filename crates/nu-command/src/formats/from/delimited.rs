@@ -55,10 +55,7 @@ fn from_delimited_string_to_value(
             .collect::<Vec<Value>>();
 
         rows.push(Value::record(
-            Record {
-                cols: headers.clone(),
-                vals: output_row,
-            },
+            Record::from_raw_cols_vals(headers.clone(), output_row),
             span,
         ));
     }

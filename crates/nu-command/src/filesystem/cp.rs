@@ -39,8 +39,8 @@ impl Command for Cp {
     fn signature(&self) -> Signature {
         Signature::build("cp-old")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("source", SyntaxShape::GlobPattern, "the place to copy from")
-            .required("destination", SyntaxShape::Filepath, "the place to copy to")
+            .required("source", SyntaxShape::GlobPattern, "The place to copy from.")
+            .required("destination", SyntaxShape::Filepath, "The place to copy to.")
             .switch(
                 "recursive",
                 "copy recursively through subdirectories",
@@ -76,11 +76,11 @@ impl Command for Cp {
     ) -> Result<PipelineData, ShellError> {
         let src: Spanned<String> = call.req(engine_state, stack, 0)?;
         let dst: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let recursive = call.has_flag("recursive");
-        let verbose = call.has_flag("verbose");
-        let interactive = call.has_flag("interactive");
-        let progress = call.has_flag("progress");
-        let update_mode = call.has_flag("update");
+        let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
+        let update_mode = call.has_flag(engine_state, stack, "update")?;
 
         let current_dir_path = current_dir(engine_state, stack)?;
         let destination = current_dir_path.join(dst.item.as_str());
@@ -229,7 +229,7 @@ impl Command for Cp {
                     inner: vec![],
                 })?;
 
-                let not_follow_symlink = call.has_flag("no-symlink");
+                let not_follow_symlink = call.has_flag(engine_state, stack, "no-symlink")?;
                 let sources = sources.paths_applying_with(|(source_file, depth_level)| {
                     let mut dest = destination.clone();
 

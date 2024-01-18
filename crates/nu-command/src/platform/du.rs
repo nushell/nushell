@@ -38,7 +38,7 @@ impl Command for Du {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .optional("path", SyntaxShape::GlobPattern, "starting directory")
+            .optional("path", SyntaxShape::GlobPattern, "Starting directory.")
             .switch(
                 "all",
                 "Output file sizes as well as directory sizes",
@@ -98,8 +98,8 @@ impl Command for Du {
 
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
-            all: call.has_flag("all"),
-            deref: call.has_flag("deref"),
+            all: call.has_flag(engine_state, stack, "all")?,
+            deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth,
             min_size,

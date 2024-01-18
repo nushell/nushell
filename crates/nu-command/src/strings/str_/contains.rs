@@ -39,11 +39,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
                 (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::Bool)))
             ])
-            .required("string", SyntaxShape::String, "the substring to find")
+            .required("string", SyntaxShape::String, "The substring to find.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, check strings at the given cell paths, and replace with result",
+                "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
             .switch("ignore-case", "search is case insensitive", Some('i'))
             .switch("not", "does not contain", Some('n'))
@@ -70,8 +70,8 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
-            not_contain: call.has_flag("not"),
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+            not_contain: call.has_flag(engine_state, stack, "not")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

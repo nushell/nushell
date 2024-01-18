@@ -17,8 +17,13 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math min")
             .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::List(Box::new(Type::Filesize)), Type::Filesize),
                 (Type::List(Box::new(Type::Any)), Type::Any),
+                (Type::Range, Type::Number),
                 (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Math)

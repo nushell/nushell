@@ -24,11 +24,11 @@ impl Command for Generate {
                     Type::List(Box::new(Type::Any)),
                 ),
             ])
-            .required("initial", SyntaxShape::Any, "initial value")
+            .required("initial", SyntaxShape::Any, "Initial value.")
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "generator function",
+                "Generator function.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Generators)

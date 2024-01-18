@@ -28,11 +28,7 @@ impl Command for Parse {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("parse")
-            .required(
-                "pattern",
-                SyntaxShape::String,
-                "the pattern to match. Eg) \"{foo}: {bar}\"",
-            )
+            .required("pattern", SyntaxShape::String, "The pattern to match.")
             .input_output_types(vec![
                 (Type::String, Type::Table(vec![])),
                 (Type::List(Box::new(Type::Any)), Type::Table(vec![])),
@@ -126,7 +122,7 @@ fn operate(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
-    let regex: bool = call.has_flag("regex");
+    let regex: bool = call.has_flag(engine_state, stack, "regex")?;
     let ctrlc = engine_state.ctrlc.clone();
 
     let pattern_item = pattern.item;
@@ -325,9 +321,7 @@ impl Iterator for ParseStreamer {
                 }
             }
 
-            let Some(v) = self.stream.next() else {
-                return None;
-            };
+            let v = self.stream.next()?;
 
             let Ok(s) = v.as_string() else {
                 return Some(Value::error(

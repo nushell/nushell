@@ -27,12 +27,12 @@ impl Command for Upsert {
             .required(
                 "field",
                 SyntaxShape::CellPath,
-                "the name of the column to update or insert",
+                "The name of the column to update or insert.",
             )
             .required(
                 "replacement value",
                 SyntaxShape::Any,
-                "the new value to give the cell(s), or a closure to create the value",
+                "The new value to give the cell(s), or a closure to create the value.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

@@ -20,7 +20,7 @@ impl Command for Window {
                 Type::List(Box::new(Type::Any)),
                 Type::List(Box::new(Type::List(Box::new(Type::Any)))),
             )])
-            .required("window_size", SyntaxShape::Int, "the size of each window")
+            .required("window_size", SyntaxShape::Int, "The size of each window.")
             .named(
                 "stride",
                 SyntaxShape::Int,
@@ -120,7 +120,7 @@ impl Command for Window {
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
         let stride: Option<usize> = call.get_flag(engine_state, stack, "stride")?;
-        let remainder = call.has_flag("remainder");
+        let remainder = call.has_flag(engine_state, stack, "remainder")?;
 
         let stride = stride.unwrap_or(1);
 

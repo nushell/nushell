@@ -25,13 +25,14 @@ impl Command for FormatDate {
             .input_output_types(vec![
                 (Type::Date, Type::String),
                 (Type::String, Type::String),
+                (Type::Nothing, Type::Table(vec![])),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
             .switch("list", "lists strftime cheatsheet", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,
-                "the desired format date",
+                "The desired format date.",
             )
             .category(Category::Date)
     }
@@ -52,7 +53,7 @@ impl Command for FormatDate {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        if call.has_flag("list") {
+        if call.has_flag(engine_state, stack, "list")? {
             return Ok(PipelineData::Value(
                 generate_strftime_list(head, false),
                 None,

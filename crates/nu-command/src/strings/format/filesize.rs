@@ -37,12 +37,12 @@ impl Command for FormatFilesize {
             .required(
                 "format value",
                 SyntaxShape::String,
-                "the format into which convert the file sizes",
+                "The format into which convert the file sizes.",
             )
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, format filesizes at the given cell paths",
+                "For a data structure input, format filesizes at the given cell paths.",
             )
             .category(Category::Strings)
     }

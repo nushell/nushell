@@ -17,7 +17,7 @@ impl Command for StorReset {
         Signature::build("stor reset")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {

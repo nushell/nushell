@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use std::time::{Duration, UNIX_EPOCH};
 use sysinfo::{
-    ComponentExt, CpuExt, CpuRefreshKind, DiskExt, NetworkExt, System, SystemExt, UserExt,
+    Components, CpuRefreshKind, Disks, Networks, System, Users, MINIMUM_CPU_UPDATE_INTERVAL,
 };
 
 #[derive(Clone)]
@@ -106,14 +106,12 @@ pub fn trim_cstyle_null(s: String) -> String {
 }
 
 pub fn disks(span: Span) -> Value {
-    let mut sys = System::new();
-    sys.refresh_disks();
-    sys.refresh_disks_list();
+    let disks = Disks::new_with_refreshed_list();
 
     let mut output = vec![];
-    for disk in sys.disks() {
+    for disk in disks.list() {
         let device = trim_cstyle_null(disk.name().to_string_lossy().to_string());
-        let typ = trim_cstyle_null(String::from_utf8_lossy(disk.file_system()).to_string());
+        let typ = trim_cstyle_null(disk.file_system().to_string_lossy().to_string());
 
         let record = record! {
             "device" => Value::string(device, span),
@@ -131,12 +129,10 @@ pub fn disks(span: Span) -> Value {
 }
 
 pub fn net(span: Span) -> Value {
-    let mut sys = System::new();
-    sys.refresh_networks();
-    sys.refresh_networks_list();
+    let networks = Networks::new_with_refreshed_list();
 
     let mut output = vec![];
-    for (iface, data) in sys.networks() {
+    for (iface, data) in networks.list() {
         let record = record! {
             "name" => Value::string(trim_cstyle_null(iface.to_string()), span),
             "sent" => Value::filesize(data.total_transmitted() as i64, span),
@@ -154,7 +150,7 @@ pub fn cpu(span: Span) -> Value {
     // We must refresh the CPU twice a while apart to get valid usage data.
     // In theory we could just sleep MINIMUM_CPU_UPDATE_INTERVAL, but I've noticed that
     // that gives poor results (error of ~5%). Decided to wait 2x that long, somewhat arbitrarily
-    std::thread::sleep(System::MINIMUM_CPU_UPDATE_INTERVAL * 2);
+    std::thread::sleep(MINIMUM_CPU_UPDATE_INTERVAL * 2);
     sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
 
     let mut output = vec![];
@@ -163,7 +159,7 @@ pub fn cpu(span: Span) -> Value {
         // Round to 1DP (chosen somewhat arbitrarily) so people aren't misled by high-precision floats.
         let rounded_usage = (cpu.cpu_usage() * 10.0).round() / 10.0;
 
-        let load_avg = sys.load_average();
+        let load_avg = System::load_average();
         let load_avg = trim_cstyle_null(format!(
             "{:.2}, {:.2}, {:.2}",
             load_avg.one, load_avg.five, load_avg.fifteen
@@ -211,42 +207,39 @@ pub fn mem(span: Span) -> Value {
 }
 
 pub fn host(span: Span) -> Value {
-    let mut sys = System::new();
-    sys.refresh_users_list();
-
     let mut record = Record::new();
 
-    if let Some(name) = sys.name() {
+    if let Some(name) = System::name() {
         record.push("name", Value::string(trim_cstyle_null(name), span));
     }
-    if let Some(version) = sys.os_version() {
+    if let Some(version) = System::os_version() {
         record.push("os_version", Value::string(trim_cstyle_null(version), span));
     }
 
-    if let Some(long_version) = sys.long_os_version() {
+    if let Some(long_version) = System::long_os_version() {
         record.push(
             "long_os_version",
             Value::string(trim_cstyle_null(long_version), span),
         );
     }
 
-    if let Some(version) = sys.kernel_version() {
+    if let Some(version) = System::kernel_version() {
         record.push(
             "kernel_version",
             Value::string(trim_cstyle_null(version), span),
         );
     }
-    if let Some(hostname) = sys.host_name() {
+    if let Some(hostname) = System::host_name() {
         record.push("hostname", Value::string(trim_cstyle_null(hostname), span));
     }
 
     record.push(
         "uptime",
-        Value::duration(1000000000 * sys.uptime() as i64, span),
+        Value::duration(1000000000 * System::uptime() as i64, span),
     );
 
     // Creates a new SystemTime from the specified number of whole seconds
-    let d = UNIX_EPOCH + Duration::from_secs(sys.boot_time());
+    let d = UNIX_EPOCH + Duration::from_secs(System::boot_time());
     // Create DateTime from SystemTime
     let datetime = DateTime::<Local>::from(d);
     // Convert to local time and then rfc3339
@@ -254,11 +247,16 @@ pub fn host(span: Span) -> Value {
 
     record.push("boot_time", Value::string(timestamp_str, span));
 
-    let mut users = vec![];
-    for user in sys.users() {
+    let users = Users::new_with_refreshed_list();
+
+    let mut users_list = vec![];
+    for user in users.list() {
         let mut groups = vec![];
         for group in user.groups() {
-            groups.push(Value::string(trim_cstyle_null(group.to_string()), span));
+            groups.push(Value::string(
+                trim_cstyle_null(group.name().to_string()),
+                span,
+            ));
         }
 
         let record = record! {
@@ -266,24 +264,22 @@ pub fn host(span: Span) -> Value {
             "groups" => Value::list(groups, span),
         };
 
-        users.push(Value::record(record, span));
+        users_list.push(Value::record(record, span));
     }
 
     if !users.is_empty() {
-        record.push("sessions", Value::list(users, span));
+        record.push("sessions", Value::list(users_list, span));
     }
 
     Value::record(record, span)
 }
 
 pub fn temp(span: Span) -> Value {
-    let mut sys = System::new();
-    sys.refresh_components();
-    sys.refresh_components_list();
+    let components = Components::new_with_refreshed_list();
 
     let mut output = vec![];
 
-    for component in sys.components() {
+    for component in components.list() {
         let mut record = record! {
             "unit" => Value::string(component.label(), span),
             "temp" => Value::float(component.temperature() as f64, span),

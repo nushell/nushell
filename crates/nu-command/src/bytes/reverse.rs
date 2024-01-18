@@ -26,7 +26,7 @@ impl Command for BytesReverse {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, reverse data at the given cell paths",
+                "For a data structure input, reverse data at the given cell paths.",
             )
             .category(Category::Bytes)
     }

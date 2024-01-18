@@ -25,7 +25,7 @@ impl Command for StorExport {
                 Some('f'),
             )
             .allow_variants_without_examples(true)
-            .category(Category::Math)
+            .category(Category::Database)
     }
 
     fn usage(&self) -> &str {

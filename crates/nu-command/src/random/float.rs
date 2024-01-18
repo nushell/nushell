@@ -20,7 +20,7 @@ impl Command for SubCommand {
         Signature::build("random float")
             .input_output_types(vec![(Type::Nothing, Type::Float)])
             .allow_variants_without_examples(true)
-            .optional("range", SyntaxShape::Range, "Range of values")
+            .optional("range", SyntaxShape::Range, "Range of values.")
             .category(Category::Random)
     }
 

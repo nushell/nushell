@@ -1,3 +1,4 @@
+use crate::prompt_update::{POST_PROMPT_MARKER, PRE_PROMPT_MARKER};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::DefaultPrompt;
@@ -11,6 +12,7 @@ use {
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
+    shell_integration: bool,
     left_prompt_string: Option<String>,
     right_prompt_string: Option<String>,
     default_prompt_indicator: Option<String>,
@@ -20,15 +22,10 @@ pub struct NushellPrompt {
     render_right_prompt_on_last_line: bool,
 }
 
-impl Default for NushellPrompt {
-    fn default() -> Self {
-        NushellPrompt::new()
-    }
-}
-
 impl NushellPrompt {
-    pub fn new() -> NushellPrompt {
+    pub fn new(shell_integration: bool) -> NushellPrompt {
         NushellPrompt {
+            shell_integration,
             left_prompt_string: None,
             right_prompt_string: None,
             default_prompt_indicator: None,
@@ -111,7 +108,11 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            prompt.into()
+            if self.shell_integration {
+                format!("{PRE_PROMPT_MARKER}{prompt}{POST_PROMPT_MARKER}").into()
+            } else {
+                prompt.into()
+            }
         }
     }
 

@@ -36,7 +36,7 @@ repeating this process with row 1, and so on."#
                 "value",
                 // Both this and `update` should have a shape more like <record> | <table> than just <any>. -Leon 2022-10-27
                 SyntaxShape::Any,
-                "the new value to merge with",
+                "The new value to merge with.",
             )
             .category(Category::Filters)
     }

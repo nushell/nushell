@@ -32,7 +32,11 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::String),
                 (Type::Table(vec![]), Type::List(Box::new(Type::String))),
             ])
-            .rest("append", SyntaxShape::String, "Path to append to the input")
+            .rest(
+                "append",
+                SyntaxShape::String,
+                "Path to append to the input.",
+            )
             .category(Category::Path)
     }
 

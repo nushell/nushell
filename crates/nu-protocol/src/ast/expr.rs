@@ -1,7 +1,10 @@
 use chrono::FixedOffset;
 use serde::{Deserialize, Serialize};
 
-use super::{Call, CellPath, Expression, FullCellPath, MatchPattern, Operator, RangeOperator};
+use super::{
+    Call, CellPath, Expression, ExternalArgument, FullCellPath, MatchPattern, Operator,
+    RangeOperator,
+};
 use crate::{ast::ImportPattern, BlockId, Signature, Span, Spanned, Unit, VarId};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -19,7 +22,7 @@ pub enum Expr {
     Var(VarId),
     VarDecl(VarId),
     Call(Box<Call>),
-    ExternalCall(Box<Expression>, Vec<Expression>, bool), // head, args, is_subexpression
+    ExternalCall(Box<Expression>, Vec<ExternalArgument>, bool), // head, args, is_subexpression
     Operator(Operator),
     RowCondition(BlockId),
     UnaryNot(Box<Expression>),
@@ -44,7 +47,6 @@ pub enum Expr {
     Overlay(Option<BlockId>), // block ID of the overlay's origin module
     Signature(Box<Signature>),
     StringInterpolation(Vec<Expression>),
-    MatchPattern(Box<MatchPattern>),
     Spread(Box<Expression>),
     Nothing,
     Garbage,

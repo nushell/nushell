@@ -180,7 +180,7 @@ impl LanguageServer {
     }
 
     fn span_to_range(span: &Span, rope_of_file: &Rope, offset: usize) -> lsp_types::Range {
-        let line = rope_of_file.char_to_line(span.start - offset);
+        let line = rope_of_file.byte_to_line(span.start - offset);
         let character = span.start - offset - rope_of_file.line_to_char(line);
 
         let start = lsp_types::Position {
@@ -188,7 +188,7 @@ impl LanguageServer {
             character: character as u32,
         };
 
-        let line = rope_of_file.char_to_line(span.end - offset);
+        let line = rope_of_file.byte_to_line(span.end - offset);
         let character = span.end - offset - rope_of_file.line_to_char(line);
 
         let end = lsp_types::Position {
@@ -312,7 +312,7 @@ impl LanguageServer {
                     }
                 }
             }
-            _ => {}
+            Id::Value(_) => {}
         }
         None
     }
@@ -347,11 +347,22 @@ impl LanguageServer {
             Id::Declaration(decl_id) => {
                 let decl = working_set.get_decl(decl_id);
 
-                let mut description = "\n### Signature\n```\n".to_string();
+                let mut description = String::new();
+
+                // First description
+                description.push_str(&format!("{}\n", decl.usage().replace('\r', "")));
+
+                // Additional description
+                if !decl.extra_usage().is_empty() {
+                    description.push_str(&format!("\n{}\n", decl.extra_usage()));
+                }
+
+                // Usage
+                description.push_str("### Usage \n```\n");
                 let signature = decl.signature();
                 description.push_str(&format!("  {}", signature.name));
                 if !signature.named.is_empty() {
-                    description.push_str(" {flags}")
+                    description.push_str(" {flags}");
                 }
                 for required_arg in &signature.required_positional {
                     description.push_str(&format!(" <{}>", required_arg.name));
@@ -363,6 +374,39 @@ impl LanguageServer {
                     description.push_str(&format!(" <...{}>", arg.name));
                 }
                 description.push_str("\n```\n");
+
+                // Flags
+                if !signature.named.is_empty() {
+                    description.push_str("\n### Flags\n\n");
+                    let mut first = true;
+                    for named in &signature.named {
+                        if first {
+                            first = false;
+                        } else {
+                            description.push('\n');
+                        }
+                        description.push_str("  ");
+                        if let Some(short_flag) = &named.short {
+                            description.push_str(&format!("`-{short_flag}`"));
+                        }
+                        if !named.long.is_empty() {
+                            if named.short.is_some() {
+                                description.push_str(", ");
+                            }
+                            description.push_str(&format!("`--{}`", named.long));
+                        }
+                        if let Some(arg) = &named.arg {
+                            description.push_str(&format!(" `<{}>`", arg.to_type()));
+                        }
+                        if !named.desc.is_empty() {
+                            description.push_str(&format!(" - {}", named.desc));
+                        }
+                        description.push('\n');
+                    }
+                    description.push('\n');
+                }
+
+                // Parameters
                 if !signature.required_positional.is_empty()
                     || !signature.optional_positional.is_empty()
                     || signature.rest_positional.is_some()
@@ -370,10 +414,10 @@ impl LanguageServer {
                     description.push_str("\n### Parameters\n\n");
                     let mut first = true;
                     for required_arg in &signature.required_positional {
-                        if !first {
-                            description.push('\n');
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -386,10 +430,10 @@ impl LanguageServer {
                         description.push('\n');
                     }
                     for optional_arg in &signature.optional_positional {
-                        if !first {
-                            description.push('\n');
-                        } else {
+                        if first {
                             first = false;
+                        } else {
+                            description.push('\n');
                         }
                         description.push_str(&format!(
                             "  `{}: {}`",
@@ -417,36 +461,10 @@ impl LanguageServer {
                     }
                     description.push('\n');
                 }
-                if !signature.named.is_empty() {
-                    description.push_str("\n### Flags\n\n");
-                    let mut first = true;
-                    for named in &signature.named {
-                        if !first {
-                            description.push('\n');
-                        } else {
-                            first = false;
-                        }
-                        description.push_str("  ");
-                        if let Some(short_flag) = &named.short {
-                            description.push_str(&format!("`-{}`", short_flag));
-                        }
-                        if !named.long.is_empty() {
-                            if named.short.is_some() {
-                                description.push_str(", ")
-                            }
-                            description.push_str(&format!("`--{}`", named.long));
-                        }
-                        if let Some(arg) = &named.arg {
-                            description.push_str(&format!(" `<{}>`", arg.to_type()))
-                        }
-                        if !named.desc.is_empty() {
-                            description.push_str(&format!(" - {}", named.desc));
-                        }
-                    }
-                    description.push('\n');
-                }
+
+                // Input/output types
                 if !signature.input_output_types.is_empty() {
-                    description.push_str("\n### Input/output\n");
+                    description.push_str("\n### Input/output types\n");
                     description.push_str("\n```\n");
                     for input_output in &signature.input_output_types {
                         description
@@ -454,14 +472,8 @@ impl LanguageServer {
                     }
                     description.push_str("\n```\n");
                 }
-                description.push_str(&format!(
-                    "### Usage\n  {}\n",
-                    decl.usage().replace('\r', "")
-                ));
-                if !decl.extra_usage().is_empty() {
-                    description
-                        .push_str(&format!("\n### Extra usage:\n  {}\n", decl.extra_usage()));
-                }
+
+                // Examples
                 if !decl.examples().is_empty() {
                     description.push_str("### Example(s)\n");
                     for example in decl.examples() {
@@ -538,7 +550,7 @@ impl LanguageServer {
 
         let location =
             Self::lsp_position_to_location(&params.text_document_position.position, rope_of_file);
-        let results = completer.complete(&rope_of_file.to_string(), location);
+        let results = completer.complete(&rope_of_file.to_string()[..location], location);
         if results.is_empty() {
             None
         } else {
@@ -578,8 +590,9 @@ mod tests {
         },
         request::{Completion, GotoDefinition, HoverRequest, Initialize, Request, Shutdown},
         CompletionParams, DidChangeTextDocumentParams, DidOpenTextDocumentParams,
-        GotoDefinitionParams, InitializeParams, InitializedParams, TextDocumentContentChangeEvent,
-        TextDocumentIdentifier, TextDocumentItem, TextDocumentPositionParams, Url,
+        GotoDefinitionParams, InitializeParams, InitializedParams, PartialResultParams,
+        TextDocumentContentChangeEvent, TextDocumentIdentifier, TextDocumentItem,
+        TextDocumentPositionParams, Url, WorkDoneProgressParams,
     };
     use nu_test_support::fs::{fixtures, root};
     use std::sync::mpsc::Receiver;
@@ -671,8 +684,8 @@ mod tests {
                             character: 0,
                         },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -691,8 +704,16 @@ mod tests {
         assert_json_eq!(result, serde_json::json!(null));
     }
 
-    pub fn open(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
-        let text = std::fs::read_to_string(uri.to_file_path().unwrap()).unwrap();
+    pub fn open_unchecked(client_connection: &Connection, uri: Url) -> lsp_server::Notification {
+        open(client_connection, uri).unwrap()
+    }
+
+    pub fn open(
+        client_connection: &Connection,
+        uri: Url,
+    ) -> Result<lsp_server::Notification, String> {
+        let text =
+            std::fs::read_to_string(uri.to_file_path().unwrap()).map_err(|e| e.to_string())?;
 
         client_connection
             .sender
@@ -708,17 +729,17 @@ mod tests {
                 })
                 .unwrap(),
             }))
-            .unwrap();
+            .map_err(|e| e.to_string())?;
 
         let notification = client_connection
             .receiver
             .recv_timeout(Duration::from_secs(2))
-            .unwrap();
+            .map_err(|e| e.to_string())?;
 
         if let Message::Notification(n) = notification {
-            n
+            Ok(n)
         } else {
-            panic!();
+            Err(String::from("Did not receive a notification from server"))
         }
     }
 
@@ -777,8 +798,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                 })
                 .unwrap(),
             }))
@@ -800,7 +821,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 2, 12);
         let result = if let Message::Response(response) = resp {
@@ -831,7 +852,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 4, 1);
         let result = if let Message::Response(response) = resp {
@@ -862,7 +883,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = goto_definition(&client_connection, script.clone(), 1, 14);
         let result = if let Message::Response(response) = resp {
@@ -894,7 +915,7 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
                 })
                 .unwrap(),
             }))
@@ -916,7 +937,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = hover(&client_connection, script.clone(), 2, 0);
         let result = if let Message::Response(response) = resp {
@@ -943,7 +964,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = hover(&client_connection, script.clone(), 3, 0);
         let result = if let Message::Response(response) = resp {
@@ -957,7 +978,7 @@ mod tests {
             serde_json::json!({
                 "contents": {
                     "kind": "markdown",
-                    "value": "\n### Signature\n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n### Usage\n  Renders some greeting message\n"
+                    "value": "Renders some greeting message\n### Usage \n```\n  hello {flags}\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n"
                 }
             })
         );
@@ -974,8 +995,8 @@ mod tests {
                         text_document: TextDocumentIdentifier { uri },
                         position: lsp_types::Position { line, character },
                     },
-                    work_done_progress_params: Default::default(),
-                    partial_result_params: Default::default(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                    partial_result_params: PartialResultParams::default(),
                     context: None,
                 })
                 .unwrap(),
@@ -998,7 +1019,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = complete(&client_connection, script, 2, 9);
         let result = if let Message::Response(response) = resp {
@@ -1034,7 +1055,7 @@ mod tests {
         script.push("command.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
 
         let resp = complete(&client_connection, script, 0, 8);
         let result = if let Message::Response(response) = resp {
@@ -1055,6 +1076,43 @@ mod tests {
                         "end": { "line": 0, "character": 8 },
                      },
                      "newText": "config nu"
+                  }
+               }
+            ])
+        );
+    }
+
+    #[test]
+    fn complete_command_with_utf_line() {
+        let (client_connection, _recv) = initialize_language_server();
+
+        let mut script = fixtures();
+        script.push("lsp");
+        script.push("completion");
+        script.push("utf_pipeline.nu");
+        let script = Url::from_file_path(script).unwrap();
+
+        open_unchecked(&client_connection, script.clone());
+
+        let resp = complete(&client_connection, script, 0, 14);
+        let result = if let Message::Response(response) = resp {
+            response.result
+        } else {
+            panic!()
+        };
+
+        assert_json_eq!(
+            result,
+            serde_json::json!([
+               {
+                  "label": "str trim",
+                  "detail": "Trim whitespace or specific character.",
+                  "textEdit": {
+                     "range": {
+                        "start": { "line": 0, "character": 9 },
+                        "end": { "line": 0, "character": 14 },
+                     },
+                     "newText": "str trim"
                   }
                }
             ])

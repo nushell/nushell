@@ -39,9 +39,9 @@ If multiple cell paths are given, this will produce a list of values."#
             .required(
                 "cell_path",
                 SyntaxShape::CellPath,
-                "the cell path to the data",
+                "The cell path to the data.",
             )
-            .rest("rest", SyntaxShape::CellPath, "additional cell paths")
+            .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
                 "ignore-errors",
                 "ignore missing data (make all cell path members optional)",
@@ -66,8 +66,8 @@ If multiple cell paths are given, this will produce a list of values."#
         let span = call.head;
         let mut cell_path: CellPath = call.req(engine_state, stack, 0)?;
         let mut rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
-        let ignore_errors = call.has_flag("ignore-errors");
-        let sensitive = call.has_flag("sensitive");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
+        let sensitive = call.has_flag(engine_state, stack, "sensitive")?;
         let ctrlc = engine_state.ctrlc.clone();
         let metadata = input.metadata();
 

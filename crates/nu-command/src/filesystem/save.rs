@@ -4,8 +4,8 @@ use nu_path::expand_path_with;
 use nu_protocol::ast::{Call, Expr, Expression};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, RawStream, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value,
+    Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
+    Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
 use std::fs::File;
 use std::io::Write;
@@ -42,7 +42,7 @@ impl Command for Save {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("save")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
-            .required("filename", SyntaxShape::Filepath, "the filename to use")
+            .required("filename", SyntaxShape::Filepath, "The filename to use.")
             .named(
                 "stderr",
                 SyntaxShape::Filepath,
@@ -63,10 +63,10 @@ impl Command for Save {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let append = call.has_flag("append");
-        let force = call.has_flag("force");
-        let progress = call.has_flag("progress");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let append = call.has_flag(engine_state, stack, "append")?;
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let progress = call.has_flag(engine_state, stack, "progress")?;
         let out_append = if let Some(Expression {
             expr: Expr::Bool(out_append),
             ..
@@ -149,9 +149,42 @@ impl Command for Save {
                     res
                 }
             }
-            PipelineData::ListStream(ls, _)
+            PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
             {
+                if let Some(PipelineMetadata {
+                    data_source: DataSource::FilePath(input_path),
+                }) = pipeline_metadata
+                {
+                    if path.item == input_path {
+                        return Err(ShellError::GenericError {
+                            error: "pipeline input and output are same file".into(),
+                            msg: format!(
+                                "can't save output to '{}' while it's being reading",
+                                path.item.display()
+                            ),
+                            span: Some(path.span),
+                            help: Some("you should change output path".into()),
+                            inner: vec![],
+                        });
+                    }
+
+                    if let Some(ref err_path) = stderr_path {
+                        if err_path.item == input_path {
+                            return Err(ShellError::GenericError {
+                                error: "pipeline input and stderr are same file".into(),
+                                msg: format!(
+                                    "can't save stderr to '{}' while it's being reading",
+                                    err_path.item.display()
+                                ),
+                                span: Some(err_path.span),
+                                help: Some("you should change stderr path".into()),
+                                inner: vec![],
+                            });
+                        }
+                    }
+                }
+
                 let (mut file, _) = get_files(
                     &path,
                     stderr_path.as_ref(),
@@ -340,10 +373,7 @@ fn prepare_path(
 
 fn open_file(path: &Path, span: Span, append: bool) -> Result<File, ShellError> {
     let file = match (append, path.exists()) {
-        (true, true) => std::fs::OpenOptions::new()
-            .write(true)
-            .append(true)
-            .open(path),
+        (true, true) => std::fs::OpenOptions::new().append(true).open(path),
         _ => std::fs::File::create(path),
     };
 

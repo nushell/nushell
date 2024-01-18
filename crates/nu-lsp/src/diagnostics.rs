@@ -73,7 +73,7 @@ mod tests {
     use lsp_types::Url;
     use nu_test_support::fs::fixtures;
 
-    use crate::tests::{initialize_language_server, open, update};
+    use crate::tests::{initialize_language_server, open_unchecked, update};
 
     #[test]
     fn publish_diagnostics_variable_does_not_exists() {
@@ -85,7 +85,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        let notification = open(&client_connection, script.clone());
+        let notification = open_unchecked(&client_connection, script.clone());
 
         assert_json_eq!(
             notification,
@@ -116,7 +116,7 @@ mod tests {
         script.push("var.nu");
         let script = Url::from_file_path(script).unwrap();
 
-        open(&client_connection, script.clone());
+        open_unchecked(&client_connection, script.clone());
         let notification = update(
             &client_connection,
             script.clone(),

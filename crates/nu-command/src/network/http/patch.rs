@@ -2,12 +2,13 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
 use crate::network::http::client::{
-    http_client, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request,
+    check_response_redirection, http_client, http_parse_redirect_mode, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request,
 };
 
 use super::client::RequestFlags;
@@ -24,8 +25,8 @@ impl Command for SubCommand {
         Signature::build("http patch")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("URL", SyntaxShape::String, "the URL to post to")
-            .required("data", SyntaxShape::Any, "the contents of the post body")
+            .required("URL", SyntaxShape::String, "The URL to post to.")
+            .required("data", SyntaxShape::Any, "The contents of the post body.")
             .named(
                 "user",
                 SyntaxShape::Any,
@@ -75,6 +76,11 @@ impl Command for SubCommand {
                 "allow-errors",
                 "do not fail if the server returns an error code",
                 Some('e'),
+            ).named(
+                "redirect-mode",
+                SyntaxShape::String,
+                "What to do when encountering redirects. Default: 'follow'. Valid options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                Some('R')
             )
             .filter()
             .category(Category::Network)
@@ -142,6 +148,7 @@ struct Arguments {
     timeout: Option<Value>,
     full: bool,
     allow_errors: bool,
+    redirect: Option<Spanned<String>>,
 }
 
 fn run_patch(
@@ -155,13 +162,14 @@ fn run_patch(
         headers: call.get_flag(engine_state, stack, "headers")?,
         data: call.req(engine_state, stack, 1)?,
         content_type: call.get_flag(engine_state, stack, "content-type")?,
-        raw: call.has_flag("raw"),
-        insecure: call.has_flag("insecure"),
+        raw: call.has_flag(engine_state, stack, "raw")?,
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
-        full: call.has_flag("full"),
-        allow_errors: call.has_flag("allow-errors"),
+        full: call.has_flag(engine_state, stack, "full")?,
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
+        redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
     };
 
     helper(engine_state, stack, call, args)
@@ -178,8 +186,9 @@ fn helper(
     let span = args.url.span();
     let ctrl_c = engine_state.ctrlc.clone();
     let (requested_url, _) = http_parse_url(call, span, args.url)?;
+    let redirect_mode = http_parse_redirect_mode(args.redirect)?;
 
-    let client = http_client(args.insecure, engine_state, stack);
+    let client = http_client(args.insecure, redirect_mode, engine_state, stack)?;
     let mut request = client.patch(&requested_url);
 
     request = request_set_timeout(args.timeout, request)?;
@@ -194,6 +203,7 @@ fn helper(
         allow_errors: args.allow_errors,
     };
 
+    check_response_redirection(redirect_mode, span, &response)?;
     request_handle_response(
         engine_state,
         stack,

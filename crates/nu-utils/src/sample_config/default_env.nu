@@ -1,6 +1,6 @@
 # Nushell Environment Config File
 #
-# version = "0.87.2"
+# version = "0.89.1"
 
 def create_left_prompt [] {
     let home =  $nu.home-path

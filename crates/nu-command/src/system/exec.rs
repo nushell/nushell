@@ -17,7 +17,7 @@ impl Command for Exec {
     fn signature(&self) -> Signature {
         Signature::build("exec")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .required("command", SyntaxShape::String, "the command to execute")
+            .required("command", SyntaxShape::String, "The command to execute.")
             .allows_unknown_args()
             .category(Category::System)
     }

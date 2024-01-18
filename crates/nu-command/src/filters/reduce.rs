@@ -35,7 +35,7 @@ impl Command for Reduce {
                     SyntaxShape::Any,
                     SyntaxShape::Int,
                 ])),
-                "reducing function",
+                "Reducing function.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

@@ -59,7 +59,7 @@ impl Command for Transpose {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the names to give columns once transposed",
+                "The names to give columns once transposed.",
             )
             .category(Category::Filters)
     }
@@ -145,11 +145,11 @@ pub fn transpose(
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let args = TransposeArgs {
-        header_row: call.has_flag("header-row"),
-        ignore_titles: call.has_flag("ignore-titles"),
-        as_record: call.has_flag("as-record"),
-        keep_last: call.has_flag("keep-last"),
-        keep_all: call.has_flag("keep-all"),
+        header_row: call.has_flag(engine_state, stack, "header-row")?,
+        ignore_titles: call.has_flag(engine_state, stack, "ignore-titles")?,
+        as_record: call.has_flag(engine_state, stack, "as-record")?,
+        keep_last: call.has_flag(engine_state, stack, "keep-last")?,
+        keep_all: call.has_flag(engine_state, stack, "keep-all")?,
         rest: call.rest(engine_state, stack, 0)?,
     };
 

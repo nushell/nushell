@@ -45,7 +45,7 @@ impl Command for ParEach {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the closure to run",
+                "The closure to run.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -121,7 +121,7 @@ impl Command for ParEach {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
         let threads: Option<usize> = call.get_flag(engine_state, stack, "threads")?;
         let max_threads = threads.unwrap_or(0);
-        let keep_order = call.has_flag("keep-order");
+        let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();
         let outer_ctrlc = engine_state.ctrlc.clone();

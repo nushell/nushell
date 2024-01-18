@@ -242,12 +242,6 @@ fn convert_to_value(
             msg: "extra tokens in input file".into(),
             span: expr.span,
         }),
-        Expr::MatchPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
-            src: original_text.to_string(),
-            error: "Error when loading".into(),
-            msg: "extra tokens in input file".into(),
-            span: expr.span,
-        }),
         Expr::GlobPattern(val) => Ok(Value::string(val, span)),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
@@ -409,13 +403,7 @@ fn convert_to_value(
             }
 
             for row in cells {
-                let mut vals = vec![];
-
-                for cell in row {
-                    vals.push(convert_to_value(cell, span, original_text)?);
-                }
-
-                if cols.len() != vals.len() {
+                if cols.len() != row.len() {
                     return Err(ShellError::OutsideSpannedLabeledError {
                         src: original_text.to_string(),
                         error: "Error when loading".into(),
@@ -423,12 +411,13 @@ fn convert_to_value(
                         span: expr.span,
                     });
                 }
+                let vals: Vec<Value> = row
+                    .into_iter()
+                    .map(|cell| convert_to_value(cell, span, original_text))
+                    .collect::<Result<_, _>>()?;
 
                 output.push(Value::record(
-                    Record {
-                        cols: cols.clone(),
-                        vals,
-                    },
+                    Record::from_raw_cols_vals(cols.clone(), vals),
                     span,
                 ));
             }

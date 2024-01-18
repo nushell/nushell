@@ -21,11 +21,11 @@ impl Command for While {
         Signature::build("while")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("cond", SyntaxShape::MathExpression, "condition to check")
+            .required("cond", SyntaxShape::MathExpression, "Condition to check.")
             .required(
                 "block",
                 SyntaxShape::Block,
-                "block to loop if check succeeds",
+                "Block to loop if check succeeds.",
             )
             .category(Category::Core)
     }

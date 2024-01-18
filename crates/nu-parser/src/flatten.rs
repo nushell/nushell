@@ -1,6 +1,6 @@
 use nu_protocol::ast::{
-    Block, Expr, Expression, ImportPatternMember, MatchPattern, PathMember, Pattern, Pipeline,
-    PipelineElement, RecordItem,
+    Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, MatchPattern,
+    PathMember, Pattern, Pipeline, PipelineElement, RecordItem,
 };
 use nu_protocol::{engine::StateWorkingSet, Span};
 use nu_protocol::{DeclId, VarId};
@@ -193,17 +193,28 @@ pub fn flatten_expression(
             }
 
             let mut args = vec![];
-            for positional in call.positional_iter() {
-                let flattened = flatten_expression(working_set, positional);
-                args.extend(flattened);
-            }
-            for named in call.named_iter() {
-                if named.0.span.end != 0 {
-                    // Ignore synthetic flags
-                    args.push((named.0.span, FlatShape::Flag));
-                }
-                if let Some(expr) = &named.2 {
-                    args.extend(flatten_expression(working_set, expr));
+            for arg in &call.arguments {
+                match arg {
+                    Argument::Positional(positional) | Argument::Unknown(positional) => {
+                        let flattened = flatten_expression(working_set, positional);
+                        args.extend(flattened);
+                    }
+                    Argument::Named(named) => {
+                        if named.0.span.end != 0 {
+                            // Ignore synthetic flags
+                            args.push((named.0.span, FlatShape::Flag));
+                        }
+                        if let Some(expr) = &named.2 {
+                            args.extend(flatten_expression(working_set, expr));
+                        }
+                    }
+                    Argument::Spread(expr) => {
+                        args.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        args.extend(flatten_expression(working_set, expr));
+                    }
                 }
             }
             // sort these since flags and positional args can be intermixed
@@ -231,15 +242,24 @@ pub fn flatten_expression(
             for arg in args {
                 //output.push((*arg, FlatShape::ExternalArg));
                 match arg {
-                    Expression {
-                        expr: Expr::String(..),
-                        span,
-                        ..
-                    } => {
-                        output.push((*span, FlatShape::ExternalArg));
-                    }
-                    _ => {
-                        output.extend(flatten_expression(working_set, arg));
+                    ExternalArgument::Regular(expr) => match expr {
+                        Expression {
+                            expr: Expr::String(..),
+                            span,
+                            ..
+                        } => {
+                            output.push((*span, FlatShape::ExternalArg));
+                        }
+                        _ => {
+                            output.extend(flatten_expression(working_set, expr));
+                        }
+                    },
+                    ExternalArgument::Spread(expr) => {
+                        output.push((
+                            Span::new(expr.span.start - 3, expr.span.start),
+                            FlatShape::Operator,
+                        ));
+                        output.extend(flatten_expression(working_set, expr));
                     }
                 }
             }
@@ -263,10 +283,6 @@ pub fn flatten_expression(
         }
         Expr::Float(_) => {
             vec![(expr.span, FlatShape::Float)]
-        }
-        Expr::MatchPattern(pattern) => {
-            // FIXME: do nicer flattening later
-            flatten_pattern(pattern)
         }
         Expr::MatchBlock(matches) => {
             let mut output = vec![];

@@ -29,7 +29,7 @@ impl Command for Touch {
             .required(
                 "filename",
                 SyntaxShape::Filepath,
-                "the path of the file you want to create",
+                "The path of the file you want to create.",
             )
             .named(
                 "reference",
@@ -52,7 +52,7 @@ impl Command for Touch {
                 "do not create the file if it does not exist",
                 Some('c'),
             )
-            .rest("rest", SyntaxShape::Filepath, "additional files to create")
+            .rest("rest", SyntaxShape::Filepath, "Additional files to create.")
             .category(Category::FileSystem)
     }
 
@@ -67,10 +67,10 @@ impl Command for Touch {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut change_mtime: bool = call.has_flag("modified");
-        let mut change_atime: bool = call.has_flag("access");
-        let use_reference: bool = call.has_flag("reference");
-        let no_create: bool = call.has_flag("no-create");
+        let mut change_mtime: bool = call.has_flag(engine_state, stack, "modified")?;
+        let mut change_atime: bool = call.has_flag(engine_state, stack, "access")?;
+        let use_reference: bool = call.has_flag(engine_state, stack, "reference")?;
+        let no_create: bool = call.has_flag(engine_state, stack, "no-create")?;
         let target: String = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
 

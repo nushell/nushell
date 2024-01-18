@@ -20,11 +20,11 @@ impl Command for Match {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("match")
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .required("value", SyntaxShape::Any, "value to check")
+            .required("value", SyntaxShape::Any, "Value to check.")
             .required(
                 "match_block",
                 SyntaxShape::MatchBlock,
-                "block to run if check succeeds",
+                "Block to run if check succeeds.",
             )
             .category(Category::Core)
     }

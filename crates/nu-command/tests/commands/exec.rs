@@ -49,7 +49,7 @@ fn exec_misc_values() {
         let actual = nu!(
             cwd: dirs.test(), pipeline(
             r#"
-                nu -c 'let x = "abc"; exec nu --testbin cococo $x [ a b c ]'
+                nu -c 'let x = "abc"; exec nu --testbin cococo $x ...[ a b c ]'
             "#
         ));
 

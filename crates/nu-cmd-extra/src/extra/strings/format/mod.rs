@@ -1,3 +1,3 @@
 mod command;
 
-pub(crate) use command::Format;
+pub(crate) use command::FormatPattern;

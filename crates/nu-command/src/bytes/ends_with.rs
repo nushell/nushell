@@ -33,11 +33,11 @@ impl Command for BytesEndsWith {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("pattern", SyntaxShape::Binary, "the pattern to match")
+            .required("pattern", SyntaxShape::Binary, "The pattern to match.")
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "for a data structure input, check if bytes at the given cell paths end with the pattern",
+                "For a data structure input, check if bytes at the given cell paths end with the pattern.",
             )
             .category(Category::Bytes)
     }

@@ -20,7 +20,11 @@ impl Command for Return {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("return")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional("return_value", SyntaxShape::Any, "optional value to return")
+            .optional(
+                "return_value",
+                SyntaxShape::Any,
+                "Optional value to return.",
+            )
             .category(Category::Core)
     }
 

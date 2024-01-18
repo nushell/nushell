@@ -53,4 +53,5 @@ def main [] {
         let msg = $"OUTPUT:\n($o)\n\nEXPECTED:\n($e)"
         error make {msg: $"Output does not match the expected value:\n($msg)"}
     }
+    rm script.nu
 }

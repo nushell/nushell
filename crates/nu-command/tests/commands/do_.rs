@@ -122,27 +122,24 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() {
         "external with many stdout and stderr messages",
         |dirs, sandbox| {
             let script_body = r#"
-        x=$(printf '=%.0s' {1..40960})
+        x=$(printf '=%.0s' $(seq 40960))
         echo $x
         echo $x 1>&2
         "#;
-            let mut expect_body = String::new();
-            for _ in 0..40960 {
-                expect_body.push('=');
-            }
+            let expect_body = "=".repeat(40960);
 
             sandbox.with_files(vec![FileWithContent("test.sh", script_body)]);
 
             // check for stdout
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                "do -c {bash test.sh} | complete | get stdout | str trim",
+                "do -c {sh test.sh} | complete | get stdout | str trim",
             ));
             assert_eq!(actual.out, expect_body);
             // check for stderr
             let actual = nu!(
                 cwd: dirs.test(), pipeline(
-                "do -c {bash test.sh} | complete | get stderr | str trim",
+                "do -c {sh test.sh} | complete | get stderr | str trim",
             ));
             assert_eq!(actual.out, expect_body);
         },

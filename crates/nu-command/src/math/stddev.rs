@@ -1,8 +1,11 @@
 use super::variance::compute_variance as variance;
 use crate::math::utils::run_with_function;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -14,12 +17,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math stddev")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .switch(
                 "sample",
                 "calculate sample standard deviation (i.e. using N-1 as the denominator)",
                 Some('s'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
@@ -40,12 +48,12 @@ impl Command for SubCommand {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let sample = call.has_flag("sample");
+        let sample = call.has_flag(engine_state, stack, "sample")?;
         run_with_function(call, input, compute_stddev(sample))
     }
 
@@ -60,6 +68,14 @@ impl Command for SubCommand {
                 description: "Compute the sample standard deviation of a list of numbers",
                 example: "[1 2 3 4 5] | math stddev --sample",
                 result: Some(Value::test_float(1.5811388300841898)),
+            },
+            Example {
+                description: "Compute the standard deviation of each column in a table",
+                example: "[[a b]; [1 2] [3 4]] | math stddev",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(1),
+                })),
             },
         ]
     }

@@ -5,7 +5,8 @@ use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::{
-    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Value,
+    record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned,
+    Value,
 };
 use ureq::{Error, ErrorKind, Request, Response};
 
@@ -26,21 +27,37 @@ pub enum BodyType {
     Unknown,
 }
 
-// Only panics if the user agent is invalid but we define it statically so either
-// it always or never fails
+#[derive(Clone, Copy, PartialEq)]
+pub enum RedirectMode {
+    Follow,
+    Error,
+    Manual,
+}
+
 pub fn http_client(
     allow_insecure: bool,
+    redirect_mode: RedirectMode,
     engine_state: &EngineState,
     stack: &mut Stack,
-) -> ureq::Agent {
+) -> Result<ureq::Agent, ShellError> {
     let tls = native_tls::TlsConnector::builder()
         .danger_accept_invalid_certs(allow_insecure)
         .build()
-        .expect("Failed to build network tls");
+        .map_err(|e| ShellError::GenericError {
+            error: format!("Failed to build network tls: {}", e),
+            msg: String::new(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })?;
 
     let mut agent_builder = ureq::builder()
         .user_agent("nushell")
         .tls_connector(std::sync::Arc::new(tls));
+
+    if let RedirectMode::Manual | RedirectMode::Error = redirect_mode {
+        agent_builder = agent_builder.redirects(0);
+    }
 
     if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack) {
         if let Ok(proxy) = ureq::Proxy::new(http_proxy) {
@@ -48,7 +65,7 @@ pub fn http_client(
         }
     };
 
-    agent_builder.build()
+    Ok(agent_builder.build())
 }
 
 pub fn http_parse_url(
@@ -66,6 +83,18 @@ pub fn http_parse_url(
     };
 
     Ok((requested_url, url))
+}
+
+pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
+    mode.map_or(Ok(RedirectMode::Follow), |v| match &v.item[..] {
+        "follow" | "f" => Ok(RedirectMode::Follow),
+        "error" | "e" => Ok(RedirectMode::Error),
+        "manual" | "m" => Ok(RedirectMode::Manual),
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "Invalid redirect handling mode".to_string(),
+            span: v.span,
+        }),
+    })
 }
 
 pub fn response_to_buffer(
@@ -450,6 +479,26 @@ fn transform_response_using_content_type(
     } else {
         return Ok(output);
     };
+}
+
+pub fn check_response_redirection(
+    redirect_mode: RedirectMode,
+    span: Span,
+    response: &Result<Response, ShellErrorOrRequestError>,
+) -> Result<(), ShellError> {
+    if let Ok(resp) = response {
+        if RedirectMode::Error == redirect_mode && (300..400).contains(&resp.status()) {
+            return Err(ShellError::NetworkFailure {
+                msg: format!(
+                    "Redirect encountered when redirect handling mode was 'error' ({} {})",
+                    resp.status(),
+                    resp.status_text()
+                ),
+                span,
+            });
+        }
+    }
+    Ok(())
 }
 
 fn request_handle_response_content(

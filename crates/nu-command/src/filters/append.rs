@@ -17,7 +17,11 @@ impl Command for Append {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("append")
             .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::Any)))])
-            .required("row", SyntaxShape::Any, "the row, list, or table to append")
+            .required(
+                "row",
+                SyntaxShape::Any,
+                "The row, list, or table to append.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

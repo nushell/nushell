@@ -33,7 +33,7 @@ impl Command for Reject {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the names of columns to remove from the table",
+                "The names of columns to remove from the table.",
             )
             .category(Category::Filters)
     }
@@ -133,7 +133,7 @@ impl Command for Reject {
         }
         let span = call.head;
 
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
         if ignore_errors {
             for cell_path in &mut new_columns {
                 cell_path.make_optional();

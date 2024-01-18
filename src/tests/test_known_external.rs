@@ -99,8 +99,8 @@ fn known_external_misc_values() -> TestResult {
     run_test(
         r#"
             let x = 'abc'
-            extern echo []
-            echo $x [ a b c ]
+            extern echo [...args]
+            echo $x ...[ a b c ]
         "#,
         "abc a b c",
     )

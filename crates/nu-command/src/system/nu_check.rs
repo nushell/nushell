@@ -20,7 +20,7 @@ impl Command for NuCheck {
             (Type::ListStream, Type::Bool),
             (Type::List(Box::new(Type::Any)), Type::Bool)])
             // type is string to avoid automatically canonicalizing the path
-            .optional("path", SyntaxShape::String, "File path to parse")
+            .optional("path", SyntaxShape::String, "File path to parse.")
             .switch("as-module", "Parse content as module", Some('m'))
             .switch("debug", "Show error messages", Some('d'))
             .switch("all", "Parse content as script first, returns result if success, otherwise, try with module", Some('a'))
@@ -43,9 +43,9 @@ impl Command for NuCheck {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let path: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
-        let is_module = call.has_flag("as-module");
-        let is_debug = call.has_flag("debug");
-        let is_all = call.has_flag("all");
+        let is_module = call.has_flag(engine_state, stack, "as-module")?;
+        let is_debug = call.has_flag(engine_state, stack, "debug")?;
+        let is_all = call.has_flag(engine_state, stack, "all")?;
         let config = engine_state.get_config();
         let mut contents = vec![];
 

@@ -22,7 +22,6 @@ impl Command for SubCommand {
                 (Type::List(Box::new(Type::Any)), Type::Record(vec![])),
                 (Type::Range, Type::Record(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
-                (Type::Table(vec![]), Type::Record(vec![])),
             ])
             .category(Category::Conversions)
     }

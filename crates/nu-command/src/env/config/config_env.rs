@@ -1,4 +1,4 @@
-use nu_engine::env_to_strings;
+use nu_engine::{env_to_strings, CallExt};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -19,10 +19,7 @@ impl Command for ConfigEnv {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .category(Category::Env)
-            .input_output_types(vec![
-                (Type::Nothing, Type::Nothing),
-                (Type::Nothing, Type::String),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .switch("default", "Print default `env.nu` file instead.", Some('d'))
         // TODO: Signature narrower than what run actually supports theoretically
     }
@@ -59,7 +56,7 @@ impl Command for ConfigEnv {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // `--default` flag handling
-        if call.has_flag("default") {
+        if call.has_flag(engine_state, stack, "default")? {
             let head = call.head;
             return Ok(Value::string(nu_utils::get_default_env(), head).into_pipeline_data());
         }

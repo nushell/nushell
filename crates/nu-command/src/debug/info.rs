@@ -4,7 +4,7 @@ use nu_protocol::{
     record, Category, Example, IntoPipelineData, LazyRecord, PipelineData, Record, ShellError,
     Signature, Span, Type, Value,
 };
-use sysinfo::{Pid, PidExt, ProcessExt, ProcessRefreshKind, RefreshKind, System, SystemExt};
+use sysinfo::{MemoryRefreshKind, Pid, ProcessRefreshKind, RefreshKind, System};
 const ENV_PATH_SEPARATOR_CHAR: char = {
     #[cfg(target_family = "windows")]
     {
@@ -98,8 +98,9 @@ impl LazySystemInfoRecord {
             }
             "system" => {
                 // only get information requested
-                let system_opt =
-                    SystemOpt::from((system_option, || RefreshKind::new().with_memory()));
+                let system_opt = SystemOpt::from((system_option, || {
+                    RefreshKind::new().with_memory(MemoryRefreshKind::everything())
+                }));
 
                 let system = system_opt.get_system();
 
@@ -135,53 +136,66 @@ impl LazySystemInfoRecord {
                             "virtual_memory" => Value::filesize(p.virtual_memory() as i64, self.span),
                             "status" => Value::string(p.status().to_string(), self.span),
                             "root" => {
-                                if let Some(filename) = p.exe().parent() {
-                                    Value::string(filename.to_string_lossy().to_string(), self.span)
+                                if let Some(path) = p.exe().and_then(|p| p.parent()) {
+                                    Value::string(path.to_string_lossy().to_string(), self.span)
                                 } else {
                                     Value::nothing(self.span)
                                 }
                             },
-                            "cwd" => Value::string(p.cwd().to_string_lossy().to_string(), self.span),
-                            "exe_path" => Value::string(p.exe().to_string_lossy().to_string(), self.span),
+                            "cwd" => {
+                                if let Some(path) = p.cwd() {
+                                    Value::string(path.to_string_lossy().to_string(), self.span)
+                                }else{
+                                    Value::nothing(self.span)
+                                }
+                            },
+                            "exe_path" => {
+                                if let Some(path)= p.exe() {
+                                    Value::string(path.to_string_lossy().to_string(), self.span)
+                                }else{
+                                    Value::nothing(self.span)
+                                }
+                            },
                             "command" => Value::string(p.cmd().join(" "), self.span),
                             "name" => Value::string(p.name().to_string(), self.span),
-                               "environment" => {
-                                    let mut env_rec = Record::new();
-                                    for val in p.environ() {
-                                        if let Some((key, value)) = val.split_once('=') {
-                                            let is_env_var_a_list = {
+                            "environment" => {
+                                let mut env_rec = Record::new();
+                                for val in p.environ() {
+                                    if let Some((key, value)) = val.split_once('=') {
+                                        let is_env_var_a_list = {
+                                            {
+                                                #[cfg(target_family = "windows")]
                                                 {
-                                                    #[cfg(target_family = "windows")]
-                                                    {
-                                                        key == "Path" || key == "PATHEXT" || key == "PSMODULEPATH" || key == "PSModulePath"
-                                                    }
-                                                    #[cfg(not(target_family = "windows"))]
-                                                    {
-                                                        key == "PATH" || key == "DYLD_FALLBACK_LIBRARY_PATH"
-                                                    }
+                                                    key == "Path" || key == "PATHEXT" || key == "PSMODULEPATH" || key == "PSModulePath"
                                                 }
-                                            };
-                                            if is_env_var_a_list {
-                                                let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
-                                                env_rec.push(key.to_string(), Value::list(items, self.span));
-                                            } else if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
-                                                let items = value.split(':').map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
-                                                env_rec.push(key.to_string(), Value::list(items, self.span));
-                                            } else {
-                                                env_rec.push(key.to_string(), Value::string(value.to_string(), self.span));
+                                                #[cfg(not(target_family = "windows"))]
+                                                {
+                                                    key == "PATH" || key == "DYLD_FALLBACK_LIBRARY_PATH"
+                                                }
                                             }
+                                        };
+                                        if is_env_var_a_list {
+                                            let items = value.split(ENV_PATH_SEPARATOR_CHAR).map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
+                                            env_rec.push(key.to_string(), Value::list(items, self.span));
+                                        } else if key == "LS_COLORS" { // LS_COLORS is a special case, it's a colon separated list of key=value pairs
+                                            let items = value.split(':').map(|r| Value::string(r.to_string(), self.span)).collect::<Vec<_>>();
+                                            env_rec.push(key.to_string(), Value::list(items, self.span));
+                                        } else {
+                                            env_rec.push(key.to_string(), Value::string(value.to_string(), self.span));
                                         }
                                     }
-                                    Value::record(env_rec, self.span)
-                                },
+                                }
+                                Value::record(env_rec, self.span)
+                            },
                         },
                         self.span,
                     ))
                 } else {
                     // If we can't get the process information, just return the system information
                     // only get information requested
-                    let system_opt =
-                        SystemOpt::from((system_option, || RefreshKind::new().with_memory()));
+                    let system_opt = SystemOpt::from((system_option, || {
+                        RefreshKind::new().with_memory(MemoryRefreshKind::everything())
+                    }));
                     let system = system_opt.get_system();
 
                     Ok(Value::record(
@@ -228,7 +242,7 @@ impl<'a> LazyRecord<'a> for LazySystemInfoRecord {
                     .without_disk_usage()
                     .without_user(),
             )
-            .with_memory();
+            .with_memory(MemoryRefreshKind::everything());
         // only get information requested
         let system = System::new_with_specifics(rk);
 

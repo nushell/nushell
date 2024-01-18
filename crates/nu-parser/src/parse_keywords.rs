@@ -17,7 +17,6 @@ use nu_protocol::{
     ResolvedImportPattern, Span, Spanned, SyntaxShape, Type, VarId,
 };
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 
 pub const LIB_DIRS_VAR: &str = "NU_LIB_DIRS";
@@ -281,7 +280,12 @@ pub fn parse_for(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expressio
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return garbage(spans[0]);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -465,7 +469,12 @@ pub fn parse_def(
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &sig, &call);
             working_set.parse_errors.append(&mut new_errors);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return (garbage_pipeline(spans), None);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -481,8 +490,12 @@ pub fn parse_def(
         }
     };
 
-    let has_env = call.has_flag("env");
-    let has_wrapped = call.has_flag("wrapped");
+    let Ok(has_env) = has_flag_wrapped(working_set, &call, "env") else {
+        return (garbage_pipeline(spans), None);
+    };
+    let Ok(has_wrapped) = has_flag_wrapped(working_set, &call, "wrapped") else {
+        return (garbage_pipeline(spans), None);
+    };
 
     // All positional arguments must be in the call positional vector by this point
     let name_expr = call.positional_nth(0).expect("def call already checked");
@@ -871,7 +884,9 @@ pub fn parse_alias(
             .parse_errors
             .truncate(original_starting_error_count);
 
-        let has_help_flag = alias_call.has_flag("help");
+        let Ok(has_help_flag) = has_flag_wrapped(working_set, &alias_call, "help") else {
+            return garbage_pipeline(spans);
+        };
 
         let alias_pipeline = Pipeline::from_vec(vec![Expression {
             expr: Expr::Call(alias_call.clone()),
@@ -1123,7 +1138,12 @@ pub fn parse_export_in_block(
 
         let starting_error_count = working_set.parse_errors.len();
         check_call(working_set, call_span, &decl.signature(), &call);
-        if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+        let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+            return garbage_pipeline(&lite_command.parts);
+        };
+
+        if starting_error_count != working_set.parse_errors.len() || is_help {
             return Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
                 span: call_span,
@@ -1607,7 +1627,12 @@ pub fn parse_export_env(
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return (garbage_pipeline(spans), None);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -2011,7 +2036,7 @@ pub fn parse_module_file_or_dir(
         };
 
     if module_path.is_dir() {
-        let Some(dir_contents) = module_path.read_dir() else {
+        if module_path.read_dir().is_none() {
             working_set.error(ParseError::ModuleNotFound(path_span));
             return None;
         };
@@ -2033,54 +2058,13 @@ pub fn parse_module_file_or_dir(
             return None;
         }
 
-        let mut paths = vec![];
-
-        for entry_path in dir_contents {
-            if (entry_path.is_file()
-                && entry_path.extension() == Some(OsStr::new("nu"))
-                && entry_path.file_stem() != Some(OsStr::new("mod")))
-                || (entry_path.is_dir() && entry_path.clone().join("mod.nu").exists())
-            {
-                if entry_path.file_stem() == Some(OsStr::new(&module_name)) {
-                    working_set.error(ParseError::InvalidModuleFileName(
-                        module_path.path().to_string_lossy().to_string(),
-                        module_name,
-                        path_span,
-                    ));
-                    return None;
-                }
-
-                paths.push(entry_path);
-            }
-        }
-
-        paths.sort();
-
-        let mut submodules = vec![];
-
-        for p in paths {
-            if let Some(submodule_id) = parse_module_file_or_dir(
-                working_set,
-                p.path().to_string_lossy().as_bytes(),
-                path_span,
-                None,
-            ) {
-                let submodule_name = working_set.get_module(submodule_id).name();
-                submodules.push((submodule_name, submodule_id));
-            }
-        }
-
         if let Some(module_id) = parse_module_file(
             working_set,
             mod_nu_path,
             path_span,
             name_override.or(Some(module_name)),
         ) {
-            let mut module = working_set.get_module(module_id).clone();
-
-            for (submodule_name, submodule_id) in submodules {
-                module.add_submodule(submodule_name, submodule_id);
-            }
+            let module = working_set.get_module(module_id).clone();
 
             let module_name = String::from_utf8_lossy(&module.name).to_string();
 
@@ -2134,7 +2118,12 @@ pub fn parse_module(
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return (garbage_pipeline(spans), None);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -2326,7 +2315,12 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return (garbage_pipeline(spans), vec![]);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return (
                     Pipeline::from_vec(vec![Expression {
                         expr: Expr::Call(call),
@@ -2508,7 +2502,12 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return garbage_pipeline(spans);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -2766,8 +2765,12 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         None
     };
 
-    let has_prefix = call.has_flag("prefix");
-    let do_reload = call.has_flag("reload");
+    let Ok(has_prefix) = has_flag_wrapped(working_set, &call, "prefix") else {
+        return garbage_pipeline(&[call_span]);
+    };
+    let Ok(do_reload) = has_flag_wrapped(working_set, &call, "reload") else {
+        return garbage_pipeline(&[call_span]);
+    };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call.clone()),
@@ -2953,7 +2956,9 @@ pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) ->
         )
     };
 
-    let keep_custom = call.has_flag("keep-custom");
+    let Ok(keep_custom) = has_flag_wrapped(working_set, &call, "keep-custom") else {
+        return garbage_pipeline(&[call_span]);
+    };
 
     let pipeline = Pipeline::from_vec(vec![Expression {
         expr: Expr::Call(call),
@@ -3369,7 +3374,11 @@ pub fn parse_source(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeli
             let ParsedInternalCall { call, output } =
                 parse_internal_call(working_set, spans[0], &spans[1..], decl_id);
 
-            if call.has_flag("help") {
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return garbage_pipeline(spans);
+            };
+
+            if is_help {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: span(spans),
@@ -3502,7 +3511,12 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return garbage(span(spans));
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -3572,7 +3586,12 @@ pub fn parse_register(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipe
 
             let starting_error_count = working_set.parse_errors.len();
             check_call(working_set, call_span, &decl.signature(), &call);
-            if starting_error_count != working_set.parse_errors.len() || call.has_flag("help") {
+
+            let Ok(is_help) = has_flag_wrapped(working_set, &call, "help") else {
+                return garbage_pipeline(spans);
+            };
+
+            if starting_error_count != working_set.parse_errors.len() || is_help {
                 return Pipeline::from_vec(vec![Expression {
                     expr: Expr::Call(call),
                     span: call_span,
@@ -3893,4 +3912,15 @@ fn detect_params_in_name(
     } else {
         None
     }
+}
+
+/// Run has_flag_const and and push possible error to working_set
+fn has_flag_wrapped(
+    working_set: &mut StateWorkingSet,
+    call: &Call,
+    name: &str,
+) -> Result<bool, ()> {
+    call.has_flag_const(working_set, name).map_err(|err| {
+        working_set.error(err.wrap(working_set, call.span()));
+    })
 }

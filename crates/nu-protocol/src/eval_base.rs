@@ -1,7 +1,7 @@
 use crate::{
     ast::{
-        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression, Math,
-        Operator, RecordItem,
+        eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
+        ExternalArgument, Math, Operator, RecordItem,
     },
     Range, Record, ShellError, Span, Value, VarId,
 };
@@ -277,7 +277,6 @@ pub trait Eval {
             Expr::GlobPattern(pattern) => {
                 Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
             }
-            Expr::MatchPattern(pattern) => Ok(Value::match_pattern(*pattern.clone(), expr.span)),
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
@@ -320,7 +319,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         head: &Expression,
-        args: &[Expression],
+        args: &[ExternalArgument],
         is_subexpression: bool,
         span: Span,
     ) -> Result<Value, ShellError>;

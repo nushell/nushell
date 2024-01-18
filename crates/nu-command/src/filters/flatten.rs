@@ -28,7 +28,7 @@ impl Command for Flatten {
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "optionally flatten data by column",
+                "Optionally flatten data by column.",
             )
             .switch("all", "flatten inner table one level out", Some('a'))
             .category(Category::Filters)
@@ -128,7 +128,7 @@ fn flatten(
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let metadata = input.metadata();
-    let flatten_all = call.has_flag("all");
+    let flatten_all = call.has_flag(engine_state, stack, "all")?;
 
     input
         .flat_map(

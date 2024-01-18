@@ -33,7 +33,7 @@ impl Command for UMkdir {
             .rest(
                 "rest",
                 SyntaxShape::Directory,
-                "the name(s) of the path(s) to create",
+                "The name(s) of the path(s) to create.",
             )
             .switch(
                 "verbose",
@@ -57,7 +57,7 @@ impl Command for UMkdir {
             .map(|dir| nu_path::expand_path_with(dir, &cwd))
             .peekable();
 
-        let is_verbose = call.has_flag("verbose");
+        let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
 
         if directories.peek().is_none() {
             return Err(ShellError::MissingParameter {

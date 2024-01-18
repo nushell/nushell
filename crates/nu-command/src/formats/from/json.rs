@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -47,7 +48,7 @@ impl Command for FromJson {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -59,7 +60,7 @@ impl Command for FromJson {
         }
 
         // TODO: turn this into a structured underline of the nu_json error
-        if call.has_flag("objects") {
+        if call.has_flag(engine_state, stack, "objects")? {
             let converted_lines: Vec<Value> = string_input
                 .lines()
                 .filter_map(move |x| {

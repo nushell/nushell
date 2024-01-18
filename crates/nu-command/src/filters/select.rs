@@ -34,7 +34,7 @@ impl Command for Select {
                     SyntaxShape::CellPath,
                     SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
                 ]),
-                "the columns to select from the table",
+                "The columns to select from the table.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -137,7 +137,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                 }
             }
         }
-        let ignore_errors = call.has_flag("ignore-errors");
+        let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
         let span = call.head;
 
         if ignore_errors {
@@ -235,7 +235,7 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        // let skip = call.has_flag("skip");
+        // let skip = call.has_flag(engine_state, stack, "skip")?;
         let metadata = input.metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 

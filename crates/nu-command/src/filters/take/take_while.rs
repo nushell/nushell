@@ -26,7 +26,7 @@ impl Command for TakeWhile {
             .required(
                 "predicate",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Int])),
-                "the predicate that element(s) must match",
+                "The predicate that element(s) must match.",
             )
             .category(Category::Filters)
     }

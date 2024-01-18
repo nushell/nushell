@@ -30,7 +30,7 @@ impl Command for Zip {
                     Type::List(Box::new(Type::List(Box::new(Type::Any)))),
                 ),
             ])
-            .required("other", SyntaxShape::Any, "the other input")
+            .required("other", SyntaxShape::Any, "The other input.")
             .category(Category::Filters)
     }
 

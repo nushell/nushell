@@ -18,15 +18,6 @@ impl Command for First {
         Signature::build("first")
             .input_output_types(vec![
                 (
-                    // TODO: This variant duplicates the functionality of
-                    // `take`. See #6611, #6611, #6893
-                    // TODO: This is too permissive; if we could express this
-                    // using a type parameter style it would be List<T> ->
-                    // List<T>.
-                    Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any)),
-                ),
-                (
                     // TODO: This is too permissive; if we could express this
                     // using a type parameter it would be List<T> -> T.
                     Type::List(Box::new(Type::Any)),
@@ -38,7 +29,7 @@ impl Command for First {
             .optional(
                 "rows",
                 SyntaxShape::Int,
-                "starting from the front, the number of rows to return",
+                "Starting from the front, the number of rows to return.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

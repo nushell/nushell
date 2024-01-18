@@ -31,7 +31,7 @@ impl Command for Last {
             .optional(
                 "rows",
                 SyntaxShape::Int,
-                "starting from the back, the number of rows to return",
+                "Starting from the back, the number of rows to return.",
             )
             .category(Category::Filters)
     }

@@ -19,11 +19,11 @@ impl Command for Let {
         Signature::build("let")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+            .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                "equals sign followed by value",
+                "Equals sign followed by value.",
             )
             .category(Category::Core)
     }

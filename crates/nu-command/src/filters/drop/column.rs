@@ -25,7 +25,7 @@ impl Command for DropColumn {
             .optional(
                 "columns",
                 SyntaxShape::Int,
-                "starting from the end, the number of columns to remove",
+                "Starting from the end, the number of columns to remove.",
             )
             .category(Category::Filters)
     }

@@ -28,7 +28,7 @@ impl Command for Take {
             .required(
                 "n",
                 SyntaxShape::Int,
-                "starting from the front, the number of elements to return",
+                "Starting from the front, the number of elements to return.",
             )
             .category(Category::Filters)
     }

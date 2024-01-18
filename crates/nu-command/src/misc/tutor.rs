@@ -22,7 +22,7 @@ impl Command for Tutor {
             .optional(
                 "search",
                 SyntaxShape::String,
-                "item to search for, or 'list' to list available tutorials",
+                "Item to search for, or 'list' to list available tutorials.",
             )
             .named(
                 "find",

@@ -27,12 +27,12 @@ impl Command for OverlayUse {
             .required(
                 "name",
                 SyntaxShape::String,
-                "Module name to use overlay for",
+                "Module name to use overlay for.",
             )
             .optional(
                 "as",
                 SyntaxShape::Keyword(b"as".to_vec(), Box::new(SyntaxShape::String)),
-                "as keyword followed by a new name",
+                "`as` keyword followed by a new name.",
             )
             .switch(
                 "prefix",

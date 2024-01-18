@@ -26,9 +26,9 @@ impl Command for Kill {
             .required(
                 "pid",
                 SyntaxShape::Int,
-                "process id of process that is to be killed",
+                "Process id of process that is to be killed.",
             )
-            .rest("rest", SyntaxShape::Int, "rest of processes to kill")
+            .rest("rest", SyntaxShape::Int, "Rest of processes to kill.")
             .switch("force", "forcefully kill the process", Some('f'))
             .switch("quiet", "won't print anything to the console", Some('q'))
             .category(Category::Platform);
@@ -58,9 +58,9 @@ impl Command for Kill {
     ) -> Result<PipelineData, ShellError> {
         let pid: i64 = call.req(engine_state, stack, 0)?;
         let rest: Vec<i64> = call.rest(engine_state, stack, 1)?;
-        let force: bool = call.has_flag("force");
+        let force: bool = call.has_flag(engine_state, stack, "force")?;
         let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
-        let quiet: bool = call.has_flag("quiet");
+        let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
 
         let mut cmd = if cfg!(windows) {
             let mut cmd = CommandSys::new("taskkill");

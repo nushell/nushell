@@ -27,7 +27,7 @@ impl Command for LoadEnv {
             .optional(
                 "update",
                 SyntaxShape::Record(vec![]),
-                "the record to use for updates",
+                "The record to use for updates.",
             )
             .category(Category::FileSystem)
     }

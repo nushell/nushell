@@ -27,9 +27,6 @@ impl CmdArgument for Arguments {
 #[derive(Clone)]
 pub struct SubCommand;
 
-#[derive(Clone)]
-pub struct IndexOfOptionalBounds(i32, i32);
-
 impl Command for SubCommand {
     fn name(&self) -> &str {
         "str index-of"
@@ -44,7 +41,7 @@ impl Command for SubCommand {
                 (Type::Record(vec![]), Type::Record(vec![])),
             ])
             .allow_variants_without_examples(true)
-            .required("string", SyntaxShape::String, "the string to find in the input")
+            .required("string", SyntaxShape::String, "The string to find in the input.")
             .switch(
                 "grapheme-clusters",
                 "count indexes using grapheme clusters (all visible chars have length 1)",
@@ -58,7 +55,7 @@ impl Command for SubCommand {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, search strings at the given cell paths, and replace with result",
+                "For a data structure input, search strings at the given cell paths, and replace with result.",
             )
             .named(
                 "range",
@@ -91,9 +88,9 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: substring.item,
             range: call.get_flag(engine_state, stack, "range")?,
-            end: call.has_flag("end"),
+            end: call.has_flag(engine_state, stack, "end")?,
             cell_paths,
-            graphemes: grapheme_flags(call)?,
+            graphemes: grapheme_flags(engine_state, stack, call)?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

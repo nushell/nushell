@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Expr, RecordItem};
+use super::{Argument, Expr, ExternalArgument, RecordItem};
 use crate::ast::ImportPattern;
 use crate::DeclId;
 use crate::{engine::StateWorkingSet, BlockId, Signature, Span, Type, VarId, IN_VARIABLE_ID};
@@ -162,15 +162,21 @@ impl Expression {
             Expr::Binary(_) => false,
             Expr::Bool(_) => false,
             Expr::Call(call) => {
-                for positional in call.positional_iter() {
-                    if positional.has_in_variable(working_set) {
-                        return true;
-                    }
-                }
-                for named in call.named_iter() {
-                    if let Some(expr) = &named.2 {
-                        if expr.has_in_variable(working_set) {
-                            return true;
+                for arg in &call.arguments {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Spread(expr) => {
+                            if expr.has_in_variable(working_set) {
+                                return true;
+                            }
+                        }
+                        Argument::Named(named) => {
+                            if let Some(expr) = &named.2 {
+                                if expr.has_in_variable(working_set) {
+                                    return true;
+                                }
+                            }
                         }
                     }
                 }
@@ -182,8 +188,8 @@ impl Expression {
                 if head.has_in_variable(working_set) {
                     return true;
                 }
-                for arg in args {
-                    if arg.has_in_variable(working_set) {
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    if expr.has_in_variable(working_set) {
                         return true;
                     }
                 }
@@ -221,7 +227,6 @@ impl Expression {
                 }
                 false
             }
-            Expr::MatchPattern(_) => false,
             Expr::Operator(_) => false,
             Expr::MatchBlock(_) => false,
             Expr::Range(left, middle, right, ..) => {
@@ -302,205 +307,6 @@ impl Expression {
         }
     }
 
-    pub fn replace_in_variable(&mut self, working_set: &mut StateWorkingSet, new_var_id: VarId) {
-        match &mut self.expr {
-            Expr::BinaryOp(left, _, right) => {
-                left.replace_in_variable(working_set, new_var_id);
-                right.replace_in_variable(working_set, new_var_id);
-            }
-            Expr::UnaryNot(expr) => {
-                expr.replace_in_variable(working_set, new_var_id);
-            }
-            Expr::Block(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                let new_expr = if let Some(pipeline) = block.pipelines.first() {
-                    if let Some(element) = pipeline.elements.first() {
-                        let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
-                        Some(new_element)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let block = working_set.get_block_mut(*block_id);
-
-                if let Some(new_expr) = new_expr {
-                    if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(expr) = pipeline.elements.get_mut(0) {
-                            *expr = new_expr
-                        }
-                    }
-                }
-
-                block.captures = block
-                    .captures
-                    .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
-                    .collect();
-            }
-            Expr::Closure(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                let new_element = if let Some(pipeline) = block.pipelines.first() {
-                    if let Some(element) = pipeline.elements.first() {
-                        let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
-                        Some(new_element)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let block = working_set.get_block_mut(*block_id);
-
-                if let Some(new_element) = new_element {
-                    if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(element) = pipeline.elements.get_mut(0) {
-                            *element = new_element
-                        }
-                    }
-                }
-
-                block.captures = block
-                    .captures
-                    .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
-                    .collect();
-            }
-            Expr::Binary(_) => {}
-            Expr::Bool(_) => {}
-            Expr::Call(call) => {
-                for positional in call.positional_iter_mut() {
-                    positional.replace_in_variable(working_set, new_var_id);
-                }
-                for named in call.named_iter_mut() {
-                    if let Some(expr) = &mut named.2 {
-                        expr.replace_in_variable(working_set, new_var_id)
-                    }
-                }
-            }
-            Expr::CellPath(_) => {}
-            Expr::DateTime(_) => {}
-            Expr::ExternalCall(head, args, _) => {
-                head.replace_in_variable(working_set, new_var_id);
-                for arg in args {
-                    arg.replace_in_variable(working_set, new_var_id)
-                }
-            }
-            Expr::Filepath(_) => {}
-            Expr::Directory(_) => {}
-            Expr::Float(_) => {}
-            Expr::FullCellPath(full_cell_path) => {
-                full_cell_path
-                    .head
-                    .replace_in_variable(working_set, new_var_id);
-            }
-            Expr::ImportPattern(_) => {}
-            Expr::Overlay(_) => {}
-            Expr::Garbage => {}
-            Expr::Nothing => {}
-            Expr::GlobPattern(_) => {}
-            Expr::Int(_) => {}
-            Expr::MatchPattern(_) => {}
-            Expr::MatchBlock(_) => {}
-            Expr::Keyword(_, _, expr) => expr.replace_in_variable(working_set, new_var_id),
-            Expr::List(list) => {
-                for l in list {
-                    l.replace_in_variable(working_set, new_var_id)
-                }
-            }
-            Expr::Operator(_) => {}
-            Expr::Range(left, middle, right, ..) => {
-                if let Some(left) = left {
-                    left.replace_in_variable(working_set, new_var_id)
-                }
-                if let Some(middle) = middle {
-                    middle.replace_in_variable(working_set, new_var_id)
-                }
-                if let Some(right) = right {
-                    right.replace_in_variable(working_set, new_var_id)
-                }
-            }
-            Expr::Record(items) => {
-                for item in items {
-                    match item {
-                        RecordItem::Pair(field_name, field_value) => {
-                            field_name.replace_in_variable(working_set, new_var_id);
-                            field_value.replace_in_variable(working_set, new_var_id);
-                        }
-                        RecordItem::Spread(_, record) => {
-                            record.replace_in_variable(working_set, new_var_id);
-                        }
-                    }
-                }
-            }
-            Expr::Signature(_) => {}
-            Expr::String(_) => {}
-            Expr::StringInterpolation(items) => {
-                for i in items {
-                    i.replace_in_variable(working_set, new_var_id)
-                }
-            }
-            Expr::RowCondition(block_id) | Expr::Subexpression(block_id) => {
-                let block = working_set.get_block(*block_id);
-
-                let new_element = if let Some(pipeline) = block.pipelines.first() {
-                    if let Some(element) = pipeline.elements.first() {
-                        let mut new_element = element.clone();
-                        new_element.replace_in_variable(working_set, new_var_id);
-                        Some(new_element)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                let block = working_set.get_block_mut(*block_id);
-
-                if let Some(new_element) = new_element {
-                    if let Some(pipeline) = block.pipelines.get_mut(0) {
-                        if let Some(element) = pipeline.elements.get_mut(0) {
-                            *element = new_element
-                        }
-                    }
-                }
-
-                block.captures = block
-                    .captures
-                    .iter()
-                    .map(|x| if *x != IN_VARIABLE_ID { *x } else { new_var_id })
-                    .collect();
-            }
-            Expr::Table(headers, cells) => {
-                for header in headers {
-                    header.replace_in_variable(working_set, new_var_id)
-                }
-
-                for row in cells {
-                    for cell in row.iter_mut() {
-                        cell.replace_in_variable(working_set, new_var_id)
-                    }
-                }
-            }
-
-            Expr::ValueWithUnit(expr, _) => expr.replace_in_variable(working_set, new_var_id),
-            Expr::Var(x) => {
-                if *x == IN_VARIABLE_ID {
-                    *x = new_var_id
-                }
-            }
-            Expr::VarDecl(_) => {}
-            Expr::Spread(expr) => expr.replace_in_variable(working_set, new_var_id),
-        }
-    }
-
     pub fn replace_span(
         &mut self,
         working_set: &mut StateWorkingSet,
@@ -546,12 +352,18 @@ impl Expression {
                 if replaced.contains_span(call.head) {
                     call.head = new_span;
                 }
-                for positional in call.positional_iter_mut() {
-                    positional.replace_span(working_set, replaced, new_span);
-                }
-                for named in call.named_iter_mut() {
-                    if let Some(expr) = &mut named.2 {
-                        expr.replace_span(working_set, replaced, new_span)
+                for arg in call.arguments.iter_mut() {
+                    match arg {
+                        Argument::Positional(expr)
+                        | Argument::Unknown(expr)
+                        | Argument::Spread(expr) => {
+                            expr.replace_span(working_set, replaced, new_span);
+                        }
+                        Argument::Named(named) => {
+                            if let Some(expr) = &mut named.2 {
+                                expr.replace_span(working_set, replaced, new_span);
+                            }
+                        }
                     }
                 }
             }
@@ -559,8 +371,8 @@ impl Expression {
             Expr::DateTime(_) => {}
             Expr::ExternalCall(head, args, _) => {
                 head.replace_span(working_set, replaced, new_span);
-                for arg in args {
-                    arg.replace_span(working_set, replaced, new_span)
+                for ExternalArgument::Regular(expr) | ExternalArgument::Spread(expr) in args {
+                    expr.replace_span(working_set, replaced, new_span);
                 }
             }
             Expr::Filepath(_) => {}
@@ -576,7 +388,6 @@ impl Expression {
             Expr::Garbage => {}
             Expr::Nothing => {}
             Expr::GlobPattern(_) => {}
-            Expr::MatchPattern(_) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),

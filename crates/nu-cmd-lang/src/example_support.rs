@@ -278,9 +278,6 @@ impl<'a> std::fmt::Debug for DebuggableValue<'a> {
                 let rec = val.collect().map_err(|_| std::fmt::Error)?;
                 write!(f, "LazyRecord({:?})", DebuggableValue(&rec))
             }
-            Value::MatchPattern { val, .. } => {
-                write!(f, "MatchPattern({:?})", val)
-            }
         }
     }
 }

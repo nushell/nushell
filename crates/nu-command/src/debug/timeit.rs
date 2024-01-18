@@ -24,7 +24,7 @@ impl Command for TimeIt {
             .required(
                 "command",
                 SyntaxShape::OneOf(vec![SyntaxShape::Block, SyntaxShape::Expression]),
-                "the command or block to run",
+                "The command or block to run.",
             )
             .input_output_types(vec![
                 (Type::Any, Type::Duration),

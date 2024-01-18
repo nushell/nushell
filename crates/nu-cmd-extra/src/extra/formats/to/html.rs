@@ -239,11 +239,11 @@ fn to_html(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let html_color = call.has_flag("html-color");
-    let no_color = call.has_flag("no-color");
-    let dark = call.has_flag("dark");
-    let partial = call.has_flag("partial");
-    let list = call.has_flag("list");
+    let html_color = call.has_flag(engine_state, stack, "html-color")?;
+    let no_color = call.has_flag(engine_state, stack, "no-color")?;
+    let dark = call.has_flag(engine_state, stack, "dark")?;
+    let partial = call.has_flag(engine_state, stack, "partial")?;
+    let list = call.has_flag(engine_state, stack, "list")?;
     let theme: Option<Spanned<String>> = call.get_flag(engine_state, stack, "theme")?;
     let config = engine_state.get_config();
 
@@ -396,7 +396,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("<thead><tr>");
     for header in &headers {
         output_string.push_str("<th>");
-        output_string.push_str(&htmlescape::encode_minimal(header));
+        output_string.push_str(&v_htmlescape::escape(header).to_string());
         output_string.push_str("</th>");
     }
     output_string.push_str("</tr></thead><tbody>");
@@ -432,7 +432,8 @@ fn html_value(value: Value, config: &Config) -> String {
             output_string.push_str("</pre>");
         }
         other => output_string.push_str(
-            &htmlescape::encode_minimal(&other.into_abbreviated_string(config))
+            &v_htmlescape::escape(&other.into_abbreviated_string(config))
+                .to_string()
                 .replace('\n', "<br>"),
         ),
     }

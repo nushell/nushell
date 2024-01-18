@@ -21,7 +21,7 @@ impl Command for Glob {
     fn signature(&self) -> Signature {
         Signature::build("glob")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::String)))])
-            .required("glob", SyntaxShape::String, "the glob expression")
+            .required("glob", SyntaxShape::String, "The glob expression.")
             .named(
                 "depth",
                 SyntaxShape::Int,
@@ -74,7 +74,7 @@ impl Command for Glob {
             },
             Example {
                 description:
-                    "Search for files and folders that begin with uppercase C and lowercase c",
+                    "Search for files and folders that begin with uppercase C or lowercase c",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
@@ -137,9 +137,9 @@ impl Command for Glob {
         let span = call.head;
         let glob_pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let depth = call.get_flag(engine_state, stack, "depth")?;
-        let no_dirs = call.has_flag("no-dir");
-        let no_files = call.has_flag("no-file");
-        let no_symlinks = call.has_flag("no-symlink");
+        let no_dirs = call.has_flag(engine_state, stack, "no-dir")?;
+        let no_files = call.has_flag(engine_state, stack, "no-file")?;
+        let no_symlinks = call.has_flag(engine_state, stack, "no-symlink")?;
 
         let paths_to_exclude: Option<Value> = call.get_flag(engine_state, stack, "exclude")?;
 

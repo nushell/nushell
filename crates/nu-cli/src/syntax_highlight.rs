@@ -329,7 +329,6 @@ fn find_matching_block_end_in_expr(
             Expr::ImportPattern(_) => None,
             Expr::Overlay(_) => None,
             Expr::Signature(_) => None,
-            Expr::MatchPattern(_) => None,
             Expr::MatchBlock(_) => None,
             Expr::Nothing => None,
             Expr::Garbage => None,
@@ -386,6 +385,7 @@ fn find_matching_block_end_in_expr(
                         Argument::Named((_, _, opt_expr)) => opt_expr.as_ref(),
                         Argument::Positional(inner_expr) => Some(inner_expr),
                         Argument::Unknown(inner_expr) => Some(inner_expr),
+                        Argument::Spread(inner_expr) => Some(inner_expr),
                     };
 
                     if let Some(inner_expr) = opt_expr {

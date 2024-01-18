@@ -24,7 +24,6 @@ pub enum Type {
     Int,
     List(Box<Type>),
     ListStream,
-    MatchPattern,
     #[default]
     Nothing,
     Number,
@@ -41,11 +40,11 @@ impl Type {
         let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
             if this.is_empty() || that.is_empty() {
                 true
-            } else if this.len() > that.len() {
+            } else if this.len() < that.len() {
                 false
             } else {
-                this.iter().all(|(col_x, ty_x)| {
-                    if let Some((_, ty_y)) = that.iter().find(|(col_y, _)| col_x == col_y) {
+                that.iter().all(|(col_y, ty_y)| {
+                    if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
                         ty_x.is_subtype(ty_y)
                     } else {
                         false
@@ -63,6 +62,7 @@ impl Type {
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 is_subtype_collection(this, that)
             }
+            (Type::Table(_), Type::List(_)) => true,
             _ => false,
         }
     }
@@ -110,7 +110,6 @@ impl Type {
             Type::Binary => SyntaxShape::Binary,
             Type::Custom(_) => SyntaxShape::Any,
             Type::Signature => SyntaxShape::Signature,
-            Type::MatchPattern => SyntaxShape::MatchPattern,
         }
     }
 
@@ -131,7 +130,6 @@ impl Type {
             Type::Record(_) => String::from("record"),
             Type::Table(_) => String::from("table"),
             Type::List(_) => String::from("list"),
-            Type::MatchPattern => String::from("match-pattern"),
             Type::Nothing => String::from("nothing"),
             Type::Number => String::from("number"),
             Type::String => String::from("string"),
@@ -198,7 +196,6 @@ impl Display for Type {
             Type::Binary => write!(f, "binary"),
             Type::Custom(custom) => write!(f, "{custom}"),
             Type::Signature => write!(f, "signature"),
-            Type::MatchPattern => write!(f, "match-pattern"),
         }
     }
 }

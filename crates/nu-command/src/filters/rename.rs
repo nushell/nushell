@@ -34,7 +34,11 @@ impl Command for Rename {
                 "A closure to apply changes on each column",
                 Some('b'),
             )
-            .rest("rest", SyntaxShape::String, "the new names for the columns")
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "The new names for the columns.",
+            )
             .category(Category::Filters)
     }
 

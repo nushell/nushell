@@ -220,6 +220,10 @@ pub fn eval_source(
             source,
             false,
         );
+        if let Some(warning) = working_set.parse_warnings.first() {
+            report_error(&working_set, warning);
+        }
+
         if let Some(err) = working_set.parse_errors.first() {
             set_last_exit_code(stack, 1);
             report_error(&working_set, err);

@@ -64,7 +64,7 @@ fn command(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(engine_state, stack, 0)?;
-    let not_exact = call.has_flag("not-exact");
+    let not_exact = call.has_flag(engine_state, stack, "not-exact")?;
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;

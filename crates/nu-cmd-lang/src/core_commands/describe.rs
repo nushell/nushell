@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack, StateWorkingSet},
@@ -19,10 +20,7 @@ impl Command for Describe {
 
     fn signature(&self) -> Signature {
         Signature::build("describe")
-            .input_output_types(vec![
-                (Type::Any, Type::String),
-                (Type::Any, Type::Record(vec![])),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "no-collect",
                 "do not collect streams of structured data",
@@ -44,20 +42,30 @@ impl Command for Describe {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run(Some(engine_state), call, input)
+        let options = Options {
+            no_collect: call.has_flag(engine_state, stack, "no-collect")?,
+            detailed: call.has_flag(engine_state, stack, "detailed")?,
+            collect_lazyrecords: call.has_flag(engine_state, stack, "collect-lazyrecords")?,
+        };
+        run(Some(engine_state), call, input, options)
     }
 
     fn run_const(
         &self,
-        _working_set: &StateWorkingSet,
+        working_set: &StateWorkingSet,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run(None, call, input)
+        let options = Options {
+            no_collect: call.has_flag_const(working_set, "no-collect")?,
+            detailed: call.has_flag_const(working_set, "detailed")?,
+            collect_lazyrecords: call.has_flag_const(working_set, "collect-lazyrecords")?,
+        };
+        run(None, call, input, options)
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -148,15 +156,21 @@ impl Command for Describe {
     }
 }
 
+#[derive(Clone, Copy)]
+struct Options {
+    no_collect: bool,
+    detailed: bool,
+    collect_lazyrecords: bool,
+}
+
 fn run(
     engine_state: Option<&EngineState>,
     call: &Call,
     input: PipelineData,
+    options: Options,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata().clone().map(Box::new);
     let head = call.head;
-    let no_collect: bool = call.has_flag("no-collect");
-    let detailed = call.has_flag("detailed");
 
     let description: Value = match input {
         PipelineData::ExternalStream {
@@ -165,7 +179,7 @@ fn run(
             ref exit_code,
             ..
         } => {
-            if detailed {
+            if options.detailed {
                 Value::record(
                     record!(
                         "type" => Value::string("stream", head),
@@ -212,23 +226,23 @@ fn run(
             }
         }
         PipelineData::ListStream(_, _) => {
-            if detailed {
+            if options.detailed {
                 Value::record(
                     record!(
                         "type" => Value::string("stream", head),
                         "origin" => Value::string("nushell", head),
                         "subtype" => {
-                           if no_collect {
+                           if options.no_collect {
                             Value::string("any", head)
                            } else {
-                            describe_value(input.into_value(head), head, engine_state, call)?
+                            describe_value(input.into_value(head), head, engine_state, call, options)?
                            }
                         },
                         "metadata" => metadata_to_value(metadata, head),
                     ),
                     head,
                 )
-            } else if no_collect {
+            } else if options.no_collect {
                 Value::string("stream", head)
             } else {
                 let value = input.into_value(head);
@@ -242,13 +256,13 @@ fn run(
         }
         _ => {
             let value = input.into_value(head);
-            if !detailed {
+            if !options.detailed {
                 match value {
                     Value::CustomValue { val, .. } => Value::string(val.value_string(), head),
                     _ => Value::string(value.get_type().to_string(), head),
                 }
             } else {
-                describe_value(value, head, engine_state, call)?
+                describe_value(value, head, engine_state, call, options)?
             }
         }
     };
@@ -273,12 +287,13 @@ fn describe_value(
     head: nu_protocol::Span,
     engine_state: Option<&EngineState>,
     call: &Call,
+    options: Options,
 ) -> Result<Value, ShellError> {
     Ok(match value {
         Value::CustomValue { val, internal_span } => Value::record(
             record!(
                 "type" => Value::string("custom", head),
-                "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data())?.into_value(head),
+                "subtype" => run(engine_state,call, val.to_base_value(internal_span)?.into_pipeline_data(), options)?.into_value(head),
             ),
             head,
         ),
@@ -290,7 +305,6 @@ fn describe_value(
         | Value::Date { .. }
         | Value::Range { .. }
         | Value::String { .. }
-        | Value::MatchPattern { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
                 "type" => Value::string(value.get_type().to_string(), head),
@@ -304,6 +318,7 @@ fn describe_value(
                     head,
                     engine_state,
                     call,
+                    options,
                 )?);
             }
 
@@ -322,7 +337,7 @@ fn describe_value(
                 "length" => Value::int(vals.len() as i64, head),
                 "values" => Value::list(vals.into_iter().map(|v|
                     Ok(compact_primitive_description(
-                        describe_value(v, head, engine_state, call)?
+                        describe_value(v, head, engine_state, call, options)?
                     ))
                 )
                 .collect::<Result<Vec<Value>, ShellError>>()?, head),
@@ -382,16 +397,15 @@ fn describe_value(
             head,
         ),
         Value::LazyRecord { val, .. } => {
-            let collect_lazyrecords: bool = call.has_flag("collect-lazyrecords");
             let mut record = Record::new();
 
             record.push("type", Value::string("record", head));
             record.push("lazy", Value::bool(true, head));
 
-            if collect_lazyrecords {
+            if options.collect_lazyrecords {
                 let collected = val.collect()?;
                 if let Value::Record { mut val, .. } =
-                    describe_value(collected, head, engine_state, call)?
+                    describe_value(collected, head, engine_state, call, options)?
                 {
                     record.push("length", Value::int(val.len() as i64, head));
                     for (_k, v) in val.iter_mut() {
@@ -400,6 +414,7 @@ fn describe_value(
                             head,
                             engine_state,
                             call,
+                            options,
                         )?);
                     }
 

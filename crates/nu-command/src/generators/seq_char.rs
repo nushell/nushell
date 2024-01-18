@@ -23,12 +23,12 @@ impl Command for SeqChar {
             .required(
                 "start",
                 SyntaxShape::String,
-                "start of character sequence (inclusive)",
+                "Start of character sequence (inclusive).",
             )
             .required(
                 "end",
                 SyntaxShape::String,
-                "end of character sequence (inclusive)",
+                "End of character sequence (inclusive).",
             )
             .category(Category::Generators)
     }

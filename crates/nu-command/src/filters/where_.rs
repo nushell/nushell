@@ -37,7 +37,7 @@ not supported."#
             .required(
                 "row_condition",
                 SyntaxShape::RowCondition,
-                "Filter condition",
+                "Filter condition.",
             )
             .allow_variants_without_examples(true)
             .category(Category::Filters)

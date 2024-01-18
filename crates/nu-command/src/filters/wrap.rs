@@ -25,7 +25,7 @@ impl Command for Wrap {
                 (Type::Range, Type::Table(vec![])),
                 (Type::Any, Type::Record(vec![])),
             ])
-            .required("name", SyntaxShape::String, "the name of the column")
+            .required("name", SyntaxShape::String, "The name of the column.")
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }

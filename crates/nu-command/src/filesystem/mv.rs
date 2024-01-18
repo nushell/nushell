@@ -33,12 +33,12 @@ impl Command for Mv {
             .required(
                 "source",
                 SyntaxShape::GlobPattern,
-                "the location to move files/directories from",
+                "The location to move files/directories from.",
             )
             .required(
                 "destination",
                 SyntaxShape::Filepath,
-                "the location to move files/directories to",
+                "The location to move files/directories to.",
             )
             .switch(
                 "verbose",
@@ -65,10 +65,10 @@ impl Command for Mv {
         // TODO: handle invalid directory or insufficient permissions when moving
         let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
-        let verbose = call.has_flag("verbose");
-        let interactive = call.has_flag("interactive");
-        let force = call.has_flag("force");
-        let update_mode = call.has_flag("update");
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let interactive = call.has_flag(engine_state, stack, "interactive")?;
+        let force = call.has_flag(engine_state, stack, "force")?;
+        let update_mode = call.has_flag(engine_state, stack, "update")?;
 
         let ctrlc = engine_state.ctrlc.clone();
 

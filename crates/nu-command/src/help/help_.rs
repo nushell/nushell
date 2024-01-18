@@ -21,14 +21,11 @@ impl Command for Help {
 
     fn signature(&self) -> Signature {
         Signature::build("help")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Table(vec![])),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .rest(
                 "rest",
                 SyntaxShape::String,
-                "the name of command, alias or module to get help on",
+                "The name of command, alias or module to get help on.",
             )
             .named(
                 "find",

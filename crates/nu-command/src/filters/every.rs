@@ -24,7 +24,7 @@ impl Command for Every {
             .required(
                 "stride",
                 SyntaxShape::Int,
-                "how many rows to skip between (and including) each row returned",
+                "How many rows to skip between (and including) each row returned.",
             )
             .switch(
                 "skip",
@@ -71,7 +71,7 @@ impl Command for Every {
             stride => stride,
         };
 
-        let skip = call.has_flag("skip");
+        let skip = call.has_flag(engine_state, stack, "skip")?;
 
         let metadata = input.metadata();
 
