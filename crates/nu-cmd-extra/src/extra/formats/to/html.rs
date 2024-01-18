@@ -396,7 +396,7 @@ fn html_table(table: Vec<Value>, headers: Vec<String>, config: &Config) -> Strin
     output_string.push_str("<thead><tr>");
     for header in &headers {
         output_string.push_str("<th>");
-        output_string.push_str(&htmlescape::encode_minimal(header));
+        output_string.push_str(&v_htmlescape::escape(header).to_string());
         output_string.push_str("</th>");
     }
     output_string.push_str("</tr></thead><tbody>");
@@ -432,7 +432,8 @@ fn html_value(value: Value, config: &Config) -> String {
             output_string.push_str("</pre>");
         }
         other => output_string.push_str(
-            &htmlescape::encode_minimal(&other.into_abbreviated_string(config))
+            &v_htmlescape::escape(&other.into_abbreviated_string(config))
+                .to_string()
                 .replace('\n', "<br>"),
         ),
     }
