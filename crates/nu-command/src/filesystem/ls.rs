@@ -89,19 +89,25 @@ impl Command for Ls {
 
         let pattern_arg = {
             if let Some(path) = pattern_arg {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                })
+                match path.item {
+                    NuPath::Quoted(p) => Some(Spanned {
+                        item: NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                    NuPath::UnQuoted(p) => Some(Spanned {
+                        item: NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(p)),
+                        span: path.span,
+                    }),
+                }
             } else {
                 pattern_arg
             }
         };
 
-        let (path, p_tag, absolute_path) = match pattern_arg {
-            Some(p) => {
-                let p_tag = p.span;
-                let mut p = expand_to_real_path(p.item);
+        let (path, p_tag, absolute_path, quoted) = match pattern_arg {
+            Some(pat) => {
+                let p_tag = pat.span;
+                let mut p = expand_to_real_path(pat.item.as_ref());
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
@@ -135,24 +141,46 @@ impl Command for Ls {
                     p.push("*");
                 }
                 let absolute_path = p.is_absolute();
-                (p, p_tag, absolute_path)
+                (
+                    p,
+                    p_tag,
+                    absolute_path,
+                    matches!(pat.item, NuPath::Quoted(_)),
+                )
             }
             None => {
                 // Avoid pushing "*" to the default path when directory (do not show contents) flag is true
                 if directory {
-                    (PathBuf::from("."), call_span, false)
+                    (PathBuf::from("."), call_span, false, false)
                 } else if is_empty_dir(current_dir(engine_state, stack)?) {
                     return Ok(Value::list(vec![], call_span).into_pipeline_data());
                 } else {
-                    (PathBuf::from("*"), call_span, false)
+                    (PathBuf::from("*"), call_span, false, false)
                 }
             }
         };
 
+        println!("debug: {path:?}, {p_tag:?}, {absolute_path:?}");
         let hidden_dir_specified = is_hidden_dir(&path);
+        let path = if quoted {
+            let p = path.display().to_string();
+            let mut p = p
+                .replace("[", "[[]")
+                .replace("*", "[*]")
+                .replace("?", "[?]");
+            if p.ends_with("[*]") {
+                let index = p.rfind("[*]").unwrap();
+                p.replace_range(index.., "*");
+                p
+            } else {
+                p
+            }
+        } else {
+            path.display().to_string()
+        };
 
         let glob_path = Spanned {
-            item: path.display().to_string(),
+            item: path.clone(),
             span: p_tag,
         };
 
@@ -170,7 +198,7 @@ impl Command for Ls {
         let mut paths_peek = paths.peekable();
         if paths_peek.peek().is_none() {
             return Err(ShellError::GenericError {
-                error: format!("No matches found for {}", &path.display().to_string()),
+                error: format!("No matches found for {}", &path),
                 msg: "Pattern, file or folder not found".into(),
                 span: Some(p_tag),
                 help: Some("no matches found".into()),
