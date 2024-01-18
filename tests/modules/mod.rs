@@ -357,7 +357,7 @@ fn module_cyclical_imports_0() {
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
-        assert!(actual.err.contains("module not found"));
+        assert!(actual.err.contains("Module not found"));
     })
 }
 
