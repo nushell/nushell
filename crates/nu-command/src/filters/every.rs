@@ -71,7 +71,7 @@ impl Command for Every {
             stride => stride,
         };
 
-        let skip = call.has_flag("skip");
+        let skip = call.has_flag(engine_state, stack, "skip")?;
 
         let metadata = input.metadata();
 

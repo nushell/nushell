@@ -98,8 +98,8 @@ impl Command for Du {
 
         let args = DuArgs {
             path: call.opt(engine_state, stack, 0)?,
-            all: call.has_flag("all"),
-            deref: call.has_flag("deref"),
+            all: call.has_flag(engine_state, stack, "all")?,
+            deref: call.has_flag(engine_state, stack, "deref")?,
             exclude: call.get_flag(engine_state, stack, "exclude")?,
             max_depth,
             min_size,

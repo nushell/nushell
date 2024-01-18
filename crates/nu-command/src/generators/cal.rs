@@ -101,10 +101,10 @@ pub fn cal(
     let (current_year, current_month, current_day) = get_current_date();
 
     let arguments = Arguments {
-        year: call.has_flag("year"),
-        month: call.has_flag("month"),
-        month_names: call.has_flag("month-names"),
-        quarter: call.has_flag("quarter"),
+        year: call.has_flag(engine_state, stack, "year")?,
+        month: call.has_flag(engine_state, stack, "month")?,
+        month_names: call.has_flag(engine_state, stack, "month-names")?,
+        quarter: call.has_flag(engine_state, stack, "quarter")?,
         full_year: call.get_flag(engine_state, stack, "full-year")?,
         week_start: call.get_flag(engine_state, stack, "week-start")?,
     };

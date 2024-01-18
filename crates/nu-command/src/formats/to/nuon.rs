@@ -53,20 +53,18 @@ impl Command for ToNuon {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let raw = call.has_flag("raw");
-        let use_tabs = call.has_flag("tabs");
-        let use_indent = call.has_flag("indent");
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        let tabs: Option<usize> = call.get_flag(engine_state, stack, "tabs")?;
+        let indent: Option<usize> = call.get_flag(engine_state, stack, "indent")?;
 
         let span = call.head;
         let value = input.into_value(span);
 
         let nuon_result = if raw {
             value_to_string(&value, span, 0, None)
-        } else if use_tabs {
-            let tab_count: usize = call.get_flag(engine_state, stack, "tabs")?.unwrap_or(1);
+        } else if let Some(tab_count) = tabs {
             value_to_string(&value, span, 0, Some(&"\t".repeat(tab_count)))
-        } else if use_indent {
-            let indent: usize = call.get_flag(engine_state, stack, "indent")?.unwrap_or(2);
+        } else if let Some(indent) = indent {
             value_to_string(&value, span, 0, Some(&" ".repeat(indent)))
         } else {
             value_to_string(&value, span, 0, None)

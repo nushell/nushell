@@ -85,7 +85,7 @@ fn execute_binary_in_string() {
 
 #[test]
 fn single_quote_dollar_external() {
-    let actual = nu!("let author = 'JT'; ^echo $'foo=($author)'");
+    let actual = nu!("let author = 'JT'; nu --testbin cococo $'foo=($author)'");
 
     assert_eq!(actual.out, "foo=JT");
 }
@@ -493,18 +493,16 @@ mod external_command_arguments {
         )
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn semicolons_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("^echo \"a;b\"");
+        let actual = nu!("nu --testbin cococo \"a;b\"");
 
         assert_eq!(actual.out, "a;b");
     }
 
-    #[cfg(not(windows))]
     #[test]
     fn ampersands_are_sanitized_before_passing_to_subshell() {
-        let actual = nu!("^echo \"a&b\"");
+        let actual = nu!("nu --testbin cococo \"a&b\"");
 
         assert_eq!(actual.out, "a&b");
     }

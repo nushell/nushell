@@ -25,6 +25,25 @@ mod output;
 mod reedline;
 mod table;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct HistoryConfig {
+    pub max_size: i64,
+    pub sync_on_enter: bool,
+    pub file_format: HistoryFileFormat,
+    pub isolation: bool,
+}
+
+impl Default for HistoryConfig {
+    fn default() -> Self {
+        Self {
+            max_size: 100_000,
+            sync_on_enter: true,
+            file_format: HistoryFileFormat::PlainText,
+            isolation: false,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub external_completer: Option<usize>,
@@ -46,10 +65,7 @@ pub struct Config {
     pub partial_completions: bool,
     pub completion_algorithm: CompletionAlgorithm,
     pub edit_mode: EditBindings,
-    pub max_history_size: i64,
-    pub sync_history_on_enter: bool,
-    pub history_file_format: HistoryFileFormat,
-    pub history_isolation: bool,
+    pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
@@ -73,6 +89,12 @@ pub struct Config {
     pub error_style: ErrorStyle,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    /// Configuration for plugins.
+    ///
+    /// Users can provide configuration for a plugin through this entry.  The entry name must
+    /// match the registered plugin name so `register nu_plugin_example` will be able to place
+    /// its configuration under a `nu_plugin_example` column.
+    pub plugins: HashMap<String, Value>,
 }
 
 impl Default for Config {
@@ -98,10 +120,7 @@ impl Default for Config {
 
             explore: HashMap::new(),
 
-            max_history_size: 100_000,
-            sync_history_on_enter: true,
-            history_file_format: HistoryFileFormat::PlainText,
-            history_isolation: false,
+            history: HistoryConfig::default(),
 
             case_sensitive_completions: false,
             quick_completions: true,
@@ -139,6 +158,8 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
+
+            plugins: HashMap::new(),
         }
     }
 }
@@ -164,7 +185,7 @@ impl Value {
         // the `2`.
 
         if let Value::Record { val, .. } = self {
-            val.retain_mut( |key, value| {
+            val.retain_mut(|key, value| {
                 let span = value.span();
                 match key {
                     // Grouped options
@@ -224,22 +245,23 @@ impl Value {
                         }
                     }
                     "history" => {
+                        let history = &mut config.history;
                         if let Value::Record { val, .. } = value {
                             val.retain_mut(|key2, value| {
                                 let span = value.span();
                                 match key2 {
                                     "isolation" => {
-                                        process_bool_config(value, &mut errors, &mut config.history_isolation);
+                                        process_bool_config(value, &mut errors, &mut history.isolation);
                                     }
                                     "sync_on_enter" => {
-                                        process_bool_config(value, &mut errors, &mut config.sync_history_on_enter);
+                                        process_bool_config(value, &mut errors, &mut history.sync_on_enter);
                                     }
                                     "max_size" => {
-                                        process_int_config(value, &mut errors, &mut config.max_history_size);
+                                        process_int_config(value, &mut errors, &mut history.max_size);
                                     }
                                     "file_format" => {
                                         process_string_enum(
-                                            &mut config.history_file_format,
+                                            &mut history.file_format,
                                             &[key, key2],
                                             value,
                                             &mut errors);
@@ -256,10 +278,10 @@ impl Value {
                             // Reconstruct
                             *value = Value::record(
                                 record! {
-                                    "sync_on_enter" => Value::bool(config.sync_history_on_enter, span),
-                                    "max_size" => Value::int(config.max_history_size, span),
-                                    "file_format" => config.history_file_format.reconstruct_value(span),
-                                    "isolation" => Value::bool(config.history_isolation, span),
+                                    "sync_on_enter" => Value::bool(history.sync_on_enter, span),
+                                    "max_size" => Value::int(history.max_size, span),
+                                    "file_format" => history.file_format.reconstruct_value(span),
+                                    "isolation" => Value::bool(history.isolation, span),
                                 },
                                 span,
                             );
@@ -356,7 +378,7 @@ impl Value {
                                 let config_point = match key2 {
                                     "vi_insert" => &mut config.cursor_shape_vi_insert,
                                     "vi_normal" => &mut config.cursor_shape_vi_normal,
-                                    "emacs" =>  &mut config.cursor_shape_emacs,
+                                    "emacs" => &mut config.cursor_shape_emacs,
                                     _ => {
                                         report_invalid_key(&[key, key2], span, &mut errors);
                                         return false;
@@ -627,6 +649,22 @@ impl Value {
                     "highlight_resolved_externals" => {
                         process_bool_config(value, &mut errors, &mut config.highlight_resolved_externals);
                     }
+                    "plugins" => {
+                        if let Ok(map) = create_map(value) {
+                            config.plugins = map;
+                        } else {
+                            report_invalid_value("should be a record", span, &mut errors);
+                            // Reconstruct
+                            *value = Value::record(
+                                config
+                                    .explore
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), v.clone()))
+                                    .collect(),
+                                span,
+                            );
+                        }
+                    }
                     // Menus
                     "menus" => match create_menus(value) {
                         Ok(map) => config.menus = map,
@@ -696,12 +734,12 @@ impl Value {
                     }
                     // Catch all
                     _ => {
-                    report_invalid_key(&[key], span, &mut errors);
+                        report_invalid_key(&[key], span, &mut errors);
                         return false;
                     }
-            };
-            true
-        });
+                };
+                true
+            });
         } else {
             return (
                 config,

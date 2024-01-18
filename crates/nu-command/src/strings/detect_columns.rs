@@ -103,7 +103,7 @@ fn detect_columns(
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
-    let noheader = call.has_flag("no-headers");
+    let noheader = call.has_flag(engine_state, stack, "no-headers")?;
     let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config();

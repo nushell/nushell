@@ -114,7 +114,7 @@ with 'transpose' first."#
     ) -> Result<PipelineData, ShellError> {
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
 
-        let keep_empty = call.has_flag("keep-empty");
+        let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
 
         let metadata = input.metadata();
         let ctrlc = engine_state.ctrlc.clone();

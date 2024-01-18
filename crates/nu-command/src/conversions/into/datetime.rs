@@ -116,9 +116,9 @@ impl Command for SubCommand {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        if call.has_flag("list") {
+        if call.has_flag(engine_state, stack, "list")? {
             Ok(generate_strftime_list(call.head, true).into_pipeline_data())
-        } else if call.has_flag("list-human") {
+        } else if call.has_flag(engine_state, stack, "list-human")? {
             Ok(list_human_readable_examples(call.head).into_pipeline_data())
         } else {
             let cell_paths = call.rest(engine_state, stack, 0)?;

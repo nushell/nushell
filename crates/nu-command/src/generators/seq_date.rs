@@ -129,7 +129,7 @@ impl Command for SeqDate {
         let end_date: Option<Spanned<String>> = call.get_flag(engine_state, stack, "end-date")?;
         let increment: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "increment")?;
         let days: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "days")?;
-        let reverse = call.has_flag("reverse");
+        let reverse = call.has_flag(engine_state, stack, "reverse")?;
 
         let outformat = match output_format {
             Some(s) => Some(Value::string(s.item, s.span)),

@@ -139,11 +139,11 @@ fn run_get(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
-        insecure: call.has_flag("insecure"),
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
         timeout: call.get_flag(engine_state, stack, "max-time")?,
-        allow_errors: call.has_flag("allow-errors"),
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
     };
     helper(engine_state, stack, call, args)
 }

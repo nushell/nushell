@@ -30,11 +30,6 @@ impl Command for Find {
                     Type::List(Box::new(Type::Any)),
                 ),
                 (Type::String, Type::Any),
-                (
-                    // For find -p
-                    Type::Table(vec![]),
-                    Type::Table(vec![]),
-                ),
             ])
             .named(
                 "regex",
@@ -219,7 +214,7 @@ impl Command for Find {
 fn find_with_regex(
     regex: String,
     engine_state: &EngineState,
-    _stack: &mut Stack,
+    stack: &mut Stack,
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
@@ -227,10 +222,10 @@ fn find_with_regex(
     let ctrlc = engine_state.ctrlc.clone();
     let config = engine_state.get_config().clone();
 
-    let insensitive = call.has_flag("ignore-case");
-    let multiline = call.has_flag("multiline");
-    let dotall = call.has_flag("dotall");
-    let invert = call.has_flag("invert");
+    let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
+    let multiline = call.has_flag(engine_state, stack, "multiline")?;
+    let dotall = call.has_flag(engine_state, stack, "dotall")?;
+    let invert = call.has_flag(engine_state, stack, "invert")?;
 
     let flags = match (insensitive, multiline, dotall) {
         (false, false, false) => "",
@@ -336,7 +331,7 @@ fn find_with_rest_and_highlight(
     let engine_state = engine_state.clone();
     let config = engine_state.get_config().clone();
     let filter_config = engine_state.get_config().clone();
-    let invert = call.has_flag("invert");
+    let invert = call.has_flag(&engine_state, stack, "invert")?;
     let terms = call.rest::<Value>(&engine_state, stack, 0)?;
     let lower_terms = terms
         .iter()

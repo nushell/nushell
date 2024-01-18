@@ -1,4 +1,5 @@
 use crate::grapheme_flags;
+use crate::grapheme_flags_const;
 use nu_cmd_base::input_handler::{operate, CmdArgument};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
@@ -74,7 +75,13 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        run(cell_paths, engine_state, call, input)
+        run(
+            cell_paths,
+            engine_state,
+            call,
+            input,
+            grapheme_flags(engine_state, stack, call)?,
+        )
     }
 
     fn run_const(
@@ -84,7 +91,13 @@ impl Command for SubCommand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
-        run(cell_paths, working_set.permanent(), call, input)
+        run(
+            cell_paths,
+            working_set.permanent(),
+            call,
+            input,
+            grapheme_flags_const(working_set, call)?,
+        )
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -116,10 +129,11 @@ fn run(
     engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
+    graphemes: bool,
 ) -> Result<PipelineData, ShellError> {
     let args = Arguments {
         cell_paths: (!cell_paths.is_empty()).then_some(cell_paths),
-        graphemes: grapheme_flags(call)?,
+        graphemes,
     };
     operate(action, args, input, call.head, engine_state.ctrlc.clone())
 }

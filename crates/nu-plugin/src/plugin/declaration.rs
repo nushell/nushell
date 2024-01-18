@@ -6,6 +6,7 @@ use crate::protocol::{
 };
 use std::path::{Path, PathBuf};
 
+use nu_engine::eval_block;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -126,10 +127,48 @@ impl Command for PluginDeclaration {
             value => CallInput::Value(value),
         };
 
+        // Fetch the configuration for a plugin
+        //
+        // The `plugin` must match the registered name of a plugin.  For
+        // `register nu_plugin_example` the plugin config lookup uses `"example"`
+        let config = self
+            .filename
+            .file_stem()
+            .and_then(|file| {
+                file.to_string_lossy()
+                    .clone()
+                    .strip_prefix("nu_plugin_")
+                    .map(|name| {
+                        nu_engine::get_config(engine_state, stack)
+                            .plugins
+                            .get(name)
+                            .cloned()
+                    })
+            })
+            .flatten()
+            .map(|value| {
+                let span = value.span();
+                match value {
+                    Value::Closure { val, .. } => {
+                        let input = PipelineData::Empty;
+
+                        let block = engine_state.get_block(val.block_id).clone();
+                        let mut stack = stack.captures_to_stack(val.captures);
+
+                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
+                            Ok(v) => v.into_value(span),
+                            Err(e) => Value::error(e, call.head),
+                        }
+                    }
+                    _ => value.clone(),
+                }
+            });
+
         let plugin_call = PluginCall::CallInfo(CallInfo {
             name: self.name.clone(),
             call: EvaluatedCall::try_from_call(call, engine_state, stack)?,
             input,
+            config,
         });
 
         let encoding = {

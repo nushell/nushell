@@ -1,3 +1,4 @@
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -23,10 +24,7 @@ impl Command for History {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("history")
-            .input_output_types(vec![
-                (Type::Nothing, Type::Table(vec![])),
-                (Type::Nothing, Type::Nothing),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .switch("clear", "Clears out the history entries", Some('c'))
             .switch(
@@ -40,21 +38,25 @@ impl Command for History {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
+        let Some(history) = engine_state.history_config() else {
+            return Ok(PipelineData::empty());
+        };
+
         // todo for sqlite history this command should be an alias to `open ~/.config/nushell/history.sqlite3 | get history`
         if let Some(config_path) = nu_path::config_dir() {
-            let clear = call.has_flag("clear");
-            let long = call.has_flag("long");
+            let clear = call.has_flag(engine_state, stack, "clear")?;
+            let long = call.has_flag(engine_state, stack, "long")?;
             let ctrlc = engine_state.ctrlc.clone();
 
             let mut history_path = config_path;
             history_path.push("nushell");
-            match engine_state.config.history_file_format {
+            match history.file_format {
                 HistoryFileFormat::Sqlite => {
                     history_path.push("history.sqlite3");
                 }
@@ -68,29 +70,27 @@ impl Command for History {
                 // TODO: FIXME also clear the auxiliary files when using sqlite
                 Ok(PipelineData::empty())
             } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> =
-                    match engine_state.config.history_file_format {
-                        HistoryFileFormat::Sqlite => {
-                            SqliteBackedHistory::with_file(history_path, None, None)
-                                .map(|inner| {
-                                    let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                    boxed
-                                })
-                                .ok()
-                        }
+                let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
+                    HistoryFileFormat::Sqlite => {
+                        SqliteBackedHistory::with_file(history_path, None, None)
+                            .map(|inner| {
+                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                                boxed
+                            })
+                            .ok()
+                    }
 
-                        HistoryFileFormat::PlainText => FileBackedHistory::with_file(
-                            engine_state.config.max_history_size as usize,
-                            history_path,
-                        )
-                        .map(|inner| {
-                            let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                            boxed
-                        })
-                        .ok(),
-                    };
+                    HistoryFileFormat::PlainText => {
+                        FileBackedHistory::with_file(history.max_size as usize, history_path)
+                            .map(|inner| {
+                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
+                                boxed
+                            })
+                            .ok()
+                    }
+                };
 
-                match engine_state.config.history_file_format {
+                match history.file_format {
                     HistoryFileFormat::PlainText => Ok(history_reader
                         .and_then(|h| {
                             h.search(SearchQuery::everything(SearchDirection::Forward, None))

@@ -70,8 +70,8 @@ impl Command for SubCommand {
         let args = Arguments {
             substring: call.req::<String>(engine_state, stack, 0)?,
             cell_paths,
-            case_insensitive: call.has_flag("ignore-case"),
-            not_contain: call.has_flag("not"),
+            case_insensitive: call.has_flag(engine_state, stack, "ignore-case")?,
+            not_contain: call.has_flag(engine_state, stack, "not")?,
         };
         operate(action, args, input, call.head, engine_state.ctrlc.clone())
     }

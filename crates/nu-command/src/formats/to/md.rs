@@ -1,5 +1,6 @@
 use indexmap::map::IndexMap;
 use nu_cmd_base::formats::to::delimited::merge_descriptors;
+use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -67,13 +68,13 @@ impl Command for ToMd {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let pretty = call.has_flag("pretty");
-        let per_element = call.has_flag("per-element");
+        let pretty = call.has_flag(engine_state, stack, "pretty")?;
+        let per_element = call.has_flag(engine_state, stack, "per-element")?;
         let config = engine_state.get_config();
         to_md(input, pretty, per_element, config, head)
     }
@@ -137,7 +138,7 @@ fn collect_headers(headers: &[String]) -> (Vec<String>, Vec<usize>) {
 
     if !headers.is_empty() && (headers.len() > 1 || !headers[0].is_empty()) {
         for header in headers {
-            let escaped_header_string = htmlescape::encode_minimal(header);
+            let escaped_header_string = v_htmlescape::escape(header).to_string();
             column_widths.push(escaped_header_string.len());
             escaped_headers.push(escaped_header_string);
         }
@@ -178,7 +179,8 @@ fn table(input: PipelineData, pretty: bool, config: &Config) -> String {
                 }
             }
             p => {
-                let value_string = htmlescape::encode_minimal(&p.into_abbreviated_string(config));
+                let value_string =
+                    v_htmlescape::escape(&p.into_abbreviated_string(config)).to_string();
                 escaped_row.push(value_string);
             }
         }

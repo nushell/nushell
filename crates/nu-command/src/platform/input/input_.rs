@@ -34,10 +34,7 @@ impl Command for Input {
 
     fn signature(&self) -> Signature {
         Signature::build("input")
-            .input_output_types(vec![
-                (Type::Nothing, Type::String),
-                (Type::Nothing, Type::Binary),
-            ])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
             .optional("prompt", SyntaxShape::String, "Prompt to show the user.")
             .named(
@@ -65,7 +62,7 @@ impl Command for Input {
     ) -> Result<PipelineData, ShellError> {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let bytes_until: Option<String> = call.get_flag(engine_state, stack, "bytes-until-any")?;
-        let suppress_output = call.has_flag("suppress-output");
+        let suppress_output = call.has_flag(engine_state, stack, "suppress-output")?;
         let numchar: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "numchar")?;
         let numchar: Spanned<i64> = numchar.unwrap_or(Spanned {
             item: i64::MAX,
