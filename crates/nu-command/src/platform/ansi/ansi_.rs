@@ -7,7 +7,7 @@ use nu_protocol::{
     PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -516,12 +516,17 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                r"escape sequence without the escape character(s) ('\x1b[' is not required)",
+                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\x1b[' is not required); NOTE: this flag is deprecated, use --csi for CSI sequence instead",
                 Some('e'),
             )
             .switch(
+                "csi", // \x1b[
+                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\x1b[' is not required)",
+                Some('c'),
+            )
+            .switch(
                 "osc", // \x1b]
-                r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
+                r"Operating System Command (OSC) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
@@ -622,7 +627,7 @@ Operating system commands:
             },
             Example {
                 description: "Use escape codes, without the '\\x1b['",
-                example: r#"$"(ansi --escape '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
+                example: r#"$"(ansi --csi '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
             Example {
@@ -632,7 +637,7 @@ Operating system commands:
         bg: '#ff0000'
         attr: b
     }
-    $"(ansi --escape $bold_blue_on_red)Hello Nu World(ansi reset)""#,
+    $"(ansi --csi $bold_blue_on_red)Hello Nu World(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
                 )),
@@ -652,8 +657,6 @@ Operating system commands:
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let list: bool = call.has_flag(engine_state, stack, "list")?;
-        let escape: bool = call.has_flag(engine_state, stack, "escape")?;
-        let osc: bool = call.has_flag(engine_state, stack, "osc")?;
         let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
 
         if list {
@@ -673,22 +676,30 @@ Operating system commands:
             }
         };
 
-        let param_is_string = matches!(code, Value::String { .. });
-
-        if escape && osc {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "escape".into(),
-                left_span: call
-                    .get_named_arg("escape")
-                    .expect("Unexpected missing argument")
-                    .span,
-                right_message: "osc".into(),
-                right_span: call
-                    .get_named_arg("osc")
-                    .expect("Unexpected missing argument")
-                    .span,
-            });
+        let esc_flags = ["escape", "osc", "csi"]
+            .into_iter()
+            .map(|s| call.has_flag(engine_state, stack, s).map(|b| (s, b)))
+            .collect::<Result<BTreeMap<_, bool>, _>>()?;
+        for (i, (f, a)) in esc_flags.iter().enumerate() {
+            for (g, b) in esc_flags.iter().skip(i + 1) {
+                if *a && *b {
+                    return Err(ShellError::IncompatibleParameters {
+                        left_message: f.to_string(),
+                        left_span: call
+                            .get_named_arg(f)
+                            .expect("Unexpected missing argument")
+                            .span,
+                        right_message: g.to_string(),
+                        right_span: call
+                            .get_named_arg(g)
+                            .expect("Unexpected missing argument")
+                            .span,
+                    });
+                }
+            }
         }
+
+        let param_is_string = matches!(code, Value::String { .. });
 
         let code_string = if param_is_string {
             code.as_string().expect("error getting code as string")
@@ -698,7 +709,7 @@ Operating system commands:
 
         let param_is_valid_string = param_is_string && !code_string.is_empty();
 
-        if (escape || osc) && (param_is_valid_string) {
+        if (esc_flags.values().any(|&b| b)) && (param_is_valid_string) {
             let code_vec: Vec<char> = code_string.chars().collect();
             if code_vec[0] == '\\' {
                 let span = match call.get_flag_expr("escape") {
@@ -713,9 +724,21 @@ Operating system commands:
             }
         }
 
-        let output = if escape && param_is_valid_string {
+        let output = if esc_flags["escape"] && param_is_valid_string {
+            nu_protocol::report_error_new(
+                engine_state,
+                &ShellError::GenericError {
+                    error: "Using --escape for CSI sequence is deprecated".into(),
+                    msg: "Using --escape for CSI sequence is deprecated".into(), // TODO
+                    span: call.get_flag_expr("escape").map(|e| e.span),
+                    help: Some("Use the --csi flag for CSI sequence (\\x1b[)".into()),
+                    inner: vec![],
+                },
+            );
             format!("\x1b[{code_string}")
-        } else if osc && param_is_valid_string {
+        } else if esc_flags["csi"] && param_is_valid_string {
+            format!("\x1b[{code_string}")
+        } else if esc_flags["osc"] && param_is_valid_string {
             // Operating system command aka osc  ESC ] <- note the right brace, not left brace for osc
             // OCS's need to end with either:
             // bel '\x07' char
