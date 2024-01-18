@@ -88,6 +88,7 @@ toml = "0.8"
 unicode-segmentation = "1.10"
 ureq = { version = "2.9", default-features = false, features = ["charset", "gzip", "json", "native-tls"] }
 url = "2.2"
+uu_mv = "0.0.23"
 uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
 uu_mkdir = "0.0.23"

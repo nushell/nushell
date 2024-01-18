@@ -2871,6 +2871,7 @@ dependencies = [
  "uu_cp",
  "uu_mkdir",
  "uu_mktemp",
+ "uu_mv",
  "uu_whoami",
  "uuid",
  "wax",
@@ -5804,6 +5805,18 @@ dependencies = [
  "clap",
  "rand",
  "tempfile",
+ "uucore",
+]
+
+[[package]]
+name = "uu_mv"
+version = "0.0.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e307e61d34d2e1dba0659ef443ada8340ec3b788bd6c8fc7fdfe0e02c6b4cfc"
+dependencies = [
+ "clap",
+ "fs_extra",
+ "indicatif",
  "uucore",
 ]
 
