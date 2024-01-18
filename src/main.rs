@@ -4,6 +4,7 @@ mod ide;
 mod logger;
 mod run;
 mod signals;
+#[cfg(unix)]
 mod terminal;
 mod test_bins;
 #[cfg(test)]
@@ -17,7 +18,6 @@ use crate::{
     command::parse_commandline_args,
     config_files::set_config_path,
     logger::{configure, logger},
-    terminal::acquire_terminal,
 };
 use command::gather_commandline_args;
 use log::Level;
@@ -128,6 +128,8 @@ fn main() -> Result<()> {
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
 
+    engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
+
     let use_color = engine_state.get_config().use_ansi_coloring;
     if let Some(level) = parsed_nu_cli_args
         .log_level
@@ -185,16 +187,19 @@ fn main() -> Result<()> {
         use_color,
     );
 
-    start_time = std::time::Instant::now();
-    acquire_terminal(engine_state.is_interactive);
-    perf(
-        "acquire_terminal",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+    #[cfg(unix)]
+    {
+        start_time = std::time::Instant::now();
+        terminal::acquire(engine_state.is_interactive);
+        perf(
+            "acquire_terminal",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
 
     if let Some(include_path) = &parsed_nu_cli_args.include_path {
         let span = include_path.span;

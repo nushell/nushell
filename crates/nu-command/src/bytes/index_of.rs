@@ -30,8 +30,7 @@ impl Command for BytesIndexOf {
     fn signature(&self) -> Signature {
         Signature::build("bytes index-of")
             .input_output_types(vec![
-                (Type::Binary, Type::Int),
-                (Type::Binary, Type::List(Box::new(Type::Int))),
+                (Type::Binary, Type::Any),
                 // FIXME: this shouldn't be needed, cell paths should work with the two
                 // above
                 (Type::Table(vec![]), Type::Table(vec![])),

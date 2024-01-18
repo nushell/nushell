@@ -100,3 +100,13 @@ snippet line 1: force_error "my error"
 "#,
     );
 }
+
+#[test]
+fn plugins() {
+    let code = &[
+        r#"$env.config = { plugins: { nu_plugin_config: { key: value } } }"#,
+        r#"$env.config.plugins"#,
+    ];
+    let actual = nu!(nu_repl_code(code));
+    assert_eq!(actual.out, r#"{nu_plugin_config: {key: value}}"#);
+}

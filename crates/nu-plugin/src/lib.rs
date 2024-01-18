@@ -28,6 +28,7 @@
 //!     fn run(
 //!         &mut self,
 //!         name: &str,
+//!         config: &Option<Value>,
 //!         call: &EvaluatedCall,
 //!         input: &Value
 //!     ) -> Result<Value, LabeledError> {

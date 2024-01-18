@@ -92,23 +92,38 @@ impl Command for Items {
         };
         match input {
             PipelineData::Empty => Ok(PipelineData::Empty),
-            PipelineData::Value(Value::Record { val, .. }, ..) => Ok(val
-                .into_iter()
-                .map_while(run_for_each_item)
-                .into_pipeline_data(ctrlc)),
-            // Errors
+            PipelineData::Value(v, ..) => match v {
+                Value::Record { val, .. } => Ok(val
+                    .into_iter()
+                    .map_while(run_for_each_item)
+                    .into_pipeline_data(ctrlc)),
+                Value::LazyRecord { val, .. } => {
+                    let record = match val.collect()? {
+                        Value::Record { val, .. } => val,
+                        _ => Err(ShellError::NushellFailedSpanned {
+                            msg: "`LazyRecord::collect()` promises `Value::Record`".into(),
+                            label: "Violating lazy record found here".into(),
+                            span,
+                        })?,
+                    };
+                    Ok(record
+                        .into_iter()
+                        .map_while(run_for_each_item)
+                        .into_pipeline_data(ctrlc))
+                }
+                Value::Error { error, .. } => Err(*error),
+                other => Err(ShellError::OnlySupportsThisInputType {
+                    exp_input_type: "record".into(),
+                    wrong_type: other.get_type().to_string(),
+                    dst_span: call.head,
+                    src_span: other.span(),
+                }),
+            },
             PipelineData::ListStream(..) => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: "stream".into(),
                 dst_span: call.head,
                 src_span: input_span,
-            }),
-            PipelineData::Value(Value::Error { error, .. }, ..) => Err(*error),
-            PipelineData::Value(other, ..) => Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "record".into(),
-                wrong_type: other.get_type().to_string(),
-                dst_span: call.head,
-                src_span: other.span(),
             }),
             PipelineData::ExternalStream { .. } => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),

@@ -1,6 +1,6 @@
 use crate::Example;
 use nu_plugin::{EvaluatedCall, LabeledError, Plugin};
-use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Value};
+use nu_protocol::{Category, PluginExample, PluginSignature, SyntaxShape, Type, Value};
 
 impl Plugin for Example {
     fn signature(&self) -> Vec<PluginSignature> {
@@ -42,12 +42,19 @@ impl Plugin for Example {
                 .named("named", SyntaxShape::String, "named string", Some('n'))
                 .rest("rest", SyntaxShape::String, "rest value string")
                 .category(Category::Experimental),
+            PluginSignature::build("nu-example-config")
+                .usage("Show plugin configuration")
+                .extra_usage("The configuration is set under $env.config.plugins.example")
+                .category(Category::Experimental)
+                .search_terms(vec!["example".into(), "configuration".into()])
+                .input_output_type(Type::Nothing, Type::Table(vec![])),
         ]
     }
 
     fn run(
         &mut self,
         name: &str,
+        config: &Option<Value>,
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
@@ -56,6 +63,7 @@ impl Plugin for Example {
             "nu-example-1" => self.test1(call, input),
             "nu-example-2" => self.test2(call, input),
             "nu-example-3" => self.test3(call, input),
+            "nu-example-config" => self.config(config, call),
             _ => Err(LabeledError {
                 label: "Plugin call with wrong name signature".into(),
                 msg: "the signature used to call the plugin does not match any name in the plugin signature vector".into(),

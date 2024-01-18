@@ -9,7 +9,7 @@ use nu_protocol::{
     Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
     SyntaxShape, Type, Value,
 };
-use nu_system::ForegroundProcess;
+use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;
 use os_pipe::PipeReader;
 use pathdiff::diff_paths;
@@ -216,82 +216,69 @@ impl ExternalCommand {
 
         #[allow(unused_mut)]
         let (cmd, mut reader) = self.create_process(&input, false, head)?;
-        let mut fg_process =
-            ForegroundProcess::new(cmd, engine_state.pipeline_externals_state.clone());
-        // mut is used in the windows branch only, suppress warning on other platforms
-        #[allow(unused_mut)]
-        let mut child;
+
+        #[cfg(all(not(unix), not(windows)))] // are there any systems like this?
+        let child = ForegroundChild::spawn(cmd);
 
         #[cfg(windows)]
-        {
-            // Running external commands on Windows has 2 points of complication:
-            // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
-            // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
+        let child = match ForegroundChild::spawn(cmd) {
+            Ok(child) => Ok(child),
+            Err(err) => {
+                // Running external commands on Windows has 2 points of complication:
+                // 1. Some common Windows commands are actually built in to cmd.exe, not executables in their own right.
+                // 2. We need to let users run batch scripts etc. (.bat, .cmd) without typing their extension
 
-            // To support these situations, we have a fallback path that gets run if a command
-            // fails to be run as a normal executable:
-            // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
-            // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
-            match fg_process.spawn(engine_state.is_interactive) {
-                Err(err) => {
-                    // set the default value, maybe we'll override it later
-                    child = Err(err);
+                // To support these situations, we have a fallback path that gets run if a command
+                // fails to be run as a normal executable:
+                // 1. "shell out" to cmd.exe if the command is a known cmd.exe internal command
+                // 2. Otherwise, use `which-rs` to look for batch files etc. then run those in cmd.exe
 
-                    // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
-                    // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
-                    const CMD_INTERNAL_COMMANDS: [&str; 9] = [
-                        "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
-                    ];
-                    let command_name = &self.name.item;
-                    let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
-                        .iter()
-                        .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+                // set the default value, maybe we'll override it later
+                let mut child = Err(err);
 
-                    if looks_like_cmd_internal {
-                        let (cmd, new_reader) = self.create_process(&input, true, head)?;
-                        reader = new_reader;
-                        let mut cmd_process = ForegroundProcess::new(
-                            cmd,
-                            engine_state.pipeline_externals_state.clone(),
-                        );
-                        child = cmd_process.spawn(engine_state.is_interactive);
-                    } else {
-                        #[cfg(feature = "which-support")]
+                // This has the full list of cmd.exe "internal" commands: https://ss64.com/nt/syntax-internal.html
+                // I (Reilly) went through the full list and whittled it down to ones that are potentially useful:
+                const CMD_INTERNAL_COMMANDS: [&str; 9] = [
+                    "ASSOC", "CLS", "ECHO", "FTYPE", "MKLINK", "PAUSE", "START", "VER", "VOL",
+                ];
+                let command_name = &self.name.item;
+                let looks_like_cmd_internal = CMD_INTERNAL_COMMANDS
+                    .iter()
+                    .any(|&cmd| command_name.eq_ignore_ascii_case(cmd));
+
+                if looks_like_cmd_internal {
+                    let (cmd, new_reader) = self.create_process(&input, true, head)?;
+                    reader = new_reader;
+                    child = ForegroundChild::spawn(cmd);
+                } else {
+                    #[cfg(feature = "which-support")]
+                    {
+                        // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
+                        // TODO: clean this up with an if-let chain once those are stable
+                        if let Ok(path) =
+                            nu_engine::env::path_str(engine_state, stack, self.name.span)
                         {
-                            // maybe it's a batch file (foo.cmd) and the user typed `foo`. Try to find it with `which-rs`
-                            // TODO: clean this up with an if-let chain once those are stable
-                            if let Ok(path) =
-                                nu_engine::env::path_str(engine_state, stack, self.name.span)
-                            {
-                                if let Some(cwd) = self.env_vars.get("PWD") {
-                                    // append cwd to PATH so `which-rs` looks in the cwd too.
-                                    // this approximates what cmd.exe does.
-                                    let path_with_cwd = format!("{};{}", cwd, path);
-                                    if let Ok(which_path) =
-                                        which::which_in(&self.name.item, Some(path_with_cwd), cwd)
-                                    {
-                                        if let Some(file_name) = which_path.file_name() {
-                                            if !file_name
-                                                .to_string_lossy()
-                                                .eq_ignore_case(command_name)
-                                            {
-                                                // which-rs found an executable file with a slightly different name
-                                                // than the one the user tried. Let's try running it
-                                                let mut new_command = self.clone();
-                                                new_command.name = Spanned {
-                                                    item: file_name.to_string_lossy().to_string(),
-                                                    span: self.name.span,
-                                                };
-                                                let (cmd, new_reader) = new_command
-                                                    .create_process(&input, true, head)?;
-                                                reader = new_reader;
-                                                let mut cmd_process = ForegroundProcess::new(
-                                                    cmd,
-                                                    engine_state.pipeline_externals_state.clone(),
-                                                );
-                                                child =
-                                                    cmd_process.spawn(engine_state.is_interactive);
-                                            }
+                            if let Some(cwd) = self.env_vars.get("PWD") {
+                                // append cwd to PATH so `which-rs` looks in the cwd too.
+                                // this approximates what cmd.exe does.
+                                let path_with_cwd = format!("{};{}", cwd, path);
+                                if let Ok(which_path) =
+                                    which::which_in(&self.name.item, Some(path_with_cwd), cwd)
+                                {
+                                    if let Some(file_name) = which_path.file_name() {
+                                        if !file_name.to_string_lossy().eq_ignore_case(command_name)
+                                        {
+                                            // which-rs found an executable file with a slightly different name
+                                            // than the one the user tried. Let's try running it
+                                            let mut new_command = self.clone();
+                                            new_command.name = Spanned {
+                                                item: file_name.to_string_lossy().to_string(),
+                                                span: self.name.span,
+                                            };
+                                            let (cmd, new_reader) =
+                                                new_command.create_process(&input, true, head)?;
+                                            reader = new_reader;
+                                            child = ForegroundChild::spawn(cmd);
                                         }
                                     }
                                 }
@@ -299,16 +286,17 @@ impl ExternalCommand {
                         }
                     }
                 }
-                Ok(process) => {
-                    child = Ok(process);
-                }
-            }
-        }
 
-        #[cfg(not(windows))]
-        {
-            child = fg_process.spawn(engine_state.is_interactive)
-        }
+                child
+            }
+        };
+
+        #[cfg(unix)]
+        let child = ForegroundChild::spawn(
+            cmd,
+            engine_state.is_interactive,
+            &engine_state.pipeline_externals_state,
+        );
 
         match child {
             Err(err) => {

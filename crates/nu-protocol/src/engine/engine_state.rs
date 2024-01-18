@@ -5,8 +5,8 @@ use super::{usage::build_usage, usage::Usage, StateDelta};
 use super::{Command, EnvVars, OverlayFrame, ScopeFrame, Stack, Visibility, DEFAULT_OVERLAY_NAME};
 use crate::ast::Block;
 use crate::{
-    BlockId, Config, DeclId, Example, FileId, Module, ModuleId, OverlayId, ShellError, Signature,
-    Span, Type, VarId, Variable, VirtualPathId,
+    BlockId, Config, DeclId, Example, FileId, HistoryConfig, Module, ModuleId, OverlayId,
+    ShellError, Signature, Span, Type, VarId, Variable, VirtualPathId,
 };
 use crate::{Category, Value};
 use std::borrow::Borrow;
@@ -96,6 +96,7 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     pub plugin_signatures: Option<PathBuf>,
     config_path: HashMap<String, PathBuf>,
+    pub history_enabled: bool,
     pub history_session_id: i64,
     // If Nushell was started, e.g., with `nu spam.nu`, the file's parent is stored here
     pub(super) currently_parsed_cwd: Option<PathBuf>,
@@ -151,6 +152,7 @@ impl EngineState {
             #[cfg(feature = "plugin")]
             plugin_signatures: None,
             config_path: HashMap::new(),
+            history_enabled: true,
             history_session_id: 0,
             currently_parsed_cwd: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
@@ -712,6 +714,23 @@ impl EngineState {
         self.config = conf;
     }
 
+    /// Fetch the configuration for a plugin
+    ///
+    /// The `plugin` must match the registered name of a plugin.  For `register nu_plugin_example`
+    /// the plugin name to use will be `"example"`
+    pub fn get_plugin_config(&self, plugin: &str) -> Option<&Value> {
+        self.config.plugins.get(plugin)
+    }
+
+    /// Returns the configuration settings for command history or `None` if history is disabled
+    pub fn history_config(&self) -> Option<HistoryConfig> {
+        if self.history_enabled {
+            Some(self.config.history)
+        } else {
+            None
+        }
+    }
+
     pub fn get_var(&self, var_id: VarId) -> &Variable {
         self.vars
             .get(var_id)
@@ -971,5 +990,28 @@ mod engine_state_tests {
             .collect::<Result<Vec<&str>, Utf8Error>>()?;
         assert_eq!(variables, vec![varname_with_sigil]);
         Ok(())
+    }
+
+    #[test]
+    fn get_plugin_config() {
+        let mut engine_state = EngineState::new();
+
+        assert!(
+            engine_state.get_plugin_config("example").is_none(),
+            "Unexpected plugin configuration"
+        );
+
+        let mut plugins = HashMap::new();
+        plugins.insert("example".into(), Value::string("value", Span::test_data()));
+
+        let mut config = engine_state.get_config().clone();
+        config.plugins = plugins;
+
+        engine_state.set_config(config);
+
+        assert!(
+            engine_state.get_plugin_config("example").is_some(),
+            "Plugin configuration not found"
+        );
     }
 }

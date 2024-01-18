@@ -2,7 +2,9 @@ use crate::math::utils::run_with_function;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
-use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, Span, Type, Value};
+use nu_protocol::{
+    record, Category, Example, PipelineData, ShellError, Signature, Span, Type, Value,
+};
 
 #[derive(Clone)]
 pub struct SubCommand;
@@ -14,12 +16,17 @@ impl Command for SubCommand {
 
     fn signature(&self) -> Signature {
         Signature::build("math variance")
-            .input_output_types(vec![(Type::List(Box::new(Type::Number)), Type::Number)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Table(vec![]), Type::Record(vec![])),
+                (Type::Record(vec![]), Type::Record(vec![])),
+            ])
             .switch(
                 "sample",
                 "calculate sample variance (i.e. using N-1 as the denominator)",
                 Some('s'),
             )
+            .allow_variants_without_examples(true)
             .category(Category::Math)
     }
 
@@ -53,6 +60,14 @@ impl Command for SubCommand {
                 description: "Get the sample variance of a list of numbers",
                 example: "[1 2 3 4 5] | math variance --sample",
                 result: Some(Value::test_float(2.5)),
+            },
+            Example {
+                description: "Compute the variance of each column in a table",
+                example: "[[a b]; [1 2] [3 4]] | math variance",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(1),
+                })),
             },
         ]
     }
