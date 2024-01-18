@@ -939,15 +939,13 @@ impl Eval for EvalRuntime {
     ) -> Result<Value, ShellError> {
         if path == "-" {
             Ok(Value::string("-", span))
+        } else if quoted {
+            Ok(Value::string(path, span))
         } else {
-            if quoted {
-                Ok(Value::string(path, span))
-            } else {
-                let cwd = current_dir_str(engine_state, stack)?;
-                let path = expand_path_with(path, cwd);
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(path, cwd);
 
-                Ok(Value::string(path.to_string_lossy(), span))
-            }
+            Ok(Value::string(path.to_string_lossy(), span))
         }
     }
 

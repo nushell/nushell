@@ -3,7 +3,7 @@ use crate::DirInfo;
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
-use nu_glob::MatchOptions;
+use nu_glob::{MatchOptions, Pattern};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -104,10 +104,13 @@ impl Command for Ls {
             }
         };
 
+        // it indicates we need to append an extra '*' after pattern for listing given directory
+        // Example: 'ls directory' -> 'ls directory/*'
+        let mut extra_star_under_given_directory = false;
         let (path, p_tag, absolute_path, quoted) = match pattern_arg {
             Some(pat) => {
                 let p_tag = pat.span;
-                let mut p = expand_to_real_path(pat.item.as_ref());
+                let p = expand_to_real_path(pat.item.as_ref());
 
                 let expanded = nu_path::expand_path_with(&p, &cwd);
                 // Avoid checking and pushing "*" to the path when directory (do not show contents) flag is true
@@ -138,7 +141,7 @@ impl Command for Ls {
                     if is_empty_dir(&expanded) {
                         return Ok(Value::list(vec![], call_span).into_pipeline_data());
                     }
-                    p.push("*");
+                    extra_star_under_given_directory = true;
                 }
                 let absolute_path = p.is_absolute();
                 (
@@ -160,23 +163,24 @@ impl Command for Ls {
             }
         };
 
-        println!("debug: {path:?}, {p_tag:?}, {absolute_path:?}");
         let hidden_dir_specified = is_hidden_dir(&path);
+        // when it's quoted, we need to escape our glob pattern
+        // so we can do ls for a file or directory like `a[123]b`
         let path = if quoted {
             let p = path.display().to_string();
-            let mut p = p
-                .replace("[", "[[]")
-                .replace("*", "[*]")
-                .replace("?", "[?]");
-            if p.ends_with("[*]") {
-                let index = p.rfind("[*]").unwrap();
-                p.replace_range(index.., "*");
-                p
-            } else {
-                p
+            let mut glob_excaped = Pattern::escape(&p);
+            if extra_star_under_given_directory {
+                glob_excaped.push(std::path::MAIN_SEPARATOR);
+                glob_excaped.push('*');
             }
+            glob_excaped
         } else {
-            path.display().to_string()
+            let mut p = path.display().to_string();
+            if extra_star_under_given_directory {
+                p.push(std::path::MAIN_SEPARATOR);
+                p.push('*');
+            }
+            p
         };
 
         let glob_path = Spanned {
