@@ -7,8 +7,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
@@ -913,6 +913,10 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
+    fn get_config(state: Self::State<'_>) -> &Config {
+        state.get_config()
+    }
+
     fn eval_filepath(
         engine_state: Self::State<'_>,
         stack: &mut Self::MutState,
@@ -1131,26 +1135,6 @@ impl Eval for EvalRuntime {
             .collect::<Result<_, _>>()?;
 
         Ok(Value::closure(Closure { block_id, captures }, span))
-    }
-
-    fn eval_string_interpolation(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        exprs: &[Expression],
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        let mut parts = vec![];
-        for expr in exprs {
-            parts.push(eval_expression(engine_state, stack, expr)?);
-        }
-
-        let config = engine_state.get_config();
-
-        parts
-            .into_iter()
-            .into_pipeline_data(None)
-            .collect_string("", config)
-            .map(|x| Value::string(x, span))
     }
 
     fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
