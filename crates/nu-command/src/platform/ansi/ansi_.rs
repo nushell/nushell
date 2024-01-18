@@ -516,17 +516,17 @@ impl Command for AnsiCommand {
             )
             .switch(
                 "escape", // \x1b[
-                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\x1b[' is not required); NOTE: this flag is deprecated, use --csi for CSI sequence instead",
+                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\e[' is not required); NOTE: this flag is deprecated, use --csi for CSI sequence instead",
                 Some('e'),
             )
             .switch(
                 "csi", // \x1b[
-                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\x1b[' is not required)",
+                r"Control Sequence Introducer (CSI) sequence without the escape character(s) ('\e[' is not required)",
                 Some('c'),
             )
             .switch(
                 "osc", // \x1b]
-                r"Operating System Command (OSC) escape sequence without the escape character(s) ('\x1b]' is not required)",
+                r"Operating System Command (OSC) escape sequence without the escape character(s) ('\e]' is not required)",
                 Some('o'),
             )
             .switch("list", "list available ansi code names", Some('l'))
@@ -626,7 +626,7 @@ Operating system commands:
                 )),
             },
             Example {
-                description: "Use escape codes, without the '\\x1b['",
+                description: "Use escape codes, without the '\\e['",
                 example: r#"$"(ansi --csi '3;93;41m')Hello(ansi reset)"  # italic bright yellow on red background"#,
                 result: Some(Value::test_string("\u{1b}[3;93;41mHello\u{1b}[0m")),
             },
@@ -731,7 +731,7 @@ Operating system commands:
                     error: "Using --escape for CSI sequence is deprecated".into(),
                     msg: "Using --escape for CSI sequence is deprecated".into(), // TODO
                     span: call.get_flag_expr("escape").map(|e| e.span),
-                    help: Some("Use the --csi flag for CSI sequence (\\x1b[)".into()),
+                    help: Some("Use the --csi flag for CSI sequence (\\e[)".into()),
                     inner: vec![],
                 },
             );
