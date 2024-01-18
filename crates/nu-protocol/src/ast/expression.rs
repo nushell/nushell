@@ -209,6 +209,7 @@ impl Expression {
             Expr::Garbage => false,
             Expr::Nothing => false,
             Expr::GlobPattern(_, _) => false,
+            Expr::LsGlobPattern(_, _) => false,
             Expr::Int(_) => false,
             Expr::Keyword(_, _, expr) => expr.has_in_variable(working_set),
             Expr::List(list) => {
@@ -388,6 +389,7 @@ impl Expression {
             Expr::Garbage => {}
             Expr::Nothing => {}
             Expr::GlobPattern(_, _) => {}
+            Expr::LsGlobPattern(_, _) => {}
             Expr::MatchBlock(_) => {}
             Expr::Int(_) => {}
             Expr::Keyword(_, _, expr) => expr.replace_span(working_set, replaced, new_span),

@@ -40,6 +40,7 @@ pub enum Expr {
     Filepath(String, bool),
     Directory(String, bool),
     GlobPattern(String, bool),
+    LsGlobPattern(String, bool),
     String(String),
     CellPath(CellPath),
     FullCellPath(Box<FullCellPath>),

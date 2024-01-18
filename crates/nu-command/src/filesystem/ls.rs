@@ -7,6 +7,7 @@ use nu_glob::MatchOptions;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::NuPath;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
@@ -39,7 +40,7 @@ impl Command for Ls {
         Signature::build("ls")
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // Using a string instead of a glob pattern shape so it won't auto-expand
-            .optional("pattern", SyntaxShape::String, "The glob pattern to use.")
+            .optional("pattern", SyntaxShape::LsGlobPattern, "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",
@@ -84,7 +85,7 @@ impl Command for Ls {
         let call_span = call.head;
         let cwd = current_dir(engine_state, stack)?;
 
-        let pattern_arg: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        let pattern_arg: Option<Spanned<NuPath>> = call.opt(engine_state, stack, 0)?;
 
         let pattern_arg = {
             if let Some(path) = pattern_arg {

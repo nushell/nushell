@@ -1768,6 +1768,13 @@ impl Value {
         }
     }
 
+    pub fn quoted_string(val: impl Into<String>, span: Span) -> Value {
+        Value::QuotedString {
+            val: val.into(),
+            internal_span: span,
+        }
+    }
+
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
             val,

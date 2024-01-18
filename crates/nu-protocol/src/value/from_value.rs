@@ -183,6 +183,27 @@ impl FromValue for String {
     }
 }
 
+impl FromValue for Spanned<String> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        Ok(Spanned {
+            item: match v {
+                Value::CellPath { val, .. } => val.to_string(),
+                Value::String { val, .. } => val,
+                v => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: v.get_type().to_string(),
+                        span: v.span(),
+                        help: None,
+                    })
+                }
+            },
+            span,
+        })
+    }
+}
+
 impl FromValue for NuPath {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
@@ -200,13 +221,14 @@ impl FromValue for NuPath {
     }
 }
 
-impl FromValue for Spanned<String> {
+impl FromValue for Spanned<NuPath> {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         let span = v.span();
         Ok(Spanned {
             item: match v {
-                Value::CellPath { val, .. } => val.to_string(),
-                Value::String { val, .. } => val,
+                Value::CellPath { val, .. } => NuPath::UnQuoted(val.to_string()),
+                Value::String { val, .. } => NuPath::UnQuoted(val),
+                Value::QuotedString { val, .. } => NuPath::Quoted(val),
                 v => {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),

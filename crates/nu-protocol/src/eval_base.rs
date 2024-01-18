@@ -277,6 +277,13 @@ pub trait Eval {
             Expr::GlobPattern(pattern, quoted) => {
                 Self::eval_glob_pattern(state, mut_state, pattern.clone(), *quoted, expr.span)
             }
+            Expr::LsGlobPattern(pattern, quoted) => {
+                if *quoted {
+                    Ok(Value::quoted_string(pattern, expr.span))
+                } else {
+                    Ok(Value::string(pattern, expr.span))
+                }
+            }
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)
             | Expr::ImportPattern(_)
