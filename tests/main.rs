@@ -9,5 +9,7 @@ mod parsing;
 mod path;
 #[cfg(feature = "plugin")]
 mod plugins;
+#[cfg(unix)]
+mod rexpect;
 mod scope;
 mod shell;
