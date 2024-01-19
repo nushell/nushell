@@ -13,7 +13,7 @@ use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
     CompletionItem, CompletionParams, CompletionResponse, CompletionTextEdit, GotoDefinitionParams,
     GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location, MarkupContent, MarkupKind,
-    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url,
+    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url, CompletionItemKind,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::NuCompleter;
@@ -561,9 +561,19 @@ impl LanguageServer {
                         let mut start = params.text_document_position.position;
                         start.character -= (r.span.end - r.span.start) as u32;
 
+
+                        let completion_kind = if r.value.starts_with("$") {
+                            Some(CompletionItemKind::VARIABLE)
+                        } else if r.value.starts_with("-") {
+                            Some(CompletionItemKind::FIELD)
+                        } else {
+                            None
+                        };
+
                         CompletionItem {
                             label: r.value.clone(),
                             detail: r.description,
+                            kind: completion_kind,
                             text_edit: Some(CompletionTextEdit::Edit(TextEdit {
                                 range: Range {
                                     start,
