@@ -562,10 +562,9 @@ impl LanguageServer {
                         let mut start = params.text_document_position.position;
                         start.character -= (r.span.end - r.span.start) as u32;
 
-
-                        let completion_kind = if r.value.starts_with("$") {
+                        let completion_kind = if r.value.starts_with('$') {
                             Some(CompletionItemKind::VARIABLE)
-                        } else if r.value.starts_with("-") {
+                        } else if r.value.starts_with('-') {
                             Some(CompletionItemKind::FIELD)
                         } else {
                             None
@@ -1044,6 +1043,7 @@ mod tests {
             serde_json::json!([
                {
                   "label": "$greeting",
+                  "kind": 6,
                   "textEdit": {
                      "newText": "$greeting",
                      "range": {
