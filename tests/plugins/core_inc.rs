@@ -148,3 +148,16 @@ fn semversion_without_passing_field() {
         assert_eq!(actual.out, "0.1.4");
     })
 }
+
+#[test]
+fn explicit_flag() {
+    Playground::setup("plugin_inc_test_6", |dirs, _| {
+        let actual = nu_with_plugins!(
+            cwd: dirs.test(),
+            plugin: ("nu_plugin_inc"),
+            "'0.1.2' | inc --major=false --minor=true --patch=false"
+        );
+
+        assert_eq!(actual.out, "0.2.0");
+    })
+}
