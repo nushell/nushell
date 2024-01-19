@@ -108,7 +108,7 @@ mod test {
     fn test_escape() {
         // check for input arg like this:
         // nu b.nu \ --arg='"'
-        assert_eq!(escape_for_script_arg(r#"\"#), r#""\\""#.to_string());
+        assert_eq!(escape_for_script_arg(r"\"), r#""\\""#.to_string());
         assert_eq!(
             escape_for_script_arg(r#"--arg=""#),
             r#"--arg="\"""#.to_string()
