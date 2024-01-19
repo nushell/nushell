@@ -53,10 +53,10 @@ impl EvaluatedCall {
         })
     }
 
-    /// Indicates whether named parameter is present in the arguments
-    ///
-    /// Typically this method would be used on a flag parameter, a named parameter
-    /// that does not take a value.
+    /// Check if a flag (named parameter that does not take a value) is set
+    /// Returns Ok(true) if flag is set or passed true value
+    /// Returns Ok(false) if flag is not set or passed false value
+    /// Returns Err if passed value is not a boolean
     ///
     /// # Examples
     /// Invoked as `my_command --foo`:
