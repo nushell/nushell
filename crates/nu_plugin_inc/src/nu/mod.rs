@@ -40,13 +40,13 @@ impl Plugin for Inc {
 
         self.cell_path = cell_path;
 
-        if call.has_flag("major") {
+        if call.has_flag("major")? {
             self.for_semver(SemVerAction::Major);
         }
-        if call.has_flag("minor") {
+        if call.has_flag("minor")? {
             self.for_semver(SemVerAction::Minor);
         }
-        if call.has_flag("patch") {
+        if call.has_flag("patch")? {
             self.for_semver(SemVerAction::Patch);
         }
 
