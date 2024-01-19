@@ -592,3 +592,18 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
     mv_files_with_glob_metachars(src_name);
 }
+
+#[test]
+fn mv_with_cd() {
+    Playground::setup("umv_test_17", |_dirs, sandbox| {
+        sandbox
+            .mkdir("tmp_dir")
+            .with_files(vec![FileWithContent("tmp_dir/file.txt", "body")]);
+
+        let actual = nu!(
+            cwd: sandbox.cwd(),
+            r#"do { cd tmp_dir; let f = 'file.txt'; umv $f .. }; open file.txt"#,
+        );
+        assert!(actual.out.contains("body"));
+    });
+}
