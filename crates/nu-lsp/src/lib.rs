@@ -11,9 +11,10 @@ use std::{
 use lsp_server::{Connection, IoThreads, Message, Response, ResponseError};
 use lsp_types::{
     request::{Completion, GotoDefinition, HoverRequest, Request},
-    CompletionItem, CompletionParams, CompletionResponse, CompletionTextEdit, GotoDefinitionParams,
-    GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location, MarkupContent, MarkupKind,
-    OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit, Url, CompletionItemKind,
+    CompletionItem, CompletionItemKind, CompletionParams, CompletionResponse, CompletionTextEdit,
+    GotoDefinitionParams, GotoDefinitionResponse, Hover, HoverContents, HoverParams, Location,
+    MarkupContent, MarkupKind, OneOf, Range, ServerCapabilities, TextDocumentSyncKind, TextEdit,
+    Url,
 };
 use miette::{IntoDiagnostic, Result};
 use nu_cli::NuCompleter;
