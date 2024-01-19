@@ -136,6 +136,15 @@ impl Command for UMv {
             }
             files.append(&mut app_vals);
         }
+
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
+        for src in files.iter_mut() {
+            if !src.is_absolute() {
+                *src = nu_path::expand_path_with(&src, &cwd);
+            }
+        }
+
         // Add back the target after globbing
         let spanned_target = paths.last().ok_or(ShellError::NushellFailedSpanned {
             msg: "Missing file operand".into(),
