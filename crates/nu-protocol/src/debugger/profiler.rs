@@ -1,40 +1,50 @@
+use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
+use crate::Span;
 use std::time::Instant;
 
 /// Basic profiler
 #[derive(Default)]
 pub struct Profiler {
-    pub instants: Vec<Instant>,
-    pub durations_us: Vec<u128>,
+    depth: i64,
+    max_depth: i64,
+    element_start_times: Vec<(Span, Instant)>,
+    element_durations_ns: Vec<(Span, u128)>,
 }
 
 impl Profiler {
     pub fn report(&self) {
-        println!("Report ({} durations):", self.durations_us.len());
-        println!("=======");
-        for duration in &self.durations_us {
-            println!("Duration: {duration:5} us");
+        println!("Profiler report:\n===============");
+        for (span, duration_ns) in &self.element_durations_ns {
+            let dur_us = duration_ns / 1000;
+            println!("span: {span:?}, duration: {dur_us} us");
         }
     }
 }
 
 impl Debugger for Profiler {
     fn enter_block(&mut self) {
-        self.instants.push(Instant::now());
-        println!(
-            "Entered block with debugger! {} timestamps, {} durations",
-            self.instants.len(),
-            self.durations_us.len()
-        );
+        self.depth += 1;
     }
 
     fn leave_block(&mut self) {
-        let start = self.instants.pop().unwrap();
-        self.durations_us.push(start.elapsed().as_micros());
-        println!(
-            "Left block with debugger! {} timestamps, {} durations",
-            self.instants.len(),
-            self.durations_us.len()
-        );
+        self.depth -= 1;
+    }
+
+    fn enter_element(&mut self, element: &PipelineElement) {
+        self.element_start_times
+            .push((element.span(), Instant::now()));
+    }
+
+    fn leave_element(&mut self, element: &PipelineElement) {
+        let Some((span, start)) = self.element_start_times.pop() else {
+            eprintln!(
+                "Error: Profiler left pipeline element without matching element start time stamp."
+            );
+            return;
+        };
+
+        self.element_durations_ns
+            .push((span, start.elapsed().as_nanos()));
     }
 }

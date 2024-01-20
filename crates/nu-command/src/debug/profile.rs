@@ -57,8 +57,10 @@ impl Command for DebugProfile {
             call.redirect_stdout,
             // DEBUG TODO
             WithDebug,
-            &Some(profiler),
+            &Some(profiler.clone()),
         );
+
+        profiler.lock().unwrap().report();
 
         Ok(PipelineData::empty())
     }
