@@ -42,6 +42,8 @@
 # Then, just take the output and put it in the winget-pkgs PR for the hash on the msi
 
 
+use pkgmgr
+
 # The main binary file to be released
 let bin = 'nu'
 let os = $env.OS
@@ -161,6 +163,12 @@ if $os in [$USE_UBUNTU, 'macos-latest', 'ubuntu-latest'] {
 
     mkdir $dest
     $files | each {|it| mv $it $dest } | ignore
+
+
+    if ($os == $USE_UBUNTU) and ($env.RELEASE_TYPE == 'full') {
+        let deb_archive = pkgmgr apt create-deb --version $version --name $dest --files $files
+        echo $"archive=($deb_archive)" | save --append $env.GITHUB_OUTPUT
+    }
 
     print $'(char nl)(ansi g)Archive contents:(ansi reset)'; hr-line; ls $dest
 
