@@ -1,9 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
-use nu_protocol::debugger::{
-    Profiler, DebugContext, NoopDebugger, WithDebug, WithoutDebug,
-};
+use nu_protocol::debugger::{DebugContext, NoopDebugger, Profiler, WithDebug, WithoutDebug};
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},
@@ -14,7 +12,6 @@ use nu_protocol::{report_error, report_error_new};
 use nu_utils::enable_vt_processing;
 use nu_utils::utils::perf;
 use std::path::Path;
-use std::sync::{Arc, Mutex};
 
 // This will collect environment variables from std::env and adds them to a stack.
 //
@@ -243,23 +240,18 @@ pub fn eval_source(
         return false;
     }
 
-    let debug_context = WithDebug;
-    let debugger = Arc::new(Mutex::new(Profiler::default()));
-    println!("== start ==");
-    println!("should debug: {}", debug_context.should_debug());
-
     let b = if allow_return {
-        let res = eval_block_with_early_return(
+        eval_block_with_early_return(
             engine_state,
             stack,
             &block,
             input,
             false,
             false,
-            debug_context,
-            &Some(debugger.clone()),
-        );
-        res
+            // DEBUG TODO
+            WithoutDebug,
+            &None,
+        )
     } else {
         eval_block(
             engine_state,
@@ -305,9 +297,6 @@ pub fn eval_source(
             } else {
                 result = pipeline_data.print(engine_state, stack, true, false);
             }
-
-            debugger.lock().unwrap().report();
-            println!("<<< stop >>>>");
 
             match result {
                 Err(err) => {

@@ -2,6 +2,7 @@ mod alias;
 pub mod ast;
 pub mod cli_error;
 pub mod config;
+pub mod debugger;
 mod did_you_mean;
 pub mod engine;
 pub mod eval_base;
@@ -24,7 +25,6 @@ mod ty;
 pub mod util;
 mod value;
 mod variable;
-pub mod debugger;
 
 pub use alias::*;
 pub use cli_error::*;

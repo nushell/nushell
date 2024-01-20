@@ -1,9 +1,7 @@
 use crate::{current_dir_str, get_full_help};
 use log::debug;
 use nu_path::expand_path_with;
-use nu_protocol::debugger::{
-    Profiler, DebugContext, Debugger, WithDebug, WithoutDebug,
-};
+use nu_protocol::debugger::{DebugContext, Debugger, Profiler, WithDebug, WithoutDebug};
 use nu_protocol::Value::List;
 use nu_protocol::{
     ast::{
@@ -28,11 +26,6 @@ pub fn eval_call(
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
     let cname = engine_state.get_decl(call.decl_id).name();
-    println!(
-        "call {}, should debug: {}",
-        cname,
-        debug_context.should_debug()
-    );
     if nu_utils::ctrl_c::was_pressed(&engine_state.ctrlc) {
         return Ok(Value::nothing(call.head).into_pipeline_data());
     }
@@ -193,9 +186,6 @@ pub fn eval_call(
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
         if debug_context.should_debug() {
-            if cname == "each" {
-                println!("debugging");
-            }
             decl.run_debug(
                 engine_state,
                 caller_stack,
@@ -204,9 +194,6 @@ pub fn eval_call(
                 debugger.clone().unwrap(),
             ) // DEBUG TODO
         } else {
-            if cname == "each" {
-                println!("not debugging");
-            }
             decl.run(engine_state, caller_stack, call, input)
         }
     }
@@ -337,11 +324,6 @@ pub fn eval_expression_with_input(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    println!(
-        "expression {}, should debug: {}",
-        String::from_utf8_lossy(engine_state.get_span_contents(expr.span)),
-        debug_context.should_debug()
-    );
     match expr {
         Expression {
             expr: Expr::Call(call),
@@ -432,11 +414,6 @@ fn eval_element_with_input(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    println!(
-        "element {}, should debug: {}",
-        String::from_utf8_lossy(engine_state.get_span_contents(element.span())),
-        debug_context.should_debug()
-    );
     match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
             engine_state,
@@ -694,7 +671,6 @@ pub fn eval_block_with_early_return(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<PipelineData, ShellError> {
-    println!("should debug block early: {}", debug_context.should_debug());
     match eval_block(
         engine_state,
         stack,
@@ -736,7 +712,6 @@ pub fn eval_block(
         }
     }
 
-    println!("should debug block: {}", debug_context.should_debug());
     debug_context.on_block_enter(debugger);
 
     let num_pipelines = block.len();

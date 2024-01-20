@@ -51,7 +51,6 @@ macro_rules! run_each {
 
                     let input_span = x.span();
                     let x_is_error = x.is_error();
-                    println!("--- DEBUG Iter");
 
                     match eval_block_with_early_return(
                         &engine_state,

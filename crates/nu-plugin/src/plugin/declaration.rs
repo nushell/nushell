@@ -157,7 +157,16 @@ impl Command for PluginDeclaration {
                         let mut stack = stack.captures_to_stack(val.captures);
 
                         // TODO: DEBUG
-                        match eval_block(engine_state, &mut stack, &block, input, false, false, WithoutDebug, &None) {
+                        match eval_block(
+                            engine_state,
+                            &mut stack,
+                            &block,
+                            input,
+                            false,
+                            false,
+                            WithoutDebug,
+                            &None,
+                        ) {
                             Ok(v) => v.into_value(span),
                             Err(e) => Value::error(e, call.head),
                         }

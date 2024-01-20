@@ -1,5 +1,5 @@
-use std::time::Instant;
 use crate::debugger::Debugger;
+use std::time::Instant;
 
 /// Basic profiler
 #[derive(Default)]
@@ -38,4 +38,3 @@ impl Debugger for Profiler {
         );
     }
 }
-
