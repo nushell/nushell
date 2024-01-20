@@ -22,6 +22,7 @@ impl Command for FromJson {
         Signature::build("from json")
             .input_output_types(vec![(Type::String, Type::Any)])
             .switch("objects", "treat each line as a separate value", Some('o'))
+            .switch("strict", "follow the json specification exactly", Some('s'))
             .category(Category::Formats)
     }
 
@@ -42,6 +43,14 @@ impl Command for FromJson {
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                 })),
             },
+            Example {
+                example: r#"'{ "a": 1, "b": 2 }' | from json -s"#,
+                description: "Parse json strictly which will error on comments and trailing commas",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(1),
+                    "b" => Value::test_int(2),
+                })),
+            },
         ]
     }
 
@@ -59,25 +68,35 @@ impl Command for FromJson {
             return Ok(PipelineData::new_with_metadata(metadata, span));
         }
 
+        let strict = call.has_flag(engine_state, stack, "strict")?;
+
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
-            let converted_lines: Vec<Value> = string_input
-                .lines()
-                .filter_map(move |x| {
-                    if x.trim() == "" {
-                        None
-                    } else {
-                        match convert_string_to_value(x.to_string(), span) {
-                            Ok(v) => Some(v),
-                            Err(error) => Some(Value::error(error, span)),
-                        }
-                    }
-                })
-                .collect();
+            let lines = string_input.lines().filter(|line| !line.trim().is_empty());
+
+            let converted_lines: Vec<_> = if strict {
+                lines
+                    .map(|line| {
+                        convert_string_to_value_strict(line, span)
+                            .unwrap_or_else(|err| Value::error(err, span))
+                    })
+                    .collect()
+            } else {
+                lines
+                    .map(|line| {
+                        convert_string_to_value(line, span)
+                            .unwrap_or_else(|err| Value::error(err, span))
+                    })
+                    .collect()
+            };
+
             Ok(converted_lines
                 .into_pipeline_data_with_metadata(metadata, engine_state.ctrlc.clone()))
+        } else if strict {
+            Ok(convert_string_to_value_strict(&string_input, span)?
+                .into_pipeline_data_with_metadata(metadata))
         } else {
-            Ok(convert_string_to_value(string_input, span)?
+            Ok(convert_string_to_value(&string_input, span)?
                 .into_pipeline_data_with_metadata(metadata))
         }
     }
@@ -142,22 +161,21 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
     Span::new(contents.len(), contents.len())
 }
 
-fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
-    let result: Result<nu_json::Value, nu_json::Error> = nu_json::from_str(&string_input);
-    match result {
+fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+    match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(&value, span)),
 
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
-                let label_span = convert_row_column_to_span(row, col, &string_input);
+                let label_span = convert_row_column_to_span(row, col, string_input);
                 Err(ShellError::GenericError {
                     error: "Error while parsing JSON text".into(),
                     msg: "error parsing JSON text".into(),
                     span: Some(span),
                     help: None,
                     inner: vec![ShellError::OutsideSpannedLabeledError {
-                        src: string_input,
+                        src: string_input.into(),
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
@@ -171,6 +189,35 @@ fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, Sh
                 help: None,
             }),
         },
+    }
+}
+
+fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
+    match serde_json::from_str(string_input) {
+        Ok(value) => Ok(convert_nujson_to_value(&value, span)),
+        Err(err) => Err(if err.is_syntax() {
+            let label = err.to_string();
+            let label_span = convert_row_column_to_span(err.line(), err.column() - 1, string_input);
+            ShellError::GenericError {
+                error: "Error while parsing JSON text".into(),
+                msg: "error parsing JSON text".into(),
+                span: Some(span),
+                help: None,
+                inner: vec![ShellError::OutsideSpannedLabeledError {
+                    src: string_input.into(),
+                    error: "Error while parsing JSON text".into(),
+                    msg: label,
+                    span: label_span,
+                }],
+            }
+        } else {
+            ShellError::CantConvert {
+                to_type: format!("structured json data ({err})"),
+                from_type: "string".into(),
+                span,
+                help: None,
+            }
+        }),
     }
 }
 
