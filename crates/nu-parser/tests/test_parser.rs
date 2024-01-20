@@ -1915,3 +1915,27 @@ mod input_types {
         )
     }
 }
+
+#[cfg(test)]
+mod operator {
+    use super::*;
+
+    #[rstest]
+    #[case(br#""abc" < "bca""#, "string < string")]
+    #[case(br#""abc" <= "bca""#, "string <= string")]
+    #[case(br#""abc" > "bca""#, "string > string")]
+    #[case(br#""abc" >= "bca""#, "string >= string")]
+    fn parse_comparison_operators_with_string_and_string(
+        #[case] expr: &[u8],
+        #[case] test_tag: &str,
+    ) {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        parse(&mut working_set, None, expr, false);
+        assert_eq!(
+            working_set.parse_errors.len(),
+            0,
+            "{test_tag}: expected to be parsed successfully, but failed."
+        );
+    }
+}
