@@ -344,7 +344,7 @@ $env.config = {
         {
             name: ide_completion_menu
             modifier: control
-            keycode: char_w
+            keycode: char_n
             mode: [emacs vi_normal vi_insert]
             event: {
                 until: [
