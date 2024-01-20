@@ -60,45 +60,6 @@ pub trait Debugger: Send {
     fn on_block_leave(&mut self) {}
 }
 
-/// Basic debugger showcasing the functionality
-#[derive(Default)]
-pub struct BasicDebugger {
-    // pub data: BasicData
-    pub instants: Vec<Instant>,
-    pub durations_us: Vec<u128>,
-}
-
-impl BasicDebugger {
-    pub fn report(&self) {
-        println!("Report ({} durations):", self.durations_us.len());
-        println!("=======");
-        for duration in &self.durations_us {
-            println!("Duration: {duration:5} us");
-        }
-    }
-}
-
-impl Debugger for BasicDebugger {
-    fn on_block_enter(&mut self) {
-        self.instants.push(Instant::now());
-        println!(
-            "Entered block with debugger! {} timestamps, {} durations",
-            self.instants.len(),
-            self.durations_us.len()
-        );
-    }
-
-    fn on_block_leave(&mut self) {
-        let start = self.instants.pop().unwrap();
-        self.durations_us.push(start.elapsed().as_micros());
-        println!(
-            "Left block with debugger! {} timestamps, {} durations",
-            self.instants.len(),
-            self.durations_us.len()
-        );
-    }
-}
-
 /// Noop debugger doing nothing, should not interfere with normal flow in any way.
 pub struct NoopDebugger;
 

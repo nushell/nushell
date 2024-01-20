@@ -2,7 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
 use nu_protocol::debugger::{
-    BasicDebugger, DebugContext, NoopDebugger, WithDebug, WithoutDebug,
+    Profiler, DebugContext, NoopDebugger, WithDebug, WithoutDebug,
 };
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
@@ -244,7 +244,7 @@ pub fn eval_source(
     }
 
     let debug_context = WithDebug;
-    let debugger = Arc::new(Mutex::new(BasicDebugger::default()));
+    let debugger = Arc::new(Mutex::new(Profiler::default()));
     println!("== start ==");
     println!("should debug: {}", debug_context.should_debug());
 
