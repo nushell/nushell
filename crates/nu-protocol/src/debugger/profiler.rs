@@ -19,7 +19,7 @@ impl Profiler {
 }
 
 impl Debugger for Profiler {
-    fn on_block_enter(&mut self) {
+    fn enter_block(&mut self) {
         self.instants.push(Instant::now());
         println!(
             "Entered block with debugger! {} timestamps, {} durations",
@@ -28,7 +28,7 @@ impl Debugger for Profiler {
         );
     }
 
-    fn on_block_leave(&mut self) {
+    fn leave_block(&mut self) {
         let start = self.instants.pop().unwrap();
         self.durations_us.push(start.elapsed().as_micros());
         println!(

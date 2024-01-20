@@ -712,7 +712,7 @@ pub fn eval_block(
         }
     }
 
-    debug_context.on_block_enter(debugger);
+    debug_context.enter_block(debugger);
 
     let num_pipelines = block.len();
 
@@ -836,7 +836,7 @@ pub fn eval_block(
         }
     }
 
-    debug_context.on_block_leave(debugger);
+    debug_context.leave_block(debugger);
 
     Ok(input)
 }
