@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{current_dir_str, get_config, get_full_help};
 use nu_path::expand_path_with;
 use nu_protocol::{
     ast::{
@@ -913,8 +913,8 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
-    fn get_config(state: Self::State<'_>) -> &Config {
-        state.get_config()
+    fn get_config(engine_state: &EngineState, stack: &mut Stack) -> Config {
+        get_config(engine_state, stack)
     }
 
     fn eval_filepath(

@@ -278,8 +278,8 @@ impl Eval for EvalConst {
 
     type MutState = ();
 
-    fn get_config(state: Self::State<'_>) -> &Config {
-        state.get_config()
+    fn get_config(state: Self::State<'_>, _: &mut ()) -> Config {
+        state.get_config().clone()
     }
 
     fn eval_filepath(

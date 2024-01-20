@@ -276,12 +276,12 @@ pub trait Eval {
                     parts.push(Self::eval(state, mut_state, expr)?);
                 }
 
-                let config = Self::get_config(state);
+                let config = Self::get_config(state, mut_state);
 
                 parts
                     .into_iter()
                     .into_pipeline_data(None)
-                    .collect_string("", config)
+                    .collect_string("", &config)
                     .map(|x| Value::string(x, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
@@ -298,7 +298,7 @@ pub trait Eval {
         }
     }
 
-    fn get_config(state: Self::State<'_>) -> &Config;
+    fn get_config(state: Self::State<'_>, mut_state: &mut Self::MutState) -> Config;
 
     fn eval_filepath(
         state: Self::State<'_>,
