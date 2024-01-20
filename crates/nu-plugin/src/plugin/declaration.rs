@@ -7,7 +7,7 @@ use crate::protocol::{
 use std::path::{Path, PathBuf};
 
 use nu_engine::eval_block;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{ast::Call, PluginSignature, Signature};
 use nu_protocol::{Example, PipelineData, ShellError, Value};
@@ -156,7 +156,8 @@ impl Command for PluginDeclaration {
                         let block = engine_state.get_block(val.block_id).clone();
                         let mut stack = stack.captures_to_stack(val.captures);
 
-                        match eval_block(engine_state, &mut stack, &block, input, false, false) {
+                        // TODO: DEBUG
+                        match eval_block(engine_state, &mut stack, &block, input, false, false, WithoutDebug, &None) {
                             Ok(v) => v.into_value(span),
                             Err(e) => Value::error(e, call.head),
                         }

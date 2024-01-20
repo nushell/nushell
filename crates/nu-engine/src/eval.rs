@@ -1,7 +1,7 @@
 use crate::{current_dir_str, get_full_help};
 use log::debug;
 use nu_path::expand_path_with;
-use nu_protocol::engine::debugger::{
+use nu_protocol::debugger::{
     BasicDebugger, DebugContext, Debugger, WithDebug, WithoutDebug,
 };
 use nu_protocol::Value::List;

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::{env::current_dir, eval_block};
 use nu_parser::parse;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Stack, StateWorkingSet, VirtualPath};
 use nu_protocol::{report_error, PipelineData};
 

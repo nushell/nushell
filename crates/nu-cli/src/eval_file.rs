@@ -6,7 +6,7 @@ use nu_engine::eval_block;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,

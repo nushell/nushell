@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Block, RangeInclusion},
     engine::{EngineState, Stack, StateDelta, StateWorkingSet},

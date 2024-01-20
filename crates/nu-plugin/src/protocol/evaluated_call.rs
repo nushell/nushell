@@ -1,5 +1,5 @@
 use nu_engine::eval_expression;
-use nu_protocol::engine::debugger::{DebugContext, Debugger};
+use nu_protocol::debugger::{DebugContext, Debugger};
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},

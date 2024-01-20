@@ -2,7 +2,7 @@ use nu_cmd_base::hook::eval_hook;
 use nu_engine::env_to_strings;
 use nu_engine::eval_expression;
 use nu_engine::CallExt;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,

@@ -1,6 +1,6 @@
 use itertools::unfold;
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},

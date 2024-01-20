@@ -11,7 +11,7 @@ use notify_debouncer_full::{
 };
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     format_error, Category, Example, IntoPipelineData, PipelineData, ShellError, Signature,

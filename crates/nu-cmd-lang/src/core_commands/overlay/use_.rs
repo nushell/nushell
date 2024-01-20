@@ -6,7 +6,7 @@ use nu_protocol::{
     Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use std::path::Path;
 
 #[derive(Clone)]

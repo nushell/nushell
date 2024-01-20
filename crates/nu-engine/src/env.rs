@@ -6,7 +6,7 @@ use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 
 use crate::eval_block;
 

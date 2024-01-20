@@ -4,7 +4,7 @@ use crate::completions::{
 };
 use nu_engine::eval_block;
 use nu_parser::{flatten_expression, parse, FlatShape};
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::PipelineElement,
     engine::{EngineState, Stack, StateWorkingSet},

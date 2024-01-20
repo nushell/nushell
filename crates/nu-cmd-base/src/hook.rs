@@ -3,7 +3,7 @@ use miette::Result;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::parse;
 use nu_protocol::cli_error::{report_error, report_error_new};
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{BlockId, PipelineData, PositionalArg, ShellError, Span, Type, Value, VarId};
 

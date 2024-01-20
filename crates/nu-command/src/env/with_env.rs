@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use nu_engine::{eval_block, CallExt};
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::Call,
     engine::{Closure, Command, EngineState, Stack},

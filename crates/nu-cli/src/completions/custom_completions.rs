@@ -1,6 +1,6 @@
 use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SortBy};
 use nu_engine::eval_call;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::{EngineState, Stack, StateWorkingSet},

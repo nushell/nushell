@@ -24,6 +24,7 @@ mod ty;
 pub mod util;
 mod value;
 mod variable;
+pub mod debugger;
 
 pub use alias::*;
 pub use cli_error::*;

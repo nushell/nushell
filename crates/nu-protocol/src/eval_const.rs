@@ -1,4 +1,4 @@
-use crate::engine::debugger::{DebugContext, Debugger, WithoutDebug};
+use crate::debugger::{DebugContext, Debugger, WithoutDebug};
 use crate::{
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PipelineElement},
     engine::{EngineState, StateWorkingSet},

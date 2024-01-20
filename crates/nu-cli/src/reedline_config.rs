@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     create_menus,
     engine::{EngineState, Stack, StateWorkingSet},

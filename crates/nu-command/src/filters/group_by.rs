@@ -7,7 +7,7 @@ use nu_protocol::{
 };
 
 use indexmap::IndexMap;
-use nu_protocol::engine::debugger::WithoutDebug;
+use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct GroupBy;
