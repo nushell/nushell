@@ -102,28 +102,27 @@ impl Command for FromJson {
     }
 }
 
-fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
+fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     match value {
-        nu_json::Value::Array(array) => {
-            let v: Vec<Value> = array
-                .iter()
+        nu_json::Value::Array(array) => Value::list(
+            array
+                .into_iter()
                 .map(|x| convert_nujson_to_value(x, span))
-                .collect();
-
-            Value::list(v, span)
-        }
-        nu_json::Value::Bool(b) => Value::bool(*b, span),
-        nu_json::Value::F64(f) => Value::float(*f, span),
-        nu_json::Value::I64(i) => Value::int(*i, span),
+                .collect(),
+            span,
+        ),
+        nu_json::Value::Bool(b) => Value::bool(b, span),
+        nu_json::Value::F64(f) => Value::float(f, span),
+        nu_json::Value::I64(i) => Value::int(i, span),
         nu_json::Value::Null => Value::nothing(span),
         nu_json::Value::Object(k) => Value::record(
-            k.iter()
-                .map(|(k, v)| (k.clone(), convert_nujson_to_value(v, span)))
+            k.into_iter()
+                .map(|(k, v)| (k, convert_nujson_to_value(v, span)))
                 .collect(),
             span,
         ),
         nu_json::Value::U64(u) => {
-            if *u > i64::MAX as u64 {
+            if u > i64::MAX as u64 {
                 Value::error(
                     ShellError::CantConvert {
                         to_type: "i64 sized integer".into(),
@@ -134,10 +133,10 @@ fn convert_nujson_to_value(value: &nu_json::Value, span: Span) -> Value {
                     span,
                 )
             } else {
-                Value::int(*u as i64, span)
+                Value::int(u as i64, span)
             }
         }
-        nu_json::Value::String(s) => Value::string(s.clone(), span),
+        nu_json::Value::String(s) => Value::string(s, span),
     }
 }
 
@@ -163,7 +162,7 @@ fn convert_row_column_to_span(row: usize, col: usize, contents: &str) -> Span {
 
 fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(&value, span)),
+        Ok(value) => Ok(convert_nujson_to_value(value, span)),
 
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
@@ -194,7 +193,7 @@ fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, Shel
 
 fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match serde_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(&value, span)),
+        Ok(value) => Ok(convert_nujson_to_value(value, span)),
         Err(err) => Err(if err.is_syntax() {
             let label = err.to_string();
             let label_span = convert_row_column_to_span(err.line(), err.column() - 1, string_input);
