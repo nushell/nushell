@@ -12,7 +12,8 @@ use nu_protocol::{
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, EditCommand, Keybindings, ListMenu, Reedline, ReedlineEvent, ReedlineMenu,
+    ColumnarMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu, Reedline,
+    ReedlineEvent, ReedlineMenu,
 };
 use std::sync::Arc;
 
@@ -138,9 +139,10 @@ fn add_menu(
         match layout.as_str() {
             "columnar" => add_columnar_menu(line_editor, menu, engine_state, stack, config),
             "list" => add_list_menu(line_editor, menu, engine_state, stack, config),
+            "ide" => add_ide_menu(line_editor, menu, engine_state, stack, config),
             "description" => add_description_menu(line_editor, menu, engine_state, stack, config),
             _ => Err(ShellError::UnsupportedConfigValue {
-                expected: "columnar, list or description".to_string(),
+                expected: "columnar, list, ide or description".to_string(),
                 value: menu.menu_type.into_abbreviated_string(config),
                 span: menu.menu_type.span(),
             }),
@@ -347,6 +349,208 @@ pub(crate) fn add_list_menu(
             expected: "block or omitted value".to_string(),
             value: menu.source.into_abbreviated_string(config),
             span: menu.source.span(),
+        }),
+    }
+}
+
+// Adds an IDE menu to the line editor
+pub(crate) fn add_ide_menu(
+    line_editor: Reedline,
+    menu: &ParsedMenu,
+    engine_state: Arc<EngineState>,
+    stack: &Stack,
+    config: &Config,
+) -> Result<Reedline, ShellError> {
+    let span = menu.menu_type.span();
+    let name = menu.name.into_string("", config);
+    let mut ide_menu = IdeMenu::default().with_name(&name);
+
+    if let Value::Record { val, .. } = &menu.menu_type {
+        ide_menu = match extract_value("min_completion_width", val, span) {
+            Ok(min_completion_width) => {
+                let min_completion_width = min_completion_width.as_int()?;
+                ide_menu.with_min_completion_width(min_completion_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_completion_width", val, span) {
+            Ok(max_completion_width) => {
+                let max_completion_width = max_completion_width.as_int()?;
+                ide_menu.with_max_completion_width(max_completion_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_completion_height", val, span) {
+            Ok(max_completion_height) => {
+                let max_completion_height = max_completion_height.as_int()?;
+                ide_menu.with_max_completion_height(max_completion_height as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("padding", val, span) {
+            Ok(padding) => {
+                let padding = padding.as_int()?;
+                ide_menu.with_padding(padding as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("border", val, span) {
+            Ok(border) => {
+                if let Ok(border) = border.as_bool() {
+                    if border {
+                        ide_menu.with_default_border()
+                    } else {
+                        ide_menu
+                    }
+                } else if let Ok(border_chars) = border.as_record() {
+                    let top_right = extract_value("top_right", border_chars, span)?.as_char()?;
+                    let top_left = extract_value("top_left", border_chars, span)?.as_char()?;
+                    let bottom_right =
+                        extract_value("bottom_right", border_chars, span)?.as_char()?;
+                    let bottom_left =
+                        extract_value("bottom_left", border_chars, span)?.as_char()?;
+                    let horizontal = extract_value("horizontal", border_chars, span)?.as_char()?;
+                    let vertical = extract_value("vertical", border_chars, span)?.as_char()?;
+
+                    ide_menu.with_border(
+                        top_right,
+                        top_left,
+                        bottom_right,
+                        bottom_left,
+                        horizontal,
+                        vertical,
+                    )
+                } else {
+                    return Err(ShellError::UnsupportedConfigValue {
+                        expected: "bool or record".to_string(),
+                        value: border.into_abbreviated_string(config),
+                        span: border.span(),
+                    });
+                }
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("cursor_offset", val, span) {
+            Ok(cursor_offset) => {
+                let cursor_offset = cursor_offset.as_int()?;
+                ide_menu.with_cursor_offset(cursor_offset as i16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("description_mode", val, span) {
+            Ok(description_mode) => {
+                let description_mode_str = description_mode.as_string()?;
+                match description_mode_str.as_str() {
+                    "left" => ide_menu.with_description_mode(DescriptionMode::Left),
+                    "right" => ide_menu.with_description_mode(DescriptionMode::Right),
+                    "prefer_right" => ide_menu.with_description_mode(DescriptionMode::PreferRight),
+                    _ => {
+                        return Err(ShellError::UnsupportedConfigValue {
+                            expected: "\"left\", \"right\" or \"prefer_right\"".to_string(),
+                            value: description_mode.into_abbreviated_string(config),
+                            span: description_mode.span(),
+                        });
+                    }
+                }
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("min_description_width", val, span) {
+            Ok(min_description_width) => {
+                let min_description_width = min_description_width.as_int()?;
+                ide_menu.with_min_description_width(min_description_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_description_width", val, span) {
+            Ok(max_description_width) => {
+                let max_description_width = max_description_width.as_int()?;
+                ide_menu.with_max_description_width(max_description_width as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("max_description_height", val, span) {
+            Ok(max_description_height) => {
+                let max_description_height = max_description_height.as_int()?;
+                ide_menu.with_max_description_height(max_description_height as u16)
+            }
+            Err(_) => ide_menu,
+        };
+
+        ide_menu = match extract_value("description_offset", val, span) {
+            Ok(description_padding) => {
+                let description_padding = description_padding.as_int()?;
+                ide_menu.with_description_offset(description_padding as u16)
+            }
+            Err(_) => ide_menu,
+        };
+    }
+
+    let span = menu.style.span();
+    if let Value::Record { val, .. } = &menu.style {
+        add_style!(
+            "text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_text_style
+        );
+        add_style!(
+            "selected_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_selected_text_style
+        );
+        add_style!(
+            "description_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_description_text_style
+        );
+    }
+
+    let marker = menu.marker.into_string("", config);
+    ide_menu = ide_menu.with_marker(marker);
+
+    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
+    ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
+
+    let span = menu.source.span();
+    match &menu.source {
+        Value::Nothing { .. } => {
+            Ok(line_editor.with_menu(ReedlineMenu::EngineCompleter(Box::new(ide_menu))))
+        }
+        Value::Closure { val, .. } => {
+            let menu_completer = NuMenuCompleter::new(
+                val.block_id,
+                span,
+                stack.captures_to_stack(val.captures.clone()),
+                engine_state,
+                only_buffer_difference,
+            );
+            Ok(line_editor.with_menu(ReedlineMenu::WithCompleter {
+                menu: Box::new(ide_menu),
+                completer: Box::new(menu_completer),
+            }))
+        }
+        _ => Err(ShellError::UnsupportedConfigValue {
+            expected: "block or omitted value".to_string(),
+            value: menu.source.into_abbreviated_string(config),
+            span,
         }),
     }
 }
