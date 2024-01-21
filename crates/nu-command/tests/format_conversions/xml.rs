@@ -91,3 +91,22 @@ fn to_xml_pi_comment_not_escaped() {
     ));
     assert_eq!(actual.out, r#"<a><?qwe "'<>&?><!--"'<>&--></a>"#);
 }
+
+#[test]
+fn to_xml_self_closed() {
+    let actual = nu!(
+        cwd: "tests/fixtures/formats", pipeline(
+        r#"
+            {
+                tag: root
+                content: [
+                    [tag attributes content];
+                    [a null null]
+                    [b {e: r} null]
+                    [c {t: y} []]
+                ]
+            } | to xml --self-closed
+        "#
+    ));
+    assert_eq!(actual.out, r#"<root><a/><b e="r"/><c t="y"/></root>"#);
+}
