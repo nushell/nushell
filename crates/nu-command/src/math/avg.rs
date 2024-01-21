@@ -18,9 +18,12 @@ impl Command for SubCommand {
     fn signature(&self) -> Signature {
         Signature::build("math avg")
             .input_output_types(vec![
-                (Type::List(Box::new(Type::Number)), Type::Number),
                 (Type::List(Box::new(Type::Duration)), Type::Duration),
+                (Type::Duration, Type::Duration),
                 (Type::List(Box::new(Type::Filesize)), Type::Filesize),
+                (Type::Filesize, Type::Filesize),
+                (Type::List(Box::new(Type::Number)), Type::Number),
+                (Type::Number, Type::Number),
                 (Type::Range, Type::Number),
                 (Type::Table(vec![]), Type::Record(vec![])),
                 (Type::Record(vec![]), Type::Record(vec![])),
