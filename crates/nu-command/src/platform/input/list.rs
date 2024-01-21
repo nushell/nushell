@@ -174,7 +174,11 @@ impl Command for InputList {
                 if index {
                     match res {
                         Some(opts) => Value::list(
-                            opts.into_iter().map(|s| Value::int(s as i64, head)).collect(), head),
+                            opts.into_iter()
+                                .map(|s| Value::int(s as i64, head))
+                                .collect(),
+                            head,
+                        ),
                         None => Value::nothing(head),
                     }
                 } else {
@@ -186,7 +190,7 @@ impl Command for InputList {
                         None => Value::nothing(head),
                     }
                 }
-            },
+            }
             InteractMode::Single(res) => {
                 if index {
                     match res {
@@ -199,7 +203,7 @@ impl Command for InputList {
                         None => Value::nothing(head),
                     }
                 }
-            },
+            }
         }
         .into_pipeline_data())
     }
