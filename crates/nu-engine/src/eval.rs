@@ -10,8 +10,8 @@ use nu_protocol::{
     Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
     ENV_VARIABLE_ID,
 };
-use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
+use std::{borrow::Cow, collections::HashMap};
 
 pub fn eval_call(
     engine_state: &EngineState,
@@ -913,13 +913,13 @@ impl Eval for EvalRuntime {
 
     type MutState = Stack;
 
-    fn get_config(engine_state: &EngineState, stack: &mut Stack) -> Config {
-        get_config(engine_state, stack)
+    fn get_config<'a>(engine_state: Self::State<'a>, stack: &mut Stack) -> Cow<'a, Config> {
+        Cow::Owned(get_config(engine_state, stack))
     }
 
     fn eval_filepath(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         path: String,
         span: Span,
     ) -> Result<Value, ShellError> {

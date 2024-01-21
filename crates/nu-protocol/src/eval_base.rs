@@ -5,7 +5,7 @@ use crate::{
     },
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -298,7 +298,7 @@ pub trait Eval {
         }
     }
 
-    fn get_config(state: Self::State<'_>, mut_state: &mut Self::MutState) -> Config;
+    fn get_config<'a>(state: Self::State<'a>, mut_state: &mut Self::MutState) -> Cow<'a, Config>;
 
     fn eval_filepath(
         state: Self::State<'_>,
