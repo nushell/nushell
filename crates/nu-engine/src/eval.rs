@@ -414,7 +414,7 @@ fn eval_element_with_input(
     debug_context: impl DebugContext,
     debugger: &Option<Arc<Mutex<dyn Debugger>>>,
 ) -> Result<(PipelineData, bool), ShellError> {
-    debug_context.enter_element(debugger, element);
+    debug_context.enter_element(debugger);
 
     let result = match element {
         PipelineElement::Expression(_, expr) => eval_expression_with_input(
@@ -662,7 +662,7 @@ fn eval_element_with_input(
         ),
     };
 
-    debug_context.leave_element(debugger, element);
+    debug_context.leave_element(debugger, &engine_state, &result, element);
 
     result
 }

@@ -1,24 +1,87 @@
 use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
-use crate::Span;
+use crate::engine::EngineState;
+use crate::{PipelineData, ShellError, Span, Value};
+use std::collections::HashMap;
 use std::time::Instant;
+use crate::Record;
+
+#[derive(Debug)]
+struct ProfilerInfo {
+    depth: i64,
+    element_span: Span,
+    element_input: Option<Value>,
+}
 
 /// Basic profiler
-#[derive(Default)]
+#[derive(Debug)]
 pub struct Profiler {
     depth: i64,
     max_depth: i64,
-    element_start_times: Vec<(Span, Instant)>,
-    element_durations_ns: Vec<(Span, u128)>,
+    source_fragments: HashMap<(usize, usize), String>,
+    element_start_times: Vec<Instant>,
+    element_durations_sec: Vec<(ProfilerInfo, f64)>,
+    collect_spans: bool,
+    collect_source: bool,
+    collect_values: bool,
 }
 
 impl Profiler {
-    pub fn report(&self) {
-        println!("Profiler report:\n===============");
-        for (span, duration_ns) in &self.element_durations_ns {
-            let dur_us = duration_ns / 1000;
-            println!("span: {span:?}, duration: {dur_us} us");
+    pub fn new(max_depth: i64, collect_spans: bool, collect_source: bool, collect_values: bool) -> Self {
+        Profiler {
+            depth: 0,
+            max_depth,
+            source_fragments: HashMap::new(),
+            element_start_times: vec![],
+            element_durations_sec: vec![],
+            collect_spans,
+            collect_source,
+            collect_values,
         }
+    }
+
+    pub fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
+        let rows: Vec<Value> = self.element_durations_sec.iter().map(|(info, duration_sec)|{
+            let dur_us = duration_sec * 1e6;
+            let mut cols = vec!["depth".to_string()];
+            let mut vals = vec![Value::int(info.depth, profiler_span)];
+
+            if self.collect_spans {
+                cols.push("span".to_string());
+                // TODO unwrap
+                let span_start = info.element_span.start.try_into().unwrap();
+                let span_end = info.element_span.end.try_into().unwrap();
+                vals.push(
+                    Value::record(
+                        Record::from_raw_cols_vals(
+                            vec!["start".into(), "end".into()],
+                            vec![Value::int(span_start, profiler_span), Value::int(span_end, profiler_span)]
+                        ),
+                        profiler_span
+                    )
+                );
+            }
+
+            if self.collect_source {
+                cols.push("source".into());
+                // TODO: unwrap
+                let val = self.source_fragments.get(&(info.element_span.start, info.element_span.end)).unwrap();
+                vals.push(Value::string(val, profiler_span));
+            }
+
+            if let Some(val) = &info.element_input {
+                cols.push("output".into());
+                vals.push(val.clone());
+            }
+
+            cols.push("duration_us".to_string());
+            vals.push(Value::float(dur_us, profiler_span));
+
+            let record = Record::from_raw_cols_vals(cols, vals);
+            Value::record(record, profiler_span)
+        }).collect();
+
+        Ok(Value::list(rows, profiler_span))
     }
 }
 
@@ -31,20 +94,62 @@ impl Debugger for Profiler {
         self.depth -= 1;
     }
 
-    fn enter_element(&mut self, element: &PipelineElement) {
-        self.element_start_times
-            .push((element.span(), Instant::now()));
+    fn enter_element(
+        &mut self,
+    ) {
+        if self.depth > self.max_depth {
+            return;
+        }
+
+        self.element_start_times.push(Instant::now());
     }
 
-    fn leave_element(&mut self, element: &PipelineElement) {
-        let Some((span, start)) = self.element_start_times.pop() else {
+    fn leave_element(&mut self,
+                     engine_state: &EngineState,
+                     input: &Result<(PipelineData, bool), ShellError>,
+                     element: &PipelineElement,
+    ) {
+        if self.depth > self.max_depth {
+            return
+        }
+
+        let Some(start) = self.element_start_times.pop() else {
+            // TODO: Log internal errors
             eprintln!(
                 "Error: Profiler left pipeline element without matching element start time stamp."
             );
             return;
         };
 
-        self.element_durations_ns
-            .push((span, start.elapsed().as_nanos()));
+        let element_span = element.span();
+
+        if self.collect_source {
+            let source_fragment = String::from_utf8_lossy(engine_state.get_span_contents(element_span)).to_string();
+            self.source_fragments.insert((element_span.start, element_span.end), source_fragment);
+        }
+
+        let inp_opt = if self.collect_values {
+            Some(match input {
+                Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
+
+                    PipelineData::Value(val, ..) => val.clone(),
+                    PipelineData::ListStream(..) => Value::string("list stream", element_span),
+                    PipelineData::ExternalStream { .. } => Value::string("external stream", element_span),
+                    _ => Value::nothing(element_span),
+                },
+                Err(e) => Value::error(e.clone(), element_span)
+            })
+        } else {
+            None
+        };
+
+        let info = ProfilerInfo {
+            depth : self.depth,
+            element_span : element_span,
+            element_input : inp_opt
+        };
+
+        self.element_durations_sec
+            .push((info, start.elapsed().as_secs_f64()));
     }
 }
