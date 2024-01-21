@@ -1,10 +1,10 @@
 use crate::ast::PipelineElement;
 use crate::debugger::Debugger;
 use crate::engine::EngineState;
+use crate::Record;
 use crate::{PipelineData, ShellError, Span, Value};
 use std::collections::HashMap;
 use std::time::Instant;
-use crate::Record;
 
 #[derive(Debug)]
 struct ProfilerInfo {
@@ -27,7 +27,12 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new(max_depth: i64, collect_spans: bool, collect_source: bool, collect_values: bool) -> Self {
+    pub fn new(
+        max_depth: i64,
+        collect_spans: bool,
+        collect_source: bool,
+        collect_values: bool,
+    ) -> Self {
         Profiler {
             depth: 0,
             max_depth,
@@ -41,45 +46,53 @@ impl Profiler {
     }
 
     pub fn report(&self, profiler_span: Span) -> Result<Value, ShellError> {
-        let rows: Vec<Value> = self.element_durations_sec.iter().map(|(info, duration_sec)|{
-            let dur_us = duration_sec * 1e6;
-            let mut cols = vec!["depth".to_string()];
-            let mut vals = vec![Value::int(info.depth, profiler_span)];
+        let rows: Vec<Value> = self
+            .element_durations_sec
+            .iter()
+            .map(|(info, duration_sec)| {
+                let dur_us = duration_sec * 1e6;
+                let mut cols = vec!["depth".to_string()];
+                let mut vals = vec![Value::int(info.depth, profiler_span)];
 
-            if self.collect_spans {
-                cols.push("span".to_string());
-                // TODO unwrap
-                let span_start = info.element_span.start.try_into().unwrap();
-                let span_end = info.element_span.end.try_into().unwrap();
-                vals.push(
-                    Value::record(
+                if self.collect_spans {
+                    cols.push("span".to_string());
+                    // TODO unwrap
+                    let span_start = info.element_span.start.try_into().unwrap();
+                    let span_end = info.element_span.end.try_into().unwrap();
+                    vals.push(Value::record(
                         Record::from_raw_cols_vals(
                             vec!["start".into(), "end".into()],
-                            vec![Value::int(span_start, profiler_span), Value::int(span_end, profiler_span)]
+                            vec![
+                                Value::int(span_start, profiler_span),
+                                Value::int(span_end, profiler_span),
+                            ],
                         ),
-                        profiler_span
-                    )
-                );
-            }
+                        profiler_span,
+                    ));
+                }
 
-            if self.collect_source {
-                cols.push("source".into());
-                // TODO: unwrap
-                let val = self.source_fragments.get(&(info.element_span.start, info.element_span.end)).unwrap();
-                vals.push(Value::string(val, profiler_span));
-            }
+                if self.collect_source {
+                    cols.push("source".into());
+                    // TODO: unwrap
+                    let val = self
+                        .source_fragments
+                        .get(&(info.element_span.start, info.element_span.end))
+                        .unwrap();
+                    vals.push(Value::string(val, profiler_span));
+                }
 
-            if let Some(val) = &info.element_input {
-                cols.push("output".into());
-                vals.push(val.clone());
-            }
+                if let Some(val) = &info.element_input {
+                    cols.push("output".into());
+                    vals.push(val.clone());
+                }
 
-            cols.push("duration_us".to_string());
-            vals.push(Value::float(dur_us, profiler_span));
+                cols.push("duration_us".to_string());
+                vals.push(Value::float(dur_us, profiler_span));
 
-            let record = Record::from_raw_cols_vals(cols, vals);
-            Value::record(record, profiler_span)
-        }).collect();
+                let record = Record::from_raw_cols_vals(cols, vals);
+                Value::record(record, profiler_span)
+            })
+            .collect();
 
         Ok(Value::list(rows, profiler_span))
     }
@@ -94,9 +107,7 @@ impl Debugger for Profiler {
         self.depth -= 1;
     }
 
-    fn enter_element(
-        &mut self,
-    ) {
+    fn enter_element(&mut self) {
         if self.depth > self.max_depth {
             return;
         }
@@ -104,13 +115,14 @@ impl Debugger for Profiler {
         self.element_start_times.push(Instant::now());
     }
 
-    fn leave_element(&mut self,
-                     engine_state: &EngineState,
-                     input: &Result<(PipelineData, bool), ShellError>,
-                     element: &PipelineElement,
+    fn leave_element(
+        &mut self,
+        engine_state: &EngineState,
+        input: &Result<(PipelineData, bool), ShellError>,
+        element: &PipelineElement,
     ) {
         if self.depth > self.max_depth {
-            return
+            return;
         }
 
         let Some(start) = self.element_start_times.pop() else {
@@ -124,29 +136,32 @@ impl Debugger for Profiler {
         let element_span = element.span();
 
         if self.collect_source {
-            let source_fragment = String::from_utf8_lossy(engine_state.get_span_contents(element_span)).to_string();
-            self.source_fragments.insert((element_span.start, element_span.end), source_fragment);
+            let source_fragment =
+                String::from_utf8_lossy(engine_state.get_span_contents(element_span)).to_string();
+            self.source_fragments
+                .insert((element_span.start, element_span.end), source_fragment);
         }
 
         let inp_opt = if self.collect_values {
             Some(match input {
                 Ok((pipeline_data, _not_sure_what_this_is)) => match pipeline_data {
-
                     PipelineData::Value(val, ..) => val.clone(),
                     PipelineData::ListStream(..) => Value::string("list stream", element_span),
-                    PipelineData::ExternalStream { .. } => Value::string("external stream", element_span),
+                    PipelineData::ExternalStream { .. } => {
+                        Value::string("external stream", element_span)
+                    }
                     _ => Value::nothing(element_span),
                 },
-                Err(e) => Value::error(e.clone(), element_span)
+                Err(e) => Value::error(e.clone(), element_span),
             })
         } else {
             None
         };
 
         let info = ProfilerInfo {
-            depth : self.depth,
-            element_span : element_span,
-            element_input : inp_opt
+            depth: self.depth,
+            element_span: element_span,
+            element_input: inp_opt,
         };
 
         self.element_durations_sec

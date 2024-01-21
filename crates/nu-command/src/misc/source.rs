@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex};
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::{Block, Call};
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
+use std::sync::{Arc, Mutex};
 
 /// Source a file for environment variables.
 #[derive(Clone)]
@@ -45,14 +45,7 @@ impl Command for Source {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        run_source(
-            engine_state,
-            stack,
-            call,
-            input,
-            WithoutDebug,
-            &None,
-        )
+        run_source(engine_state, stack, call, input, WithoutDebug, &None)
     }
 
     fn run_debug(
@@ -68,14 +61,7 @@ impl Command for Source {
         let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
 
         let block = engine_state.get_block(block_id as usize).clone();
-        run_source(
-            engine_state,
-            stack,
-            call,
-            input,
-            WithDebug,
-            &Some(debugger),
-        )
+        run_source(engine_state, stack, call, input, WithDebug, &Some(debugger))
     }
 
     fn examples(&self) -> Vec<Example> {
@@ -115,6 +101,6 @@ fn run_source(
         call.redirect_stdout,
         call.redirect_stderr,
         debug_context,
-        debugger
+        debugger,
     )
 }
