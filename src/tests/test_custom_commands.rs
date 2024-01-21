@@ -231,9 +231,12 @@ fn type_check_for_during_eval2() -> TestResult {
 }
 #[test]
 fn empty_list_matches_list_type() -> TestResult {
-    let _ = run_test(r#"def spam [foo: list<int>] { echo $foo }; spam []"#, "[]");
+    let _ = run_test(
+        r#"def spam [foo: list<int>] { echo $foo }; spam []"#,
+        "empty list",
+    );
     run_test(
         r#"def spam [foo: list<string>] { echo $foo }; spam []"#,
-        "[]",
+        "empty list",
     )
 }
