@@ -104,8 +104,8 @@ impl NuHelpCompleter {
                     description: Some(long_desc),
                     extra: Some(extra),
                     span: reedline::Span {
-                        start: pos,
-                        end: pos + line.len(),
+                        start: pos - line.len(),
+                        end: pos,
                     },
                     append_whitespace: false,
                 }
