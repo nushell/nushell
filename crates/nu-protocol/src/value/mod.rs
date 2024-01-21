@@ -3661,10 +3661,10 @@ pub fn format_filesize(
     } else {
         // When filesize_metric is None, format_value should never be "auto", so this
         // unwrap_or() should always work.
-        byte.get_appropriate_unit(if !filesize_metric.unwrap_or(false) {
-            UnitType::Binary
-        } else {
+        byte.get_appropriate_unit(if filesize_metric.unwrap_or(false) {
             UnitType::Decimal
+        } else {
+            UnitType::Binary
         })
     };
 
@@ -3705,9 +3705,9 @@ fn get_filesize_format(
     macro_rules! either {
         ($metric:ident, $binary:ident) => {
             Some(if metric {
-                byte_unit::Unit::$binary
-            } else {
                 byte_unit::Unit::$metric
+            } else {
+                byte_unit::Unit::$binary
             })
         };
     }
@@ -3805,7 +3805,7 @@ mod tests {
         use rstest::rstest;
 
         use super::*;
-        use crate::Config;
+        use crate::format_filesize;
 
         #[test]
         fn test_datetime() {
@@ -3836,22 +3836,19 @@ mod tests {
         }
 
         #[rstest]
-        #[case(1000, true, "auto", "1.0 KB")]
-        #[case(1000, false, "auto", "1,000 B")]
-        #[case(1000, false, "kb", "1.0 KB")]
-        #[case(3000, false, "auto", "2.9 KiB")]
+        #[case(1000, Some(true), "auto", "1.0 KB")]
+        #[case(1000, Some(false), "auto", "1,000 B")]
+        #[case(1000, Some(false), "kb", "1.0 KiB")]
+        #[case(3000, Some(false), "auto", "2.9 KiB")]
+        #[case(3_000_000, None, "auto", "2.9 MiB")]
+        #[case(3_000_000, None, "kib", "2929.7 KiB")]
         fn test_filesize(
             #[case] val: i64,
-            #[case] filesize_metric: bool,
+            #[case] filesize_metric: Option<bool>,
             #[case] filesize_format: String,
             #[case] exp: &str,
         ) {
-            let config = Config {
-                filesize_metric,
-                filesize_format,
-                ..Default::default()
-            };
-            assert_eq!(exp, Value::test_filesize(val).into_string("", &config));
+            assert_eq!(exp, format_filesize(val, &filesize_format, filesize_metric));
         }
     }
 }
