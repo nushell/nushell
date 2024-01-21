@@ -3802,8 +3802,10 @@ mod tests {
 
     mod into_string {
         use chrono::{DateTime, FixedOffset, NaiveDateTime};
+        use rstest::rstest;
 
         use super::*;
+        use crate::Config;
 
         #[test]
         fn test_datetime() {
@@ -3831,6 +3833,23 @@ mod tests {
             // it is relative to current time.
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
+        }
+
+        #[rstest]
+        #[case(1000, true, "auto", "1.0 KB")]
+        #[case(1000, false, "auto", "1,000 B")]
+        #[case(1000, false, "kb", "1.0 KB")]
+        #[case(3000, false, "auto", "2.9 KiB")]
+        fn test_filesize(
+            #[case] val: i64,
+            #[case] metric: bool,
+            #[case] format: String,
+            #[case] exp: &str,
+        ) {
+            let mut config = Config::default();
+            config.filesize_metric = metric;
+            config.filesize_format = format;
+            assert_eq!(exp, Value::test_filesize(val).into_string("", &config));
         }
     }
 }
