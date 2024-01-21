@@ -130,7 +130,7 @@ impl Command for SubCommand {
             Example {
                 description: "convert filesize to string",
                 example: "1KiB | into string",
-                result: Some(Value::test_string("1,024 B")),
+                result: Some(Value::test_string("1.0 KiB")),
             },
             Example {
                 description: "convert duration to string",

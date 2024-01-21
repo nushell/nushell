@@ -2179,6 +2179,7 @@ pub fn parse_full_cell_path(
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: directory");
 
@@ -2186,7 +2187,7 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
         trace!("-- found {}", token);
 
         Expression {
-            expr: Expr::Directory(token),
+            expr: Expr::Directory(token, quoted),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2200,6 +2201,7 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: filepath");
 
@@ -2207,7 +2209,7 @@ pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expressi
         trace!("-- found {}", token);
 
         Expression {
-            expr: Expr::Filepath(token),
+            expr: Expr::Filepath(token, quoted),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2467,6 +2469,7 @@ fn modf(x: f64) -> (f64, f64) {
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
 
@@ -2474,7 +2477,29 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
         trace!("-- found {}", token);
 
         Expression {
-            expr: Expr::GlobPattern(token),
+            expr: Expr::GlobPattern(token, quoted),
+            span,
+            ty: Type::String,
+            custom_completion: None,
+        }
+    } else {
+        working_set.error(ParseError::Expected("glob pattern string", span));
+
+        garbage(span)
+    }
+}
+
+pub fn parse_ls_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    let bytes = working_set.get_span_contents(span);
+    let quoted = is_quoted(bytes);
+    let (token, err) = unescape_unquote_string(bytes, span);
+    trace!("parsing: glob pattern");
+
+    if err.is_none() {
+        trace!("-- found {}", token);
+
+        Expression {
+            expr: Expr::LsGlobPattern(token, quoted),
             span,
             ty: Type::String,
             custom_completion: None,
@@ -2707,6 +2732,11 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
         ty: Type::String,
         custom_completion: None,
     }
+}
+
+fn is_quoted(bytes: &[u8]) -> bool {
+    (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
+        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
 }
 
 pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -4544,7 +4574,8 @@ pub fn parse_value(
             | SyntaxShape::Table(_)
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
-            | SyntaxShape::String => {}
+            | SyntaxShape::String
+            | SyntaxShape::LsGlobPattern => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
@@ -4569,6 +4600,7 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
+        SyntaxShape::LsGlobPattern => parse_ls_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
@@ -5961,8 +5993,8 @@ pub fn discover_captures_in_expr(
                 discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;
             }
         }
-        Expr::Filepath(_) => {}
-        Expr::Directory(_) => {}
+        Expr::Filepath(_, _) => {}
+        Expr::Directory(_, _) => {}
         Expr::Float(_) => {}
         Expr::FullCellPath(cell_path) => {
             discover_captures_in_expr(working_set, &cell_path.head, seen, seen_blocks, output)?;
@@ -5971,7 +6003,8 @@ pub fn discover_captures_in_expr(
         Expr::Overlay(_) => {}
         Expr::Garbage => {}
         Expr::Nothing => {}
-        Expr::GlobPattern(_) => {}
+        Expr::GlobPattern(_, _) => {}
+        Expr::LsGlobPattern(_, _) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;

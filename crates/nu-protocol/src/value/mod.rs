@@ -2,6 +2,7 @@ mod custom_value;
 mod from;
 mod from_value;
 mod lazy_record;
+mod path;
 mod range;
 mod record;
 mod stream;
@@ -13,7 +14,7 @@ use crate::engine::{Closure, EngineState};
 use crate::ShellError;
 use crate::{did_you_mean, BlockId, Config, Span, Spanned, Type};
 
-use byte_unit::ByteUnit;
+use byte_unit::UnitType;
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 pub use custom_value::CustomValue;
@@ -24,6 +25,7 @@ use nu_utils::{
     contains_emoji, get_system_locale, locale::get_system_locale_string, IgnoreCaseExt,
 };
 use num_format::ToFormattedString;
+pub use path::*;
 pub use range::*;
 pub use record::Record;
 use serde::{Deserialize, Serialize};
@@ -85,6 +87,12 @@ pub enum Value {
         internal_span: Span,
     },
     String {
+        val: String,
+        // note: spans are being refactored out of Value
+        // please use .span() instead of matching this span value
+        internal_span: Span,
+    },
+    QuotedString {
         val: String,
         // note: spans are being refactored out of Value
         // please use .span() instead of matching this span value
@@ -176,6 +184,10 @@ impl Clone for Value {
             },
             Value::Float { val, internal_span } => Value::float(*val, *internal_span),
             Value::String { val, internal_span } => Value::String {
+                val: val.clone(),
+                internal_span: *internal_span,
+            },
+            Value::QuotedString { val, internal_span } => Value::QuotedString {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
@@ -509,6 +521,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
+            | Value::QuotedString { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::List { internal_span, .. }
             | Value::Block { internal_span, .. }
@@ -533,6 +546,7 @@ impl Value {
             | Value::Date { internal_span, .. }
             | Value::Range { internal_span, .. }
             | Value::String { internal_span, .. }
+            | Value::QuotedString { internal_span, .. }
             | Value::Record { internal_span, .. }
             | Value::LazyRecord { internal_span, .. }
             | Value::List { internal_span, .. }
@@ -559,6 +573,7 @@ impl Value {
             Value::Date { .. } => Type::Date,
             Value::Range { .. } => Type::Range,
             Value::String { .. } => Type::String,
+            Value::QuotedString { .. } => Type::String,
             Value::Record { val, .. } => {
                 Type::Record(val.iter().map(|(x, y)| (x.clone(), y.get_type())).collect())
             }
@@ -672,6 +687,7 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.clone(),
+            Value::QuotedString { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
@@ -726,6 +742,7 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.to_string(),
+            Value::QuotedString { val, .. } => val.to_string(),
             Value::List { ref vals, .. } => {
                 if !vals.is_empty() && vals.iter().all(|x| matches!(x, Value::Record { .. })) {
                     format!(
@@ -852,6 +869,7 @@ impl Value {
                 )
             }
             Value::String { val, .. } => val.clone(),
+            Value::QuotedString { val, .. } => val.clone(),
             Value::List { vals: val, .. } => format!(
                 "[{}]",
                 val.iter()
@@ -1750,6 +1768,13 @@ impl Value {
         }
     }
 
+    pub fn quoted_string(val: impl Into<String>, span: Span) -> Value {
+        Value::QuotedString {
+            val: val.into(),
+            internal_span: span,
+        }
+    }
+
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
             val,
@@ -1955,6 +1980,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -1975,6 +2001,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -1995,6 +2022,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2015,6 +2043,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2035,6 +2064,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Less),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2055,6 +2085,7 @@ impl PartialOrd for Value {
                 Value::Date { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Range { .. } => Some(Ordering::Less),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2075,6 +2106,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::String { .. } => Some(Ordering::Less),
+                Value::QuotedString { .. } => Some(Ordering::Less),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2095,6 +2127,28 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::Record { .. } => Some(Ordering::Less),
+                Value::LazyRecord { .. } => Some(Ordering::Less),
+                Value::List { .. } => Some(Ordering::Less),
+                Value::Block { .. } => Some(Ordering::Less),
+                Value::Closure { .. } => Some(Ordering::Less),
+                Value::Nothing { .. } => Some(Ordering::Less),
+                Value::Error { .. } => Some(Ordering::Less),
+                Value::Binary { .. } => Some(Ordering::Less),
+                Value::CellPath { .. } => Some(Ordering::Less),
+                Value::CustomValue { .. } => Some(Ordering::Less),
+            },
+            (Value::QuotedString { val: lhs, .. }, rhs) => match rhs {
+                Value::Bool { .. } => Some(Ordering::Greater),
+                Value::Int { .. } => Some(Ordering::Greater),
+                Value::Float { .. } => Some(Ordering::Greater),
+                Value::Filesize { .. } => Some(Ordering::Greater),
+                Value::Duration { .. } => Some(Ordering::Greater),
+                Value::Date { .. } => Some(Ordering::Greater),
+                Value::Range { .. } => Some(Ordering::Greater),
+                Value::String { val: rhs, .. } => lhs.partial_cmp(rhs),
+                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
                 Value::Record { .. } => Some(Ordering::Less),
                 Value::LazyRecord { .. } => Some(Ordering::Less),
                 Value::List { .. } => Some(Ordering::Less),
@@ -2115,6 +2169,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { val: rhs, .. } => {
                     // reorder cols and vals to make more logically compare.
                     // more general, if two record have same col and values,
@@ -2154,6 +2209,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { vals: rhs, .. } => lhs.partial_cmp(rhs),
@@ -2174,6 +2230,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
@@ -2194,6 +2251,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2214,6 +2272,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2234,6 +2293,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2254,6 +2314,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -2274,6 +2335,7 @@ impl PartialOrd for Value {
                 Value::Date { .. } => Some(Ordering::Greater),
                 Value::Range { .. } => Some(Ordering::Greater),
                 Value::String { .. } => Some(Ordering::Greater),
+                Value::QuotedString { .. } => Some(Ordering::Greater),
                 Value::Record { .. } => Some(Ordering::Greater),
                 Value::LazyRecord { .. } => Some(Ordering::Greater),
                 Value::List { .. } => Some(Ordering::Greater),
@@ -3654,19 +3716,22 @@ pub fn format_filesize(
 
     // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
     // and is always B.
-    let filesize_format_var = get_filesize_format(format_value, filesize_metric);
-
-    let byte = byte_unit::Byte::from_bytes(num_bytes.unsigned_abs() as u128);
-    let adj_byte = if filesize_format_var.1 == "auto" {
+    let filesize_unit = get_filesize_format(format_value, filesize_metric);
+    let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
+    let adj_byte = if let Some(unit) = filesize_unit {
+        byte.get_adjusted_unit(unit)
+    } else {
         // When filesize_metric is None, format_value should never be "auto", so this
         // unwrap_or() should always work.
-        byte.get_appropriate_unit(!filesize_metric.unwrap_or(false))
-    } else {
-        byte.get_adjusted_unit(filesize_format_var.0)
+        byte.get_appropriate_unit(if filesize_metric.unwrap_or(false) {
+            UnitType::Decimal
+        } else {
+            UnitType::Binary
+        })
     };
 
     match adj_byte.get_unit() {
-        byte_unit::ByteUnit::B => {
+        byte_unit::Unit::B => {
             let locale = get_system_locale();
             let locale_byte = adj_byte.get_value() as u64;
             let locale_byte_string = locale_byte.to_formatted_string(&locale);
@@ -3676,7 +3741,7 @@ pub fn format_filesize(
                 locale_byte_string
             };
 
-            if filesize_format_var.1 == "auto" {
+            if filesize_unit.is_none() {
                 format!("{locale_signed_byte_string} B")
             } else {
                 locale_signed_byte_string
@@ -3684,44 +3749,39 @@ pub fn format_filesize(
         }
         _ => {
             if num_bytes.is_negative() {
-                format!("-{}", adj_byte.format(1))
+                format!("-{:.1}", adj_byte)
             } else {
-                adj_byte.format(1)
+                format!("{:.1}", adj_byte)
             }
         }
     }
 }
 
-fn get_filesize_format(format_value: &str, filesize_metric: Option<bool>) -> (ByteUnit, &str) {
+/// Get the filesize unit, or None if format is "auto"
+fn get_filesize_format(
+    format_value: &str,
+    filesize_metric: Option<bool>,
+) -> Option<byte_unit::Unit> {
+    // filesize_metric always overrides the unit of filesize_format.
+    let metric = filesize_metric.unwrap_or(!format_value.ends_with("ib"));
     macro_rules! either {
-        ($in:ident, $metric:ident, $binary:ident) => {
-            (
-                // filesize_metric always overrides the unit of
-                // filesize_format.
-                match filesize_metric {
-                    Some(true) => byte_unit::ByteUnit::$metric,
-                    Some(false) => byte_unit::ByteUnit::$binary,
-                    None => {
-                        if $in.ends_with("ib") {
-                            byte_unit::ByteUnit::$binary
-                        } else {
-                            byte_unit::ByteUnit::$metric
-                        }
-                    }
-                },
-                "",
-            )
+        ($metric:ident, $binary:ident) => {
+            Some(if metric {
+                byte_unit::Unit::$metric
+            } else {
+                byte_unit::Unit::$binary
+            })
         };
     }
     match format_value {
-        "b" => (byte_unit::ByteUnit::B, ""),
-        "kb" | "kib" => either!(format_value, KB, KiB),
-        "mb" | "mib" => either!(format_value, MB, MiB),
-        "gb" | "gib" => either!(format_value, GB, GiB),
-        "tb" | "tib" => either!(format_value, TB, TiB),
-        "pb" | "pib" => either!(format_value, TB, TiB),
-        "eb" | "eib" => either!(format_value, EB, EiB),
-        _ => (byte_unit::ByteUnit::B, "auto"),
+        "b" => Some(byte_unit::Unit::B),
+        "kb" | "kib" => either!(KB, KiB),
+        "mb" | "mib" => either!(MB, MiB),
+        "gb" | "gib" => either!(GB, GiB),
+        "tb" | "tib" => either!(TB, TiB),
+        "pb" | "pib" => either!(TB, TiB),
+        "eb" | "eib" => either!(EB, EiB),
+        _ => None,
     }
 }
 
@@ -3804,8 +3864,10 @@ mod tests {
 
     mod into_string {
         use chrono::{DateTime, FixedOffset, NaiveDateTime};
+        use rstest::rstest;
 
         use super::*;
+        use crate::format_filesize;
 
         #[test]
         fn test_datetime() {
@@ -3833,6 +3895,22 @@ mod tests {
             // it is relative to current time.
             let formatted = string.split(' ').next().unwrap();
             assert_eq!("-0316-02-11T06:13:20+00:00", formatted);
+        }
+
+        #[rstest]
+        #[case(1000, Some(true), "auto", "1.0 KB")]
+        #[case(1000, Some(false), "auto", "1,000 B")]
+        #[case(1000, Some(false), "kb", "1.0 KiB")]
+        #[case(3000, Some(false), "auto", "2.9 KiB")]
+        #[case(3_000_000, None, "auto", "2.9 MiB")]
+        #[case(3_000_000, None, "kib", "2929.7 KiB")]
+        fn test_filesize(
+            #[case] val: i64,
+            #[case] filesize_metric: Option<bool>,
+            #[case] filesize_format: String,
+            #[case] exp: &str,
+        ) {
+            assert_eq!(exp, format_filesize(val, &filesize_format, filesize_metric));
         }
     }
 }
