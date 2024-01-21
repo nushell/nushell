@@ -3842,13 +3842,15 @@ mod tests {
         #[case(3000, false, "auto", "2.9 KiB")]
         fn test_filesize(
             #[case] val: i64,
-            #[case] metric: bool,
-            #[case] format: String,
+            #[case] filesize_metric: bool,
+            #[case] filesize_format: String,
             #[case] exp: &str,
         ) {
-            let mut config = Config::default();
-            config.filesize_metric = metric;
-            config.filesize_format = format;
+            let config = Config {
+                filesize_metric,
+                filesize_format,
+                ..Default::default()
+            };
             assert_eq!(exp, Value::test_filesize(val).into_string("", &config));
         }
     }
