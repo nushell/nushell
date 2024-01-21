@@ -229,3 +229,11 @@ fn type_check_for_during_eval2() -> TestResult {
         "can't convert nothing to string",
     )
 }
+#[test]
+fn empty_list_matches_list_type() -> TestResult {
+    let _ = run_test(r#"def spam [foo: list<int>] { echo foo }; spam []"#, "[]");
+    run_test(
+        r#"def spam [foo: list<string>] { echo foo }; spam []"#,
+        "[]",
+    )
+}
