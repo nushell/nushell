@@ -387,7 +387,7 @@ fn eval_element_with_input(
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_) => {
+                | Expr::Filepath(_, _) => {
                     let exit_code = match &mut input {
                         PipelineData::ExternalStream { exit_code, .. } => exit_code.take(),
                         _ => None,
@@ -485,11 +485,11 @@ fn eval_element_with_input(
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_),
+                | Expr::Filepath(_, _),
                 Expr::String(_)
                 | Expr::FullCellPath(_)
                 | Expr::StringInterpolation(_)
-                | Expr::Filepath(_),
+                | Expr::Filepath(_, _),
             ) => {
                 if let Some(save_command) = engine_state.find_decl(b"save", &[]) {
                     let exit_code = match &mut input {
@@ -917,22 +917,30 @@ impl Eval for EvalRuntime {
         engine_state: Self::State<'_>,
         stack: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
-        let cwd = current_dir_str(engine_state, stack)?;
-        let path = expand_path_with(path, cwd);
+        if quoted {
+            Ok(Value::string(path, span))
+        } else {
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(path, cwd);
 
-        Ok(Value::string(path.to_string_lossy(), span))
+            Ok(Value::string(path.to_string_lossy(), span))
+        }
     }
 
     fn eval_directory(
         engine_state: Self::State<'_>,
         stack: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         if path == "-" {
             Ok(Value::string("-", span))
+        } else if quoted {
+            Ok(Value::string(path, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(path, cwd);
@@ -1163,12 +1171,17 @@ impl Eval for EvalRuntime {
         engine_state: Self::State<'_>,
         stack: &mut Self::MutState,
         pattern: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
-        let cwd = current_dir_str(engine_state, stack)?;
-        let path = expand_path_with(pattern, cwd);
+        if quoted {
+            Ok(Value::string(pattern, span))
+        } else {
+            let cwd = current_dir_str(engine_state, stack)?;
+            let path = expand_path_with(pattern, cwd);
 
-        Ok(Value::string(path.to_string_lossy(), span))
+            Ok(Value::string(path.to_string_lossy(), span))
+        }
     }
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {

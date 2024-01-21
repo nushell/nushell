@@ -27,9 +27,9 @@ pub trait Eval {
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-            Expr::Filepath(path) => Self::eval_filepath(state, mut_state, path.clone(), expr.span),
-            Expr::Directory(path) => {
-                Self::eval_directory(state, mut_state, path.clone(), expr.span)
+            Expr::Filepath(path, quoted) => Self::eval_filepath(state, mut_state, path.clone(), *quoted, expr.span),
+            Expr::Directory(path, quoted) => {
+                Self::eval_directory(state, mut_state, path.clone(), *quoted, expr.span)
             }
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
@@ -274,8 +274,15 @@ pub trait Eval {
                 Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
-            Expr::GlobPattern(pattern) => {
-                Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
+            Expr::GlobPattern(pattern, quoted) => {
+                Self::eval_glob_pattern(state, mut_state, pattern.clone(), *quoted, expr.span)
+            }
+            Expr::LsGlobPattern(pattern, quoted) => {
+                if *quoted {
+                    Ok(Value::quoted_string(pattern, expr.span))
+                } else {
+                    Ok(Value::string(pattern, expr.span))
+                }
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)
@@ -291,6 +298,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -298,6 +306,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -370,6 +379,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         pattern: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 

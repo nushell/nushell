@@ -282,6 +282,7 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         path: String,
+        _: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         Ok(Value::string(path, span))
@@ -291,6 +292,7 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         _: String,
+        _: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
@@ -392,6 +394,7 @@ impl Eval for EvalConst {
         _: &StateWorkingSet,
         _: &mut (),
         _: String,
+        _: bool,
         span: Span,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
