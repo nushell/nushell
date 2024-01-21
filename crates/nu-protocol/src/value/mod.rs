@@ -3654,10 +3654,11 @@ pub fn format_filesize(
 
     // When format_value is "auto" or an invalid value, the returned ByteUnit doesn't matter
     // and is always B.
-    let filesize_format_var = get_filesize_format(format_value, filesize_metric);
-
+    let filesize_unit = get_filesize_format(format_value, filesize_metric);
     let byte = byte_unit::Byte::from_u64(num_bytes.unsigned_abs());
-    let adj_byte = if filesize_format_var.1 == "auto" {
+    let adj_byte = if let Some(unit) = filesize_unit {
+        byte.get_adjusted_unit(unit)
+    } else {
         // When filesize_metric is None, format_value should never be "auto", so this
         // unwrap_or() should always work.
         byte.get_appropriate_unit(if !filesize_metric.unwrap_or(false) {
@@ -3665,8 +3666,6 @@ pub fn format_filesize(
         } else {
             UnitType::Decimal
         })
-    } else {
-        byte.get_adjusted_unit(filesize_format_var.0)
     };
 
     match adj_byte.get_unit() {
@@ -3680,7 +3679,7 @@ pub fn format_filesize(
                 locale_byte_string
             };
 
-            if filesize_format_var.1 == "auto" {
+            if filesize_unit.is_none() {
                 format!("{locale_signed_byte_string} B")
             } else {
                 locale_signed_byte_string
@@ -3696,39 +3695,31 @@ pub fn format_filesize(
     }
 }
 
+/// Get the filesize unit, or None if format is "auto"
 fn get_filesize_format(
     format_value: &str,
     filesize_metric: Option<bool>,
-) -> (byte_unit::Unit, &str) {
+) -> Option<byte_unit::Unit> {
+    // filesize_metric always overrides the unit of filesize_format.
+    let metric = filesize_metric.unwrap_or(!format_value.ends_with("ib"));
     macro_rules! either {
-        ($in:ident, $metric:ident, $binary:ident) => {
-            (
-                // filesize_metric always overrides the unit of
-                // filesize_format.
-                match filesize_metric {
-                    Some(true) => byte_unit::Unit::$metric,
-                    Some(false) => byte_unit::Unit::$binary,
-                    None => {
-                        if $in.ends_with("ib") {
-                            byte_unit::Unit::$binary
-                        } else {
-                            byte_unit::Unit::$metric
-                        }
-                    }
-                },
-                "",
-            )
+        ($metric:ident, $binary:ident) => {
+            Some(if metric {
+                byte_unit::Unit::$binary
+            } else {
+                byte_unit::Unit::$metric
+            })
         };
     }
     match format_value {
-        "b" => (byte_unit::Unit::B, ""),
-        "kb" | "kib" => either!(format_value, KB, KiB),
-        "mb" | "mib" => either!(format_value, MB, MiB),
-        "gb" | "gib" => either!(format_value, GB, GiB),
-        "tb" | "tib" => either!(format_value, TB, TiB),
-        "pb" | "pib" => either!(format_value, TB, TiB),
-        "eb" | "eib" => either!(format_value, EB, EiB),
-        _ => (byte_unit::Unit::B, "auto"),
+        "b" => Some(byte_unit::Unit::B),
+        "kb" | "kib" => either!(KB, KiB),
+        "mb" | "mib" => either!(MB, MiB),
+        "gb" | "gib" => either!(GB, GiB),
+        "tb" | "tib" => either!(TB, TiB),
+        "pb" | "pib" => either!(TB, TiB),
+        "eb" | "eib" => either!(EB, EiB),
+        _ => None,
     }
 }
 
