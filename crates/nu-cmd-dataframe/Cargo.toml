@@ -28,7 +28,7 @@ sqlparser = { version = "0.39", optional = true }
 polars-io = { version = "0.35", features = ["avro"], optional = true }
 polars-arrow = { version = "0.35", optional = true }
 polars-ops = { version = "0.35", optional = true }
-polars-plan = { version = "0.35", optional = true }
+polars-plan = { version = "0.36", optional = true }
 
 [dependencies.polars]
 features = [
