@@ -3,9 +3,9 @@ use crate::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
         ExternalArgument, Math, Operator, RecordItem,
     },
-    Range, Record, ShellError, Span, Value, VarId,
+    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -271,7 +271,18 @@ pub trait Eval {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
+                let mut parts = vec![];
+                for expr in exprs {
+                    parts.push(Self::eval(state, mut_state, expr)?);
+                }
+
+                let config = Self::get_config(state, mut_state);
+
+                parts
+                    .into_iter()
+                    .into_pipeline_data(None)
+                    .collect_string("", &config)
+                    .map(|x| Value::string(x, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {
@@ -293,6 +304,8 @@ pub trait Eval {
             | Expr::Garbage => Self::unreachable(expr),
         }
     }
+
+    fn get_config<'a>(state: Self::State<'a>, mut_state: &mut Self::MutState) -> Cow<'a, Config>;
 
     fn eval_filepath(
         state: Self::State<'_>,
@@ -363,13 +376,6 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         block_id: usize,
-        span: Span,
-    ) -> Result<Value, ShellError>;
-
-    fn eval_string_interpolation(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        exprs: &[Expression],
         span: Span,
     ) -> Result<Value, ShellError>;
 

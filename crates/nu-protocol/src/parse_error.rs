@@ -207,7 +207,7 @@ pub enum ParseError {
         code(nu::parser::module_not_found),
         help("module files and their paths must be available before your script is run as parsing occurs before anything is evaluated")
     )]
-    ModuleNotFound(#[label = "module not found"] Span),
+    ModuleNotFound(#[label = "module {1} not found"] Span, String),
 
     #[error("Missing mod.nu file.")]
     #[diagnostic(
@@ -520,7 +520,7 @@ impl ParseError {
             ParseError::VariableNotValid(s) => *s,
             ParseError::AliasNotValid(s) => *s,
             ParseError::CommandDefNotValid(s) => *s,
-            ParseError::ModuleNotFound(s) => *s,
+            ParseError::ModuleNotFound(s, _) => *s,
             ParseError::ModuleMissingModNuFile(_, s) => *s,
             ParseError::NamedAsModule(_, _, _, s) => *s,
             ParseError::ModuleDoubleMain(_, s) => *s,
