@@ -2857,7 +2857,7 @@ dependencies = [
  "sysinfo 0.30.5",
  "unicode-segmentation",
  "uuid",
- "which 5.0.0",
+ "which",
 ]
 
 [[package]]
@@ -3050,7 +3050,7 @@ dependencies = [
  "uuid",
  "v_htmlescape",
  "wax",
- "which 5.0.0",
+ "which",
  "windows 0.52.0",
  "winreg",
 ]
@@ -3254,7 +3254,7 @@ dependencies = [
  "nu-utils",
  "num-format",
  "tempfile",
- "which 4.4.2",
+ "which",
 ]
 
 [[package]]
@@ -6479,18 +6479,6 @@ checksum = "58cd2333b6e0be7a39605f0e255892fd7418a682d8da8fe042fe25128794d2ed"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
-]
-
-[[package]]
-name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix",
 ]
 
 [[package]]
