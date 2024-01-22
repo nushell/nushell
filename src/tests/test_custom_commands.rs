@@ -240,6 +240,7 @@ fn empty_list_matches_list_type() -> TestResult {
         r#"def spam [foo: list<string>] { echo $foo }; spam [] | length"#,
         "0",
     )
+}
 
 #[test]
 fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
