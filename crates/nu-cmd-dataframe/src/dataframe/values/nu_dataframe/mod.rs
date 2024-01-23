@@ -489,10 +489,12 @@ impl NuDataFrame {
                 // Casting needed to compare other numeric types with nushell numeric type.
                 // In nushell we only have i64 integer numeric types and any array created
                 // with nushell untagged primitives will be of type i64
-                DataType::UInt32 | DataType::Int32 => match self_series.cast(&DataType::Int64) {
-                    Ok(series) => series,
-                    Err(_) => return None,
-                },
+                DataType::Int8 | DataType::Int16 | DataType::UInt32 | DataType::Int32 => {
+                    match self_series.cast(&DataType::Int64) {
+                        Ok(series) => series,
+                        Err(_) => return None,
+                    }
+                }
                 _ => self_series.clone(),
             };
 
