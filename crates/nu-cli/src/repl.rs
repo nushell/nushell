@@ -17,8 +17,8 @@ use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error, report_error_new, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
-    Value, NU_VARIABLE_ID,
+    report_error, report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError,
+    Span, Spanned, Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -28,7 +28,7 @@ use reedline::{
 use std::{
     env::temp_dir,
     io::{self, IsTerminal, Write},
-    path::Path,
+    path::PathBuf,
     sync::atomic::Ordering,
     time::Instant,
 };
@@ -109,31 +109,36 @@ pub fn evaluate_repl(
         use_color,
     );
 
-    // Setup history_isolation aka "history per session"
-    let history_isolation = engine_state.get_config().history_isolation;
-    let history_session_id = if history_isolation {
-        Reedline::create_history_session_id()
-    } else {
-        None
-    };
+    if let Some(history) = engine_state.history_config() {
+        start_time = std::time::Instant::now();
 
-    start_time = std::time::Instant::now();
-    let history_path = crate::config_files::get_history_path(
-        nushell_path,
-        engine_state.config.history_file_format,
-    );
-    if let Some(history_path) = history_path.as_deref() {
-        line_editor =
-            update_line_editor_history(engine_state, history_path, line_editor, history_session_id)?
-    };
-    perf(
-        "setup history",
-        start_time,
-        file!(),
-        line!(),
-        column!(),
-        use_color,
-    );
+        // Setup history_isolation aka "history per session"
+        let history_session_id = if history.isolation {
+            Reedline::create_history_session_id()
+        } else {
+            None
+        };
+
+        if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format)
+        {
+            line_editor = update_line_editor_history(
+                engine_state,
+                path,
+                history,
+                line_editor,
+                history_session_id,
+            )?
+        };
+
+        perf(
+            "setup history",
+            start_time,
+            file!(),
+            line!(),
+            column!(),
+            use_color,
+        );
+    }
 
     if let Some(s) = prerun_command {
         eval_source(
@@ -313,20 +318,22 @@ pub fn evaluate_repl(
             use_color,
         );
 
-        start_time = std::time::Instant::now();
-        if config.sync_history_on_enter {
-            if let Err(e) = line_editor.sync_history() {
-                warn!("Failed to sync history: {}", e);
+        if let Some(history) = engine_state.history_config() {
+            start_time = std::time::Instant::now();
+            if history.sync_on_enter {
+                if let Err(e) = line_editor.sync_history() {
+                    warn!("Failed to sync history: {}", e);
+                }
             }
+            perf(
+                "sync_history",
+                start_time,
+                file!(),
+                line!(),
+                column!(),
+                use_color,
+            );
         }
-        perf(
-            "sync_history",
-            start_time,
-            file!(),
-            line!(),
-            column!(),
-            use_color,
-        );
 
         start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
@@ -418,8 +425,10 @@ pub fn evaluate_repl(
         match input {
             Ok(Signal::Success(s)) => {
                 let hostname = System::host_name();
-                let history_supports_meta =
-                    matches!(config.history_file_format, HistoryFileFormat::Sqlite);
+                let history_supports_meta = matches!(
+                    engine_state.history_config().map(|h| h.file_format),
+                    Some(HistoryFileFormat::Sqlite)
+                );
                 if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
                 {
                     line_editor
@@ -648,7 +657,10 @@ pub fn evaluate_repl(
                 line_editor.run_edit_commands(&[
                     EditCommand::Clear,
                     EditCommand::InsertString(repl.buffer.to_string()),
-                    EditCommand::MoveToPosition(repl.cursor_pos),
+                    EditCommand::MoveToPosition {
+                        position: repl.cursor_pos,
+                        select: false,
+                    },
                 ]);
                 repl.buffer = "".to_string();
                 repl.cursor_pos = 0;
@@ -715,18 +727,15 @@ fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reed
 
 fn update_line_editor_history(
     engine_state: &mut EngineState,
-    history_path: &Path,
+    history_path: PathBuf,
+    history: HistoryConfig,
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
-    let config = engine_state.get_config();
-    let history: Box<dyn reedline::History> = match engine_state.config.history_file_format {
+    let history: Box<dyn reedline::History> = match history.file_format {
         HistoryFileFormat::PlainText => Box::new(
-            FileBackedHistory::with_file(
-                config.max_history_size as usize,
-                history_path.to_path_buf(),
-            )
-            .into_diagnostic()?,
+            FileBackedHistory::with_file(history.max_size as usize, history_path)
+                .into_diagnostic()?,
         ),
         HistoryFileFormat::Sqlite => Box::new(
             SqliteBackedHistory::with_file(
@@ -834,14 +843,18 @@ fn trailing_slash_looks_like_path() {
 #[test]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
-    let history_path_o =
-        crate::config_files::get_history_path("nushell", engine_state.config.history_file_format);
-    assert!(history_path_o.is_some());
-    let history_path = history_path_o.as_deref().unwrap();
+    let history = engine_state.history_config().unwrap();
+    let history_path =
+        crate::config_files::get_history_path("nushell", history.file_format).unwrap();
     let line_editor = reedline::Reedline::create();
     let history_session_id = reedline::Reedline::create_history_session_id();
-    let line_editor =
-        update_line_editor_history(engine_state, history_path, line_editor, history_session_id);
+    let line_editor = update_line_editor_history(
+        engine_state,
+        history_path,
+        history,
+        line_editor,
+        history_session_id,
+    );
     assert_eq!(
         i64::from(line_editor.unwrap().get_history_session_id().unwrap()),
         engine_state.history_session_id

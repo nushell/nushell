@@ -134,7 +134,7 @@ fn from_ods(
     for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
-        if let Some(Ok(current_sheet)) = ods.worksheet_range(&sheet_name) {
+        if let Ok(current_sheet) = ods.worksheet_range(&sheet_name) {
             for row in current_sheet.rows() {
                 let record = row
                     .iter()

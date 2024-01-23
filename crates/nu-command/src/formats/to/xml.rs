@@ -34,6 +34,11 @@ impl Command for ToXml {
                 "Only escape mandatory characters in text and attributes",
                 Some('p'),
             )
+            .switch(
+                "self-closed",
+                "Output empty tags as self closing",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -77,6 +82,13 @@ Additionally any field which is: empty record, empty list or null, can be omitte
                 result: Some(Value::test_string(
                     r#"<note a="'qwe'\">"'</note>"#
                 ))
+            },
+            Example {
+                description: "Save space using self-closed tags",
+                example: r#"{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed"#,
+                result: Some(Value::test_string(
+                    r#"<root><a/><b/><c/></root>"#
+                ))
             }
         ]
     }
@@ -95,8 +107,9 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         let head = call.head;
         let indent: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "indent")?;
         let partial_escape = call.has_flag(engine_state, stack, "partial-escape")?;
+        let self_closed = call.has_flag(engine_state, stack, "self-closed")?;
 
-        let job = Job::new(indent, partial_escape);
+        let job = Job::new(indent, partial_escape, self_closed);
         let input = input.try_expand_range()?;
         job.run(input, head)
     }
@@ -105,10 +118,11 @@ Additionally any field which is: empty record, empty list or null, can be omitte
 struct Job {
     writer: quick_xml::Writer<Cursor<Vec<u8>>>,
     partial_escape: bool,
+    self_closed: bool,
 }
 
 impl Job {
-    fn new(indent: Option<Spanned<i64>>, partial_escape: bool) -> Self {
+    fn new(indent: Option<Spanned<i64>>, partial_escape: bool, self_closed: bool) -> Self {
         let writer = indent.as_ref().map_or_else(
             || quick_xml::Writer::new(Cursor::new(Vec::new())),
             |p| quick_xml::Writer::new_with_indent(Cursor::new(Vec::new()), b' ', p.item as usize),
@@ -117,6 +131,7 @@ impl Job {
         Self {
             writer,
             partial_escape,
+            self_closed,
         }
     }
 
@@ -424,12 +439,18 @@ impl Job {
             });
         }
 
+        let self_closed = self.self_closed && children.is_empty();
         let attributes = Self::parse_attributes(attrs)?;
-        let mut open_tag_event = BytesStart::new(tag.clone());
-        self.add_attributes(&mut open_tag_event, &attributes);
+        let mut open_tag = BytesStart::new(tag.clone());
+        self.add_attributes(&mut open_tag, &attributes);
+        let open_tag_event = if self_closed {
+            Event::Empty(open_tag)
+        } else {
+            Event::Start(open_tag)
+        };
 
         self.writer
-            .write_event(Event::Start(open_tag_event))
+            .write_event(open_tag_event)
             .map_err(|_| ShellError::CantConvert {
                 to_type: "XML".to_string(),
                 from_type: Type::Record(vec![]).to_string(),
@@ -441,15 +462,18 @@ impl Job {
             .into_iter()
             .try_for_each(|child| self.write_xml_entry(child, false))?;
 
-        let close_tag_event = BytesEnd::new(tag);
-        self.writer
-            .write_event(Event::End(close_tag_event))
-            .map_err(|_| ShellError::CantConvert {
-                to_type: "XML".to_string(),
-                from_type: Type::Record(vec![]).to_string(),
-                span: entry_span,
-                help: Some("Failure writing tag to xml".into()),
-            })
+        if !self_closed {
+            let close_tag_event = Event::End(BytesEnd::new(tag));
+            self.writer
+                .write_event(close_tag_event)
+                .map_err(|_| ShellError::CantConvert {
+                    to_type: "XML".to_string(),
+                    from_type: Type::Record(vec![]).to_string(),
+                    span: entry_span,
+                    help: Some("Failure writing tag to xml".into()),
+                })?;
+        }
+        Ok(())
     }
 
     fn parse_attributes(attrs: Record) -> Result<IndexMap<String, String>, ShellError> {

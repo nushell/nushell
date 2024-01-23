@@ -229,3 +229,13 @@ fn type_check_for_during_eval2() -> TestResult {
         "can't convert nothing to string",
     )
 }
+
+#[test]
+fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
+    run_test("def spam [foo: path] { echo $foo }; spam '~/aa'", "~/aa")
+}
+
+#[test]
+fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
+    run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
+}

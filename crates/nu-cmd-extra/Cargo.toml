@@ -30,7 +30,7 @@ serde = "1.0.164"
 nu-pretty-hex = { version = "0.89.1", path = "../nu-pretty-hex" }
 nu-json = { version = "0.89.1", path = "../nu-json" }
 serde_urlencoded = "0.7.1"
-htmlescape = "0.3.1"
+v_htmlescape = "0.15.0"
 
 [features]
 extra = ["default"]
