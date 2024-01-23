@@ -80,9 +80,9 @@ impl Command for Find {
                 result: None,
             },
             Example {
-                description: "Search for a term in a string",
+                description: "Search and highlight text for a term in a string",
                 example: r#"'Cargo.toml' | find toml"#,
-                result: Some(Value::test_string("Cargo.toml".to_owned())),
+                result: Some(Value::test_string("Cargo.\u{1b}[37m\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m".to_owned())),
             },
             Example {
                 description: "Search a number or a file size in a list of numbers",
