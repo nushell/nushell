@@ -10,9 +10,9 @@ use polars::datatypes::AnyValue;
 use polars::export::arrow::Either;
 use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Float64Type, Int64Type, IntoSeries,
-    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder, ListType,
-    ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray, ObjectType, Series, TemporalMethods,
-    TimeUnit,
+    ListBooleanChunkedBuilder, ListBuilderTrait, ListPrimitiveChunkedBuilder,
+    ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray, ObjectType, Series,
+    TemporalMethods, TimeUnit,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -387,7 +387,7 @@ fn input_type_list_to_series(
             Ok(res.into_series())
         }
         InputType::String => {
-            let mut builder = ListUtf8ChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
+            let mut builder = ListStringChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
             for v in values {
                 let value_list = v
                     .as_list()?
@@ -713,8 +713,8 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Utf8 => {
-            let casted = series.utf8().map_err(|e| ShellError::GenericError {
+        DataType::String => {
+            let casted = series.str().map_err(|e| ShellError::GenericError {
                 error: "Error casting column to string".into(),
                 msg: "".into(),
                 span: None,
@@ -736,7 +736,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Object(x) => {
+        DataType::Object(x, _) => {
             let casted = series
                 .as_any()
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
@@ -920,7 +920,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
     match any_value {
         AnyValue::Null => Ok(Value::nothing(span)),
         AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
-        AnyValue::Utf8(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::String(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::UInt8(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt16(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt32(i) => Ok(Value::int(*i as i64, span)),
@@ -986,7 +986,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 internal_span: span,
             })
         }
-        AnyValue::Utf8Owned(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
         e => Err(ShellError::GenericError {
@@ -1113,11 +1113,11 @@ mod tests {
 
         let test_str = "foo";
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8(test_str), span)?,
+            any_value_to_value(&AnyValue::String(test_str), span)?,
             Value::string(test_str.to_string(), span)
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8Owned(test_str.into()), span)?,
+            any_value_to_value(&AnyValue::StringOwned(test_str.into()), span)?,
             Value::string(test_str.to_owned(), span)
         );
 
