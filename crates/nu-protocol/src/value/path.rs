@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// A simple wrapper to String.
 ///
 /// But it tracks if the string is originally quoted.
@@ -15,5 +17,11 @@ impl AsRef<str> for NuPath {
         match self {
             NuPath::Quoted(s) | NuPath::UnQuoted(s) => s,
         }
+    }
+}
+
+impl Display for NuPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_ref())
     }
 }

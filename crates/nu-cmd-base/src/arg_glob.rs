@@ -42,24 +42,24 @@ fn arg_glob_opt(
     options: MatchOptions,
 ) -> Result<Paths, ShellError> {
     // remove ansi coloring (?)
-    let pattern = {
-        Spanned {
-            item: nu_utils::strip_ansi_string_unlikely(pattern.item.clone()),
-            span: pattern.span,
-        }
-    };
-
-    // if there's a file with same path as the pattern, just return that.
-    let pp = cwd.join(&pattern.item);
-    let md = fs::metadata(pp);
-    #[allow(clippy::single_match)]
-    match md {
-        Ok(_metadata) => {
-            return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
-        }
-        // file not found, but also "invalid chars in file" (e.g * on Windows).  Fall through and glob
-        Err(_) => {}
-    }
+    // let pattern = {
+    //     Spanned {
+    //         item: nu_utils::strip_ansi_string_unlikely(pattern.item.clone()),
+    //         span: pattern.span,
+    //     }
+    // };
+    //
+    // // if there's a file with same path as the pattern, just return that.
+    // let pp = cwd.join(&pattern.item);
+    // let md = fs::metadata(pp);
+    // #[allow(clippy::single_match)]
+    // match md {
+    //     Ok(_metadata) => {
+    //         return Ok(Paths::single(&PathBuf::from(pattern.item), cwd));
+    //     }
+    //     // file not found, but also "invalid chars in file" (e.g * on Windows).  Fall through and glob
+    //     Err(_) => {}
+    // }
 
     // user wasn't referring to a specific thing in filesystem, try to glob it.
     match glob_with_parent(&pattern.item, options, cwd) {

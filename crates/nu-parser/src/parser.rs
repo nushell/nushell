@@ -4575,7 +4575,8 @@ pub fn parse_value(
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
             | SyntaxShape::String
-            | SyntaxShape::LsGlobPattern => {}
+            | SyntaxShape::LsGlobPattern
+            | SyntaxShape::GlobPattern => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);

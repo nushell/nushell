@@ -1159,7 +1159,7 @@ impl Eval for EvalRuntime {
         span: Span,
     ) -> Result<Value, ShellError> {
         if quoted {
-            Ok(Value::string(pattern, span))
+            Ok(Value::quoted_string(pattern, span))
         } else {
             let cwd = current_dir_str(engine_state, stack)?;
             let path = expand_path_with(pattern, cwd);
