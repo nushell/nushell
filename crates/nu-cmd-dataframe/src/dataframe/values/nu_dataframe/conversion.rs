@@ -12,7 +12,8 @@ use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
     Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
     ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray,
-    ObjectType, Series, TemporalMethods, TimeUnit, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 
 use nu_protocol::{Record, ShellError, Span, Value};
@@ -199,7 +200,7 @@ pub fn insert_value(
         }
 
         if col_val.column_type.is_none() {
-            col_val.column_type = Some(value_to_input_type(&value));
+            col_val.column_type = Some(value_to_data_type(&value));
         }
 
         col_val.values.push(value);
@@ -215,7 +216,7 @@ pub fn insert_value(
             | (Value::Filesize { .. }, Value::Filesize { .. })
             | (Value::Duration { .. }, Value::Duration { .. }) => col_val.values.push(value),
             (Value::List { .. }, _) => {
-                col_val.column_type = Some(value_to_input_type(&value));
+                col_val.column_type = Some(value_to_data_type(&value));
                 col_val.values.push(value);
             }
             _ => {
@@ -228,7 +229,7 @@ pub fn insert_value(
     Ok(())
 }
 
-fn value_to_input_type(value: &Value) -> DataType {
+fn value_to_data_type(value: &Value) -> DataType {
     match &value {
         Value::Int { .. } => DataType::Int64,
         Value::Float { .. } => DataType::Float64,
@@ -247,7 +248,7 @@ fn value_to_input_type(value: &Value) -> DataType {
             let list_type = vals
                 .iter()
                 .filter(|v| !matches!(v, Value::Nothing { .. }))
-                .map(value_to_input_type)
+                .map(value_to_data_type)
                 .nth(1)
                 .unwrap_or(DataType::Object("Value"));
 
@@ -257,196 +258,214 @@ fn value_to_input_type(value: &Value) -> DataType {
     }
 }
 
+fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, ShellError> {
+    if let Some(column_type) = &column.column_type {
+        match column_type {
+            DataType::Float32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_f64().map(|v| v as f32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Float64 => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_f64()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt8 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u8))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt16 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u16))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::UInt64 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as u64))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int8 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i8))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int16 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i16))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int32 => {
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| v as i32))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Int64 => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_i64()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Boolean => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_bool()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Utf8 => {
+                let series_values: Result<Vec<_>, _> =
+                    column.values.iter().map(|v| v.as_string()).collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::Object(_) => value_to_series(name, &column.values),
+            DataType::Duration(time_unit) => {
+                //todo - finish type conversion
+                let series_values: Result<Vec<_>, _> = column
+                    .values
+                    .iter()
+                    .map(|v| v.as_i64().map(|v| nanos_from_timeunit(v, *time_unit)))
+                    .collect();
+                Ok(Series::new(name, series_values?))
+            }
+            DataType::List(list_type) => {
+                match input_type_list_to_series(name, list_type.as_ref(), &column.values) {
+                    Ok(series) => Ok(series),
+                    Err(_) => {
+                        // An error case will occur when there are lists of mixed types.
+                        // If this happens, fallback to object list
+                        input_type_list_to_series(
+                            name,
+                            &DataType::Object("unknown"),
+                            &column.values,
+                        )
+                    }
+                }
+            }
+            DataType::Date => {
+                let it = column.values.iter().map(|v| {
+                    if let Value::Date { val, .. } = &v {
+                        Some(val.timestamp_nanos_opt().unwrap_or_default())
+                    } else {
+                        None
+                    }
+                });
+
+                let res: DatetimeChunked = ChunkedArray::<Int64Type>::from_iter_options(name, it)
+                    .into_datetime(TimeUnit::Nanoseconds, None);
+
+                Ok(res.into_series())
+            }
+            DataType::Datetime(tu, maybe_tz) => {
+                let dates = column
+                    .values
+                    .iter()
+                    .map(|v| {
+                        if let Value::Date { val, .. } = &v {
+                            // If there is a timezone specified, make sure
+                            // the value is converted to it
+                            Ok(maybe_tz
+                                .as_ref()
+                                .map(|tz| tz.parse::<Tz>().map(|tz| val.with_timezone(&tz)))
+                                .transpose()
+                                .map_err(|e| ShellError::GenericError {
+                                    error: "Error parsing timezone".into(),
+                                    msg: "".into(),
+                                    span: None,
+                                    help: Some(e.to_string()),
+                                    inner: vec![],
+                                })?
+                                .and_then(|dt| dt.timestamp_nanos_opt())
+                                .map(|nanos| nanos_from_timeunit(nanos, *tu)))
+                        } else {
+                            Ok(None)
+                        }
+                    })
+                    .collect::<Result<Vec<Option<i64>>, ShellError>>()?;
+
+                let res: DatetimeChunked =
+                    ChunkedArray::<Int64Type>::from_iter_options(name, dates.into_iter())
+                        .into_datetime(*tu, maybe_tz.clone());
+
+                Ok(res.into_series())
+            }
+            DataType::Struct(fields) => {
+                let schema = Some(NuSchema::new(Schema::from_iter(fields.clone())));
+                let mut structs: Vec<Series> = Vec::new();
+
+                for v in column.values.iter() {
+                    let mut column_values: ColumnMap = IndexMap::new();
+                    let record = v.as_record()?;
+                    insert_record(&mut column_values, record.clone(), &schema)?;
+                    let df = from_parsed_columns(column_values)?;
+                    structs.push(df.as_series(Span::unknown())?);
+                }
+
+                let chunked = StructChunked::new(column.name(), structs.as_ref()).map_err(|e| {
+                    ShellError::GenericError {
+                        error: format!("Error creating struct: {e}"),
+                        msg: "".into(),
+                        span: None,
+                        help: None,
+                        inner: vec![],
+                    }
+                })?;
+                Ok(chunked.into_series())
+            }
+            _ => Err(ShellError::GenericError {
+                error: format!("Error creating dataframe: Unsupported type: {column_type:?}"),
+                msg: "".into(),
+                span: None,
+                help: None,
+                inner: vec![],
+            }),
+        }
+    } else {
+        Err(ShellError::GenericError {
+            error: "Passed a type column with no type".into(),
+            msg: "".into(),
+            span: None,
+            help: None,
+            inner: vec![],
+        })
+    }
+}
+
 // The ColumnMap has the parsed data from the StreamInput
 // This data can be used to create a Series object that can initialize
 // the dataframe based on the type of data that is found
 pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, ShellError> {
     let mut df_series: Vec<Series> = Vec::new();
     for (name, column) in column_values {
-        if let Some(column_type) = &column.column_type {
-            match column_type {
-                DataType::Float32 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_f64().map(|v| v as f32))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Float64 => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_f64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::UInt8 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as u8))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::UInt16 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as u16))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::UInt32 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as u32))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::UInt64 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as u64))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Int8 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as i8))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Int16 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as i16))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Int32 => {
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| v as i32))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Int64 => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_i64()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Boolean => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_bool()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Utf8 => {
-                    let series_values: Result<Vec<_>, _> =
-                        column.values.iter().map(|v| v.as_string()).collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::Object(_) => {
-                    df_series.push(input_type_object_to_series(&name, &column.values)?)
-                }
-                DataType::Duration(time_unit) => {
-                    //todo - finish type conversion
-                    let series_values: Result<Vec<_>, _> = column
-                        .values
-                        .iter()
-                        .map(|v| v.as_i64().map(|v| nanos_from_timeunit(v, *time_unit)))
-                        .collect();
-                    let series = Series::new(&name, series_values?);
-                    df_series.push(series)
-                }
-                DataType::List(list_type) => {
-                    match input_type_list_to_series(&name, list_type.as_ref(), &column.values) {
-                        Ok(series) => df_series.push(series),
-                        Err(_) => {
-                            // An error case will occur when there are lists of mixed types.
-                            // If this happens, fallback to object list
-                            df_series.push(input_type_list_to_series(
-                                &name,
-                                &DataType::Object("unknown"),
-                                &column.values,
-                            )?)
-                        }
-                    }
-                }
-                DataType::Date => {
-                    let it = column.values.iter().map(|v| {
-                        if let Value::Date { val, .. } = &v {
-                            Some(val.timestamp_nanos_opt().unwrap_or_default())
-                        } else {
-                            None
-                        }
-                    });
-
-                    let res: DatetimeChunked =
-                        ChunkedArray::<Int64Type>::from_iter_options(&name, it)
-                            .into_datetime(TimeUnit::Nanoseconds, None);
-
-                    df_series.push(res.into_series())
-                }
-                DataType::Datetime(tu, maybe_tz) => {
-                    let dates = column
-                        .values
-                        .iter()
-                        .map(|v| {
-                            if let Value::Date { val, .. } = &v {
-                                // If there is a timezone specified, make sure
-                                // the value is converted to it
-                                Ok(maybe_tz
-                                    .as_ref()
-                                    .map(|tz| tz.parse::<Tz>().map(|tz| val.with_timezone(&tz)))
-                                    .transpose()
-                                    .map_err(|e| ShellError::GenericError {
-                                        error: "Error parsing timezone".into(),
-                                        msg: "".into(),
-                                        span: None,
-                                        help: Some(e.to_string()),
-                                        inner: vec![],
-                                    })?
-                                    .and_then(|dt| dt.timestamp_nanos_opt())
-                                    .map(|nanos| nanos_from_timeunit(nanos, *tu)))
-                            } else {
-                                Ok(None)
-                            }
-                        })
-                        .collect::<Result<Vec<Option<i64>>, ShellError>>()?;
-
-                    let res: DatetimeChunked =
-                        ChunkedArray::<Int64Type>::from_iter_options(&name, dates.into_iter())
-                            .into_datetime(*tu, maybe_tz.clone());
-
-                    df_series.push(res.into_series())
-                }
-                _ => {
-                    return Err(ShellError::GenericError {
-                        error: format!("Error creating dataframe: Unsupported type: {column_type:?}"),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    })
-                }
-            }
-        }
+        let series = typed_column_to_series(&name, column)?;
+        df_series.push(series);
     }
 
     DataFrame::new(df_series)
@@ -460,7 +479,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         })
 }
 
-fn input_type_object_to_series(name: &str, values: &[Value]) -> Result<Series, ShellError> {
+fn value_to_series(name: &str, values: &[Value]) -> Result<Series, ShellError> {
     let mut builder = ObjectChunkedBuilder::<DataFrameValue>::new(name, values.len());
 
     for v in values {
@@ -586,7 +605,7 @@ fn input_type_list_to_series(
             Ok(input_type_list_to_series(name, sub_list_type, values)?)
         }
         // treat everything else as an object
-        _ => Ok(input_type_object_to_series(name, values)?),
+        _ => Ok(value_to_series(name, values)?),
     }
 }
 
