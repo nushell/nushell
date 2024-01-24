@@ -559,10 +559,10 @@ fn mv_with_no_target() {
 }
 
 #[rstest]
-#[case(r#"a]c"#)]
-#[case(r#"a[c"#)]
-#[case(r#"a[bc]d"#)]
-#[case(r#"a][c"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("umv_test_16", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -586,8 +586,8 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
 #[cfg(not(windows))]
 #[rstest]
-#[case(r#"'a]?c'"#)]
-#[case(r#"'a*.?c'"#)]
+#[case("a]?c")]
+#[case("a*.?c")]
 // windows doesn't allow filename with `*`.
 fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
     mv_files_with_glob_metachars(src_name);
