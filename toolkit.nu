@@ -251,7 +251,10 @@ export def "check pr" [
     --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
 ] {
-    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8'
+    $env.LANG = 'en_US.UTF-8'
+    $env.LANGUAGE = 'en'
+
     try {
         fmt --check --verbose
     } catch {
