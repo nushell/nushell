@@ -113,7 +113,7 @@ macro_rules! lazy_command {
         }
     };
 
-    ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident -> Result, $test: ident) => {
+    ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident?, $test: ident) => {
         #[derive(Clone)]
         pub struct $command;
 
@@ -239,6 +239,6 @@ lazy_command!(
             .into_value(Span::test_data()),
         ),
     },],
-    median -> Result,
+    median?,
     test_median
 );
