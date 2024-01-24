@@ -24,7 +24,7 @@ fancy-regex = "0.12"
 indexmap = { version = "2.1" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }
-sqlparser = { version = "0.39", optional = true }
+sqlparser = { version = "0.41", optional = true }
 polars-io = { version = "0.36", features = ["avro"], optional = true }
 polars-arrow = { version = "0.36", optional = true }
 polars-ops = { version = "0.36", optional = true }
