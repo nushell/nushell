@@ -236,6 +236,7 @@ pub fn evaluate_repl(
             .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
+                stack: std::sync::Arc::new(stack.clone()),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {
