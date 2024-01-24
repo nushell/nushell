@@ -148,7 +148,7 @@ fn command(
             NuDataFrame::try_from_series(vec![res.into_series()], call.head)
         }
         Value::String { val, .. } => {
-            let chunked = series.utf8().map_err(|e| ShellError::GenericError {
+            let chunked = series.str().map_err(|e| ShellError::GenericError {
                 error: "Error casting to string".into(),
                 msg: e.to_string(),
                 span: Some(span),

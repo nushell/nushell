@@ -13,7 +13,7 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         | SQLDataType::Uuid
         | SQLDataType::Clob(_)
         | SQLDataType::Text
-        | SQLDataType::String(_) => DataType::Utf8,
+        | SQLDataType::String(_) => DataType::String,
         SQLDataType::Float(_) => DataType::Float32,
         SQLDataType::Real => DataType::Float32,
         SQLDataType::Double => DataType::Float64,
@@ -62,7 +62,9 @@ fn binary_op_(left: Expr, right: Expr, op: &SQLBinaryOperator) -> Result<Expr> {
         SQLBinaryOperator::Multiply => left * right,
         SQLBinaryOperator::Divide => left / right,
         SQLBinaryOperator::Modulo => left % right,
-        SQLBinaryOperator::StringConcat => left.cast(DataType::Utf8) + right.cast(DataType::Utf8),
+        SQLBinaryOperator::StringConcat => {
+            left.cast(DataType::String) + right.cast(DataType::String)
+        }
         SQLBinaryOperator::Gt => left.gt(right),
         SQLBinaryOperator::Lt => left.lt(right),
         SQLBinaryOperator::GtEq => left.gt_eq(right),

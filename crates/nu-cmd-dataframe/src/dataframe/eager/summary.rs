@@ -10,7 +10,7 @@ use polars::{
     chunked_array::ChunkedArray,
     prelude::{
         AnyValue, DataFrame, DataType, Float64Type, IntoSeries, NewChunkedArray,
-        QuantileInterpolOptions, Series, Utf8Type,
+        QuantileInterpolOptions, Series, StringType,
     },
 };
 
@@ -171,7 +171,7 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
 
-    let names = ChunkedArray::<Utf8Type>::from_slice_options("descriptor", &labels).into_series();
+    let names = ChunkedArray::<StringType>::from_slice_options("descriptor", &labels).into_series();
 
     let head = std::iter::once(names);
 
@@ -179,42 +179,50 @@ fn command(
         .as_ref()
         .get_columns()
         .iter()
-        .filter(|col| col.dtype() != &DataType::Object("object"))
+        .filter(|col| !matches!(col.dtype(), &DataType::Object("object", _)))
         .map(|col| {
             let count = col.len() as f64;
 
-            let sum = col
-                .sum_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                });
+            let sum = col.sum_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mean = match col.mean_as_series().get(0) {
                 Ok(AnyValue::Float64(v)) => Some(v),
                 _ => None,
             };
 
-            let median = match col.median_as_series().get(0) {
-                Ok(AnyValue::Float64(v)) => Some(v),
-                _ => None,
-            };
-
-            let std = match col.std_as_series(0).get(0) {
-                Ok(AnyValue::Float64(v)) => Some(v),
-                _ => None,
-            };
-
-            let min = col
-                .min_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
+            let median = match col.median_as_series() {
+                Ok(v) => match v.get(0) {
                     Ok(AnyValue::Float64(v)) => Some(v),
                     _ => None,
-                });
+                },
+                _ => None,
+            };
+
+            let std = match col.std_as_series(0) {
+                Ok(v) => match v.get(0) {
+                    Ok(AnyValue::Float64(v)) => Some(v),
+                    _ => None,
+                },
+                _ => None,
+            };
+
+            let min = col.min_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mut quantiles = quantiles
                 .clone()
@@ -230,14 +238,15 @@ fn command(
                 })
                 .collect::<Vec<Option<f64>>>();
 
-            let max = col
-                .max_as_series()
-                .cast(&DataType::Float64)
-                .ok()
-                .and_then(|ca| match ca.get(0) {
-                    Ok(AnyValue::Float64(v)) => Some(v),
-                    _ => None,
-                });
+            let max = col.max_as_series().ok().and_then(|series| {
+                series
+                    .cast(&DataType::Float64)
+                    .ok()
+                    .and_then(|ca| match ca.get(0) {
+                        Ok(AnyValue::Float64(v)) => Some(v),
+                        _ => None,
+                    })
+            });
 
             let mut descriptors = vec![Some(count), sum, mean, median, std, min];
             descriptors.append(&mut quantiles);

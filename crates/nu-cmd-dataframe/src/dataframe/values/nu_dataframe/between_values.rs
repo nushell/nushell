@@ -6,7 +6,7 @@ use nu_protocol::{
 use num::Zero;
 use polars::prelude::{
     BooleanType, ChunkCompare, ChunkedArray, DataType, Float64Type, Int64Type, IntoSeries,
-    NumOpsDispatchChecked, PolarsError, Series, Utf8NameSpaceImpl,
+    NumOpsDispatchChecked, PolarsError, Series, StringNameSpaceImpl,
 };
 use std::ops::{Add, BitAnd, BitOr, Div, Mul, Sub};
 
@@ -721,7 +721,7 @@ where
 }
 
 fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, ShellError> {
-    let casted = series.utf8();
+    let casted = series.str();
     match casted {
         Ok(casted) => {
             let res = casted.contains(pat, false);
@@ -751,7 +751,7 @@ fn contains_series_pat(series: &Series, pat: &str, span: Span) -> Result<Value, 
 }
 
 fn add_string_to_series(series: &Series, pat: &str, span: Span) -> Result<Value, ShellError> {
-    let casted = series.utf8();
+    let casted = series.str();
     match casted {
         Ok(casted) => {
             let res = casted + pat;
