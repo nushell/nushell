@@ -5,10 +5,9 @@ use nu_protocol::{
     record, Category, Example, HistoryFileFormat, IntoInterruptiblePipelineData, PipelineData,
     ShellError, Signature, Span, Type, Value,
 };
-use reedline::{
-    FileBackedHistory, History as ReedlineHistory, HistoryItem, SearchDirection, SearchQuery,
-    SqliteBackedHistory,
-};
+use reedline::{HistoryItem, SearchDirection, SearchQuery};
+
+use super::utils::{history_path, reedline_history};
 
 #[derive(Clone)]
 pub struct History;
@@ -54,41 +53,14 @@ impl Command for History {
             let long = call.has_flag(engine_state, stack, "long")?;
             let ctrlc = engine_state.ctrlc.clone();
 
-            let mut history_path = config_path;
-            history_path.push("nushell");
-            match history.file_format {
-                HistoryFileFormat::Sqlite => {
-                    history_path.push("history.sqlite3");
-                }
-                HistoryFileFormat::PlainText => {
-                    history_path.push("history.txt");
-                }
-            }
+            let history_path = history_path(config_path, history);
 
             if clear {
                 let _ = std::fs::remove_file(history_path);
                 // TODO: FIXME also clear the auxiliary files when using sqlite
                 Ok(PipelineData::empty())
             } else {
-                let history_reader: Option<Box<dyn ReedlineHistory>> = match history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        SqliteBackedHistory::with_file(history_path, None, None)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok()
-                    }
-
-                    HistoryFileFormat::PlainText => {
-                        FileBackedHistory::with_file(history.max_size as usize, history_path)
-                            .map(|inner| {
-                                let boxed: Box<dyn ReedlineHistory> = Box::new(inner);
-                                boxed
-                            })
-                            .ok()
-                    }
-                };
+                let history_reader = reedline_history(history, history_path);
 
                 match history.file_format {
                     HistoryFileFormat::PlainText => Ok(history_reader
