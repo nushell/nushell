@@ -3574,8 +3574,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         if syntax_shape == SyntaxShape::Boolean {
                                             working_set.error(ParseError::LabeledError(
-                                                "--flag: bool is not allowed".to_string(),
-                                                "remove this `: bool`, more info: https://www.nushell.sh/book/custom_commands.html#flags".to_string(),
+                                                "Type annotations are not allowed for boolean switches.".to_string(),
+                                                "Remove the `: bool` type annotation.".to_string(),
                                                 span,
                                             ));
                                         }
