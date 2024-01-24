@@ -165,7 +165,8 @@ impl Command for Ls {
         };
 
         let hidden_dir_specified = is_hidden_dir(&path);
-        // when it's quoted, we need to escape our glob pattern
+        // when it's quoted, we need to escape our glob pattern(but without the last extra
+        // start which may be added under given directory)
         // so we can do ls for a file or directory like `a[123]b`
         let path = if quoted {
             let p = path.display().to_string();
@@ -185,7 +186,8 @@ impl Command for Ls {
         };
 
         let glob_path = Spanned {
-            item: path.clone(),
+            // It needs to be un-quoted, the relative logic is handled previously
+            item: NuPath::UnQuoted(path.clone()),
             span: p_tag,
         };
 

@@ -1,5 +1,4 @@
 use nu_engine::{current_dir, eval_block, CallExt};
-use nu_glob::Pattern;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -99,19 +98,9 @@ impl Command for Open {
 
         let mut output = vec![];
 
-        for path in path_params.into_iter() {
+        for mut path in path_params.into_iter() {
             //FIXME: `open` should not have to do this
-            let path = {
-                Spanned {
-                    item: match path.item {
-                        NuPath::Quoted(s) => {
-                            nu_utils::strip_ansi_string_unlikely(Pattern::escape(&s))
-                        }
-                        NuPath::UnQuoted(s) => nu_utils::strip_ansi_string_unlikely(s),
-                    },
-                    span: path.span,
-                }
-            };
+            path.item = path.item.strip_ansi_string_unlikely();
 
             let arg_span = path.span;
             // let path_no_whitespace = &path.item.trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));

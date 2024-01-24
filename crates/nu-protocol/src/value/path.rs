@@ -13,6 +13,15 @@ pub enum NuPath {
     UnQuoted(String),
 }
 
+impl NuPath {
+    pub fn strip_ansi_string_unlikely(self) -> Self {
+        match self {
+            NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
+            NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+        }
+    }
+}
+
 impl AsRef<str> for NuPath {
     fn as_ref(&self) -> &str {
         match self {
