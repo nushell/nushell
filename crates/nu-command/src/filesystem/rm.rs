@@ -157,7 +157,7 @@ fn rm(
 
     for (idx, path) in targets.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if &path.item.as_ref() == home {
+            if path.item.as_ref() == home {
                 unique_argument_check = Some(path.span);
             }
         }
@@ -248,7 +248,7 @@ fn rm(
             });
         }
 
-        let path = currentdir_path.join(&target.item.as_ref());
+        let path = currentdir_path.join(target.item.as_ref());
         match arg_glob_leading_dot(&target, &currentdir_path) {
             Ok(files) => {
                 for file in files {
