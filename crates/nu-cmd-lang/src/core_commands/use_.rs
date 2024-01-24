@@ -109,12 +109,12 @@ This command is a parser keyword. For details, check:
                 // If so, set the currently evaluated directory (file-relative PWD)
                 if let Some(parent) = maybe_parent {
                     let file_pwd = Value::string(parent.to_string_lossy(), call.head);
-                    callee_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+                    callee_stack.add_env_var("FILE_PWD".into(), file_pwd);
                 }
 
                 if let Some(file_path) = maybe_file_path {
                     let file_path = Value::string(file_path.to_string_lossy(), call.head);
-                    callee_stack.add_env_var("CURRENT_FILE".to_string(), file_path);
+                    callee_stack.add_env_var("CURRENT_FILE".into(), file_path);
                 }
 
                 // Run the block (discard the result)

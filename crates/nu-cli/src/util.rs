@@ -197,7 +197,7 @@ fn gather_env_vars(
             };
 
             // stack.add_env_var(name, value);
-            engine_state.add_env_var(name, value);
+            engine_state.add_env_var(name.into(), value);
         }
     }
 }
@@ -320,7 +320,7 @@ pub fn eval_source(
 
 fn set_last_exit_code(stack: &mut Stack, exit_code: i64) {
     stack.add_env_var(
-        "LAST_EXIT_CODE".to_string(),
+        "LAST_EXIT_CODE".into(),
         Value::int(exit_code, Span::unknown()),
     );
 }
@@ -348,15 +348,15 @@ mod test {
         let env = engine_state.render_env_vars();
 
         assert!(
-            matches!(env.get(&"FOO".to_string()), Some(&Value::String { val, .. }) if val == "foo")
+            matches!(env.get(&"FOO".to_owned().into()), Some(&Value::String { val, .. }) if val == "foo")
         );
         assert!(
-            matches!(env.get(&"SYMBOLS".to_string()), Some(&Value::String { val, .. }) if val == symbols)
+            matches!(env.get(&"SYMBOLS".to_owned().into()), Some(&Value::String { val, .. }) if val == symbols)
         );
         assert!(
-            matches!(env.get(&symbols.to_string()), Some(&Value::String { val, .. }) if val == "symbols")
+            matches!(env.get(&symbols.to_owned().into()), Some(&Value::String { val, .. }) if val == "symbols")
         );
-        assert!(env.get(&"PWD".to_string()).is_some());
+        assert!(env.get(&"PWD".to_owned().into()).is_some());
         assert_eq!(env.len(), 4);
     }
 }

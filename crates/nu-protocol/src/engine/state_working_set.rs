@@ -1,5 +1,5 @@
 use super::{
-    usage::build_usage, Command, EngineState, OverlayFrame, StateDelta, VirtualPath, Visibility,
+    usage::build_usage, Command, EngineState, EnvVarName, OverlayFrame, StateDelta, VirtualPath, Visibility,
     PWD_ENV,
 };
 use crate::ast::Block;
@@ -597,7 +597,7 @@ impl<'a> StateWorkingSet<'a> {
         &self.permanent_state.config
     }
 
-    pub fn list_env(&self) -> Vec<String> {
+    pub fn list_env(&self) -> Vec<EnvVarName> {
         let mut env_vars = vec![];
 
         for env_var in self.permanent_state.env_vars.clone().into_iter() {

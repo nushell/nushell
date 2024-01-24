@@ -2797,6 +2797,7 @@ dependencies = [
  "simplelog",
  "tempfile",
  "time",
+ "unicase",
  "winresource",
 ]
 
@@ -3176,6 +3177,7 @@ dependencies = [
  "strum_macros",
  "thiserror",
  "typetag",
+ "unicase",
 ]
 
 [[package]]

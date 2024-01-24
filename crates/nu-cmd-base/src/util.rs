@@ -109,9 +109,9 @@ pub fn get_editor(
         get_editor_commandline(&config.buffer_editor, "$env.config.buffer_editor")
     {
         Ok(buff_editor)
-    } else if let Some(value) = env_vars.get("EDITOR") {
+    } else if let Some(value) = env_vars.get(&"EDITOR".into()) {
         get_editor_commandline(value, "$env.EDITOR")
-    } else if let Some(value) = env_vars.get("VISUAL") {
+    } else if let Some(value) = env_vars.get(&"VISUAL".into()) {
         get_editor_commandline(value, "$env.VISUAL")
     } else {
         Err(ShellError::GenericError {

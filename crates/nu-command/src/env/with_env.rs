@@ -141,7 +141,7 @@ fn with_env(
     };
 
     for (k, v) in env {
-        stack.add_env_var(k, v);
+        stack.add_env_var(k.into(), v);
     }
 
     eval_block(

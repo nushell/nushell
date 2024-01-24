@@ -2,18 +2,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use nu_protocol::ast::{Call, Expr};
-use nu_protocol::engine::{EngineState, Stack, StateWorkingSet, PWD_ENV};
+use nu_protocol::engine::{EngineState, EnvVarName, Stack, StateWorkingSet, PWD_ENV};
 use nu_protocol::{Config, PipelineData, ShellError, Span, Value, VarId};
 
 use nu_path::canonicalize_with;
 
 use crate::eval_block;
 
-#[cfg(windows)]
-const ENV_PATH_NAME: &str = "Path";
-#[cfg(windows)]
-const ENV_PATH_NAME_SECONDARY: &str = "PATH";
-#[cfg(not(windows))]
 const ENV_PATH_NAME: &str = "PATH";
 
 const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
@@ -52,27 +47,12 @@ pub fn convert_env_values(engine_state: &mut EngineState, stack: &Stack) -> Opti
         }
     }
 
-    #[cfg(not(windows))]
-    {
-        error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME));
-    }
-
-    #[cfg(windows)]
-    {
-        let first_result = ensure_path(&mut new_scope, ENV_PATH_NAME);
-        if first_result.is_some() {
-            let second_result = ensure_path(&mut new_scope, ENV_PATH_NAME_SECONDARY);
-
-            if second_result.is_some() {
-                error = error.or(first_result);
-            }
-        }
-    }
+    error = error.or_else(|| ensure_path(&mut new_scope, ENV_PATH_NAME));
 
     if let Ok(last_overlay_name) = &stack.last_overlay_name() {
         if let Some(env_vars) = engine_state.env_vars.get_mut(last_overlay_name) {
             for (k, v) in new_scope {
-                env_vars.insert(k, v);
+                env_vars.insert(EnvVarName::from(k), v);
             }
         } else {
             error = error.or_else(|| {
@@ -147,7 +127,7 @@ pub fn env_to_strings(
     for (env_name, val) in env_vars {
         match env_to_string(&env_name, &val, engine_state, stack) {
             Ok(val_str) => {
-                env_vars_str.insert(env_name, val_str);
+                env_vars_str.insert(env_name.to_string(), val_str);
             }
             Err(ShellError::EnvVarNotAString { .. }) => {} // ignore non-string values
             Err(e) => return Err(e),
@@ -249,21 +229,10 @@ pub fn path_str(
 ) -> Result<String, ShellError> {
     let (pathname, pathval) = match stack.get_env_var(engine_state, ENV_PATH_NAME) {
         Some(v) => Ok((ENV_PATH_NAME, v)),
-        None => {
-            #[cfg(windows)]
-            match stack.get_env_var(engine_state, ENV_PATH_NAME_SECONDARY) {
-                Some(v) => Ok((ENV_PATH_NAME_SECONDARY, v)),
-                None => Err(ShellError::EnvVarNotFoundAtRuntime {
-                    envvar_name: ENV_PATH_NAME_SECONDARY.to_string(),
-                    span,
-                }),
-            }
-            #[cfg(not(windows))]
-            Err(ShellError::EnvVarNotFoundAtRuntime {
-                envvar_name: ENV_PATH_NAME.to_string(),
-                span,
-            })
-        }
+        None => Err(ShellError::EnvVarNotFoundAtRuntime {
+            envvar_name: ENV_PATH_NAME.to_string(),
+            span,
+        }),
     }?;
 
     env_to_string(pathname, &pathval, engine_state, stack)

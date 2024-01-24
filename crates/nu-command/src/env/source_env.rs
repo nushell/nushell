@@ -63,11 +63,11 @@ impl Command for SourceEnv {
         if let Some(parent) = file_path.parent() {
             let file_pwd = Value::string(parent.to_string_lossy(), call.head);
 
-            caller_stack.add_env_var("FILE_PWD".to_string(), file_pwd);
+            caller_stack.add_env_var("FILE_PWD".into(), file_pwd);
         }
 
         caller_stack.add_env_var(
-            "CURRENT_FILE".to_string(),
+            "CURRENT_FILE".into(),
             Value::string(file_path.to_string_lossy(), call.head),
         );
 

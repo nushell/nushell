@@ -69,7 +69,7 @@ impl Completer for VariableCompletion {
                     let nested_levels: Vec<Vec<u8>> =
                         self.var_context.1.clone().into_iter().skip(1).collect();
 
-                    if let Some(val) = env_vars.get(&target_var_str) {
+                    if let Some(val) = env_vars.get(&target_var_str.into()) {
                         for suggestion in
                             nested_suggestions(val.clone(), nested_levels, current_span)
                         {
@@ -93,7 +93,7 @@ impl Completer for VariableCompletion {
                             &prefix,
                         ) {
                             output.push(Suggestion {
-                                value: env_var.0,
+                                value: env_var.0.into(),
                                 description: None,
                                 extra: None,
                                 span: current_span,
