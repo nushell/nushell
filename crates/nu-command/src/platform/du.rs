@@ -5,8 +5,8 @@ use nu_glob::{GlobError, Pattern};
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
 
@@ -15,7 +15,7 @@ pub struct Du;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
-    path: Option<Spanned<String>>,
+    path: Option<Spanned<NuPath>>,
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
@@ -120,7 +120,7 @@ impl Command for Du {
             // The * pattern should never fail.
             None => arg_glob(
                 &Spanned {
-                    item: "*".into(),
+                    item: NuPath::UnQuoted("*".into()),
                     span: Span::unknown(),
                 },
                 &current_dir,

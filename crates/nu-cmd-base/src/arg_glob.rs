@@ -1,9 +1,8 @@
 // utilities for expanding globs in command arguments
 
-use nu_glob::{glob_with_parent, MatchOptions, Paths};
-use nu_protocol::{ShellError, Spanned};
-use std::fs;
-use std::path::{Path, PathBuf};
+use nu_glob::{glob_with_parent, MatchOptions, Paths, Pattern};
+use nu_protocol::{NuPath, ShellError, Spanned};
+use std::path::Path;
 
 // standard glob options to use for filesystem command arguments
 
@@ -18,14 +17,14 @@ const GLOB_PARAMS: MatchOptions = MatchOptions {
 // if literal path, return just that (whether user can access it or not).
 // if glob, expand into matching paths, using GLOB_PARAMS options.
 pub fn arg_glob(
-    pattern: &Spanned<String>, // alleged path or glob
+    pattern: &Spanned<NuPath>, // alleged path or glob
     cwd: &Path,                // current working directory
 ) -> Result<Paths, ShellError> {
     arg_glob_opt(pattern, cwd, GLOB_PARAMS)
 }
 
 // variant of [arg_glob] that requires literal dot prefix in pattern to match dot-prefixed path.
-pub fn arg_glob_leading_dot(pattern: &Spanned<String>, cwd: &Path) -> Result<Paths, ShellError> {
+pub fn arg_glob_leading_dot(pattern: &Spanned<NuPath>, cwd: &Path) -> Result<Paths, ShellError> {
     arg_glob_opt(
         pattern,
         cwd,
@@ -37,7 +36,7 @@ pub fn arg_glob_leading_dot(pattern: &Spanned<String>, cwd: &Path) -> Result<Pat
 }
 
 fn arg_glob_opt(
-    pattern: &Spanned<String>,
+    pattern: &Spanned<NuPath>,
     cwd: &Path,
     options: MatchOptions,
 ) -> Result<Paths, ShellError> {
@@ -61,12 +60,16 @@ fn arg_glob_opt(
     //     Err(_) => {}
     // }
 
-    // user wasn't referring to a specific thing in filesystem, try to glob it.
-    match glob_with_parent(&pattern.item, options, cwd) {
+    let span = pattern.span;
+    let pattern = match &pattern.item {
+        NuPath::Quoted(s) => nu_utils::strip_ansi_string_unlikely(Pattern::escape(s)),
+        NuPath::UnQuoted(s) => nu_utils::strip_ansi_string_unlikely(s.to_string()),
+    };
+    match glob_with_parent(&pattern, options, cwd) {
         Ok(p) => Ok(p),
         Err(pat_err) => Err(ShellError::InvalidGlobPattern {
             msg: pat_err.msg.into(),
-            span: pattern.span,
+            span,
         }),
     }
 }
@@ -79,17 +82,25 @@ mod test {
     use nu_test_support::fs::Stub::EmptyFile;
     use nu_test_support::playground::Playground;
     use rstest::rstest;
+    use std::path::PathBuf;
 
-    fn spanned_string(str: &str) -> Spanned<String> {
+    fn spanned_quoted_path(str: &str) -> Spanned<NuPath> {
         Spanned {
-            item: str.to_string(),
+            item: NuPath::Quoted(str.to_string()),
+            span: Span::test_data(),
+        }
+    }
+
+    fn spanned_unquoted_path(str: &str) -> Spanned<NuPath> {
+        Spanned {
+            item: NuPath::UnQuoted(str.to_string()),
             span: Span::test_data(),
         }
     }
 
     #[test]
     fn does_something() {
-        let act = arg_glob(&spanned_string("*"), &PathBuf::from("."));
+        let act = arg_glob(&spanned_unquoted_path("*"), &PathBuf::from("."));
         assert!(act.is_ok());
         for f in act.expect("checked ok") {
             match f {
@@ -103,7 +114,7 @@ mod test {
 
     #[test]
     fn glob_format_error() {
-        let act = arg_glob(&spanned_string(r#"ab]c[def"#), &PathBuf::from("."));
+        let act = arg_glob(&spanned_unquoted_path(r#"ab]c[def"#), &PathBuf::from("."));
         assert!(act.is_err());
     }
 
@@ -124,7 +135,7 @@ mod test {
                 EmptyFile("trish.txt"),
             ]);
 
-            let p: Vec<GlobResult> = arg_glob(&spanned_string(pat), &dirs.test)
+            let p: Vec<GlobResult> = arg_glob(&spanned_unquoted_path(pat), &dirs.test)
                 .expect("no error")
                 .collect();
             assert_eq!(
@@ -158,9 +169,13 @@ mod test {
                 EmptyFile("bad[glob.foo"),
             ]);
 
-            let res = arg_glob(&spanned_string(pat), &dirs.test)
-                .expect("no error")
-                .collect::<Vec<GlobResult>>();
+            let res = if exp_matches_input {
+                arg_glob(&spanned_quoted_path(pat), &dirs.test)
+            } else {
+                arg_glob(&spanned_unquoted_path(pat), &dirs.test)
+            }
+            .expect("no error")
+            .collect::<Vec<GlobResult>>();
 
             eprintln!("res: {:?}", res);
             if exp_matches_input {
@@ -170,7 +185,12 @@ mod test {
                     " case {case}: matches input, but count not 1? "
                 );
                 assert_eq!(
-                    &res[0].as_ref().unwrap().to_string_lossy(),
+                    &res[0]
+                        .as_ref()
+                        .unwrap()
+                        .file_name()
+                        .unwrap()
+                        .to_string_lossy(),
                     pat, // todo: is it OK for glob to return relative paths (not to current cwd, but to arg cwd of arg_glob)?
                 );
             } else {
@@ -195,7 +215,7 @@ mod test {
                 EmptyFile("bad[glob.foo"),
             ]);
 
-            let res = arg_glob(&spanned_string(pat), &dirs.test);
+            let res = arg_glob(&spanned_unquoted_path(pat), &dirs.test);
             assert!(res
                 .expect_err("expected error")
                 .to_string()

@@ -42,7 +42,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm "src/*/*/*.rs""#
+            r#"rm src/*/*/*.rs"#
         );
 
         assert!(!files_exist_at(

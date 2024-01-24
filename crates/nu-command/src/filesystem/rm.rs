@@ -13,8 +13,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
 const TRASH_SUPPORTED: bool = cfg!(all(
@@ -134,7 +134,7 @@ fn rm(
 
     let ctrlc = engine_state.ctrlc.clone();
 
-    let mut targets: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
+    let mut targets: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
 
     let mut unique_argument_check = None;
 
@@ -157,12 +157,15 @@ fn rm(
 
     for (idx, path) in targets.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if &path.item == home {
+            if &path.item.as_ref() == home {
                 unique_argument_check = Some(path.span);
             }
         }
         let corrected_path = Spanned {
-            item: nu_utils::strip_ansi_string_unlikely(path.item),
+            item: match path.item {
+                NuPath::Quoted(s) => NuPath::Quoted(nu_utils::strip_ansi_string_unlikely(s)),
+                NuPath::UnQuoted(s) => NuPath::UnQuoted(nu_utils::strip_ansi_string_unlikely(s)),
+            },
             span: path.span,
         };
         let _ = std::mem::replace(&mut targets[idx], corrected_path);
@@ -233,7 +236,7 @@ fn rm(
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in targets {
-        if currentdir_path.to_string_lossy() == target.item
+        if currentdir_path.to_string_lossy() == target.item.as_ref()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError {
@@ -245,7 +248,7 @@ fn rm(
             });
         }
 
-        let path = currentdir_path.join(&target.item);
+        let path = currentdir_path.join(&target.item.as_ref());
         match arg_glob_leading_dot(&target, &currentdir_path) {
             Ok(files) => {
                 for file in files {

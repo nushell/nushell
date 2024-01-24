@@ -986,10 +986,10 @@ fn test_cp_destination_after_cd() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -1005,7 +1005,7 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "cp {} {}",
+            "cp '{}' {}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );

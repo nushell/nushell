@@ -1,6 +1,6 @@
 use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
-use nu_glob::{GlobResult, Pattern};
+use nu_glob::GlobResult;
 use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
@@ -197,16 +197,6 @@ impl Command for UCp {
         let mut sources: Vec<PathBuf> = Vec::new();
 
         for p in paths {
-            let p = match p.item {
-                NuPath::Quoted(s) => Spanned {
-                    item: Pattern::escape(&s),
-                    span: p.span,
-                },
-                NuPath::UnQuoted(s) => Spanned {
-                    item: s,
-                    span: p.span,
-                },
-            };
             let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
             if exp_files.is_empty() {
                 return Err(ShellError::FileNotFound { span: p.span });

@@ -1,10 +1,11 @@
+use serde::Deserialize;
 use std::fmt::Display;
 
 /// A simple wrapper to String.
 ///
 /// But it tracks if the string is originally quoted.
 /// So commands can make decision on path auto-expanding behavior.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deserialize)]
 pub enum NuPath {
     /// A quoted path(except backtick), in this case, nushell shouldn't auto-expand path.
     Quoted(String),

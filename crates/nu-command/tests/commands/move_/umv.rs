@@ -559,10 +559,10 @@ fn mv_with_no_target() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case(r#"a]c"#)]
+#[case(r#"a[c"#)]
+#[case(r#"a[bc]d"#)]
+#[case(r#"a][c"#)]
 fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("umv_test_16", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -574,7 +574,7 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "umv {} {}",
+            "umv '{}' {}",
             src.display(),
             "hello_world_dest"
         );

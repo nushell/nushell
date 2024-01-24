@@ -6,7 +6,7 @@ use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -58,7 +58,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::Filepath,
+                SyntaxShape::GlobPattern,
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
@@ -84,14 +84,14 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
 
-        let paths: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let paths: Vec<Spanned<String>> = paths
-            .into_iter()
-            .map(|p| Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(p.item),
-                span: p.span,
-            })
-            .collect();
+        let paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
+        // let paths: Vec<Spanned<String>> = paths
+        //     .into_iter()
+        //     .map(|p| Spanned {
+        //         item: nu_utils::strip_ansi_string_unlikely(p.item),
+        //         span: p.span,
+        //     })
+        //     .collect();
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -151,7 +151,9 @@ impl Command for UMv {
             label: "Missing file operand".into(),
             span: call.head,
         })?;
-        let expanded_target = expand_to_real_path(spanned_target.item.clone());
+        let expanded_target = expand_to_real_path(nu_utils::strip_ansi_string_unlikely(
+            spanned_target.item.to_string(),
+        ));
         let abs_target_path = expand_path_with(expanded_target, &cwd);
         files.push(abs_target_path.clone());
         let files = files

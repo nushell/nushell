@@ -1,11 +1,12 @@
 use nu_engine::{current_dir, eval_block, CallExt};
+use nu_glob::Pattern;
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
-    Category, DataSource, Example, IntoInterruptiblePipelineData, PipelineData, PipelineMetadata,
-    RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
+    Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
+    PipelineMetadata, RawStream, ShellError, Signature, Spanned, SyntaxShape, Type, Value,
 };
 use std::io::BufReader;
 
@@ -42,10 +43,10 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::Filepath, "The filename to use.")
+            .optional("filename", SyntaxShape::GlobPattern, "The filename to use.")
             .rest(
                 "filenames",
-                SyntaxShape::Filepath,
+                SyntaxShape::GlobPattern,
                 "Optional additional files to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
@@ -63,8 +64,8 @@ impl Command for Open {
         let call_span = call.head;
         let ctrlc = engine_state.ctrlc.clone();
         let cwd = current_dir(engine_state, stack)?;
-        let req_path = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-        let mut path_params = call.rest::<Spanned<String>>(engine_state, stack, 1)?;
+        let req_path = call.opt::<Spanned<NuPath>>(engine_state, stack, 0)?;
+        let mut path_params = call.rest::<Spanned<NuPath>>(engine_state, stack, 1)?;
 
         // FIXME: JT: what is this doing here?
 
@@ -87,7 +88,13 @@ impl Command for Open {
                 }
             };
 
-            path_params.insert(0, filename);
+            path_params.insert(
+                0,
+                Spanned {
+                    item: NuPath::UnQuoted(filename.item),
+                    span: filename.span,
+                },
+            );
         }
 
         let mut output = vec![];
@@ -96,7 +103,12 @@ impl Command for Open {
             //FIXME: `open` should not have to do this
             let path = {
                 Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
+                    item: match path.item {
+                        NuPath::Quoted(s) => {
+                            nu_utils::strip_ansi_string_unlikely(Pattern::escape(&s))
+                        }
+                        NuPath::UnQuoted(s) => nu_utils::strip_ansi_string_unlikely(s),
+                    },
                     span: path.span,
                 }
             };
