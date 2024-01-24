@@ -148,13 +148,6 @@ impl Command for UCp {
         #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
         let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
-        // let mut paths: Vec<Spanned<String>> = paths
-        //     .into_iter()
-        //     .map(|p| Spanned {
-        //         item: nu_utils::strip_ansi_string_unlikely(p.item),
-        //         span: p.span,
-        //     })
-        //     .collect();
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
