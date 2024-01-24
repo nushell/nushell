@@ -70,7 +70,14 @@ pub fn glob_from(
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
             let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
-                p
+                if p.to_string_lossy().contains(GLOB_CHARS) {
+                    // our path might contains GLOB_CHARS too
+                    // in such case, we need to escape our path to make
+                    // glob work successfully
+                    PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))
+                } else {
+                    p
+                }
             } else {
                 return Err(ShellError::DirectoryNotFound {
                     dir: path.to_string_lossy().to_string(),
