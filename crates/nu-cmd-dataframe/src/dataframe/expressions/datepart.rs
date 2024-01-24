@@ -75,7 +75,7 @@ impl Command for ExprDatePart {
                         vec![
                             Series::new("datetime", &[dt.timestamp_nanos_opt()])
                                 .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))
-                                .unwrap(),
+                                .expect("Error casting to datetime type"),
                             Series::new("datetime_year", &[2021_i64]), // i32 was coerced to i64
                             Series::new("datetime_month", &[12_i8]),
                             Series::new("datetime_day", &[30_i8]),
