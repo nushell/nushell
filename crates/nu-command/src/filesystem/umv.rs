@@ -85,13 +85,6 @@ impl Command for UMv {
         };
 
         let paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
-        // let paths: Vec<Spanned<String>> = paths
-        //     .into_iter()
-        //     .map(|p| Spanned {
-        //         item: nu_utils::strip_ansi_string_unlikely(p.item),
-        //         span: p.span,
-        //     })
-        //     .collect();
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
