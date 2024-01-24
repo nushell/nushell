@@ -18,9 +18,9 @@ nu-parser = { path = "../nu-parser", version = "0.91.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
 # Potential dependencies for extras
-chrono = { version = "0.4", features = ["std", "unstable-locales"], default-features = false }
+chrono = { workspace = true, features = ["std", "unstable-locales"], default-features = false }
 chrono-tz = "0.8"
-fancy-regex = "0.13"
+fancy-regex = { workspace = true }
 indexmap = { version = "2.2" }
 num = { version = "0.4", optional = true }
 serde = { version = "1.0", features = ["derive"] }

@@ -12,15 +12,15 @@ nu-cli = { path = "../nu-cli", version = "0.91.1" }
 nu-parser = { path = "../nu-parser", version = "0.91.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.91.1" }
 
-reedline = { version = "0.30" }
+reedline = { workspace = true }
 
 crossbeam-channel = "0.5.8"
 lsp-types = "0.95.0"
 lsp-server = "0.7.5"
-miette = "7.1"
+miette = { workspace = true }
 ropey = "1.6.1"
 serde = "1.0"
-serde_json = "1.0"
+serde_json = { workspace = true }
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.91.1" }
