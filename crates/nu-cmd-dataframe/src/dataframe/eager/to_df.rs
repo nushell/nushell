@@ -6,7 +6,7 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -122,6 +122,21 @@ impl Command for ToDataFrame {
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
+            },
+            Example {
+                description: "Convert to a dataframe and provide a schema",
+                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| dfr into-df -s {a: u8, b: {a: list[u64]}, c: list[str]} | dfr schema",
+                result: Some(Value::record(
+                    Record::from_raw_cols_vals(
+                        vec!["a".to_string(), "b".to_string(), "c".to_string()],
+                        vec![
+                            Value::string("u8", Span::test_data()),
+                            Value::string("struct[1]", Span::test_data()),
+                            Value::string("list[str]", Span::test_data()),
+                        ],
+                    ),
+                    Span::test_data(),
+                )),
             },
         ]
     }
