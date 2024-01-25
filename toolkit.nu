@@ -301,7 +301,7 @@ export def "check pr" [
 
 # run Nushell from source with a right indicator
 export def run [] {
-    cargo run -- [
+    cargo run -- ...[
         -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
     ]
 }
