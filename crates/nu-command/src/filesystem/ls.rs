@@ -12,7 +12,6 @@ use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
-use num_traits::ToPrimitive;
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
