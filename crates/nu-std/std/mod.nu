@@ -9,7 +9,6 @@ export module input.nu
 export module iter.nu
 export module log.nu
 export module math.nu
-export module testing.nu
 export module xml.nu
 export-env {
     use dirs.nu []
