@@ -18,8 +18,8 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
-    span, BlockId, DidYouMean, Flag, ParseError, ParseWarning, PositionalArg, Signature, Span,
-    Spanned, SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -3603,9 +3603,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         if syntax_shape == SyntaxShape::Boolean {
-                                            working_set.warning(ParseWarning::DeprecatedWarning(
-                                                "--flag: bool".to_string(),
-                                                "--flag".to_string(),
+                                            working_set.error(ParseError::LabeledError(
+                                                "Type annotations are not allowed for boolean switches.".to_string(),
+                                                "Remove the `: bool` type annotation.".to_string(),
                                                 span,
                                             ));
                                         }

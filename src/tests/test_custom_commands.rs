@@ -149,8 +149,7 @@ fn custom_flag2() -> TestResult {
 #[test]
 fn deprecated_boolean_flag() {
     let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
-    assert!(actual.err.contains("Deprecated"));
-    assert_eq!(actual.out, "aaa");
+    assert!(actual.err.contains("not allowed"));
 }
 
 #[test]
