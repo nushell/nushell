@@ -12,6 +12,7 @@ use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
     PipelineMetadata, Record, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value,
 };
+use num_traits::ToPrimitive;
 use pathdiff::diff_paths;
 
 #[cfg(unix)]
@@ -630,6 +631,9 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
+    if sec==-11644473600i64 {
+        return None
+    }
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
@@ -756,10 +760,12 @@ mod windows_helper {
         const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
 
         let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
-        let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
-        let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
-
-        seconds_since_unix_epoch as i64
+        if time_u64>0 {
+            let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
+            let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;    
+            return seconds_since_unix_epoch as i64
+        }
+        return 0
     }
 
     // wrapper around the FindFirstFileW Win32 API
