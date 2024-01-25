@@ -1,7 +1,7 @@
-use nu_engine::env::current_dir;
+use nu_engine::env::{current_dir, current_dir_const};
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
     Spanned, SyntaxShape, Type, Value,
@@ -50,6 +50,10 @@ impl Command for Glob {
                 Some('e'),
             )
             .category(Category::FileSystem)
+    }
+
+    fn is_const(&self) -> bool {
+        true
     }
 
     fn usage(&self) -> &str {
@@ -124,6 +128,136 @@ impl Command for Glob {
 
     fn extra_usage(&self) -> &str {
         r#"For more glob pattern help, please refer to https://docs.rs/crate/wax/latest"#
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let span = call.head;
+        let glob_pattern: Spanned<String> = call.req_const(working_set, 0)?;
+        let depth = call.get_flag_const(working_set, "depth")?;
+        let no_dirs = call.has_flag_const(working_set, "no-dir")?;
+        let no_files = call.has_flag_const(working_set, "no-file")?;
+        let no_symlinks = call.has_flag_const(working_set, "no-symlink")?;
+        let paths_to_exclude: Option<Value> = call.get_flag_const(working_set, "exclude")?;
+
+        let (not_patterns, not_pattern_span): (Vec<String>, Span) = match paths_to_exclude {
+            None => (vec![], span),
+            Some(f) => {
+                let pat_span = f.span();
+                match f {
+                    Value::List { vals: pats, .. } => {
+                        let p = convert_patterns(pats.as_slice())?;
+                        (p, pat_span)
+                    }
+                    _ => (vec![], span),
+                }
+            }
+        };
+
+        if glob_pattern.item.is_empty() {
+            return Err(ShellError::GenericError {
+                error: "glob pattern must not be empty".into(),
+                msg: "glob pattern is empty".into(),
+                span: Some(glob_pattern.span),
+                help: Some("add characters to the glob pattern".into()),
+                inner: vec![],
+            });
+        }
+
+        let folder_depth = if let Some(depth) = depth {
+            depth
+        } else {
+            usize::MAX
+        };
+
+        let (prefix, glob) = match WaxGlob::new(&glob_pattern.item) {
+            Ok(p) => p.partition(),
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "error with glob pattern".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
+            }
+        };
+
+        let path = current_dir_const(working_set)?;
+        let path = match nu_path::canonicalize_with(prefix, path) {
+            Ok(path) => path,
+            Err(e) if e.to_string().contains("os error 2") =>
+            // path we're trying to glob doesn't exist,
+            {
+                std::path::PathBuf::new() // user should get empty list not an error
+            }
+            Err(e) => {
+                return Err(ShellError::GenericError {
+                    error: "error in canonicalize".into(),
+                    msg: format!("{e}"),
+                    span: Some(glob_pattern.span),
+                    help: None,
+                    inner: vec![],
+                })
+            }
+        };
+
+        Ok(if !not_patterns.is_empty() {
+            let np: Vec<&str> = not_patterns.iter().map(|s| s as &str).collect();
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .not(np)
+                .map_err(|err| ShellError::GenericError {
+                    error: "error with glob's not pattern".into(),
+                    msg: format!("{err}"),
+                    span: Some(not_pattern_span),
+                    help: None,
+                    inner: vec![],
+                })?
+                .flatten();
+            let result = glob_to_value(
+                working_set.permanent().ctrlc.clone(),
+                glob_results,
+                no_dirs,
+                no_files,
+                no_symlinks,
+                span,
+            )?;
+            result
+                .into_iter()
+                .into_pipeline_data(working_set.permanent().ctrlc.clone())
+        } else {
+            let glob_results = glob
+                .walk_with_behavior(
+                    path,
+                    WalkBehavior {
+                        depth: folder_depth,
+                        ..Default::default()
+                    },
+                )
+                .flatten();
+            let result = glob_to_value(
+                working_set.permanent().ctrlc.clone(),
+                glob_results,
+                no_dirs,
+                no_files,
+                no_symlinks,
+                span,
+            )?;
+            result
+                .into_iter()
+                .into_pipeline_data(working_set.permanent().ctrlc.clone())
+        })
     }
 
     fn run(
