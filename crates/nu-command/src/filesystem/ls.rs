@@ -764,7 +764,7 @@ mod windows_helper {
             let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
             return seconds_since_unix_epoch as i64;
         }
-        return 0;
+        0
     }
 
     // wrapper around the FindFirstFileW Win32 API
