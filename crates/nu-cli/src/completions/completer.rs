@@ -465,6 +465,7 @@ pub fn map_value_completions<'a>(
             return Some(Suggestion {
                 value: s,
                 description: None,
+                style: None,
                 extra: None,
                 span: reedline::Span {
                     start: span.start - offset,
@@ -479,6 +480,7 @@ pub fn map_value_completions<'a>(
             let mut suggestion = Suggestion {
                 value: String::from(""), // Initialize with empty string
                 description: None,
+                style: None,
                 extra: None,
                 span: reedline::Span {
                     start: span.start - offset,

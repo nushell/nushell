@@ -102,6 +102,7 @@ impl NuHelpCompleter {
                 Suggestion {
                     value: sig.name.clone(),
                     description: Some(long_desc),
+                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
                         start: pos - line.len(),
