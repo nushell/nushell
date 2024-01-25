@@ -630,6 +630,9 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
+    if sec < 0 {
+        return None;
+    }
     match Utc.timestamp_opt(sec, nsec) {
         LocalResult::Single(t) => Some(t.with_timezone(&Local)),
         _ => None,
@@ -678,11 +681,11 @@ mod windows_helper {
                 // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
-                eprintln!(
-                    "Failed to read metadata for '{}'. It may have an illegal filename",
-                    filename.to_string_lossy()
-                );
-                log::error!("{e}");
+                // eprintln!(
+                //     "Failed to read metadata for '{}'. It may have an illegal filename",
+                //     filename.to_string_lossy()
+                // );
+                log::error!("ls: {e}");
                 return Value::record(record, span);
             }
         };
@@ -756,10 +759,12 @@ mod windows_helper {
         const HUNDREDS_OF_NANOSECONDS: u64 = 10000000;
 
         let time_u64 = ((ft.dwHighDateTime as u64) << 32) | (ft.dwLowDateTime as u64);
-        let rel_to_linux_epoch = time_u64 - EPOCH_AS_FILETIME;
-        let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
-
-        seconds_since_unix_epoch as i64
+        if time_u64 > 0 {
+            let rel_to_linux_epoch = time_u64.saturating_sub(EPOCH_AS_FILETIME);
+            let seconds_since_unix_epoch = rel_to_linux_epoch / HUNDREDS_OF_NANOSECONDS;
+            return seconds_since_unix_epoch as i64;
+        }
+        0
     }
 
     // wrapper around the FindFirstFileW Win32 API
