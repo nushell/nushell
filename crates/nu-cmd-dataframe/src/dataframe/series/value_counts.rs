@@ -41,7 +41,7 @@ impl Command for ValueCount {
                             vec![Value::test_int(5), Value::test_int(6)],
                         ),
                         Column::new(
-                            "counts".to_string(),
+                            "count".to_string(),
                             vec![Value::test_int(4), Value::test_int(2)],
                         ),
                     ],

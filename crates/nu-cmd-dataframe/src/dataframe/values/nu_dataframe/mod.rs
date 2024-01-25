@@ -9,7 +9,7 @@ pub use operations::Axis;
 use indexmap::map::IndexMap;
 use nu_protocol::{did_you_mean, PipelineData, Record, ShellError, Span, Value};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, PolarsObject, Series};
-use polars_arrow::util::total_ord::TotalEq;
+use polars_utils::total_ord::TotalEq;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Display, hash::Hasher};
 
@@ -500,7 +500,7 @@ impl NuDataFrame {
                 _ => self_series.clone(),
             };
 
-            if !self_series.series_equal(other_series) {
+            if !self_series.equals(other_series) {
                 return None;
             }
         }

@@ -65,7 +65,14 @@ impl Command for LazyQuantile {
         let lazy = NuLazyFrame::new(
             lazy.from_eager,
             lazy.into_polars()
-                .quantile(lit(quantile), QuantileInterpolOptions::default()),
+                .quantile(lit(quantile), QuantileInterpolOptions::default())
+                .map_err(|e| ShellError::GenericError {
+                    error: "Dataframe Error".into(),
+                    msg: e.to_string(),
+                    help: None,
+                    span: None,
+                    inner: vec![],
+                })?,
         );
 
         Ok(PipelineData::Value(lazy.into_value(call.head)?, None))

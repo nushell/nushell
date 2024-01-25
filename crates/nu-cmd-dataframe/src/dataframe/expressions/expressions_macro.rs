@@ -179,7 +179,18 @@ macro_rules! lazy_expr_command {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
-                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func());
+                    let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
+                        lazy.into_polars()
+                            .$func()
+                            .map_err(|e| ShellError::GenericError {
+                                error: "Dataframe Error".into(),
+                                msg: e.to_string(),
+                                help: None,
+                                span: None,
+                                inner: vec![],
+                            })?,
+                    );
 
                     Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {
@@ -267,7 +278,18 @@ macro_rules! lazy_expr_command {
                 let value = input.into_value(call.head);
                 if NuDataFrame::can_downcast(&value) {
                     let lazy = NuLazyFrame::try_from_value(value)?;
-                    let lazy = NuLazyFrame::new(lazy.from_eager, lazy.into_polars().$func($ddof));
+                    let lazy = NuLazyFrame::new(
+                        lazy.from_eager,
+                        lazy.into_polars()
+                            .$func($ddof)
+                            .map_err(|e| ShellError::GenericError {
+                                error: "Dataframe Error".into(),
+                                msg: e.to_string(),
+                                help: None,
+                                span: None,
+                                inner: vec![],
+                            })?,
+                    );
 
                     Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
                 } else {

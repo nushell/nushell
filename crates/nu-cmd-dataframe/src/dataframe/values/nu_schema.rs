@@ -92,13 +92,13 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
         "i64" => Ok(DataType::Int64),
         "f32" => Ok(DataType::Float32),
         "f64" => Ok(DataType::Float64),
-        "str" => Ok(DataType::Utf8),
+        "str" => Ok(DataType::String),
         "binary" => Ok(DataType::Binary),
         "date" => Ok(DataType::Date),
         "time" => Ok(DataType::Time),
         "null" => Ok(DataType::Null),
         "unknown" => Ok(DataType::Unknown),
-        "object" => Ok(DataType::Object("unknown")),
+        "object" => Ok(DataType::Object("unknown", None)),
         _ if dtype.starts_with("list") => {
             let dtype = dtype
                 .trim_start_matches("list")
@@ -224,13 +224,13 @@ mod test {
         };
         let schema = value_to_schema(&value, Span::unknown()).unwrap();
         let expected = Schema::from_iter(vec![
-            Field::new("name", DataType::Utf8),
+            Field::new("name", DataType::String),
             Field::new("age", DataType::Int32),
             Field::new(
                 "address",
                 DataType::Struct(vec![
-                    Field::new("street", DataType::Utf8),
-                    Field::new("city", DataType::Utf8),
+                    Field::new("street", DataType::String),
+                    Field::new("city", DataType::String),
                 ]),
             ),
         ]);
@@ -286,7 +286,7 @@ mod test {
 
         let dtype = "str";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Utf8;
+        let expected = DataType::String;
         assert_eq!(schema, expected);
 
         let dtype = "binary";
@@ -316,7 +316,7 @@ mod test {
 
         let dtype = "object";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
-        let expected = DataType::Object("unknown");
+        let expected = DataType::Object("unknown", None);
         assert_eq!(schema, expected);
     }
 

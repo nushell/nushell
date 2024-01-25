@@ -1,5 +1,4 @@
 mod cd;
-mod cp;
 mod glob;
 mod ls;
 mod mkdir;
@@ -18,7 +17,6 @@ mod watch;
 
 pub use self::open::Open;
 pub use cd::Cd;
-pub use cp::Cp;
 pub use glob::Glob;
 pub use ls::Ls;
 pub use mkdir::Mkdir;

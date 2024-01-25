@@ -225,7 +225,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::Last(expr)
                 | AggExpr::Mean(expr)
                 | AggExpr::Implode(expr)
-                | AggExpr::Count(expr)
+                | AggExpr::Count(expr, _)
                 | AggExpr::Sum(expr)
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr, _)

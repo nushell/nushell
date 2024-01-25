@@ -11,7 +11,7 @@ use polars::export::arrow::Either;
 use polars::prelude::{
     DataFrame, DataType, DatetimeChunked, Float32Type, Float64Type, Int16Type, Int32Type,
     Int64Type, Int8Type, IntoSeries, ListBooleanChunkedBuilder, ListBuilderTrait,
-    ListPrimitiveChunkedBuilder, ListType, ListUtf8ChunkedBuilder, NamedFrom, NewChunkedArray,
+    ListPrimitiveChunkedBuilder, ListStringChunkedBuilder, ListType, NamedFrom, NewChunkedArray,
     ObjectType, Schema, Series, StructChunked, TemporalMethods, TimeUnit, UInt16Type, UInt32Type,
     UInt64Type, UInt8Type,
 };
@@ -220,7 +220,7 @@ pub fn insert_value(
                 col_val.values.push(value);
             }
             _ => {
-                col_val.column_type = Some(DataType::Object("Value"));
+                col_val.column_type = Some(DataType::Object("Value", None));
                 col_val.values.push(value);
             }
         }
@@ -233,7 +233,7 @@ fn value_to_data_type(value: &Value) -> DataType {
     match &value {
         Value::Int { .. } => DataType::Int64,
         Value::Float { .. } => DataType::Float64,
-        Value::String { .. } => DataType::Utf8,
+        Value::String { .. } => DataType::String,
         Value::Bool { .. } => DataType::Boolean,
         Value::Date { .. } => DataType::Date,
         Value::Duration { .. } => DataType::Duration(TimeUnit::Nanoseconds),
@@ -250,11 +250,11 @@ fn value_to_data_type(value: &Value) -> DataType {
                 .filter(|v| !matches!(v, Value::Nothing { .. }))
                 .map(value_to_data_type)
                 .nth(1)
-                .unwrap_or(DataType::Object("Value"));
+                .unwrap_or(DataType::Object("Value", None));
 
             DataType::List(Box::new(list_type))
         }
-        _ => DataType::Object("Value"),
+        _ => DataType::Object("Value", None),
     }
 }
 
@@ -340,12 +340,12 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                     column.values.iter().map(|v| v.as_bool()).collect();
                 Ok(Series::new(name, series_values?))
             }
-            DataType::Utf8 => {
+            DataType::String => {
                 let series_values: Result<Vec<_>, _> =
                     column.values.iter().map(|v| v.as_string()).collect();
                 Ok(Series::new(name, series_values?))
             }
-            DataType::Object(_) => value_to_series(name, &column.values),
+            DataType::Object(_, _) => value_to_series(name, &column.values),
             DataType::Duration(time_unit) => {
                 //todo - finish type conversion
                 let series_values: Result<Vec<_>, _> = column
@@ -363,7 +363,7 @@ fn typed_column_to_series(name: &str, column: TypedColumn) -> Result<Series, She
                         // If this happens, fallback to object list
                         input_type_list_to_series(
                             name,
-                            &DataType::Object("unknown"),
+                            &DataType::Object("unknown", None),
                             &column.values,
                         )
                     }
@@ -555,8 +555,8 @@ fn input_type_list_to_series(
         DataType::Int64 => primitive_list_series!(Int64Type, i64),
         DataType::Float32 => primitive_list_series!(Float32Type, f32),
         DataType::Float64 => primitive_list_series!(Float64Type, f64),
-        DataType::Utf8 => {
-            let mut builder = ListUtf8ChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
+        DataType::String => {
+            let mut builder = ListStringChunkedBuilder::new(name, values.len(), VALUES_CAPACITY);
             for v in values {
                 let value_list = v
                     .as_list()?
@@ -880,8 +880,8 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Utf8 => {
-            let casted = series.utf8().map_err(|e| ShellError::GenericError {
+        DataType::String => {
+            let casted = series.str().map_err(|e| ShellError::GenericError {
                 error: "Error casting column to string".into(),
                 msg: "".into(),
                 span: None,
@@ -903,7 +903,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        DataType::Object(x) => {
+        DataType::Object(x, _) => {
             let casted = series
                 .as_any()
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
@@ -1087,7 +1087,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
     match any_value {
         AnyValue::Null => Ok(Value::nothing(span)),
         AnyValue::Boolean(b) => Ok(Value::bool(*b, span)),
-        AnyValue::Utf8(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::String(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::UInt8(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt16(i) => Ok(Value::int(*i as i64, span)),
         AnyValue::UInt32(i) => Ok(Value::int(*i as i64, span)),
@@ -1153,7 +1153,7 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
                 internal_span: span,
             })
         }
-        AnyValue::Utf8Owned(s) => Ok(Value::string(s.to_string(), span)),
+        AnyValue::StringOwned(s) => Ok(Value::string(s.to_string(), span)),
         AnyValue::Binary(bytes) => Ok(Value::binary(*bytes, span)),
         AnyValue::BinaryOwned(bytes) => Ok(Value::binary(bytes.to_owned(), span)),
         e => Err(ShellError::GenericError {
@@ -1248,7 +1248,7 @@ mod tests {
         };
         let typed_column = TypedColumn {
             column,
-            column_type: Some(DataType::List(Box::new(DataType::Utf8))),
+            column_type: Some(DataType::List(Box::new(DataType::String))),
         };
 
         let column_map = indexmap!("foo".to_string() => typed_column);
@@ -1280,11 +1280,11 @@ mod tests {
 
         let test_str = "foo";
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8(test_str), span)?,
+            any_value_to_value(&AnyValue::String(test_str), span)?,
             Value::string(test_str.to_string(), span)
         );
         assert_eq!(
-            any_value_to_value(&AnyValue::Utf8Owned(test_str.into()), span)?,
+            any_value_to_value(&AnyValue::StringOwned(test_str.into()), span)?,
             Value::string(test_str.to_owned(), span)
         );
 

@@ -112,6 +112,70 @@ macro_rules! lazy_command {
             }
         }
     };
+
+    ($command: ident, $name: expr, $desc: expr, $examples: expr, $func: ident?, $test: ident) => {
+        #[derive(Clone)]
+        pub struct $command;
+
+        impl Command for $command {
+            fn name(&self) -> &str {
+                $name
+            }
+
+            fn usage(&self) -> &str {
+                $desc
+            }
+
+            fn signature(&self) -> Signature {
+                Signature::build(self.name())
+                    .input_output_type(
+                        Type::Custom("dataframe".into()),
+                        Type::Custom("dataframe".into()),
+                    )
+                    .category(Category::Custom("lazyframe".into()))
+            }
+
+            fn examples(&self) -> Vec<Example> {
+                $examples
+            }
+
+            fn run(
+                &self,
+                _engine_state: &EngineState,
+                _stack: &mut Stack,
+                call: &Call,
+                input: PipelineData,
+            ) -> Result<PipelineData, ShellError> {
+                let lazy = NuLazyFrame::try_from_pipeline(input, call.head)?;
+
+                let lazy = NuLazyFrame::new(
+                    lazy.from_eager,
+                    lazy.into_polars()
+                        .$func()
+                        .map_err(|e| ShellError::GenericError {
+                            error: "Dataframe Error".into(),
+                            msg: e.to_string(),
+                            help: None,
+                            span: None,
+                            inner: vec![],
+                        })?,
+                );
+
+                Ok(PipelineData::Value(lazy.into_value(call.head)?, None))
+            }
+        }
+
+        #[cfg(test)]
+        mod $test {
+            use super::super::super::test_dataframe::test_dataframe;
+            use super::*;
+
+            #[test]
+            fn test_examples() {
+                test_dataframe(vec![Box::new($command {})])
+            }
+        }
+    };
 }
 
 // LazyReverse command
@@ -181,6 +245,6 @@ lazy_command!(
             .into_value(Span::test_data()),
         ),
     },],
-    median,
+    median?,
     test_median
 );

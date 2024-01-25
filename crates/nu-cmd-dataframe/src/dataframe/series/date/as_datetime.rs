@@ -7,7 +7,7 @@ use nu_protocol::{
     engine::{Command, EngineState, Stack},
     Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
-use polars::prelude::{IntoSeries, TimeUnit, Utf8Methods};
+use polars::prelude::{IntoSeries, StringMethods, TimeUnit};
 
 #[derive(Clone)]
 pub struct AsDateTime;
@@ -138,7 +138,7 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
-    let casted = series.utf8().map_err(|e| ShellError::GenericError {
+    let casted = series.str().map_err(|e| ShellError::GenericError {
         error: "Error casting to string".into(),
         msg: e.to_string(),
         span: Some(call.head),

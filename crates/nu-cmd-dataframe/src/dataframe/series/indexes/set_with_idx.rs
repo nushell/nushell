@@ -124,85 +124,84 @@ fn command(
     let series = df.as_series(call.head)?;
 
     let span = value.span();
-    let res =
-        match value {
-            Value::Int { val, .. } => {
-                let chunked = series.i64().map_err(|e| ShellError::GenericError {
-                    error: "Error casting to i64".into(),
-                    msg: e.to_string(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-                let res = chunked.set_at_idx(indices, Some(val)).map_err(|e| {
-                    ShellError::GenericError {
-                        error: "Error setting value".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }
-                })?;
-
-                NuDataFrame::try_from_series(vec![res.into_series()], call.head)
-            }
-            Value::Float { val, .. } => {
-                let chunked = series.f64().map_err(|e| ShellError::GenericError {
-                    error: "Error casting to f64".into(),
-                    msg: e.to_string(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-                let res = chunked.set_at_idx(indices, Some(val)).map_err(|e| {
-                    ShellError::GenericError {
-                        error: "Error setting value".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }
-                })?;
-
-                NuDataFrame::try_from_series(vec![res.into_series()], call.head)
-            }
-            Value::String { val, .. } => {
-                let chunked = series.utf8().map_err(|e| ShellError::GenericError {
-                    error: "Error casting to string".into(),
-                    msg: e.to_string(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-                let res = chunked
-                    .set_at_idx(indices, Some(val.as_ref()))
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Error setting value".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })?;
-
-                let mut res = res.into_series();
-                res.rename("string");
-
-                NuDataFrame::try_from_series(vec![res.into_series()], call.head)
-            }
-            _ => Err(ShellError::GenericError {
-                error: "Incorrect value type".into(),
-                msg: format!(
-                    "this value cannot be set in a series of type '{}'",
-                    series.dtype()
-                ),
+    let res = match value {
+        Value::Int { val, .. } => {
+            let chunked = series.i64().map_err(|e| ShellError::GenericError {
+                error: "Error casting to i64".into(),
+                msg: e.to_string(),
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            }),
-        };
+            })?;
+
+            let res = chunked.scatter_single(indices, Some(val)).map_err(|e| {
+                ShellError::GenericError {
+                    error: "Error setting value".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }
+            })?;
+
+            NuDataFrame::try_from_series(vec![res.into_series()], call.head)
+        }
+        Value::Float { val, .. } => {
+            let chunked = series.f64().map_err(|e| ShellError::GenericError {
+                error: "Error casting to f64".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
+
+            let res = chunked.scatter_single(indices, Some(val)).map_err(|e| {
+                ShellError::GenericError {
+                    error: "Error setting value".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                }
+            })?;
+
+            NuDataFrame::try_from_series(vec![res.into_series()], call.head)
+        }
+        Value::String { val, .. } => {
+            let chunked = series.str().map_err(|e| ShellError::GenericError {
+                error: "Error casting to string".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
+
+            let res = chunked
+                .scatter_single(indices, Some(val.as_ref()))
+                .map_err(|e| ShellError::GenericError {
+                    error: "Error setting value".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })?;
+
+            let mut res = res.into_series();
+            res.rename("string");
+
+            NuDataFrame::try_from_series(vec![res.into_series()], call.head)
+        }
+        _ => Err(ShellError::GenericError {
+            error: "Incorrect value type".into(),
+            msg: format!(
+                "this value cannot be set in a series of type '{}'",
+                series.dtype()
+            ),
+            span: Some(span),
+            help: None,
+            inner: vec![],
+        }),
+    };
 
     res.map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }

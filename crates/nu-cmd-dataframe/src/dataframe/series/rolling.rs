@@ -134,7 +134,7 @@ fn command(
     let df = NuDataFrame::try_from_pipeline(input, call.head)?;
     let series = df.as_series(call.head)?;
 
-    if let DataType::Object(_) = series.dtype() {
+    if let DataType::Object(..) = series.dtype() {
         return Err(ShellError::GenericError {
             error: "Found object series".into(),
             msg: "Series of type object cannot be used for rolling operation".into(),
