@@ -1264,23 +1264,6 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         span: Span,
     },
 
-    /// Error expanding glob pattern
-    ///
-    /// ## Resolution
-    ///
-    /// Correct glob pattern or file access issue
-    #[error("Error expanding glob pattern")]
-    #[diagnostic(
-        code(nu::shell::error_expanding_glob),
-        help("Correct glob pattern or file access issue")
-    )]
-    //todo: add error detail
-    ErrorExpandingGlob {
-        msg: String,
-        #[label("{msg}")]
-        span: Span,
-    },
-
     /// Tried spreading a non-list inside a list or command call.
     ///
     /// ## Resolution

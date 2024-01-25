@@ -7,9 +7,9 @@ use std::path::PathBuf;
 
 use super::util::try_interaction;
 
-use nu_cmd_base::arg_glob_leading_dot;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
+use nu_glob::MatchOptions;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -249,9 +249,17 @@ fn rm(
         }
 
         let path = currentdir_path.join(target.item.as_ref());
-        match arg_glob_leading_dot(&target, &currentdir_path) {
+        match nu_engine::glob_from(
+            &target,
+            &currentdir_path,
+            call.head,
+            Some(MatchOptions {
+                require_literal_leading_dot: true,
+                ..Default::default()
+            }),
+        ) {
             Ok(files) => {
-                for file in files {
+                for file in files.1 {
                     match file {
                         Ok(f) => {
                             if !target_exists {

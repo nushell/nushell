@@ -88,6 +88,7 @@ pub fn glob_from(
                     span: pattern.span,
                 });
             };
+            println!("debug path: {path:?}");
             (path.parent().map(|parent| parent.to_path_buf()), path)
         }
     };

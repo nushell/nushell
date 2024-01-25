@@ -1,7 +1,6 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
-use nu_glob::{GlobError, Pattern};
+use nu_glob::Pattern;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -116,28 +115,29 @@ impl Command for Du {
 
         let include_files = args.all;
         let mut paths = match args.path {
-            Some(p) => arg_glob(&p, &current_dir)?,
+            Some(p) => nu_engine::glob_from(&p, &current_dir, call.head, None),
             // The * pattern should never fail.
-            None => arg_glob(
+            None => nu_engine::glob_from(
                 &Spanned {
                     item: NuPath::UnQuoted("*".into()),
                     span: Span::unknown(),
                 },
                 &current_dir,
-            )?,
+                call.head,
+                None,
+            ),
         }
+        .map(|f| f.1)?
         .filter(move |p| {
             if include_files {
                 true
             } else {
                 match p {
                     Ok(f) if f.is_dir() => true,
-                    Err(e) if e.path().is_dir() => true,
                     _ => false,
                 }
             }
-        })
-        .map(|v| v.map_err(glob_err_into));
+        });
 
         let all = args.all;
         let deref = args.deref;
@@ -180,11 +180,6 @@ impl Command for Du {
             result: None,
         }]
     }
-}
-
-fn glob_err_into(e: GlobError) -> ShellError {
-    let e = e.into_error();
-    ShellError::from(e)
 }
 
 #[cfg(test)]
