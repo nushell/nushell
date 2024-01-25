@@ -243,7 +243,6 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::GlobPattern(val, _) => Ok(Value::string(val, span)),
-        Expr::LsGlobPattern(val, _) => Ok(Value::string(val, span)),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

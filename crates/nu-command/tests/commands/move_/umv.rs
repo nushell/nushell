@@ -607,3 +607,25 @@ fn mv_with_cd() {
         assert!(actual.out.contains("body"));
     });
 }
+
+#[test]
+fn test_cp_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "mv test_file.txt ../",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
+    });
+}

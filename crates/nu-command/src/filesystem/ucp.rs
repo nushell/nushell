@@ -61,7 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::LsGlobPattern, "Copy SRC file/s to DEST.")
+            .rest("paths", SyntaxShape::GlobPattern, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }

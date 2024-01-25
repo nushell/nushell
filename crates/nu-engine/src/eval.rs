@@ -1151,23 +1151,6 @@ impl Eval for EvalRuntime {
         Ok(Value::string(name, span))
     }
 
-    fn eval_glob_pattern(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        pattern: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if quoted {
-            Ok(Value::quoted_string(pattern, span))
-        } else {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(pattern, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
-    }
-
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
         Ok(Value::nothing(expr.span))
     }

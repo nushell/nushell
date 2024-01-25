@@ -41,7 +41,7 @@ impl Command for Ls {
             .input_output_types(vec![(Type::Nothing, Type::Table(vec![]))])
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
-            .optional("pattern", SyntaxShape::LsGlobPattern, "The glob pattern to use.")
+            .optional("pattern", SyntaxShape::GlobPattern, "The glob pattern to use.")
             .switch("all", "Show hidden files", Some('a'))
             .switch(
                 "long",

@@ -44,7 +44,7 @@ impl Command for Rm {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
-                SyntaxShape::LsGlobPattern,
+                SyntaxShape::GlobPattern,
                 "The file or files you want to remove.",
             )
             .switch(
@@ -68,7 +68,7 @@ impl Command for Rm {
             )
             .rest(
                 "rest",
-                SyntaxShape::LsGlobPattern,
+                SyntaxShape::GlobPattern,
                 "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)

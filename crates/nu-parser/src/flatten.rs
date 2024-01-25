@@ -370,9 +370,6 @@ pub fn flatten_expression(
         Expr::GlobPattern(_, _) => {
             vec![(expr.span, FlatShape::GlobPattern)]
         }
-        Expr::LsGlobPattern(_, _) => {
-            vec![(expr.span, FlatShape::GlobPattern)]
-        }
         Expr::List(list) => {
             let outer_span = expr.span;
             let mut last_end = outer_span.start;
