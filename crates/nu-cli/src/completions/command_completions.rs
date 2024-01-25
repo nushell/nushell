@@ -94,6 +94,7 @@ impl CommandCompletion {
             .map(move |x| Suggestion {
                 value: String::from_utf8_lossy(&x.0).to_string(),
                 description: x.1,
+                style: None,
                 extra: None,
                 span: reedline::Span::new(span.start - offset, span.end - offset),
                 append_whitespace: true,
@@ -110,6 +111,7 @@ impl CommandCompletion {
                 .map(move |x| Suggestion {
                     value: x,
                     description: None,
+                    style: None,
                     extra: None,
                     span: reedline::Span::new(span.start - offset, span.end - offset),
                     append_whitespace: true,
@@ -123,6 +125,7 @@ impl CommandCompletion {
                     results.push(Suggestion {
                         value: format!("^{}", external.value),
                         description: None,
+                        style: None,
                         extra: None,
                         span: external.span,
                         append_whitespace: true,

@@ -46,6 +46,7 @@ impl Completer for FlagCompletion {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(&named).to_string(),
                             description: Some(flag_desc.to_string()),
+                            style: None,
                             extra: None,
                             span: reedline::Span {
                                 start: span.start - offset,
@@ -68,6 +69,7 @@ impl Completer for FlagCompletion {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(&named).to_string(),
                         description: Some(flag_desc.to_string()),
+                        style: None,
                         extra: None,
                         span: reedline::Span {
                             start: span.start - offset,

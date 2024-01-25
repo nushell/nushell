@@ -16,7 +16,7 @@ nu-engine = { path = "../nu-engine", version = "0.89.1" }
 nu-parser = { path = "../nu-parser", version = "0.89.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.89.1" }
 nu-utils = { path = "../nu-utils", version = "0.89.1" }
-nu-ansi-term = "0.49.0"
+nu-ansi-term = "0.50.0"
 
 fancy-regex = "0.12"
 itertools = "0.12"
