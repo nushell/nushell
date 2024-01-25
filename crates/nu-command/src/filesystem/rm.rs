@@ -10,6 +10,7 @@ use super::util::try_interaction;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_glob::MatchOptions;
+use nu_path::expand_path_with;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
@@ -43,7 +44,7 @@ impl Command for Rm {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "filename",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::LsGlobPattern,
                 "The file or files you want to remove.",
             )
             .switch(
@@ -67,7 +68,7 @@ impl Command for Rm {
             )
             .rest(
                 "rest",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::LsGlobPattern,
                 "Additional file path(s) to remove.",
             )
             .category(Category::FileSystem)
@@ -157,7 +158,11 @@ fn rm(
 
     for (idx, path) in targets.clone().into_iter().enumerate() {
         if let Some(ref home) = home {
-            if path.item.as_ref() == home {
+            if expand_path_with(path.item.as_ref(), &currentdir_path)
+                .to_string_lossy()
+                .as_ref()
+                == home.as_str()
+            {
                 unique_argument_check = Some(path.span);
             }
         }
@@ -236,7 +241,8 @@ fn rm(
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
     for target in targets {
-        if currentdir_path.to_string_lossy() == target.item.as_ref()
+        let path = expand_path_with(target.item.as_ref(), &currentdir_path);
+        if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
             return Err(ShellError::GenericError {
@@ -248,7 +254,7 @@ fn rm(
             });
         }
 
-        let path = currentdir_path.join(target.item.as_ref());
+        // let path = currentdir_path.join(target.item.as_ref());
         match nu_engine::glob_from(
             &target,
             &currentdir_path,

@@ -56,7 +56,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::LsGlobPattern,
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
@@ -82,6 +82,7 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
 
+        let cwd = current_dir(engine_state, stack)?;
         let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
@@ -93,9 +94,13 @@ impl Command for UMv {
             });
         }
         if paths.len() == 1 {
+            // expand path for better error message
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!("Missing destination path operand after {}", paths[0].item),
+                msg: format!(
+                    "Missing destination path operand after {}",
+                    expand_path_with(paths[0].item.as_ref(), cwd).to_string_lossy()
+                ),
                 span: Some(paths[0].span),
                 help: None,
                 inner: Vec::new(),
@@ -108,7 +113,6 @@ impl Command for UMv {
             label: "Missing file operand".into(),
             span: call.head,
         })?;
-        let cwd = current_dir(engine_state, stack)?;
         let mut files: Vec<PathBuf> = Vec::new();
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();

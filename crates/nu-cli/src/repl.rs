@@ -841,7 +841,6 @@ fn trailing_slash_looks_like_path() {
 }
 
 #[test]
-#[ignore = "reason"]
 fn are_session_ids_in_sync() {
     let engine_state = &mut EngineState::new();
     let history = engine_state.history_config().unwrap();

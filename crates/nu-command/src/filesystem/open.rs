@@ -42,10 +42,14 @@ impl Command for Open {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("open")
             .input_output_types(vec![(Type::Nothing, Type::Any), (Type::String, Type::Any)])
-            .optional("filename", SyntaxShape::GlobPattern, "The filename to use.")
+            .optional(
+                "filename",
+                SyntaxShape::LsGlobPattern,
+                "The filename to use.",
+            )
             .rest(
                 "filenames",
-                SyntaxShape::GlobPattern,
+                SyntaxShape::LsGlobPattern,
                 "Optional additional files to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))

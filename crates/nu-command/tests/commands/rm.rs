@@ -459,3 +459,24 @@ fn rm_prints_filenames_on_error() {
         }
     });
 }
+
+#[test]
+fn rm_files_inside_glob_metachars_dir() {
+    Playground::setup("rm_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "rm test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+    });
+}

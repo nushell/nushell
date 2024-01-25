@@ -368,3 +368,21 @@ fn open_files_with_glob_metachars(#[case] src_name: &str) {
 fn open_files_with_glob_metachars_nw(#[case] src_name: &str) {
     open_files_with_glob_metachars(src_name);
 }
+
+#[test]
+fn open_files_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "open test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(actual.out.contains("hello"));
+    });
+}
