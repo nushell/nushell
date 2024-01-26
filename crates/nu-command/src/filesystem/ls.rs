@@ -630,8 +630,9 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
-    const NEG_UNIX_EPOCH: i64 = -11644473600;
+    const NEG_UNIX_EPOCH: i64 = -11644473600; // t was invalid 0, UNIX_EPOCH subtracted above.
     if sec == NEG_UNIX_EPOCH {
+        // do not tz lookup invalid SystemTime
         return None;
     }
     match Utc.timestamp_opt(sec, nsec) {
