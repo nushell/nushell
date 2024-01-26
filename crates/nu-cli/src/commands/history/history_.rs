@@ -200,6 +200,7 @@ fn create_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span)
     } else {
         Value::record(
             record! {
+                "item_id" => item_id_value,
                 "start_timestamp" => start_timestamp_value,
                 "command" => command_value,
                 "cwd" => cwd_value,
