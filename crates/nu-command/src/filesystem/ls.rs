@@ -681,11 +681,7 @@ mod windows_helper {
                 // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
-                // eprintln!(
-                //     "Failed to read metadata for '{}'. It may have an illegal filename",
-                //     filename.to_string_lossy()
-                // );
-                log::error!("ls: {e}");
+                log::error!("ls: '{}' {}", filename.to_string_lossy(), e);
                 return Value::record(record, span);
             }
         };
