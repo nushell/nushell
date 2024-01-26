@@ -59,6 +59,17 @@ impl Command for HistoryRemoveItem {
     }
 
     fn examples(&self) -> Vec<Example> {
-        todo!();
+        vec![
+            Example {
+                example: "history remove-item 123",
+                description: "Remove history item of id 123",
+                result: None,
+            },
+            Example {
+                example: "history remove-item (history | last 2 | first | get item_id)",
+                description: "Remove last history item",
+                result: None,
+            },
+        ]
     }
 }
