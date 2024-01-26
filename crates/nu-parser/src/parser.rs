@@ -2489,28 +2489,6 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
     }
 }
 
-pub fn parse_ls_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: glob pattern");
-
-    if err.is_none() {
-        trace!("-- found {}", token);
-
-        Expression {
-            expr: Expr::LsGlobPattern(token, quoted),
-            span,
-            ty: Type::String,
-            custom_completion: None,
-        }
-    } else {
-        working_set.error(ParseError::Expected("glob pattern string", span));
-
-        garbage(span)
-    }
-}
-
 pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>) {
     let mut output = Vec::new();
     let mut error = None;
@@ -4575,7 +4553,7 @@ pub fn parse_value(
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
             | SyntaxShape::String
-            | SyntaxShape::LsGlobPattern => {}
+            | SyntaxShape::GlobPattern => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
@@ -4600,7 +4578,6 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
-        SyntaxShape::LsGlobPattern => parse_ls_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
@@ -6004,7 +5981,6 @@ pub fn discover_captures_in_expr(
         Expr::Garbage => {}
         Expr::Nothing => {}
         Expr::GlobPattern(_, _) => {}
-        Expr::LsGlobPattern(_, _) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;

@@ -286,9 +286,8 @@ pub trait Eval {
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
             Expr::GlobPattern(pattern, quoted) => {
-                Self::eval_glob_pattern(state, mut_state, pattern.clone(), *quoted, expr.span)
-            }
-            Expr::LsGlobPattern(pattern, quoted) => {
+                // GlobPattern is similar to Filepath
+                // But we don't want to expand path during eval time, it's required for `nu_engine::glob_from` to run correctly
                 if *quoted {
                     Ok(Value::quoted_string(pattern, expr.span))
                 } else {
@@ -380,14 +379,6 @@ pub trait Eval {
     ) -> Result<Value, ShellError>;
 
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
-
-    fn eval_glob_pattern(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        pattern: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
     fn unreachable(expr: &Expression) -> Result<Value, ShellError>;

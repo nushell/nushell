@@ -64,9 +64,6 @@ pub enum SyntaxShape {
     /// A glob pattern is allowed, eg `foo*`
     GlobPattern,
 
-    /// A special glob pattern for ls.
-    LsGlobPattern,
-
     /// Only an integer value is allowed
     Int,
 
@@ -154,7 +151,6 @@ impl SyntaxShape {
             SyntaxShape::Filesize => Type::Filesize,
             SyntaxShape::FullCellPath => Type::Any,
             SyntaxShape::GlobPattern => Type::String,
-            SyntaxShape::LsGlobPattern => Type::String,
             SyntaxShape::Error => Type::Error,
             SyntaxShape::ImportPattern => Type::Any,
             SyntaxShape::Int => Type::Int,
@@ -205,7 +201,6 @@ impl Display for SyntaxShape {
             SyntaxShape::Filepath => write!(f, "path"),
             SyntaxShape::Directory => write!(f, "directory"),
             SyntaxShape::GlobPattern => write!(f, "glob"),
-            SyntaxShape::LsGlobPattern => write!(f, "glob"),
             SyntaxShape::ImportPattern => write!(f, "import"),
             SyntaxShape::Block => write!(f, "block"),
             SyntaxShape::Closure(args) => {
