@@ -1,12 +1,11 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
-use nu_glob::{GlobError, Pattern};
+use nu_glob::Pattern;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 use serde::Deserialize;
 
@@ -15,7 +14,7 @@ pub struct Du;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct DuArgs {
-    path: Option<Spanned<String>>,
+    path: Option<Spanned<NuPath>>,
     all: bool,
     deref: bool,
     exclude: Option<Spanned<String>>,
@@ -116,28 +115,26 @@ impl Command for Du {
 
         let include_files = args.all;
         let mut paths = match args.path {
-            Some(p) => arg_glob(&p, &current_dir)?,
+            Some(p) => nu_engine::glob_from(&p, &current_dir, call.head, None),
             // The * pattern should never fail.
-            None => arg_glob(
+            None => nu_engine::glob_from(
                 &Spanned {
-                    item: "*".into(),
+                    item: NuPath::UnQuoted("*".into()),
                     span: Span::unknown(),
                 },
                 &current_dir,
-            )?,
+                call.head,
+                None,
+            ),
         }
+        .map(|f| f.1)?
         .filter(move |p| {
             if include_files {
                 true
             } else {
-                match p {
-                    Ok(f) if f.is_dir() => true,
-                    Err(e) if e.path().is_dir() => true,
-                    _ => false,
-                }
+                matches!(p, Ok(f) if f.is_dir())
             }
-        })
-        .map(|v| v.map_err(glob_err_into));
+        });
 
         let all = args.all;
         let deref = args.deref;
@@ -180,11 +177,6 @@ impl Command for Du {
             result: None,
         }]
     }
-}
-
-fn glob_err_into(e: GlobError) -> ShellError {
-    let e = e.into_error();
-    ShellError::from(e)
 }
 
 #[cfg(test)]

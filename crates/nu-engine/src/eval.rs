@@ -61,13 +61,25 @@ pub fn eval_call(
 
             if let Some(arg) = call.positional_nth(param_idx) {
                 let result = eval_expression(engine_state, caller_stack, arg)?;
-                if required && !result.get_type().is_subtype(&param.shape.to_type()) {
-                    return Err(ShellError::CantConvert {
-                        to_type: param.shape.to_type().to_string(),
-                        from_type: result.get_type().to_string(),
-                        span: result.span(),
-                        help: None,
-                    });
+                let param_type = param.shape.to_type();
+                if required && !result.get_type().is_subtype(&param_type) {
+                    // need to check if result is an empty list, and param_type is table or list
+                    // nushell needs to pass type checking for the case.
+                    let empty_list_matches = result
+                        .as_list()
+                        .map(|l| {
+                            l.is_empty() && matches!(param_type, Type::List(_) | Type::Table(_))
+                        })
+                        .unwrap_or(false);
+
+                    if !empty_list_matches {
+                        return Err(ShellError::CantConvert {
+                            to_type: param.shape.to_type().to_string(),
+                            from_type: result.get_type().to_string(),
+                            span: result.span(),
+                            help: None,
+                        });
+                    }
                 }
                 callee_stack.add_var(var_id, result);
             } else if let Some(value) = &param.default_value {
@@ -1149,23 +1161,6 @@ impl Eval for EvalRuntime {
         let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
 
         Ok(Value::string(name, span))
-    }
-
-    fn eval_glob_pattern(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        pattern: String,
-        quoted: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        if quoted {
-            Ok(Value::string(pattern, span))
-        } else {
-            let cwd = current_dir_str(engine_state, stack)?;
-            let path = expand_path_with(pattern, cwd);
-
-            Ok(Value::string(path.to_string_lossy(), span))
-        }
     }
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {

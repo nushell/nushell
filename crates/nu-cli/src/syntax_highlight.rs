@@ -336,7 +336,6 @@ fn find_matching_block_end_in_expr(
             Expr::Filepath(_, _) => None,
             Expr::Directory(_, _) => None,
             Expr::GlobPattern(_, _) => None,
-            Expr::LsGlobPattern(_, _) => None,
             Expr::String(_) => None,
             Expr::CellPath(_) => None,
             Expr::ImportPattern(_) => None,

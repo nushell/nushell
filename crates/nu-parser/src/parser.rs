@@ -18,8 +18,8 @@ use nu_protocol::{
     },
     engine::StateWorkingSet,
     eval_const::eval_constant,
-    span, BlockId, DidYouMean, Flag, ParseError, ParseWarning, PositionalArg, Signature, Span,
-    Spanned, SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
+    span, BlockId, DidYouMean, Flag, ParseError, PositionalArg, Signature, Span, Spanned,
+    SyntaxShape, Type, Unit, VarId, ENV_VARIABLE_ID, IN_VARIABLE_ID,
 };
 
 use crate::parse_keywords::{
@@ -2489,28 +2489,6 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
     }
 }
 
-pub fn parse_ls_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: glob pattern");
-
-    if err.is_none() {
-        trace!("-- found {}", token);
-
-        Expression {
-            expr: Expr::LsGlobPattern(token, quoted),
-            span,
-            ty: Type::String,
-            custom_completion: None,
-        }
-    } else {
-        working_set.error(ParseError::Expected("glob pattern string", span));
-
-        garbage(span)
-    }
-}
-
 pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>) {
     let mut output = Vec::new();
     let mut error = None;
@@ -3603,9 +3581,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     } => {
                                         working_set.set_variable_type(var_id.expect("internal error: all custom parameters must have var_ids"), syntax_shape.to_type());
                                         if syntax_shape == SyntaxShape::Boolean {
-                                            working_set.warning(ParseWarning::DeprecatedWarning(
-                                                "--flag: bool".to_string(),
-                                                "--flag".to_string(),
+                                            working_set.error(ParseError::LabeledError(
+                                                "Type annotations are not allowed for boolean switches.".to_string(),
+                                                "Remove the `: bool` type annotation.".to_string(),
                                                 span,
                                             ));
                                         }
@@ -4575,7 +4553,7 @@ pub fn parse_value(
             | SyntaxShape::Signature
             | SyntaxShape::Filepath
             | SyntaxShape::String
-            | SyntaxShape::LsGlobPattern => {}
+            | SyntaxShape::GlobPattern => {}
             _ => {
                 working_set.error(ParseError::Expected("non-[] value", span));
                 return Expression::garbage(span);
@@ -4600,7 +4578,6 @@ pub fn parse_value(
         SyntaxShape::Filepath => parse_filepath(working_set, span),
         SyntaxShape::Directory => parse_directory(working_set, span),
         SyntaxShape::GlobPattern => parse_glob_pattern(working_set, span),
-        SyntaxShape::LsGlobPattern => parse_ls_glob_pattern(working_set, span),
         SyntaxShape::String => parse_string(working_set, span),
         SyntaxShape::Binary => parse_binary(working_set, span),
         SyntaxShape::Signature => {
@@ -6004,7 +5981,6 @@ pub fn discover_captures_in_expr(
         Expr::Garbage => {}
         Expr::Nothing => {}
         Expr::GlobPattern(_, _) => {}
-        Expr::LsGlobPattern(_, _) => {}
         Expr::Int(_) => {}
         Expr::Keyword(_, _, expr) => {
             discover_captures_in_expr(working_set, expr, seen, seen_blocks, output)?;

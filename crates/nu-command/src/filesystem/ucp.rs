@@ -1,6 +1,5 @@
-use nu_cmd_base::arg_glob;
 use nu_engine::{current_dir, CallExt};
-use nu_glob::GlobResult;
+use nu_protocol::NuPath;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -62,7 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .rest("paths", SyntaxShape::Filepath, "Copy SRC file/s to DEST.")
+            .rest("paths", SyntaxShape::GlobPattern, "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
     }
@@ -146,14 +145,7 @@ impl Command for UCp {
         let reflink_mode = uu_cp::ReflinkMode::Auto;
         #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]
         let reflink_mode = uu_cp::ReflinkMode::Never;
-        let paths: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let mut paths: Vec<Spanned<String>> = paths
-            .into_iter()
-            .map(|p| Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(p.item),
-                span: p.span,
-            })
-            .collect();
+        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -167,15 +159,20 @@ impl Command for UCp {
         if paths.len() == 1 {
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!("Missing destination path operand after {}", paths[0].item),
+                msg: format!(
+                    "Missing destination path operand after {}",
+                    paths[0].item.as_ref()
+                ),
                 span: Some(paths[0].span),
                 help: None,
                 inner: vec![],
             });
         }
         let target = paths.pop().expect("Should not be reached?");
-        let target_path = PathBuf::from(&target.item);
-        if target.item.ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
+        let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
+            target.item.to_string(),
+        ));
+        if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
                 error: "is not a directory".into(),
                 msg: "is not a directory".into(),
@@ -190,8 +187,12 @@ impl Command for UCp {
         let cwd = current_dir(engine_state, stack)?;
         let mut sources: Vec<PathBuf> = Vec::new();
 
-        for p in paths {
-            let exp_files = arg_glob(&p, &cwd)?.collect::<Vec<GlobResult>>();
+        for mut p in paths {
+            p.item = p.item.strip_ansi_string_unlikely();
+            let exp_files: Vec<Result<PathBuf, ShellError>> =
+                nu_engine::glob_from(&p, &cwd, call.head, None)
+                    .map(|f| f.1)?
+                    .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::FileNotFound { span: p.span });
             };
@@ -212,12 +213,7 @@ impl Command for UCp {
                         };
                         app_vals.push(path)
                     }
-                    Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob {
-                            msg: format!("error {} in path {}", e.error(), e.path().display()),
-                            span: p.span,
-                        });
-                    }
+                    Err(e) => return Err(e),
                 }
             }
             sources.append(&mut app_vals);

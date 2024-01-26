@@ -5,7 +5,7 @@ use std::{
 
 use nu_glob::MatchOptions;
 use nu_path::{canonicalize_with, expand_path_with};
-use nu_protocol::{ShellError, Span, Spanned};
+use nu_protocol::{NuPath, ShellError, Span, Spanned};
 
 const GLOB_CHARS: &[char] = &['*', '?', '['];
 
@@ -18,7 +18,7 @@ const GLOB_CHARS: &[char] = &['*', '?', '['];
 /// The second of the two values is an iterator over the matching filepaths.
 #[allow(clippy::type_complexity)]
 pub fn glob_from(
-    pattern: &Spanned<String>,
+    pattern: &Spanned<NuPath>,
     cwd: &Path,
     span: Span,
     options: Option<MatchOptions>,
@@ -29,10 +29,11 @@ pub fn glob_from(
     ),
     ShellError,
 > {
-    let (prefix, pattern) = if pattern.item.contains(GLOB_CHARS) {
+    let no_glob_for_pattern = matches!(pattern.item, NuPath::Quoted(_));
+    let (prefix, pattern) = if pattern.item.as_ref().contains(GLOB_CHARS) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
-        let path = PathBuf::from(&pattern.item);
+        let path = PathBuf::from(&pattern.item.as_ref());
         let components = path.components();
         let mut counter = 0;
 
@@ -52,6 +53,9 @@ pub fn glob_from(
                 just_pattern.push(comp);
             }
         }
+        if no_glob_for_pattern {
+            just_pattern = PathBuf::from(nu_glob::Pattern::escape(&just_pattern.to_string_lossy()));
+        }
 
         // Now expand `p` to get full prefix
         let path = expand_path_with(p, cwd);
@@ -59,7 +63,7 @@ pub fn glob_from(
 
         (Some(path), escaped_prefix.join(just_pattern))
     } else {
-        let path = PathBuf::from(&pattern.item);
+        let path = PathBuf::from(&pattern.item.as_ref());
         let path = expand_path_with(path, cwd);
         let is_symlink = match fs::symlink_metadata(&path) {
             Ok(attr) => attr.file_type().is_symlink(),
@@ -70,7 +74,14 @@ pub fn glob_from(
             (path.parent().map(|parent| parent.to_path_buf()), path)
         } else {
             let path = if let Ok(p) = canonicalize_with(path.clone(), cwd) {
-                p
+                if p.to_string_lossy().contains(GLOB_CHARS) {
+                    // our path might contains GLOB_CHARS too
+                    // in such case, we need to escape our path to make
+                    // glob work successfully
+                    PathBuf::from(nu_glob::Pattern::escape(&p.to_string_lossy()))
+                } else {
+                    p
+                }
             } else {
                 return Err(ShellError::DirectoryNotFound {
                     dir: path.to_string_lossy().to_string(),

@@ -388,16 +388,6 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn eval_glob_pattern(
-        _: &StateWorkingSet,
-        _: &mut (),
-        _: String,
-        _: bool,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span })
-    }
-
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr.span })
     }
