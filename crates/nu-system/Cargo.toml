@@ -13,6 +13,7 @@ license = "MIT"
 bench = false
 
 [dependencies]
+crossbeam-channel = "0.5.11"
 libc = "0.2"
 log = "0.4"
 sysinfo = "0.30"

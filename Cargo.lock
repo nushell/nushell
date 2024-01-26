@@ -3197,6 +3197,7 @@ name = "nu-system"
 version = "0.89.1"
 dependencies = [
  "chrono",
+ "crossbeam-channel",
  "libc",
  "libproc",
  "log",
