@@ -679,7 +679,7 @@ mod windows_helper {
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
             Err(e) => {
-                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.', pipes)
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
                 log::error!("ls: '{}' {}", filename.to_string_lossy(), e);
