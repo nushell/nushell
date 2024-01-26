@@ -230,6 +230,18 @@ fn type_check_for_during_eval2() -> TestResult {
 }
 
 #[test]
+fn empty_list_matches_list_type() -> TestResult {
+    let _ = run_test(
+        r#"def spam [foo: list<int>] { echo $foo }; spam [] | length"#,
+        "0",
+    );
+    run_test(
+        r#"def spam [foo: list<string>] { echo $foo }; spam [] | length"#,
+        "0",
+    )
+}
+
+#[test]
 fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
     run_test("def spam [foo: path] { echo $foo }; spam '~/aa'", "~/aa")
 }
