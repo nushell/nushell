@@ -12,8 +12,8 @@ use nu_protocol::{
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu, Reedline,
-    ReedlineEvent, ReedlineMenu,
+    ColumnarMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu, MenuBuilder,
+    Reedline, ReedlineEvent, ReedlineMenu,
 };
 use std::sync::Arc;
 
@@ -240,7 +240,7 @@ pub(crate) fn add_columnar_menu(
     }
 
     let marker = menu.marker.into_string("", config);
-    columnar_menu = columnar_menu.with_marker(marker);
+    columnar_menu = columnar_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
@@ -322,7 +322,7 @@ pub(crate) fn add_list_menu(
     }
 
     let marker = menu.marker.into_string("", config);
-    list_menu = list_menu.with_marker(marker);
+    list_menu = list_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
@@ -524,7 +524,7 @@ pub(crate) fn add_ide_menu(
     }
 
     let marker = menu.marker.into_string("", config);
-    ide_menu = ide_menu.with_marker(marker);
+    ide_menu = ide_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
