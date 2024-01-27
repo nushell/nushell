@@ -5,10 +5,6 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
     Signature, Span, Type, Value,
 };
-use once_cell::sync::Lazy;
-// regex can be replaced with fancy-regex once it supports `split()`
-// https://github.com/fancy-regex/fancy-regex/issues/104
-use regex::Regex;
 
 #[derive(Clone)]
 pub struct Lines;
@@ -39,9 +35,6 @@ impl Command for Lines {
         let ctrlc = engine_state.ctrlc.clone();
         let skip_empty = call.has_flag(engine_state, stack, "skip-empty")?;
 
-        // match \r\n or \n
-        static LINE_BREAK_REGEX: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
         let span = input.span().unwrap_or(call.head);
         match input {
             #[allow(clippy::needless_collect)]
@@ -49,10 +42,7 @@ impl Command for Lines {
             // the Rc structure to continue using it. If split could take ownership
             // of the split values, then this wouldn't be needed
             PipelineData::Value(Value::String { val, .. }, ..) => {
-                let mut lines = LINE_BREAK_REGEX
-                    .split(&val)
-                    .map(|s| s.to_string())
-                    .collect::<Vec<String>>();
+                let mut lines = val.lines().map(String::from).collect::<Vec<_>>();
 
                 // if the last one is empty, remove it, as it was just
                 // a newline at the end of the input we got
@@ -79,8 +69,8 @@ impl Command for Lines {
                     .filter_map(move |value| {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
-                            let mut lines = LINE_BREAK_REGEX
-                                .split(&val)
+                            let mut lines = val
+                                .lines()
                                 .filter_map(|s| {
                                     if skip_empty && s.trim().is_empty() {
                                         None
@@ -159,9 +149,6 @@ impl Iterator for RawStreamLinesAdapter {
     type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        static LINE_BREAK_REGEX: Lazy<Regex> =
-            Lazy::new(|| Regex::new(r"\r\n|\n").expect("unable to compile regex"));
-
         loop {
             if !self.queue.is_empty() {
                 let s = self.queue.remove(0usize);
@@ -196,18 +183,17 @@ impl Iterator for RawStreamLinesAdapter {
                                 Value::String { val, .. } => {
                                     self.span = span;
 
-                                    let mut lines = LINE_BREAK_REGEX
-                                        .split(&val)
-                                        .map(|s| s.to_string())
-                                        .collect::<Vec<_>>();
+                                    let mut lines =
+                                        val.lines().map(String::from).collect::<Vec<_>>();
 
                                     // handle incomplete line from previous
                                     if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.first() {
-                                            let new_incomplete_line =
-                                                self.incomplete_line.to_string() + first.as_str();
-                                            lines.splice(0..1, vec![new_incomplete_line]);
-                                            self.incomplete_line = String::new();
+                                        if let Some(first) = lines.first_mut() {
+                                            let incomplete_line =
+                                                std::mem::take(&mut self.incomplete_line);
+                                            let append_first =
+                                                std::mem::replace(first, incomplete_line);
+                                            first.push_str(&append_first);
                                         }
                                     }
 
@@ -225,7 +211,7 @@ impl Iterator for RawStreamLinesAdapter {
                                     }
 
                                     // save completed lines
-                                    self.queue.append(&mut lines);
+                                    self.queue.extend(lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
                                 Value::Error { error, .. } => return Some(Err(*error)),
