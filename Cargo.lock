@@ -4650,7 +4650,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.28.0"
-source = "git+https://github.com/maxomatic458/reedline?branch=menu-refactor#cf9f6dc3fbe5c8c6e39320443a0f27be8d831be2"
+source = "git+https://github.com/maxomatic458/reedline?branch=menu-refactor#95e155819150db41cbd8d40b68f2c279f48c7e96"
 dependencies = [
  "arboard",
  "chrono",
