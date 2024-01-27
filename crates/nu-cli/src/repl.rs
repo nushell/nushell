@@ -22,8 +22,8 @@ use nu_protocol::{
 };
 use nu_utils::utils::perf;
 use reedline::{
-    CursorConfig, CwdAwareHinter, EditCommand, Emacs, FileBackedHistory, HistorySessionId,
-    Reedline, SqliteBackedHistory, Vi,
+    CursorConfig, CwdAwareHinter, EditCommand, Emacs, ExternalPrinterChannel, FileBackedHistory,
+    HistorySessionId, Reedline, SqliteBackedHistory, Vi,
 };
 use std::{
     env::temp_dir,
@@ -95,8 +95,12 @@ pub fn evaluate_repl(
     stack.add_env_var("LAST_EXIT_CODE".into(), Value::int(0, Span::unknown()));
 
     let mut start_time = std::time::Instant::now();
-    let mut line_editor = Reedline::create();
+    let channel = ExternalPrinterChannel::new();
+    let printer = channel.sender();
+    let mut line_editor = Reedline::create().with_external_printer(channel);
     let temp_file = temp_dir().join(format!("{}.nu", uuid::Uuid::new_v4()));
+
+    engine_state.jobs.set_printer(printer);
 
     // Now that reedline is created, get the history session id and store it in engine_state
     store_history_id_in_engine(engine_state, &line_editor);

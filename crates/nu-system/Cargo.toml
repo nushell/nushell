@@ -13,10 +13,10 @@ license = "MIT"
 bench = false
 
 [dependencies]
-crossbeam-channel = "0.5.11"
 libc = "0.2"
 log = "0.4"
 sysinfo = "0.30"
+reedline = { version = "0.28", features = ["external_printer"] }
 
 [target.'cfg(target_family = "unix")'.dependencies]
 nix = { version = "0.27", default-features = false, features = ["fs", "term", "process", "signal"] }

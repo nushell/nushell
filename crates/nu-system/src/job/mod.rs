@@ -6,7 +6,7 @@ use std::{
     thread,
 };
 
-use crossbeam_channel::Sender;
+use reedline::ExternalPrinter;
 
 pub type JobId = usize;
 
@@ -91,19 +91,19 @@ struct JobState {
     jobs: Vec<Job>,
 }
 
-// TODO: needs separate stdout and stderr channels. Have to fix in reedline first.
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct Jobs {
     state: Arc<Mutex<JobState>>,
-    printer: Option<Sender<String>>,
+    printer: Option<ExternalPrinter>,
 }
 
 impl Jobs {
-    pub fn new(printer: Option<Sender<String>>) -> Self {
-        Self {
-            state: Default::default(),
-            printer,
-        }
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_printer(&mut self, printer: ExternalPrinter) {
+        self.printer = Some(printer);
     }
 
     pub fn spawn_background(&self, mut command: Command, interactive: bool) -> io::Result<JobId> {
@@ -154,6 +154,9 @@ impl Jobs {
             // it is possible for an attacker to continuously send bytes without ever sending a newline or EOF.
             // You can use `take` to limit the maximum number of bytes read.
 
+            // TODO: BufReader needs to be full (8KiB) or reach EOF before it's read succeeeds,
+            // and its lines are printed. This adds unnecessary delay in viewing command output.
+
             // All lines need to be read to prevent the child process
             // from being blocking on write, so we `flatten()` to skip over errors.
             let lines = BufReader::new(stdout).lines().flatten();
@@ -161,7 +164,7 @@ impl Jobs {
                 let out = printer.clone();
                 thread::Builder::new().spawn(move || {
                     for line in lines {
-                        let _ = out.send(line);
+                        let _ = out.print(line);
                     }
                 })
             } else {
@@ -179,7 +182,7 @@ impl Jobs {
                 let err = printer.clone();
                 thread::Builder::new().spawn(move || {
                     for line in lines {
-                        let _ = err.send(line);
+                        let _ = err.print(line);
                     }
                 })
             } else {
