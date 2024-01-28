@@ -89,12 +89,12 @@ fn datatype_list(span: Span) -> Value {
         ("str", ""),
         ("binary", ""),
         ("date", ""),
-        ("datetime[time_unit: (ms, us, ns) timezone (optional)]", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns. Timezone wildcard is *. Other Timezone examples: UTC, America/Los_Angeles."),
-        ("duration[time_unit: (ms, us, ns)]", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns."),
+        ("datetime<time_unit: (ms, us, ns) timezone (optional)>", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns. Timezone wildcard is *. Other Timezone examples: UTC, America/Los_Angeles."),
+        ("duration<time_unit: (ms, us, ns)>", "Time Unit can be: milliseconds: ms, microseconds: us, nanoseconds: ns."),
         ("time", ""),
         ("object", ""),
         ("unknown", ""),
-        ("list[dtype]", ""),
+        ("list<dtype>", ""),
     ]
     .iter()
     .map(|(dtype, note)| {

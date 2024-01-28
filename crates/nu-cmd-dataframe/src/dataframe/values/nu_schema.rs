@@ -102,8 +102,8 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
         _ if dtype.starts_with("list") => {
             let dtype = dtype
                 .trim_start_matches("list")
-                .trim_start_matches('[')
-                .trim_end_matches(']')
+                .trim_start_matches('<')
+                .trim_end_matches('>')
                 .trim();
             let dtype = dtype_str_to_schema(dtype, span)?;
             Ok(DataType::List(Box::new(dtype)))
@@ -111,8 +111,8 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
         _ if dtype.starts_with("datetime") => {
             let dtype = dtype
                 .trim_start_matches("datetime")
-                .trim_start_matches('[')
-                .trim_end_matches(']');
+                .trim_start_matches('<')
+                .trim_end_matches('>');
             let mut split = dtype.split(',');
             let next = split
                 .next()
@@ -143,7 +143,7 @@ fn dtype_str_to_schema(dtype: &str, span: Span) -> Result<DataType, ShellError> 
             Ok(DataType::Datetime(time_unit, timezone))
         }
         _ if dtype.starts_with("duration") => {
-            let inner = dtype.trim_start_matches("duration[").trim_end_matches(']');
+            let inner = dtype.trim_start_matches("duration<").trim_end_matches('>');
             let next = inner
                 .split(',')
                 .next()
@@ -322,27 +322,27 @@ mod test {
 
     #[test]
     fn test_dtype_str_schema_datetime() {
-        let dtype = "datetime[ms, *]";
+        let dtype = "datetime<ms, *>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Milliseconds, None);
         assert_eq!(schema, expected);
 
-        let dtype = "datetime[us, *]";
+        let dtype = "datetime<us, *>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Microseconds, None);
         assert_eq!(schema, expected);
 
-        let dtype = "datetime[μs, *]";
+        let dtype = "datetime<μs, *>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Microseconds, None);
         assert_eq!(schema, expected);
 
-        let dtype = "datetime[ns, *]";
+        let dtype = "datetime<ns, *>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Nanoseconds, None);
         assert_eq!(schema, expected);
 
-        let dtype = "datetime[ms, UTC]";
+        let dtype = "datetime<ms, UTC>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Datetime(TimeUnit::Milliseconds, Some("UTC".into()));
         assert_eq!(schema, expected);
@@ -354,22 +354,22 @@ mod test {
 
     #[test]
     fn test_dtype_str_schema_duration() {
-        let dtype = "duration[ms]";
+        let dtype = "duration<ms>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Milliseconds);
         assert_eq!(schema, expected);
 
-        let dtype = "duration[us]";
+        let dtype = "duration<us>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Microseconds);
         assert_eq!(schema, expected);
 
-        let dtype = "duration[μs]";
+        let dtype = "duration<μs>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Microseconds);
         assert_eq!(schema, expected);
 
-        let dtype = "duration[ns]";
+        let dtype = "duration<ns>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::Duration(TimeUnit::Nanoseconds);
         assert_eq!(schema, expected);
@@ -377,17 +377,17 @@ mod test {
 
     #[test]
     fn test_dtype_str_to_schema_list_types() {
-        let dtype = "list[i32]";
+        let dtype = "list<i32>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Int32));
         assert_eq!(schema, expected);
 
-        let dtype = "list[duration[ms]]";
+        let dtype = "list<duration<ms>>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Duration(TimeUnit::Milliseconds)));
         assert_eq!(schema, expected);
 
-        let dtype = "list[datetime[ms, *]]";
+        let dtype = "list<datetime<ms, *>>";
         let schema = dtype_str_to_schema(dtype, Span::unknown()).unwrap();
         let expected = DataType::List(Box::new(DataType::Datetime(TimeUnit::Milliseconds, None)));
         assert_eq!(schema, expected);

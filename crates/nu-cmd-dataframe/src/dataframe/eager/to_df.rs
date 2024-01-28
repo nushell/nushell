@@ -126,7 +126,7 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Convert to a dataframe and provide a schema",
-                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| dfr into-df -s {a: u8, b: {a: list[u64]}, c: list[str]}",
+                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| dfr into-df -s {a: u8, b: {a: list<u64>}, c: list<str>}",
                 result: Some(
                     NuDataFrame::try_from_series(vec![
                         Series::new("a", &[1u8]),
