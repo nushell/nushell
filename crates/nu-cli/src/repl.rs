@@ -361,18 +361,7 @@ pub fn evaluate_repl(
                     do_shell_integration_finalize_command(hostname, engine_state, stack)?;
                 }
 
-                let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-                line_editor.run_edit_commands(&[
-                    EditCommand::Clear,
-                    EditCommand::InsertString(repl.buffer.to_string()),
-                    EditCommand::MoveToPosition {
-                        position: repl.cursor_pos,
-                        select: false,
-                    },
-                ]);
-                repl.buffer = "".to_string();
-                repl.cursor_pos = 0;
-                drop(repl);
+                sync_line_editor_and_engine_state_repl(engine_state, &mut line_editor);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -621,6 +610,23 @@ fn do_shell_integration_finalize_command(
     }
     run_ansi_sequence(RESET_APPLICATION_MODE)?;
     Ok(())
+}
+
+fn sync_line_editor_and_engine_state_repl(
+    engine_state: &mut EngineState,
+    line_editor: &mut Reedline,
+) {
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    line_editor.run_edit_commands(&[
+        EditCommand::Clear,
+        EditCommand::InsertString(repl.buffer.to_string()),
+        EditCommand::MoveToPosition {
+            position: repl.cursor_pos,
+            select: false,
+        },
+    ]);
+    repl.buffer = "".to_string();
+    repl.cursor_pos = 0;
 }
 
 fn setup_history(
