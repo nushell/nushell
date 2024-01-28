@@ -6,8 +6,9 @@ use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
-    Category, Example, PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
+use polars::prelude::*;
 
 #[derive(Clone)]
 pub struct ToDataFrame;
@@ -125,18 +126,27 @@ impl Command for ToDataFrame {
             },
             Example {
                 description: "Convert to a dataframe and provide a schema",
-                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| dfr into-df -s {a: u8, b: {a: list[u64]}, c: list[str]} | dfr schema",
-                result: Some(Value::record(
-                    Record::from_raw_cols_vals(
-                        vec!["a".to_string(), "b".to_string(), "c".to_string()],
-                        vec![
-                            Value::string("u8", Span::test_data()),
-                            Value::string("struct[1]", Span::test_data()),
-                            Value::string("list[str]", Span::test_data()),
-                        ],
-                    ),
-                    Span::test_data(),
-                )),
+                example: "{a: 1, b: {a: [1 2 3]}, c: [a b c]}| dfr into-df -s {a: u8, b: {a: list[u64]}, c: list[str]}",
+                result: Some(
+                    NuDataFrame::try_from_series(vec![
+                        Series::new("a", &[1u8]),
+                        {
+                            let dtype = DataType::Struct(vec![Field::new("a", DataType::List(Box::new(DataType::UInt64)))]);
+                            let vals = vec![AnyValue::StructOwned(
+                                Box::new((vec![AnyValue::List(Series::new("a", &[1u64, 2, 3]))], vec![Field::new("a", DataType::String)]))); 1];
+                            Series::from_any_values_and_dtype("b", &vals, &dtype, false)
+                                .expect("Struct series should not fail")
+                        },
+                        {
+                            let dtype = DataType::List(Box::new(DataType::String));
+                            let vals = vec![AnyValue::List(Series::new("c", &["a", "b", "c"]))];
+                            Series::from_any_values_and_dtype("c", &vals, &dtype, false)
+                                .expect("List series should not fail")
+                        }
+                    ], Span::test_data())
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
         ]
     }
