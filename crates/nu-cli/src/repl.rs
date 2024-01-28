@@ -480,57 +480,14 @@ pub fn evaluate_repl(
                     // We have an auto-cd
                     do_auto_cd(path, cwd, stack, engine_state, tokens.0[0].span);
                 } else if !s.trim().is_empty() {
-                    trace!("eval source: {}", s);
-
-                    let mut cmds = s.split_whitespace();
-                    if let Some("exit") = cmds.next() {
-                        let mut working_set = StateWorkingSet::new(engine_state);
-                        let _ = parse(&mut working_set, None, s.as_bytes(), false);
-
-                        if working_set.parse_errors.is_empty() {
-                            match cmds.next() {
-                                Some(s) => {
-                                    if let Ok(n) = s.parse::<i32>() {
-                                        drop(line_editor);
-                                        std::process::exit(n);
-                                    }
-                                }
-                                None => {
-                                    drop(line_editor);
-                                    std::process::exit(0);
-                                }
-                            }
-                        }
-                    }
-
-                    if shell_integration {
-                        if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
-                            let path = cwd.as_string()?;
-
-                            // Try to abbreviate string for windows title
-                            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
-                                path.replace(&p.as_path().display().to_string(), "~")
-                            } else {
-                                path
-                            };
-                            let binary_name = s.split_whitespace().next();
-
-                            if let Some(binary_name) = binary_name {
-                                run_ansi_sequence(&format!(
-                                    "\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"
-                                ))?;
-                            }
-                        }
-                    }
-
-                    eval_source(
-                        engine_state,
+                    line_editor = do_run_cmd(
+                        &s,
                         stack,
-                        s.as_bytes(),
-                        &format!("entry #{entry_num}"),
-                        PipelineData::empty(),
-                        false,
-                    );
+                        engine_state,
+                        line_editor,
+                        shell_integration,
+                        entry_num,
+                    )?;
                 }
                 let cmd_duration = start_time.elapsed();
 
@@ -722,6 +679,69 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
+}
+
+fn do_run_cmd(
+    s: &str,
+    stack: &mut Stack,
+    engine_state: &mut EngineState,
+    // we pass in the line editor so it can be dropped in the case of a process exit
+    // (in the normal case we don't want to drop it so return it as-is otherwise)
+    line_editor: Reedline,
+    shell_integration: bool,
+    entry_num: usize,
+) -> Result<Reedline> {
+    trace!("eval source: {}", s);
+
+    let mut cmds = s.split_whitespace();
+    if let Some("exit") = cmds.next() {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let _ = parse(&mut working_set, None, s.as_bytes(), false);
+
+        if working_set.parse_errors.is_empty() {
+            match cmds.next() {
+                Some(s) => {
+                    if let Ok(n) = s.parse::<i32>() {
+                        drop(line_editor);
+                        std::process::exit(n);
+                    }
+                }
+                None => {
+                    drop(line_editor);
+                    std::process::exit(0);
+                }
+            }
+        }
+    }
+
+    if shell_integration {
+        if let Some(cwd) = stack.get_env_var(engine_state, "PWD") {
+            let path = cwd.as_string()?;
+
+            // Try to abbreviate string for windows title
+            let maybe_abbrev_path = if let Some(p) = nu_path::home_dir() {
+                path.replace(&p.as_path().display().to_string(), "~")
+            } else {
+                path
+            };
+            let binary_name = s.split_whitespace().next();
+
+            if let Some(binary_name) = binary_name {
+                run_ansi_sequence(&format!("\x1b]2;{maybe_abbrev_path}> {binary_name}\x07"))?;
+            }
+        }
+    }
+
+    eval_source(
+        engine_state,
+        stack,
+        s.as_bytes(),
+        &format!("entry #{entry_num}"),
+        PipelineData::empty(),
+        false,
+    );
+
+    Ok(line_editor)
 }
 
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
