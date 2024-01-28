@@ -130,9 +130,7 @@ pub fn evaluate_repl(
         );
     }
 
-    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
-        warn!("Terminal doesn't support use_kitty_protocol config");
-    }
+    kitty_protocol_healthcheck(engine_state);
 
     loop {
         let loop_start_time = std::time::Instant::now();
@@ -671,6 +669,13 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
         }
     };
 }
+
+fn kitty_protocol_healthcheck(engine_state: &EngineState) {
+    if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
+        warn!("Terminal doesn't support use_kitty_protocol config");
+    }
+}
+
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
     let session_id = line_editor
         .get_history_session_id()
