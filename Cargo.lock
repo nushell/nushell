@@ -4650,7 +4650,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.28.0"
-source = "git+https://github.com/nushell/reedline?branch=main#42bcd61b47c6977637072a62ce87ff29cf4002d1"
+source = "git+https://github.com/nushell/reedline?branch=main#c8a52a85f1e166d8ff0a95c6f114da7f40ba0df4"
 dependencies = [
  "arboard",
  "chrono",
@@ -6486,9 +6486,9 @@ dependencies = [
 
 [[package]]
 name = "wild"
-version = "2.2.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10d01931a94d5a115a53f95292f51d316856b68a035618eb831bbba593a30b67"
+checksum = "a3131afc8c575281e1e80f36ed6a092aa502c08b18ed7524e86fbbb12bb410e1"
 dependencies = [
  "glob",
 ]
