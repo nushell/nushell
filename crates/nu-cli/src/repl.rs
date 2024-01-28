@@ -96,23 +96,7 @@ pub fn evaluate_repl(
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
 
-        // Setup history_isolation aka "history per session"
-        let history_session_id = if history.isolation {
-            Reedline::create_history_session_id()
-        } else {
-            None
-        };
-
-        if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format)
-        {
-            line_editor = update_line_editor_history(
-                engine_state,
-                path,
-                history,
-                line_editor,
-                history_session_id,
-            )?
-        };
+        line_editor = setup_history(nushell_path, engine_state, line_editor, history)?;
 
         perf!("setup history", start_time);
     }
@@ -657,6 +641,31 @@ fn do_shell_integration_finalize_command(
     }
     run_ansi_sequence(RESET_APPLICATION_MODE)?;
     Ok(())
+}
+
+fn setup_history(
+    nushell_path: &str,
+    engine_state: &mut EngineState,
+    line_editor: Reedline,
+    history: HistoryConfig,
+) -> Result<Reedline> {
+    // Setup history_isolation aka "history per session"
+    let history_session_id = if history.isolation {
+        Reedline::create_history_session_id()
+    } else {
+        None
+    };
+
+    if let Some(path) = crate::config_files::get_history_path(nushell_path, history.file_format) {
+        return update_line_editor_history(
+            engine_state,
+            path,
+            history,
+            line_editor,
+            history_session_id,
+        );
+    };
+    Ok(line_editor)
 }
 
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
