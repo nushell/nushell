@@ -317,30 +317,25 @@ pub fn evaluate_repl(
 
                 // Actual command execution logic starts from here
                 let start_time = Instant::now();
-                let tokens = lex(s.as_bytes(), 0, &[], &[], false);
-                // Check if this is a single call to a directory, if so auto-cd
-                let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
 
-                let mut orig = s.clone();
-                if orig.starts_with('`') {
-                    orig = trim_quotes_str(&orig).to_string()
+                match parse_operation(s.clone(), engine_state, stack)? {
+                    ReplOperation::AutoCd { cwd, target, span } => {
+                        do_auto_cd(target, cwd, stack, engine_state, span);
+                    }
+                    ReplOperation::RunCommand(cmd) => {
+                        line_editor = do_run_cmd(
+                            &cmd,
+                            stack,
+                            engine_state,
+                            line_editor,
+                            shell_integration,
+                            entry_num,
+                        )?;
+                    }
+                    // as the name implies, we do nothing in this case
+                    ReplOperation::DoNothing => {}
                 }
 
-                let path = nu_path::expand_path_with(&orig, &cwd);
-
-                if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
-                    // We have an auto-cd
-                    do_auto_cd(path, cwd, stack, engine_state, tokens.0[0].span);
-                } else if !s.trim().is_empty() {
-                    line_editor = do_run_cmd(
-                        &s,
-                        stack,
-                        engine_state,
-                        line_editor,
-                        shell_integration,
-                        entry_num,
-                    )?;
-                }
                 let cmd_duration = start_time.elapsed();
 
                 stack.add_env_var(
@@ -440,6 +435,50 @@ fn do_history_meta_post_execution(
             .into_diagnostic()?; // todo: don't stop repl if error here?
     }
     Ok(())
+}
+
+/// The kinds of operations you can do in a single loop iteration of the REPL
+enum ReplOperation {
+    /// "auto-cd": change directory by typing it in directly
+    AutoCd {
+        /// the current working directory
+        cwd: String,
+        /// the target
+        target: PathBuf,
+        /// span information for debugging
+        span: Span,
+    },
+    /// run a command
+    RunCommand(String),
+    /// do nothing (usually through an empty string)
+    DoNothing,
+}
+
+fn parse_operation(
+    s: String,
+    engine_state: &EngineState,
+    stack: &Stack,
+) -> Result<ReplOperation, ErrReport> {
+    let tokens = lex(s.as_bytes(), 0, &[], &[], false);
+    // Check if this is a single call to a directory, if so auto-cd
+    let cwd = nu_engine::env::current_dir_str(engine_state, stack)?;
+    let mut orig = s.clone();
+    if orig.starts_with('`') {
+        orig = trim_quotes_str(&orig).to_string()
+    }
+
+    let path = nu_path::expand_path_with(&orig, &cwd);
+    if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
+        Ok(ReplOperation::AutoCd {
+            cwd,
+            target: path,
+            span: tokens.0[0].span,
+        })
+    } else if !s.trim().is_empty() {
+        Ok(ReplOperation::RunCommand(s))
+    } else {
+        Ok(ReplOperation::DoNothing)
+    }
 }
 
 fn do_auto_cd(
