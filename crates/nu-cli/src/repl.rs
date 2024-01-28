@@ -64,15 +64,7 @@ pub fn evaluate_repl(
         };
     }
 
-    // Guard against invocation without a connected terminal.
-    // reedline / crossterm event polling will fail without a connected tty
-    if !std::io::stdin().is_terminal() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
-        ))
-        .into_diagnostic();
-    }
+    confirm_stdin_is_terminal()?;
 
     let mut entry_num = 0;
 
@@ -712,6 +704,18 @@ fn update_line_editor_history(
     Ok(line_editor)
 }
 
+fn confirm_stdin_is_terminal() -> Result<()> {
+    // Guard against invocation without a connected terminal.
+    // reedline / crossterm event polling will fail without a connected tty
+    if !std::io::stdin().is_terminal() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Nushell launched as a REPL, but STDIN is not a TTY; either launch in a valid terminal or provide arguments to invoke a script!",
+        ))
+        .into_diagnostic();
+    }
+    Ok(())
+}
 fn map_nucursorshape_to_cursorshape(shape: NuCursorShape) -> Option<SetCursorStyle> {
     match shape {
         NuCursorShape::Block => Some(SetCursorStyle::SteadyBlock),
