@@ -239,25 +239,7 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         // Changing the line editor based on the found keybindings
-        line_editor = match create_keybindings(config) {
-            Ok(keybindings) => match keybindings {
-                KeybindingsMode::Emacs(keybindings) => {
-                    let edit_mode = Box::new(Emacs::new(keybindings));
-                    line_editor.with_edit_mode(edit_mode)
-                }
-                KeybindingsMode::Vi {
-                    insert_keybindings,
-                    normal_keybindings,
-                } => {
-                    let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
-                    line_editor.with_edit_mode(edit_mode)
-                }
-            },
-            Err(e) => {
-                report_error_new(&engine_state, &e);
-                line_editor
-            }
-        };
+        line_editor = setup_keybindings(engine_state, line_editor);
         perf!("keybindings", start_time);
 
         start_time = std::time::Instant::now();
@@ -668,6 +650,27 @@ fn setup_history(
     Ok(line_editor)
 }
 
+fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedline {
+    return match create_keybindings(engine_state.get_config()) {
+        Ok(keybindings) => match keybindings {
+            KeybindingsMode::Emacs(keybindings) => {
+                let edit_mode = Box::new(Emacs::new(keybindings));
+                line_editor.with_edit_mode(edit_mode)
+            }
+            KeybindingsMode::Vi {
+                insert_keybindings,
+                normal_keybindings,
+            } => {
+                let edit_mode = Box::new(Vi::new(insert_keybindings, normal_keybindings));
+                line_editor.with_edit_mode(edit_mode)
+            }
+        },
+        Err(e) => {
+            report_error_new(engine_state, &e);
+            line_editor
+        }
+    };
+}
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
     let session_id = line_editor
         .get_history_session_id()
