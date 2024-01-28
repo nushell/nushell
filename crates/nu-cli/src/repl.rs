@@ -30,7 +30,7 @@ use std::{
     io::{self, IsTerminal, Write},
     path::PathBuf,
     sync::atomic::Ordering,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use sysinfo::System;
 
@@ -427,18 +427,14 @@ pub fn evaluate_repl(
                     engine_state.history_config().map(|h| h.file_format),
                     Some(HistoryFileFormat::Sqlite)
                 );
-                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
-                {
-                    line_editor
-                        .update_last_command_context(&|mut c| {
-                            c.start_timestamp = Some(chrono::Utc::now());
-                            c.hostname = hostname.clone();
 
-                            c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
-                            c
-                        })
-                        .into_diagnostic()?; // todo: don't stop repl if error here?
-                }
+                do_history_meta_pre_execution(
+                    &s,
+                    &hostname,
+                    engine_state,
+                    history_supports_meta,
+                    &mut line_editor,
+                )?;
 
                 // Right before we start running the code the user gave us, fire the `pre_execution`
                 // hook
@@ -464,6 +460,7 @@ pub fn evaluate_repl(
                     run_ansi_sequence(PRE_EXECUTE_MARKER)?;
                 }
 
+                // Actual command execution logic starts from here
                 let start_time = Instant::now();
                 let tokens = lex(s.as_bytes(), 0, &[], &[], false);
                 // Check if this is a single call to a directory, if so auto-cd
@@ -496,18 +493,14 @@ pub fn evaluate_repl(
                     Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
-                if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context()
-                {
-                    line_editor
-                        .update_last_command_context(&|mut c| {
-                            c.duration = Some(cmd_duration);
-                            c.exit_status = stack
-                                .get_env_var(engine_state, "LAST_EXIT_CODE")
-                                .and_then(|e| e.as_i64().ok());
-                            c
-                        })
-                        .into_diagnostic()?; // todo: don't stop repl if error here?
-                }
+                do_history_meta_post_execution(
+                    &s,
+                    engine_state,
+                    cmd_duration,
+                    stack,
+                    history_supports_meta,
+                    &mut line_editor,
+                )?;
 
                 if shell_integration {
                     run_ansi_sequence(&get_command_finished_marker(stack, engine_state))?;
@@ -615,6 +608,49 @@ pub fn evaluate_repl(
         );
     }
 
+    Ok(())
+}
+
+fn do_history_meta_pre_execution(
+    s: &str,
+    hostname: &Option<String>,
+    engine_state: &EngineState,
+    history_supports_meta: bool,
+    line_editor: &mut Reedline,
+) -> Result<()> {
+    if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context() {
+        line_editor
+            .update_last_command_context(&|mut c| {
+                c.start_timestamp = Some(chrono::Utc::now());
+                c.hostname = hostname.clone();
+
+                c.cwd = Some(StateWorkingSet::new(engine_state).get_cwd());
+                c
+            })
+            .into_diagnostic()?; // todo: don't stop repl if error here?
+    }
+    Ok(())
+}
+
+fn do_history_meta_post_execution(
+    s: &str,
+    engine_state: &EngineState,
+    cmd_duration: Duration,
+    stack: &mut Stack,
+    history_supports_meta: bool,
+    line_editor: &mut Reedline,
+) -> Result<()> {
+    if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context() {
+        line_editor
+            .update_last_command_context(&|mut c| {
+                c.duration = Some(cmd_duration);
+                c.exit_status = stack
+                    .get_env_var(engine_state, "LAST_EXIT_CODE")
+                    .and_then(|e| e.as_i64().ok());
+                c
+            })
+            .into_diagnostic()?; // todo: don't stop repl if error here?
+    }
     Ok(())
 }
 
