@@ -504,10 +504,9 @@ impl<'e, 's> ScopeData<'e, 's> {
             |block_id| Value::block(block_id, span),
         );
 
-        let module_usage = self
+        let (module_usage, module_extra_usage) = self
             .engine_state
             .build_module_usage(*module_id)
-            .map(|(usage, _)| usage)
             .unwrap_or_default();
 
         Value::record(
@@ -520,6 +519,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 "constants" => Value::list(export_consts, span),
                 "env_block" => export_env_block,
                 "usage" => Value::string(module_usage, span),
+                "extra_usage" => Value::string(module_extra_usage, span),
                 "module_id" => Value::int(*module_id as i64, span),
             },
             span,

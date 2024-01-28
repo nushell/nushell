@@ -731,4 +731,8 @@ impl Menu for DescriptionMenu {
             )
         }
     }
+
+    fn set_cursor_pos(&mut self, _pos: (u16, u16)) {
+        // The Description Menu does not need the cursor position
+    }
 }

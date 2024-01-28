@@ -28,7 +28,7 @@ impl Command for NuHighlight {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -40,6 +40,7 @@ impl Command for NuHighlight {
 
         let highlighter = crate::NuHighlighter {
             engine_state,
+            stack: std::sync::Arc::new(stack.clone()),
             config,
         };
 

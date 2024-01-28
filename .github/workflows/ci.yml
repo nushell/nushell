@@ -63,6 +63,10 @@ jobs:
         platform: [windows-latest, macos-latest, ubuntu-20.04]
         feature: [default, dataframe, extra]
         include:
+          # linux CI cannot handle clipboard feature
+          - default-flags: ""
+          - platform:  ubuntu-20.04
+            default-flags: "--no-default-features --features=default-no-clipboard"
           - feature: default
             flags: ""
           - feature: dataframe
@@ -90,7 +94,7 @@ jobs:
           rustflags: ""
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.flags }}
+        run: cargo test --workspace --profile ci --exclude nu_plugin_* ${{ matrix.default-flags }} ${{ matrix.flags }}
 
       - name: Check for clean repo
         shell: bash
@@ -125,7 +129,7 @@ jobs:
         run: cargo install --path . --locked --no-default-features
 
       - name: Standard library tests
-        run: nu -c 'use std testing; testing run-tests --path crates/nu-std'
+        run: nu -c 'use crates/nu-std/testing.nu; testing run-tests --path crates/nu-std'
 
       - name: Setup Python
         uses: actions/setup-python@v5

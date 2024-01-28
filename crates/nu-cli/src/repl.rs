@@ -11,7 +11,7 @@ use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_guaranteed_cwd;
 use nu_cmd_base::{hook::eval_hook, util::get_editor};
 use nu_color_config::StyleComputer;
-use nu_engine::convert_env_values;
+use nu_engine::{convert_env_values, env_to_strings};
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::{
     config::NuCursorShape,
@@ -236,6 +236,7 @@ pub fn evaluate_repl(
             .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
             .with_highlighter(Box::new(NuHighlighter {
                 engine_state: engine_reference.clone(),
+                stack: std::sync::Arc::new(stack.clone()),
                 config: config.clone(),
             }))
             .with_validator(Box::new(NuValidator {
@@ -299,12 +300,9 @@ pub fn evaluate_repl(
 
         line_editor = if let Ok((cmd, args)) = buffer_editor {
             let mut command = std::process::Command::new(&cmd);
-            command.args(args).envs(
-                engine_state
-                    .render_env_vars()
-                    .into_iter()
-                    .filter_map(|(k, v)| v.as_string().ok().map(|v| (k, v))),
-            );
+            command
+                .args(args)
+                .envs(env_to_strings(engine_state, stack)?);
             line_editor.with_buffer_editor(command, temp_file.clone())
         } else {
             line_editor
@@ -657,7 +655,10 @@ pub fn evaluate_repl(
                 line_editor.run_edit_commands(&[
                     EditCommand::Clear,
                     EditCommand::InsertString(repl.buffer.to_string()),
-                    EditCommand::MoveToPosition(repl.cursor_pos),
+                    EditCommand::MoveToPosition {
+                        position: repl.cursor_pos,
+                        select: false,
+                    },
                 ]);
                 repl.buffer = "".to_string();
                 repl.cursor_pos = 0;

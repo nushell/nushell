@@ -52,7 +52,6 @@ pub use sample::SampleDF;
 pub use shape::ShapeDF;
 pub use slice::SliceDF;
 pub use sql_context::SQLContext;
-pub use sql_expr::parse_sql_expr;
 pub use summary::Summary;
 pub use take::TakeDF;
 pub use to_arrow::ToArrow;

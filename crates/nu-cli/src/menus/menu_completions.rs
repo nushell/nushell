@@ -101,9 +101,13 @@ fn convert_to_suggestions(
                             }
                         }
                         _ => reedline::Span {
-                            start: if only_buffer_difference { pos } else { 0 },
+                            start: if only_buffer_difference {
+                                pos - line.len()
+                            } else {
+                                0
+                            },
                             end: if only_buffer_difference {
-                                pos + line.len()
+                                pos
                             } else {
                                 line.len()
                             },
@@ -111,9 +115,13 @@ fn convert_to_suggestions(
                     }
                 }
                 _ => reedline::Span {
-                    start: if only_buffer_difference { pos } else { 0 },
+                    start: if only_buffer_difference {
+                        pos - line.len()
+                    } else {
+                        0
+                    },
                     end: if only_buffer_difference {
-                        pos + line.len()
+                        pos
                     } else {
                         line.len()
                     },
@@ -138,6 +146,7 @@ fn convert_to_suggestions(
             vec![Suggestion {
                 value: text,
                 description,
+                style: None,
                 extra,
                 span,
                 append_whitespace: false,
@@ -150,10 +159,19 @@ fn convert_to_suggestions(
         _ => vec![Suggestion {
             value: format!("Not a record: {value:?}"),
             description: None,
+            style: None,
             extra: None,
             span: reedline::Span {
-                start: 0,
-                end: line.len(),
+                start: if only_buffer_difference {
+                    pos - line.len()
+                } else {
+                    0
+                },
+                end: if only_buffer_difference {
+                    pos
+                } else {
+                    line.len()
+                },
             },
             append_whitespace: false,
         }],

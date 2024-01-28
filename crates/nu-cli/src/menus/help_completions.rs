@@ -102,10 +102,11 @@ impl NuHelpCompleter {
                 Suggestion {
                     value: sig.name.clone(),
                     description: Some(long_desc),
+                    style: None,
                     extra: Some(extra),
                     span: reedline::Span {
-                        start: pos,
-                        end: pos + line.len(),
+                        start: pos - line.len(),
+                        end: pos,
                     },
                     append_whitespace: false,
                 }
@@ -117,5 +118,44 @@ impl NuHelpCompleter {
 impl Completer for NuHelpCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
         self.completion_helper(line, pos)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("who", 5, 8, &["whoami"])]
+    #[case("hash", 1, 5, &["hash", "hash md5", "hash sha256"])]
+    #[case("into f", 0, 6, &["into float", "into filesize"])]
+    #[case("into nonexistent", 0, 16, &[])]
+    fn test_help_completer(
+        #[case] line: &str,
+        #[case] start: usize,
+        #[case] end: usize,
+        #[case] expected: &[&str],
+    ) {
+        let engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut completer = NuHelpCompleter::new(engine_state.into());
+        let suggestions = completer.complete(line, end);
+
+        assert_eq!(
+            expected.len(),
+            suggestions.len(),
+            "expected {:?}, got {:?}",
+            expected,
+            suggestions
+                .iter()
+                .map(|s| s.value.clone())
+                .collect::<Vec<_>>()
+        );
+
+        for (exp, actual) in expected.iter().zip(suggestions) {
+            assert_eq!(exp, &actual.value);
+            assert_eq!(reedline::Span::new(start, end), actual.span);
+        }
     }
 }

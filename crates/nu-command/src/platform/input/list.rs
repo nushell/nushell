@@ -49,6 +49,7 @@ impl Command for InputList {
                 Some('m'),
             )
             .switch("fuzzy", "Use a fuzzy select.", Some('f'))
+            .switch("index", "Returns list indexes.", Some('i'))
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -76,6 +77,7 @@ impl Command for InputList {
         let prompt: Option<String> = call.opt(engine_state, stack, 0)?;
         let multi = call.has_flag(engine_state, stack, "multi")?;
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
+        let index = call.has_flag(engine_state, stack, "index")?;
 
         let options: Vec<Options> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
@@ -168,17 +170,40 @@ impl Command for InputList {
         };
 
         Ok(match ans {
-            InteractMode::Multi(res) => match res {
-                Some(opts) => Value::list(
-                    opts.iter().map(|s| options[*s].value.clone()).collect(),
-                    head,
-                ),
-                None => Value::nothing(head),
-            },
-            InteractMode::Single(res) => match res {
-                Some(opt) => options[opt].value.clone(),
-                None => Value::nothing(head),
-            },
+            InteractMode::Multi(res) => {
+                if index {
+                    match res {
+                        Some(opts) => Value::list(
+                            opts.into_iter()
+                                .map(|s| Value::int(s as i64, head))
+                                .collect(),
+                            head,
+                        ),
+                        None => Value::nothing(head),
+                    }
+                } else {
+                    match res {
+                        Some(opts) => Value::list(
+                            opts.iter().map(|s| options[*s].value.clone()).collect(),
+                            head,
+                        ),
+                        None => Value::nothing(head),
+                    }
+                }
+            }
+            InteractMode::Single(res) => {
+                if index {
+                    match res {
+                        Some(opt) => Value::int(opt as i64, head),
+                        None => Value::nothing(head),
+                    }
+                } else {
+                    match res {
+                        Some(opt) => options[opt].value.clone(),
+                        None => Value::nothing(head),
+                    }
+                }
+            }
         }
         .into_pipeline_data())
     }
@@ -203,6 +228,11 @@ impl Command for InputList {
             Example {
                 description: "Choose an item from a range",
                 example: r#"1..10 | input list"#,
+                result: None,
+            },
+            Example {
+                description: "Return the index of a selected item",
+                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --index"#,
                 result: None,
             },
         ]

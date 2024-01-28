@@ -1,12 +1,10 @@
-use nu_cmd_base::arg_glob;
 use nu_engine::current_dir;
 use nu_engine::CallExt;
-use nu_glob::GlobResult;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
+    Category, Example, NuPath, PipelineData, ShellError, Signature, Spanned, SyntaxShape, Type,
 };
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -58,7 +56,7 @@ impl Command for UMv {
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
             .rest(
                 "paths",
-                SyntaxShape::Filepath,
+                SyntaxShape::GlobPattern,
                 "Rename SRC to DST, or move SRC to DIR.",
             )
             .allow_variants_without_examples(true)
@@ -84,14 +82,8 @@ impl Command for UMv {
             uu_mv::OverwriteMode::Force
         };
 
-        let paths: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
-        let paths: Vec<Spanned<String>> = paths
-            .into_iter()
-            .map(|p| Spanned {
-                item: nu_utils::strip_ansi_string_unlikely(p.item),
-                span: p.span,
-            })
-            .collect();
+        let cwd = current_dir(engine_state, stack)?;
+        let mut paths: Vec<Spanned<NuPath>> = call.rest(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Missing file operand".into(),
@@ -102,9 +94,13 @@ impl Command for UMv {
             });
         }
         if paths.len() == 1 {
+            // expand path for better error message
             return Err(ShellError::GenericError {
                 error: "Missing destination path".into(),
-                msg: format!("Missing destination path operand after {}", paths[0].item),
+                msg: format!(
+                    "Missing destination path operand after {}",
+                    expand_path_with(paths[0].item.as_ref(), cwd).to_string_lossy()
+                ),
                 span: Some(paths[0].span),
                 help: None,
                 inner: Vec::new(),
@@ -112,11 +108,18 @@ impl Command for UMv {
         }
 
         // Do not glob target
-        let sources = &paths[..paths.len() - 1];
-        let cwd = current_dir(engine_state, stack)?;
+        let spanned_target = paths.pop().ok_or(ShellError::NushellFailedSpanned {
+            msg: "Missing file operand".into(),
+            label: "Missing file operand".into(),
+            span: call.head,
+        })?;
         let mut files: Vec<PathBuf> = Vec::new();
-        for p in sources {
-            let exp_files = arg_glob(p, &cwd)?.collect::<Vec<GlobResult>>();
+        for mut p in paths {
+            p.item = p.item.strip_ansi_string_unlikely();
+            let exp_files: Vec<Result<PathBuf, ShellError>> =
+                nu_engine::glob_from(&p, &cwd, call.head, None)
+                    .map(|f| f.1)?
+                    .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::FileNotFound { span: p.span });
             };
@@ -126,23 +129,24 @@ impl Command for UMv {
                     Ok(path) => {
                         app_vals.push(path);
                     }
-                    Err(e) => {
-                        return Err(ShellError::ErrorExpandingGlob {
-                            msg: format!("error {} in path {}", e.error(), e.path().display()),
-                            span: p.span,
-                        });
-                    }
+                    Err(e) => return Err(e),
                 }
             }
             files.append(&mut app_vals);
         }
+
+        // Make sure to send absolute paths to avoid uu_cp looking for cwd in std::env which is not
+        // supported in Nushell
+        for src in files.iter_mut() {
+            if !src.is_absolute() {
+                *src = nu_path::expand_path_with(&src, &cwd);
+            }
+        }
+
         // Add back the target after globbing
-        let spanned_target = paths.last().ok_or(ShellError::NushellFailedSpanned {
-            msg: "Missing file operand".into(),
-            label: "Missing file operand".into(),
-            span: call.head,
-        })?;
-        let expanded_target = expand_to_real_path(spanned_target.item.clone());
+        let expanded_target = expand_to_real_path(nu_utils::strip_ansi_string_unlikely(
+            spanned_target.item.to_string(),
+        ));
         let abs_target_path = expand_path_with(expanded_target, &cwd);
         files.push(abs_target_path.clone());
         let files = files

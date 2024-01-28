@@ -1,15 +1,17 @@
 use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
+use nu_engine::env;
 use nu_parser::{flatten_block, parse, FlatShape};
 use nu_protocol::ast::{Argument, Block, Expr, Expression, PipelineElement, RecordItem};
-use nu_protocol::engine::{EngineState, StateWorkingSet};
+use nu_protocol::engine::{EngineState, Stack, StateWorkingSet};
 use nu_protocol::{Config, Span};
 use reedline::{Highlighter, StyledText};
 use std::sync::Arc;
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
+    pub stack: Arc<Stack>,
     pub config: Config,
 }
 
@@ -32,7 +34,17 @@ impl Highlighter for NuHighlighter {
                             working_set.get_span_contents(Span::new(span.start, span.end));
 
                         let str_word = String::from_utf8_lossy(str_contents).to_string();
-                        if which::which(str_word).ok().is_some() {
+                        let paths = env::path_str(&self.engine_state, &self.stack, *span).ok();
+                        let res = if let Ok(cwd) =
+                            env::current_dir_str(&self.engine_state, &self.stack)
+                        {
+                            which::which_in(str_word, paths.as_ref(), cwd).ok()
+                        } else {
+                            which::which_in_global(str_word, paths.as_ref())
+                                .ok()
+                                .and_then(|mut i| i.next())
+                        };
+                        if res.is_some() {
                             *shape = FlatShape::ExternalResolved;
                         }
                     }
@@ -321,9 +333,9 @@ fn find_matching_block_end_in_expr(
             Expr::Keyword(..) => None,
             Expr::ValueWithUnit(..) => None,
             Expr::DateTime(_) => None,
-            Expr::Filepath(_) => None,
-            Expr::Directory(_) => None,
-            Expr::GlobPattern(_) => None,
+            Expr::Filepath(_, _) => None,
+            Expr::Directory(_, _) => None,
+            Expr::GlobPattern(_, _) => None,
             Expr::String(_) => None,
             Expr::CellPath(_) => None,
             Expr::ImportPattern(_) => None,

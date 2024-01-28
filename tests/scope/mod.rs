@@ -91,6 +91,8 @@ fn correctly_report_of_shadowed_alias() {
 fn correct_scope_modules_fields() {
     let module_setup = r#"
         # nice spam
+        #
+        # and some extra usage for spam
 
         export module eggs {
             export module bacon {
@@ -122,6 +124,13 @@ fn correct_scope_modules_fields() {
         ];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "nice spam");
+
+        let inp = &[
+            "use spam.nu",
+            "scope modules | where name == spam | get 0.extra_usage",
+        ];
+        let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+        assert_eq!(actual.out, "and some extra usage for spam");
 
         let inp = &[
             "use spam.nu",

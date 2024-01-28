@@ -3,9 +3,9 @@ use crate::{
         eval_operator, Assignment, Bits, Boolean, Call, Comparison, Expr, Expression,
         ExternalArgument, Math, Operator, RecordItem,
     },
-    Range, Record, ShellError, Span, Value, VarId,
+    Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -27,9 +27,9 @@ pub trait Eval {
             Expr::Int(i) => Ok(Value::int(*i, expr.span)),
             Expr::Float(f) => Ok(Value::float(*f, expr.span)),
             Expr::Binary(b) => Ok(Value::binary(b.clone(), expr.span)),
-            Expr::Filepath(path) => Self::eval_filepath(state, mut_state, path.clone(), expr.span),
-            Expr::Directory(path) => {
-                Self::eval_directory(state, mut_state, path.clone(), expr.span)
+            Expr::Filepath(path, quoted) => Self::eval_filepath(state, mut_state, path.clone(), *quoted, expr.span),
+            Expr::Directory(path, quoted) => {
+                Self::eval_directory(state, mut_state, path.clone(), *quoted, expr.span)
             }
             Expr::Var(var_id) => Self::eval_var(state, mut_state, *var_id, expr.span),
             Expr::CellPath(cell_path) => Ok(Value::cell_path(cell_path.clone(), expr.span)),
@@ -271,11 +271,28 @@ pub trait Eval {
                 Self::eval_row_condition_or_closure(state, mut_state, *block_id, expr.span)
             }
             Expr::StringInterpolation(exprs) => {
-                Self::eval_string_interpolation(state, mut_state, exprs, expr.span)
+                let mut parts = vec![];
+                for expr in exprs {
+                    parts.push(Self::eval(state, mut_state, expr)?);
+                }
+
+                let config = Self::get_config(state, mut_state);
+
+                parts
+                    .into_iter()
+                    .into_pipeline_data(None)
+                    .collect_string("", &config)
+                    .map(|x| Value::string(x, expr.span))
             }
             Expr::Overlay(_) => Self::eval_overlay(state, expr.span),
-            Expr::GlobPattern(pattern) => {
-                Self::eval_glob_pattern(state, mut_state, pattern.clone(), expr.span)
+            Expr::GlobPattern(pattern, quoted) => {
+                // GlobPattern is similar to Filepath
+                // But we don't want to expand path during eval time, it's required for `nu_engine::glob_from` to run correctly
+                if *quoted {
+                    Ok(Value::quoted_string(pattern, expr.span))
+                } else {
+                    Ok(Value::string(pattern, expr.span))
+                }
             }
             Expr::MatchBlock(_) // match blocks are handled by `match`
             | Expr::VarDecl(_)
@@ -287,10 +304,13 @@ pub trait Eval {
         }
     }
 
+    fn get_config<'a>(state: Self::State<'a>, mut_state: &mut Self::MutState) -> Cow<'a, Config>;
+
     fn eval_filepath(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -298,6 +318,7 @@ pub trait Eval {
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,
         path: String,
+        quoted: bool,
         span: Span,
     ) -> Result<Value, ShellError>;
 
@@ -357,21 +378,7 @@ pub trait Eval {
         span: Span,
     ) -> Result<Value, ShellError>;
 
-    fn eval_string_interpolation(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        exprs: &[Expression],
-        span: Span,
-    ) -> Result<Value, ShellError>;
-
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
-
-    fn eval_glob_pattern(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        pattern: String,
-        span: Span,
-    ) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
     fn unreachable(expr: &Expression) -> Result<Value, ShellError>;

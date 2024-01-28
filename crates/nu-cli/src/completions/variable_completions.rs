@@ -95,6 +95,7 @@ impl Completer for VariableCompletion {
                             output.push(Suggestion {
                                 value: env_var.0,
                                 description: None,
+                                style: None,
                                 extra: None,
                                 span: current_span,
                                 append_whitespace: false,
@@ -165,6 +166,7 @@ impl Completer for VariableCompletion {
                 output.push(Suggestion {
                     value: builtin.to_string(),
                     description: None,
+                    style: None,
                     extra: None,
                     span: current_span,
                     append_whitespace: false,
@@ -187,6 +189,7 @@ impl Completer for VariableCompletion {
                         output.push(Suggestion {
                             value: String::from_utf8_lossy(v.0).to_string(),
                             description: None,
+                            style: None,
                             extra: None,
                             span: current_span,
                             append_whitespace: false,
@@ -208,6 +211,7 @@ impl Completer for VariableCompletion {
                     output.push(Suggestion {
                         value: String::from_utf8_lossy(v.0).to_string(),
                         description: None,
+                        style: None,
                         extra: None,
                         span: current_span,
                         append_whitespace: false,
@@ -239,6 +243,7 @@ fn nested_suggestions(
                 output.push(Suggestion {
                     value: col,
                     description: None,
+                    style: None,
                     extra: None,
                     span: current_span,
                     append_whitespace: false,
@@ -253,6 +258,7 @@ fn nested_suggestions(
                 output.push(Suggestion {
                     value: column_name.to_string(),
                     description: None,
+                    style: None,
                     extra: None,
                     span: current_span,
                     append_whitespace: false,
@@ -266,6 +272,7 @@ fn nested_suggestions(
                 output.push(Suggestion {
                     value: column_name,
                     description: None,
+                    style: None,
                     extra: None,
                     span: current_span,
                     append_whitespace: false,

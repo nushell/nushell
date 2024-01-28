@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use super::NuPath;
 use crate::ast::{CellPath, PathMember};
 use crate::engine::{Block, Closure};
 use crate::{Range, Record, ShellError, Spanned, Value};
@@ -189,6 +190,45 @@ impl FromValue for Spanned<String> {
             item: match v {
                 Value::CellPath { val, .. } => val.to_string(),
                 Value::String { val, .. } => val,
+                v => {
+                    return Err(ShellError::CantConvert {
+                        to_type: "string".into(),
+                        from_type: v.get_type().to_string(),
+                        span: v.span(),
+                        help: None,
+                    })
+                }
+            },
+            span,
+        })
+    }
+}
+
+impl FromValue for NuPath {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        // FIXME: we may want to fail a little nicer here
+        match v {
+            Value::CellPath { val, .. } => Ok(NuPath::UnQuoted(val.to_string())),
+            Value::String { val, .. } => Ok(NuPath::UnQuoted(val)),
+            Value::QuotedString { val, .. } => Ok(NuPath::Quoted(val)),
+            v => Err(ShellError::CantConvert {
+                to_type: "string".into(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+}
+
+impl FromValue for Spanned<NuPath> {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        Ok(Spanned {
+            item: match v {
+                Value::CellPath { val, .. } => NuPath::UnQuoted(val.to_string()),
+                Value::String { val, .. } => NuPath::UnQuoted(val),
+                Value::QuotedString { val, .. } => NuPath::Quoted(val),
                 v => {
                     return Err(ShellError::CantConvert {
                         to_type: "string".into(),

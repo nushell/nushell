@@ -107,7 +107,10 @@ export def test [
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
-    cargo run -- -c $"use std testing; testing run-tests --path crates/nu-std ($extra_args)"
+    cargo run -- -c $"
+        use crates/nu-std/testing.nu
+        testing run-tests --path crates/nu-std ($extra_args)
+    "
 }
 
 # formats the pipe input inside backticks, dimmed and italic, as a pretty command
@@ -251,7 +254,10 @@ export def "check pr" [
     --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
 ] {
-    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8';
+    $env.NU_TEST_LOCALE_OVERRIDE = 'en_US.utf8'
+    $env.LANG = 'en_US.UTF-8'
+    $env.LANGUAGE = 'en'
+
     try {
         fmt --check --verbose
     } catch {
@@ -295,7 +301,7 @@ export def "check pr" [
 
 # run Nushell from source with a right indicator
 export def run [] {
-    cargo run -- [
+    cargo run -- ...[
         -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
     ]
 }

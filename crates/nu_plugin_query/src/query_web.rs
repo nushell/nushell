@@ -35,13 +35,13 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
         Some(q2) => q2,
         None => "".to_string(),
     };
-    let as_html = call.has_flag("as-html");
+    let as_html = call.has_flag("as-html")?;
     let attribute = call.get_flag("attribute")?.unwrap_or_default();
     let as_table: Value = call
         .get_flag("as-table")?
         .unwrap_or_else(|| Value::nothing(head));
 
-    let inspect = call.has_flag("inspect");
+    let inspect = call.has_flag("inspect")?;
 
     if !&query.is_empty() && ScraperSelector::parse(&query).is_err() {
         return Err(LabeledError {
