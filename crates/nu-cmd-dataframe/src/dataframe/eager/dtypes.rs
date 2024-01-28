@@ -1,4 +1,3 @@
-use super::super::values::nu_schema::build_dtype_string;
 use super::super::values::{Column, NuDataFrame};
 use nu_protocol::{
     ast::Call,
@@ -82,7 +81,7 @@ fn command(
                 .expect("using name from list of names from dataframe")
                 .dtype();
 
-            let dtype_str = build_dtype_string(&dtype);
+            let dtype_str = dtype.to_string();
 
             dtypes.push(Value::string(dtype_str, call.head));
 

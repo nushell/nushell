@@ -50,7 +50,7 @@ fn schema_to_value(schema: &Schema) -> Value {
     Value::record(record, Span::unknown())
 }
 
-pub(crate) fn build_dtype_string(dtype: &DataType) -> String {
+fn build_dtype_string(dtype: &DataType) -> String {
     dtype.to_string().replace("[", "<").replace("]", ">")
 }
 
