@@ -40,7 +40,7 @@ fn schema_to_value(schema: &Schema) -> Value {
     let (cols, vals) = schema
         .iter_fields()
         .map(|field| {
-            let dtype = Value::string(schema_to_dtype_str(field.data_type()), Span::unknown());
+            let dtype = Value::string(build_dtype_string(field.data_type()), Span::unknown());
             let col = field.name().to_string();
             (col, dtype)
         })
@@ -50,8 +50,8 @@ fn schema_to_value(schema: &Schema) -> Value {
     Value::record(record, Span::unknown())
 }
 
-fn schema_to_dtype_str(dtype: &DataType) -> String {
-    format!("{}", dtype)
+pub(crate) fn build_dtype_string(dtype: &DataType) -> String {
+    dtype.to_string().replace("[", "<").replace("]", ">")
 }
 
 fn value_to_schema(value: &Value, span: Span) -> Result<Schema, ShellError> {
