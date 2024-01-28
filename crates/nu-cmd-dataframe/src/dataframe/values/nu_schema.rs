@@ -25,8 +25,8 @@ impl TryFrom<&Value> for NuSchema {
 }
 
 impl From<NuSchema> for Value {
-    fn from(val: NuSchema) -> Self {
-        schema_to_value(&val.schema)
+    fn from(schema: NuSchema) -> Self {
+        fields_to_value(schema.schema.iter_fields(), Span::unknown())
     }
 }
 
@@ -36,13 +36,12 @@ impl From<NuSchema> for SchemaRef {
     }
 }
 
-fn schema_to_value(schema: &Schema) -> Value {
-    let (cols, vals) = schema
-        .iter_fields()
+fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -> Value {
+    let (cols, vals) = fields
         .map(|field| {
-            let dtype = Value::string(build_dtype_string(field.data_type()), Span::unknown());
+            let val = dtype_to_value(field.data_type(), span);
             let col = field.name().to_string();
-            (col, dtype)
+            (col, val)
         })
         .unzip();
 
@@ -50,8 +49,11 @@ fn schema_to_value(schema: &Schema) -> Value {
     Value::record(record, Span::unknown())
 }
 
-fn build_dtype_string(dtype: &DataType) -> String {
-    dtype.to_string().replace("[", "<").replace("]", ">")
+fn dtype_to_value(dtype: &DataType, span: Span) -> Value {
+    match dtype {
+        DataType::Struct(fields) => fields_to_value(fields.iter().cloned(), span),
+        _ => Value::string(dtype.to_string().replace("[", "<").replace("]", ">"), span),
+    }
 }
 
 fn value_to_schema(value: &Value, span: Span) -> Result<Schema, ShellError> {
