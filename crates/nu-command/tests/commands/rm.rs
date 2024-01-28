@@ -480,3 +480,18 @@ fn rm_files_inside_glob_metachars_dir() {
         ));
     });
 }
+
+#[test]
+fn force_rm_suppress_error() {
+    Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+
+        // the second rm should suppress error.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm test_file.txt; rm -f test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+    });
+}

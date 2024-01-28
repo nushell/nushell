@@ -254,7 +254,6 @@ fn rm(
             });
         }
 
-        // let path = currentdir_path.join(target.item.as_ref());
         match nu_engine::glob_from(
             &target,
             &currentdir_path,
@@ -302,13 +301,9 @@ fn rm(
                 }
             }
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: e.to_string(),
-                    span: Some(target.span),
-                    help: None,
-                    inner: vec![],
-                })
+                if !(force && matches!(e, ShellError::DirectoryNotFound { .. })) {
+                    return Err(e);
+                }
             }
         };
     }
