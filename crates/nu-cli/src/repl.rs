@@ -17,8 +17,8 @@ use nu_protocol::{
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
-    report_error, report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError,
-    Span, Spanned, Value, NU_VARIABLE_ID,
+    report_error_new, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned,
+    Value, NU_VARIABLE_ID,
 };
 use nu_utils::utils::perf;
 use reedline::{
@@ -73,8 +73,7 @@ pub fn evaluate_repl(
     let start_time = std::time::Instant::now();
     // Translate environment variables from Strings to Values
     if let Some(e) = convert_env_values(engine_state, stack) {
-        let working_set = StateWorkingSet::new(engine_state);
-        report_error(&working_set, &e);
+        report_error_new(engine_state, &e);
     }
     perf!("translate env vars", start_time);
 
@@ -225,8 +224,7 @@ pub fn evaluate_repl(
 
         start_time = std::time::Instant::now();
         line_editor = add_menus(line_editor, engine_reference, stack, config).unwrap_or_else(|e| {
-            let working_set = StateWorkingSet::new(engine_state);
-            report_error(&working_set, &e);
+            report_error_new(engine_state, &e);
             Reedline::create()
         });
         perf!("reedline menus", start_time);
@@ -272,8 +270,7 @@ pub fn evaluate_repl(
                 }
             },
             Err(e) => {
-                let working_set = StateWorkingSet::new(engine_state);
-                report_error(&working_set, &e);
+                report_error_new(&engine_state, &e);
                 line_editor
             }
         };
@@ -501,10 +498,8 @@ fn do_auto_cd(
 ) {
     let path = {
         if !path.exists() {
-            let working_set = StateWorkingSet::new(engine_state);
-
-            report_error(
-                &working_set,
+            report_error_new(
+                engine_state,
                 &ShellError::DirectoryNotFound {
                     dir: path.to_string_lossy().to_string(),
                     span,
