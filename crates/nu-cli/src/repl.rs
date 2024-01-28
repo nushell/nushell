@@ -478,60 +478,7 @@ pub fn evaluate_repl(
 
                 if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
                     // We have an auto-cd
-                    let (path, span) = {
-                        if !path.exists() {
-                            let working_set = StateWorkingSet::new(engine_state);
-
-                            report_error(
-                                &working_set,
-                                &ShellError::DirectoryNotFound {
-                                    dir: path.to_string_lossy().to_string(),
-                                    span: tokens.0[0].span,
-                                },
-                            );
-                        }
-                        let path = nu_path::canonicalize_with(path, &cwd)
-                            .expect("internal error: cannot canonicalize known path");
-                        (path.to_string_lossy().to_string(), tokens.0[0].span)
-                    };
-
-                    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
-
-                    //FIXME: this only changes the current scope, but instead this environment variable
-                    //should probably be a block that loads the information from the state in the overlay
-                    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
-                    let cwd = Value::string(cwd, span);
-
-                    let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
-                    let mut shells = if let Some(v) = shells {
-                        v.as_list()
-                            .map(|x| x.to_vec())
-                            .unwrap_or_else(|_| vec![cwd])
-                    } else {
-                        vec![cwd]
-                    };
-
-                    let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
-                    let current_shell = if let Some(v) = current_shell {
-                        v.as_int().unwrap_or_default() as usize
-                    } else {
-                        0
-                    };
-
-                    let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
-                    let last_shell = if let Some(v) = last_shell {
-                        v.as_int().unwrap_or_default() as usize
-                    } else {
-                        0
-                    };
-
-                    shells[current_shell] = Value::string(path, span);
-
-                    stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
-                    stack.add_env_var(
-                        "NUSHELL_LAST_SHELL".into(),
-                        Value::int(last_shell as i64, span),
-                    );
+                    do_auto_cd(path, cwd, stack, engine_state, tokens.0[0].span);
                 } else if !s.trim().is_empty() {
                     trace!("eval source: {}", s);
 
@@ -712,6 +659,69 @@ pub fn evaluate_repl(
     }
 
     Ok(())
+}
+
+fn do_auto_cd(
+    path: PathBuf,
+    cwd: String,
+    stack: &mut Stack,
+    engine_state: &mut EngineState,
+    span: Span,
+) {
+    let path = {
+        if !path.exists() {
+            let working_set = StateWorkingSet::new(engine_state);
+
+            report_error(
+                &working_set,
+                &ShellError::DirectoryNotFound {
+                    dir: path.to_string_lossy().to_string(),
+                    span,
+                },
+            );
+        }
+        let path = nu_path::canonicalize_with(path, &cwd)
+            .expect("internal error: cannot canonicalize known path");
+        path.to_string_lossy().to_string()
+    };
+
+    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
+
+    //FIXME: this only changes the current scope, but instead this environment variable
+    //should probably be a block that loads the information from the state in the overlay
+    stack.add_env_var("PWD".into(), Value::string(path.clone(), Span::unknown()));
+    let cwd = Value::string(cwd, span);
+
+    let shells = stack.get_env_var(engine_state, "NUSHELL_SHELLS");
+    let mut shells = if let Some(v) = shells {
+        v.as_list()
+            .map(|x| x.to_vec())
+            .unwrap_or_else(|_| vec![cwd])
+    } else {
+        vec![cwd]
+    };
+
+    let current_shell = stack.get_env_var(engine_state, "NUSHELL_CURRENT_SHELL");
+    let current_shell = if let Some(v) = current_shell {
+        v.as_int().unwrap_or_default() as usize
+    } else {
+        0
+    };
+
+    let last_shell = stack.get_env_var(engine_state, "NUSHELL_LAST_SHELL");
+    let last_shell = if let Some(v) = last_shell {
+        v.as_int().unwrap_or_default() as usize
+    } else {
+        0
+    };
+
+    shells[current_shell] = Value::string(path, span);
+
+    stack.add_env_var("NUSHELL_SHELLS".into(), Value::list(shells, span));
+    stack.add_env_var(
+        "NUSHELL_LAST_SHELL".into(),
+        Value::int(last_shell as i64, span),
+    );
 }
 
 fn store_history_id_in_engine(engine_state: &mut EngineState, line_editor: &Reedline) {
