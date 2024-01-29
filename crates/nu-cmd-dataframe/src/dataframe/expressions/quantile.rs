@@ -41,16 +41,19 @@ impl Command for ExprQuantile {
     | dfr group-by a
     | dfr agg (dfr col b | dfr quantile 0.5)"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_string("one"), Value::test_string("two")],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_float(4.0), Value::test_float(1.0)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_string("one"), Value::test_string("two")],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_float(4.0), Value::test_float(1.0)],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

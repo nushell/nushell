@@ -46,14 +46,17 @@ impl Command for Replace {
             description: "Replaces string",
             example: "[abc abc abc] | dfr into-df | dfr replace --pattern ab --replace AB",
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_string("ABc"),
-                        Value::test_string("ABc"),
-                        Value::test_string("ABc"),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_string("ABc"),
+                            Value::test_string("ABc"),
+                            Value::test_string("ABc"),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

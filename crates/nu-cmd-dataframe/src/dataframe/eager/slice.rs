@@ -37,10 +37,13 @@ impl Command for SliceDF {
             description: "Create new dataframe from a slice of the rows",
             example: "[[a b]; [1 2] [3 4]] | dfr into-df | dfr slice 0 1",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new("a".to_string(), vec![Value::test_int(1)]),
-                    Column::new("b".to_string(), vec![Value::test_int(2)]),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new("a".to_string(), vec![Value::test_int(1)]),
+                        Column::new("b".to_string(), vec![Value::test_int(2)]),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

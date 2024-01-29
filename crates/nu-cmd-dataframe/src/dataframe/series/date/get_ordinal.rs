@@ -35,10 +35,13 @@ impl Command for GetOrdinal {
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-ordinal"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(217), Value::test_int(217)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(217), Value::test_int(217)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

@@ -35,10 +35,13 @@ impl Command for GetYear {
     let df = ([$dt $dt] | dfr into-df);
     $df | dfr get-year"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![Value::test_int(2020), Value::test_int(2020)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![Value::test_int(2020), Value::test_int(2020)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

@@ -33,10 +33,13 @@ impl Command for NNull {
             example: r#"let s = ([1 1 0 0 3 3 4] | dfr into-df);
     ($s / $s) | dfr count-null"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "count_null".to_string(),
-                    vec![Value::test_int(2)],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "count_null".to_string(),
+                        vec![Value::test_int(2)],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
@@ -65,8 +68,11 @@ fn command(
     let res = df.as_series(call.head)?.null_count();
     let value = Value::int(res as i64, call.head);
 
-    NuDataFrame::try_from_columns(vec![Column::new("count_null".to_string(), vec![value])])
-        .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
+    NuDataFrame::try_from_columns(
+        vec![Column::new("count_null".to_string(), vec![value])],
+        None,
+    )
+    .map(|df| PipelineData::Value(NuDataFrame::into_value(df, call.head), None))
 }
 
 #[cfg(test)]

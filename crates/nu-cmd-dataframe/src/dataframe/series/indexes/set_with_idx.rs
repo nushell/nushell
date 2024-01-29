@@ -43,17 +43,20 @@ impl Command for SetWithIndex {
     let indices = ([0 2] | dfr into-df);
     $series | dfr set-with-idx 6 --indices $indices"#,
             result: Some(
-                NuDataFrame::try_from_columns(vec![Column::new(
-                    "0".to_string(),
-                    vec![
-                        Value::test_int(6),
-                        Value::test_int(1),
-                        Value::test_int(6),
-                        Value::test_int(2),
-                        Value::test_int(4),
-                        Value::test_int(3),
-                    ],
-                )])
+                NuDataFrame::try_from_columns(
+                    vec![Column::new(
+                        "0".to_string(),
+                        vec![
+                            Value::test_int(6),
+                            Value::test_int(1),
+                            Value::test_int(6),
+                            Value::test_int(2),
+                            Value::test_int(4),
+                            Value::test_int(3),
+                        ],
+                    )],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),

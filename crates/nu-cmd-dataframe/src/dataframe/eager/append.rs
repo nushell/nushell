@@ -37,24 +37,27 @@ impl Command for AppendDF {
                 example: r#"let a = ([[a b]; [1 2] [3 4]] | dfr into-df);
     $a | dfr append $a"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                        Column::new(
-                            "a_x".to_string(),
-                            vec![Value::test_int(1), Value::test_int(3)],
-                        ),
-                        Column::new(
-                            "b_x".to_string(),
-                            vec![Value::test_int(2), Value::test_int(4)],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "a_x".to_string(),
+                                vec![Value::test_int(1), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "b_x".to_string(),
+                                vec![Value::test_int(2), Value::test_int(4)],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),
@@ -64,26 +67,29 @@ impl Command for AppendDF {
                 example: r#"let a = ([[a b]; [1 2] [3 4]] | dfr into-df);
     $a | dfr append $a --col"#,
                 result: Some(
-                    NuDataFrame::try_from_columns(vec![
-                        Column::new(
-                            "a".to_string(),
-                            vec![
-                                Value::test_int(1),
-                                Value::test_int(3),
-                                Value::test_int(1),
-                                Value::test_int(3),
-                            ],
-                        ),
-                        Column::new(
-                            "b".to_string(),
-                            vec![
-                                Value::test_int(2),
-                                Value::test_int(4),
-                                Value::test_int(2),
-                                Value::test_int(4),
-                            ],
-                        ),
-                    ])
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(3),
+                                    Value::test_int(1),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_int(2),
+                                    Value::test_int(4),
+                                    Value::test_int(2),
+                                    Value::test_int(4),
+                                ],
+                            ),
+                        ],
+                        None,
+                    )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
                 ),

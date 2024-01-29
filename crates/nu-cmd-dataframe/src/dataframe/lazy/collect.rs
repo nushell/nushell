@@ -33,16 +33,19 @@ impl Command for LazyCollect {
             description: "drop duplicates",
             example: "[[a b]; [1 2] [3 4]] | dfr into-lazy | dfr collect",
             result: Some(
-                NuDataFrame::try_from_columns(vec![
-                    Column::new(
-                        "a".to_string(),
-                        vec![Value::test_int(1), Value::test_int(3)],
-                    ),
-                    Column::new(
-                        "b".to_string(),
-                        vec![Value::test_int(2), Value::test_int(4)],
-                    ),
-                ])
+                NuDataFrame::try_from_columns(
+                    vec![
+                        Column::new(
+                            "a".to_string(),
+                            vec![Value::test_int(1), Value::test_int(3)],
+                        ),
+                        Column::new(
+                            "b".to_string(),
+                            vec![Value::test_int(2), Value::test_int(4)],
+                        ),
+                    ],
+                    None,
+                )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
             ),
