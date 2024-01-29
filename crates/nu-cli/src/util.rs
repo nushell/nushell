@@ -1,7 +1,7 @@
 use nu_cmd_base::hook::eval_hook;
 use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{escape_quote_string, lex, parse, unescape_unquote_string, Token, TokenContents};
-use nu_protocol::debugger::{DebugContext, NoopDebugger, Profiler, WithDebug, WithoutDebug};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::StateWorkingSet;
 use nu_protocol::{
     engine::{EngineState, Stack},

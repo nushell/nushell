@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use nu_engine::eval_block;
 use nu_parser::parse;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::create_nu_constant,
@@ -9,7 +10,6 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
-use nu_protocol::debugger::WithoutDebug;
 
 const SEP: char = std::path::MAIN_SEPARATOR;
 

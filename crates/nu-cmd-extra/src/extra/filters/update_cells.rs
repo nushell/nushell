@@ -1,5 +1,6 @@
 use nu_engine::{eval_block, CallExt};
 use nu_protocol::ast::{Block, Call};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
@@ -7,7 +8,6 @@ use nu_protocol::{
 };
 use std::collections::HashSet;
 use std::iter::FromIterator;
-use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -225,7 +225,7 @@ fn process_cell(
         redirect_stderr,
         // TODO: DEBUG
         WithoutDebug,
-        &None
+        &None,
     ) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),

@@ -7,8 +7,8 @@ use nu_protocol::{
     ast::{Call, Expr},
     did_you_mean,
     engine::{Command, EngineState, Stack},
-    Category, Example, ListStream, PipelineData, RawStream, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value, NuPath,
+    Category, Example, ListStream, NuPath, PipelineData, RawStream, ShellError, Signature, Span,
+    Spanned, SyntaxShape, Type, Value,
 };
 use nu_system::ForegroundChild;
 use nu_utils::IgnoreCaseExt;

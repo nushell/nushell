@@ -6,9 +6,9 @@ use crate::{
     record, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
+use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::borrow::Cow;
 
 pub fn create_nu_constant(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
     fn canonicalize_path(engine_state: &EngineState, path: &Path) -> PathBuf {
@@ -323,8 +323,8 @@ impl Eval for EvalConst {
         _: &mut (),
         call: &Call,
         span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
+        _debug_context: impl DebugContext,
+        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         // TODO: eval.rs uses call.head for the span rather than expr.span
         Ok(eval_const_call(working_set, call, PipelineData::empty())?.into_value(span))
@@ -347,8 +347,8 @@ impl Eval for EvalConst {
         _: &mut (),
         block_id: usize,
         span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
+        _debug_context: impl DebugContext,
+        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         let block = working_set.get_block(block_id);
         Ok(
@@ -376,8 +376,8 @@ impl Eval for EvalConst {
         _: Assignment,
         _op_span: Span,
         expr_span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
+        _debug_context: impl DebugContext,
+        _debugger: &Option<Arc<Mutex<dyn Debugger>>>,
     ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span: expr_span })
     }

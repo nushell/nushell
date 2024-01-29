@@ -6,8 +6,8 @@ use crate::{
     },
     Config, IntoInterruptiblePipelineData, Range, Record, ShellError, Span, Value, VarId,
 };
-use std::{borrow::Cow, collections::HashMap};
 use std::sync::{Arc, Mutex};
+use std::{borrow::Cow, collections::HashMap};
 
 /// To share implementations for regular eval and const eval
 pub trait Eval {
@@ -369,6 +369,7 @@ pub trait Eval {
         expr_span: Span,
     ) -> Result<Value, ShellError>;
 
+    #[allow(clippy::too_many_arguments)]
     fn eval_assignment(
         state: Self::State<'_>,
         mut_state: &mut Self::MutState,

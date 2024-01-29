@@ -102,6 +102,7 @@ pub trait Debugger: Send + Debug {
     fn enter_block(&mut self) {}
     fn leave_block(&mut self) {}
 
+    #[allow(unused_variables)]
     fn leave_element(
         &mut self,
         engine_state: &EngineState,

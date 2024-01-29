@@ -1,11 +1,9 @@
-use itertools::Itertools;
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
-use nu_protocol::debugger::{Profiler, WithDebug, WithoutDebug};
+use nu_protocol::debugger::{Profiler, WithDebug};
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
-    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, LazyRecord,
-    PipelineData, Record, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, IntoPipelineData, PipelineData, ShellError, Signature, SyntaxShape, Type,
 };
 use std::sync::{Arc, Mutex};
 
@@ -93,7 +91,7 @@ impl Command for DebugProfile {
                 let _ = pipeline_data.into_value(call.span());
                 // pipeline_data.print(engine_state, caller_stack, true, false)
             }
-            Err(e) => (),
+            Err(e) => (), // TODO: Report error
         }
 
         // TODO unwrap

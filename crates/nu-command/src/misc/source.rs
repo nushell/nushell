@@ -1,5 +1,5 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
-use nu_protocol::ast::{Block, Call};
+use nu_protocol::ast::Call;
 use nu_protocol::debugger::{DebugContext, Debugger, WithDebug, WithoutDebug};
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape, Type};
@@ -56,11 +56,6 @@ impl Command for Source {
         input: PipelineData,
         debugger: Arc<Mutex<dyn Debugger>>,
     ) -> Result<PipelineData, ShellError> {
-        // Note: this hidden positional is the block_id that corresponded to the 0th position
-        // it is put here by the parser
-        let block_id: i64 = call.req_parser_info(engine_state, stack, "block_id")?;
-
-        let block = engine_state.get_block(block_id as usize).clone();
         run_source(engine_state, stack, call, input, WithDebug, &Some(debugger))
     }
 

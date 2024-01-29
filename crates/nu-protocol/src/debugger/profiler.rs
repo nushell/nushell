@@ -160,7 +160,7 @@ impl Debugger for Profiler {
 
         let info = ProfilerInfo {
             depth: self.depth,
-            element_span: element_span,
+            element_span,
             element_input: inp_opt,
         };
 

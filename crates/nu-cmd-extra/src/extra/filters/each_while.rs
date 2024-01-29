@@ -1,11 +1,11 @@
 use nu_engine::{eval_block_with_early_return, CallExt};
 use nu_protocol::ast::Call;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Closure, Command, EngineState, Stack};
 use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
-use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -161,7 +161,7 @@ impl Command for EachWhile {
                         redirect_stderr,
                         // TODO: DEBUG
                         WithoutDebug,
-                        &None
+                        &None,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -194,7 +194,7 @@ impl Command for EachWhile {
                     redirect_stderr,
                     // TODO: DEBUG
                     WithoutDebug,
-                    &None
+                    &None,
                 )
             }
         }

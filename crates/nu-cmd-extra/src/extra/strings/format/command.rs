@@ -3,12 +3,12 @@ use std::vec;
 use nu_engine::{eval_expression, CallExt};
 use nu_parser::parse_expression;
 use nu_protocol::ast::{Call, PathMember};
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::{Command, EngineState, Stack, StateWorkingSet};
 use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
-use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -297,10 +297,13 @@ fn format_record(
                 let exp = parse_expression(working_set, &[*span], false);
                 match working_set.parse_errors.first() {
                     None => {
-                        let parsed_result = eval_expression(engine_state, stack, &exp,
-                                                            // TODO: DEBUG
-                                                            WithoutDebug,
-                                                            &None
+                        let parsed_result = eval_expression(
+                            engine_state,
+                            stack,
+                            &exp,
+                            // TODO: DEBUG
+                            WithoutDebug,
+                            &None,
                         );
                         if let Ok(val) = parsed_result {
                             output.push_str(&val.into_abbreviated_string(config))

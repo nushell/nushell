@@ -1,8 +1,6 @@
 use crate::{current_dir_str, get_config, get_full_help};
-use log::debug;
 use nu_path::expand_path_with;
-use nu_protocol::debugger::{DebugContext, Debugger, Profiler, WithDebug, WithoutDebug};
-use nu_protocol::Value::List;
+use nu_protocol::debugger::{DebugContext, Debugger, WithoutDebug};
 use nu_protocol::{
     ast::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
@@ -10,8 +8,8 @@ use nu_protocol::{
     },
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
-    Config, DeclId, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Span,
-    Spanned, Type, Value, VarId, ENV_VARIABLE_ID,
+    Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
+    ENV_VARIABLE_ID,
 };
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -66,7 +64,8 @@ pub fn eval_call(
                 .expect("internal error: all custom parameters must have var_ids");
 
             if let Some(arg) = call.positional_nth(param_idx) {
-                let result = eval_expression(engine_state, caller_stack, arg, debug_context, debugger)?;
+                let result =
+                    eval_expression(engine_state, caller_stack, arg, debug_context, debugger)?;
                 let param_type = param.shape.to_type();
                 if required && !result.get_type().is_subtype(&param_type) {
                     // need to check if result is an empty list, and param_type is table or list
