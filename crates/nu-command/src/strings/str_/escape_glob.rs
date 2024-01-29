@@ -45,7 +45,7 @@ impl Command for SubCommand {
     }
 
     fn usage(&self) -> &str {
-        "escape glob pattern"
+        "Escape glob pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {
