@@ -1969,14 +1969,20 @@ fn parse_module_file(
     } else if let Some(stem) = path.file_stem() {
         stem.to_string_lossy().to_string()
     } else {
-        working_set.error(ParseError::ModuleNotFound(path_span));
+        working_set.error(ParseError::ModuleNotFound(
+            path_span,
+            path.path().to_string_lossy().to_string(),
+        ));
         return None;
     };
 
     let contents = if let Some(contents) = path.read(working_set) {
         contents
     } else {
-        working_set.error(ParseError::ModuleNotFound(path_span));
+        working_set.error(ParseError::ModuleNotFound(
+            path_span,
+            path.path().to_string_lossy().to_string(),
+        ));
         return None;
     };
 
@@ -2031,20 +2037,26 @@ pub fn parse_module_file_or_dir(
         if let Some(path) = find_in_dirs(&module_path_str, working_set, &cwd, LIB_DIRS_VAR) {
             path
         } else {
-            working_set.error(ParseError::ModuleNotFound(path_span));
+            working_set.error(ParseError::ModuleNotFound(path_span, module_path_str));
             return None;
         };
 
     if module_path.is_dir() {
         if module_path.read_dir().is_none() {
-            working_set.error(ParseError::ModuleNotFound(path_span));
+            working_set.error(ParseError::ModuleNotFound(
+                path_span,
+                module_path.path().to_string_lossy().to_string(),
+            ));
             return None;
         };
 
         let module_name = if let Some(stem) = module_path.file_stem() {
             stem.to_string_lossy().to_string()
         } else {
-            working_set.error(ParseError::ModuleNotFound(path_span));
+            working_set.error(ParseError::ModuleNotFound(
+                path_span,
+                module_path.path().to_string_lossy().to_string(),
+            ));
             return None;
         };
 
@@ -2084,7 +2096,10 @@ pub fn parse_module_file_or_dir(
     } else if module_path.is_file() {
         parse_module_file(working_set, module_path, path_span, name_override)
     } else {
-        working_set.error(ParseError::ModuleNotFound(path_span));
+        working_set.error(ParseError::ModuleNotFound(
+            path_span,
+            module_path.path().to_string_lossy().to_string(),
+        ));
         None
     }
 }
@@ -2200,7 +2215,10 @@ pub fn parse_module(
         ) {
             return (pipeline, Some(module_id));
         } else {
-            working_set.error(ParseError::ModuleNotFound(module_name_or_path_span));
+            working_set.error(ParseError::ModuleNotFound(
+                module_name_or_path_span,
+                module_name_or_path,
+            ));
             return (pipeline, None);
         }
     }
@@ -2397,7 +2415,10 @@ pub fn parse_use(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeline
             module_id,
         )
     } else {
-        working_set.error(ParseError::ModuleNotFound(import_pattern.head.span));
+        working_set.error(ParseError::ModuleNotFound(
+            import_pattern.head.span,
+            String::from_utf8_lossy(&import_pattern.head.name).to_string(),
+        ));
         return (
             Pipeline::from_vec(vec![Expression {
                 expr: Expr::Call(call),
@@ -2567,7 +2588,10 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline
                     (false, Module::new(b"tmp".to_vec()))
                 }
             } else {
-                working_set.error(ParseError::ModuleNotFound(spans[1]));
+                working_set.error(ParseError::ModuleNotFound(
+                    spans[1],
+                    String::from_utf8_lossy(&import_pattern.head.name).to_string(),
+                ));
                 return garbage_pipeline(spans);
             };
 

@@ -220,8 +220,8 @@ fn convert_to_value(
             msg: "calls not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::Filepath(val) => Ok(Value::string(val, span)),
-        Expr::Directory(val) => Ok(Value::string(val, span)),
+        Expr::Filepath(val, _) => Ok(Value::string(val, span)),
+        Expr::Directory(val, _) => Ok(Value::string(val, span)),
         Expr::Float(val) => Ok(Value::float(val, span)),
         Expr::FullCellPath(full_cell_path) => {
             if !full_cell_path.tail.is_empty() {
@@ -242,7 +242,7 @@ fn convert_to_value(
             msg: "extra tokens in input file".into(),
             span: expr.span,
         }),
-        Expr::GlobPattern(val) => Ok(Value::string(val, span)),
+        Expr::GlobPattern(val, _) => Ok(Value::string(val, span)),
         Expr::ImportPattern(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

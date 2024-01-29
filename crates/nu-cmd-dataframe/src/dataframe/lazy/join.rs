@@ -178,7 +178,7 @@ impl Command for LazyJoin {
         let how = if left {
             JoinType::Left
         } else if outer {
-            JoinType::Outer
+            JoinType::Outer { coalesce: true }
         } else if cross {
             JoinType::Cross
         } else {

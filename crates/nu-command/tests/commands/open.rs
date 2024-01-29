@@ -3,6 +3,7 @@ use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, pipeline};
+use rstest::rstest;
 
 #[test]
 fn parses_file_with_uppercase_extension() {
@@ -335,4 +336,53 @@ fn open_no_parameter() {
     let actual = nu!("open");
 
     assert!(actual.err.contains("needs filename"));
+}
+
+#[rstest]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
+fn open_files_with_glob_metachars(#[case] src_name: &str) {
+    Playground::setup("open_test_with_glob_metachars", |dirs, sandbox| {
+        sandbox.with_files(vec![FileWithContent(src_name, "hello")]);
+
+        let src = dirs.test().join(src_name);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "open '{}'",
+            src.display(),
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(actual.out.contains("hello"));
+    });
+}
+
+#[cfg(not(windows))]
+#[rstest]
+#[case("a]?c")]
+#[case("a*.?c")]
+// windows doesn't allow filename with `*`.
+fn open_files_with_glob_metachars_nw(#[case] src_name: &str) {
+    open_files_with_glob_metachars(src_name);
+}
+
+#[test]
+fn open_files_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "open test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(actual.out.contains("hello"));
+    });
 }

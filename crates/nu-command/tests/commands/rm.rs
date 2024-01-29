@@ -42,7 +42,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm "src/*/*/*.rs""#
+            r#"rm src/*/*/*.rs"#
         );
 
         assert!(!files_exist_at(
@@ -457,5 +457,41 @@ fn rm_prints_filenames_on_error() {
                 actual.err
             );
         }
+    });
+}
+
+#[test]
+fn rm_files_inside_glob_metachars_dir() {
+    Playground::setup("rm_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "rm test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+    });
+}
+
+#[test]
+fn force_rm_suppress_error() {
+    Playground::setup("force_rm_suppress_error", |dirs, sandbox| {
+        sandbox.with_files(vec![EmptyFile("test_file.txt")]);
+
+        // the second rm should suppress error.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm test_file.txt; rm -f test_file.txt",
+        );
+
+        assert!(actual.err.is_empty());
     });
 }

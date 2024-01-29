@@ -1,14 +1,13 @@
 use std::path::{Path, PathBuf};
 
 use super::util::try_interaction;
-use nu_cmd_base::arg_glob;
 use nu_engine::env::current_dir;
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, ShellError, Signature, Span,
-    Spanned, SyntaxShape, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, NuPath, PipelineData, ShellError, Signature,
+    Span, Spanned, SyntaxShape, Type, Value,
 };
 
 #[derive(Clone)]
@@ -63,7 +62,8 @@ impl Command for Mv {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         // TODO: handle invalid directory or insufficient permissions when moving
-        let spanned_source: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let mut spanned_source: Spanned<NuPath> = call.req(engine_state, stack, 0)?;
+        spanned_source.item = spanned_source.item.strip_ansi_string_unlikely();
         let spanned_destination: Spanned<String> = call.req(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let interactive = call.has_flag(engine_state, stack, "interactive")?;
@@ -73,11 +73,11 @@ impl Command for Mv {
         let ctrlc = engine_state.ctrlc.clone();
 
         let path = current_dir(engine_state, stack)?;
-        let source = path.join(spanned_source.item.as_str());
         let destination = path.join(spanned_destination.item.as_str());
 
-        let mut sources =
-            arg_glob(&spanned_source, &path).map_or_else(|_| Vec::new(), Iterator::collect);
+        let mut sources = nu_engine::glob_from(&spanned_source, &path, call.head, None)
+            .map(|p| p.1)
+            .map_or_else(|_| Vec::new(), Iterator::collect);
 
         if sources.is_empty() {
             return Err(ShellError::FileNotFound {
@@ -94,7 +94,7 @@ impl Command for Mv {
         //
         // Second, the destination doesn't exist, so we can only rename a single source. Otherwise
         // it's an error.
-
+        let source = path.join(spanned_source.item.as_ref());
         if destination.exists() && !force && !destination.is_dir() && !source.is_dir() {
             return Err(ShellError::GenericError {
                 error: "Destination file already exists".into(),

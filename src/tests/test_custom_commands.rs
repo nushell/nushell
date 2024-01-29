@@ -149,8 +149,7 @@ fn custom_flag2() -> TestResult {
 #[test]
 fn deprecated_boolean_flag() {
     let actual = nu!(r#"def florb [--dry-run: bool, --another-flag] { "aaa" };  florb"#);
-    assert!(actual.err.contains("Deprecated"));
-    assert_eq!(actual.out, "aaa");
+    assert!(actual.err.contains("not allowed"));
 }
 
 #[test]
@@ -228,4 +227,26 @@ fn type_check_for_during_eval2() -> TestResult {
         r#"def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer"#,
         "can't convert nothing to string",
     )
+}
+
+#[test]
+fn empty_list_matches_list_type() -> TestResult {
+    let _ = run_test(
+        r#"def spam [foo: list<int>] { echo $foo }; spam [] | length"#,
+        "0",
+    );
+    run_test(
+        r#"def spam [foo: list<string>] { echo $foo }; spam [] | length"#,
+        "0",
+    )
+}
+
+#[test]
+fn path_argument_dont_auto_expand_if_single_quoted() -> TestResult {
+    run_test("def spam [foo: path] { echo $foo }; spam '~/aa'", "~/aa")
+}
+
+#[test]
+fn path_argument_dont_auto_expand_if_double_quoted() -> TestResult {
+    run_test(r#"def spam [foo: path] { echo $foo }; spam "~/aa""#, "~/aa")
 }

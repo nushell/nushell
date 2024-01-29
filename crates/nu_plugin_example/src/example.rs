@@ -40,7 +40,7 @@ impl Example {
         // Keep this in mind when designing your plugin signatures
         let a: i64 = call.req(0)?;
         let b: String = call.req(1)?;
-        let flag = call.has_flag("flag");
+        let flag = call.has_flag("flag")?;
         let opt: Option<i64> = call.opt(2)?;
         let named: Option<String> = call.get_flag("named")?;
         let rest: Vec<String> = call.rest(3)?;

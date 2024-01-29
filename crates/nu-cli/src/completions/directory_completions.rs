@@ -44,6 +44,7 @@ impl Completer for DirectoryCompletion {
         .map(move |x| Suggestion {
             value: x.1,
             description: None,
+            style: None,
             extra: None,
             span: reedline::Span {
                 start: x.0.start - offset,

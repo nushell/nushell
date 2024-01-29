@@ -115,6 +115,8 @@ fn lists_regular_files_in_special_folder() {
 #[case("[[]?bcd].txt", 2)]
 #[case("[[]abcd].txt", 1)]
 #[case("[[][abcd]bcd[]].txt", 2)]
+#[case("'[abcd].txt'", 1)]
+#[case("'[bbcd].txt'", 1)]
 fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expected: usize) {
     Playground::setup("ls_test_3", |dirs, sandbox| {
         sandbox.mkdir("abcd").mkdir("bbcd").with_files(vec![

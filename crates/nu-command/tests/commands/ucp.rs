@@ -986,10 +986,10 @@ fn test_cp_destination_after_cd() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn copies_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("ucp_test_34", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -1005,7 +1005,7 @@ fn copies_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "cp {} {}",
+            "cp '{}' {}",
             src.display(),
             TEST_HELLO_WORLD_DEST
         );
@@ -1098,5 +1098,27 @@ fn test_cp_preserve_nothing() {
         );
         assert!(actual.err.is_empty());
         assert_eq!(actual.out, "true");
+    });
+}
+
+#[test]
+fn test_cp_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "cp test_file.txt ../",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
     });
 }

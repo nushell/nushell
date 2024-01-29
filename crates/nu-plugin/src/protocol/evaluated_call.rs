@@ -64,10 +64,10 @@ impl EvaluatedCall {
         })
     }
 
-    /// Indicates whether named parameter is present in the arguments
-    ///
-    /// Typically this method would be used on a flag parameter, a named parameter
-    /// that does not take a value.
+    /// Check if a flag (named parameter that does not take a value) is set
+    /// Returns Ok(true) if flag is set or passed true value
+    /// Returns Ok(false) if flag is not set or passed false value
+    /// Returns Err if passed value is not a boolean
     ///
     /// # Examples
     /// Invoked as `my_command --foo`:
@@ -83,7 +83,7 @@ impl EvaluatedCall {
     /// #         None
     /// #     )],
     /// # };
-    /// assert!(call.has_flag("foo"));
+    /// assert!(call.has_flag("foo").unwrap());
     /// ```
     ///
     /// Invoked as `my_command --bar`:
@@ -99,16 +99,73 @@ impl EvaluatedCall {
     /// #         None
     /// #     )],
     /// # };
-    /// assert!(!call.has_flag("foo"));
+    /// assert!(!call.has_flag("foo").unwrap());
     /// ```
-    pub fn has_flag(&self, flag_name: &str) -> bool {
+    ///
+    /// Invoked as `my_command --foo=true`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::bool(true, Span::unknown()))
+    /// #     )],
+    /// # };
+    /// assert!(call.has_flag("foo").unwrap());
+    /// ```
+    ///
+    /// Invoked as `my_command --foo=false`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::bool(false, Span::unknown()))
+    /// #     )],
+    /// # };
+    /// assert!(!call.has_flag("foo").unwrap());
+    /// ```
+    ///
+    /// Invoked with wrong type as `my_command --foo=1`:
+    /// ```
+    /// # use nu_protocol::{Spanned, Span, Value};
+    /// # use nu_plugin::EvaluatedCall;
+    /// # let null_span = Span::new(0, 0);
+    /// # let call = EvaluatedCall {
+    /// #     head: null_span,
+    /// #     positional: Vec::new(),
+    /// #     named: vec![(
+    /// #         Spanned { item: "foo".to_owned(), span: null_span},
+    /// #         Some(Value::int(1, Span::unknown()))
+    /// #     )],
+    /// # };
+    /// assert!(call.has_flag("foo").is_err());
+    /// ```
+    pub fn has_flag(&self, flag_name: &str) -> Result<bool, ShellError> {
         for name in &self.named {
             if flag_name == name.0.item {
-                return true;
+                return match &name.1 {
+                    Some(Value::Bool { val, .. }) => Ok(*val),
+                    None => Ok(true),
+                    Some(result) => Err(ShellError::CantConvert {
+                        to_type: "bool".into(),
+                        from_type: result.get_type().to_string(),
+                        span: result.span(),
+                        help: Some("".into()),
+                    }),
+                };
             }
         }
 
-        false
+        Ok(false)
     }
 
     /// Returns the [`Value`] of an optional named argument
@@ -351,7 +408,7 @@ mod test {
         let name: Option<f64> = call.get_flag("name").unwrap();
         assert_eq!(name, Some(1.0));
 
-        assert!(call.has_flag("flag"));
+        assert!(call.has_flag("flag").unwrap());
 
         let required: f64 = call.req(0).unwrap();
         assert!((required - 1.0).abs() < f64::EPSILON);

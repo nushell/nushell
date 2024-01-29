@@ -1,4 +1,3 @@
-use super::DescriptionMenu;
 use crate::{menus::NuMenuCompleter, NuHelpCompleter};
 use crossterm::event::{KeyCode, KeyModifiers};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
@@ -13,8 +12,8 @@ use nu_protocol::{
 };
 use reedline::{
     default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    ColumnarMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu, Reedline,
-    ReedlineEvent, ReedlineMenu,
+    ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, IdeMenu, Keybindings, ListMenu,
+    MenuBuilder, Reedline, ReedlineEvent, ReedlineMenu,
 };
 use std::sync::Arc;
 
@@ -248,10 +247,26 @@ pub(crate) fn add_columnar_menu(
             columnar_menu,
             ColumnarMenu::with_description_text_style
         );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_selected_match_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
-    columnar_menu = columnar_menu.with_marker(marker);
+    columnar_menu = columnar_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
@@ -333,7 +348,7 @@ pub(crate) fn add_list_menu(
     }
 
     let marker = menu.marker.into_string("", config);
-    list_menu = list_menu.with_marker(marker);
+    list_menu = list_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
@@ -504,6 +519,14 @@ pub(crate) fn add_ide_menu(
             }
             Err(_) => ide_menu,
         };
+
+        ide_menu = match extract_value("correct_cursor_pos", val, span) {
+            Ok(correct_cursor_pos) => {
+                let correct_cursor_pos = correct_cursor_pos.as_bool()?;
+                ide_menu.with_correct_cursor_pos(correct_cursor_pos)
+            }
+            Err(_) => ide_menu,
+        };
     }
 
     let span = menu.style.span();
@@ -532,10 +555,26 @@ pub(crate) fn add_ide_menu(
             ide_menu,
             IdeMenu::with_description_text_style
         );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_selected_match_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
-    ide_menu = ide_menu.with_marker(marker);
+    ide_menu = ide_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
@@ -649,7 +688,7 @@ pub(crate) fn add_description_menu(
     }
 
     let marker = menu.marker.into_string("", config);
-    description_menu = description_menu.with_marker(marker);
+    description_menu = description_menu.with_marker(&marker);
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);

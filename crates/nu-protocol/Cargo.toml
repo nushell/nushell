@@ -17,7 +17,7 @@ nu-utils = { path = "../nu-utils", version = "0.89.1" }
 nu-path = { path = "../nu-path", version = "0.89.1" }
 nu-system = { path = "../nu-system", version = "0.89.1" }
 
-byte-unit = "4.0"
+byte-unit = "5.1"
 chrono = { version = "0.4", features = [ "serde", "std", "unstable-locales" ], default-features = false }
 chrono-humanize = "0.2"
 fancy-regex = "0.12"

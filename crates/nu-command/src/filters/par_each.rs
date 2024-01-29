@@ -29,8 +29,8 @@ impl Command for ParEach {
                     Type::List(Box::new(Type::Any)),
                     Type::List(Box::new(Type::Any)),
                 ),
-                (Type::Range, Type::List(Box::new(Type::Any))),
                 (Type::Table(vec![]), Type::List(Box::new(Type::Any))),
+                (Type::Any, Type::Any),
             ])
             .named(
                 "threads",

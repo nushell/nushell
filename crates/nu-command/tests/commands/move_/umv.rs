@@ -204,7 +204,7 @@ fn errors_if_source_doesnt_exist() {
             cwd: dirs.test(),
             "umv non-existing-file test_folder/"
         );
-        assert!(actual.err.contains("file not found"));
+        assert!(actual.err.contains("Directory not found"));
     })
 }
 
@@ -559,10 +559,10 @@ fn mv_with_no_target() {
 }
 
 #[rstest]
-#[case(r#"'a]c'"#)]
-#[case(r#"'a[c'"#)]
-#[case(r#"'a[bc]d'"#)]
-#[case(r#"'a][c'"#)]
+#[case("a]c")]
+#[case("a[c")]
+#[case("a[bc]d")]
+#[case("a][c")]
 fn mv_files_with_glob_metachars(#[case] src_name: &str) {
     Playground::setup("umv_test_16", |dirs, sandbox| {
         sandbox.with_files(vec![FileWithContent(
@@ -574,7 +574,7 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
         let actual = nu!(
             cwd: dirs.test(),
-            "umv {} {}",
+            "umv '{}' {}",
             src.display(),
             "hello_world_dest"
         );
@@ -586,8 +586,8 @@ fn mv_files_with_glob_metachars(#[case] src_name: &str) {
 
 #[cfg(not(windows))]
 #[rstest]
-#[case(r#"'a]?c'"#)]
-#[case(r#"'a*.?c'"#)]
+#[case("a]?c")]
+#[case("a*.?c")]
 // windows doesn't allow filename with `*`.
 fn mv_files_with_glob_metachars_nw(#[case] src_name: &str) {
     mv_files_with_glob_metachars(src_name);
@@ -605,5 +605,27 @@ fn mv_with_cd() {
             r#"do { cd tmp_dir; let f = 'file.txt'; umv $f .. }; open file.txt"#,
         );
         assert!(actual.out.contains("body"));
+    });
+}
+
+#[test]
+fn test_cp_inside_glob_metachars_dir() {
+    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(vec![FileWithContent("test_file.txt", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "mv test_file.txt ../",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(
+            vec!["test_file.txt"],
+            dirs.test().join(sub_dir)
+        ));
+        assert!(files_exist_at(vec!["test_file.txt"], dirs.test()));
     });
 }
