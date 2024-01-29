@@ -139,9 +139,9 @@ dependencies = [
 
 [[package]]
 name = "anstyle"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7079075b41f533b8c61d2a4d073c4676e1f8b249ff94a393b0595db304e0dd87"
+checksum = "2faccea4cc4ab4a667ce676a30e8ec13922a692c99bb8f5b11f1502c72e04220"
 
 [[package]]
 name = "anstyle-parse"
@@ -2116,9 +2116,9 @@ dependencies = [
 
 [[package]]
 name = "itertools"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25db6b064527c5d482d0423354fcd07a89a2dfe07b67892e62411946db7f07b0"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
 dependencies = [
  "either",
 ]
@@ -2413,9 +2413,9 @@ checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "lru"
-version = "0.12.1"
+version = "0.12.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2994eeba8ed550fd9b47a0b38f0242bc3344e496483c6180b69139cc2fa5d1d7"
+checksum = "db2c024b41519440580066ba82aab04092b333e09066a5eb86c7c4890df31f22"
 dependencies = [
  "hashbrown 0.14.3",
 ]
@@ -2934,7 +2934,7 @@ name = "nu-cmd-lang"
 version = "0.90.2"
 dependencies = [
  "fancy-regex",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "nu-ansi-term",
  "nu-engine",
  "nu-parser",
@@ -2984,7 +2984,7 @@ dependencies = [
  "human-date-parser",
  "indexmap",
  "indicatif",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "libc",
  "log",
  "lscolors",
@@ -3051,6 +3051,7 @@ dependencies = [
  "uu_mkdir",
  "uu_mktemp",
  "uu_mv",
+ "uu_uname",
  "uu_whoami",
  "uuid",
  "v_htmlescape",
@@ -3135,7 +3136,7 @@ version = "0.90.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "log",
  "nu-engine",
  "nu-path",
@@ -3906,6 +3907,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc1691dd09e82f428ce8d6310bd6d5da2557c82ff17694d2a32cad7242aea89f"
 dependencies = [
  "array-init-cursor",
+]
+
+[[package]]
+name = "platform-info"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6259c4860e53bf665016f1b2f46a8859cadfa717581dc9d597ae4069de6300f"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]
@@ -4691,7 +4702,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "fd-lock",
- "itertools 0.12.0",
+ "itertools 0.12.1",
  "nu-ansi-term",
  "rusqlite",
  "serde",
@@ -5132,9 +5143,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.112"
+version = "1.0.113"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4d1bd37ce2324cf3bf85e5a25f96eb4baf0d5aa6eba43e7ae8958870c4ec48ed"
+checksum = "69801b70b1c3dac963ecb03a364ba0ceda9cf60c71cfe475e99864759c8b8a79"
 dependencies = [
  "indexmap",
  "itoa",
@@ -5176,9 +5187,9 @@ dependencies = [
 
 [[package]]
 name = "serde_yaml"
-version = "0.9.30"
+version = "0.9.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b1bf28c79a99f70ee1f1d83d10c875d2e70618417fda01ad1785e027579d9d38"
+checksum = "adf8a49373e98a4c5f0ceb5d05aa7c648d75f63774981ed95b7c7443bbd50c6e"
 dependencies = [
  "indexmap",
  "itoa",
@@ -6181,7 +6192,7 @@ dependencies = [
  "indicatif",
  "libc",
  "quick-error 2.0.1",
- "uucore",
+ "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "xattr",
 ]
@@ -6193,7 +6204,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dcbf657c9e738d16ebc5c161a611ff25327c1fb599645afb2831062efb23c851"
 dependencies = [
  "clap",
- "uucore",
+ "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6205,7 +6216,7 @@ dependencies = [
  "clap",
  "rand",
  "tempfile",
- "uucore",
+ "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -6217,7 +6228,17 @@ dependencies = [
  "clap",
  "fs_extra",
  "indicatif",
- "uucore",
+ "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "uu_uname"
+version = "0.0.24"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
+dependencies = [
+ "clap",
+ "platform-info",
+ "uucore 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
 ]
 
 [[package]]
@@ -6228,7 +6249,7 @@ checksum = "70589dc3b41f34cbfe1fb22b8f20fcac233fa4565409905f12dd06780b18374d"
 dependencies = [
  "clap",
  "libc",
- "uucore",
+ "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "windows-sys 0.48.0",
 ]
 
@@ -6245,11 +6266,25 @@ dependencies = [
  "nix 0.27.1",
  "once_cell",
  "os_display",
- "uucore_procs",
+ "uucore_procs 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "walkdir",
  "wild",
  "winapi-util",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.24"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
+dependencies = [
+ "clap",
+ "glob",
+ "nix 0.27.1",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
+ "wild",
 ]
 
 [[package]]
@@ -6260,7 +6295,17 @@ checksum = "3eb9aeeb06d1f15c5b3b51acddddf3436e3e1480902b2a200618ca5dbb24e392"
 dependencies = [
  "proc-macro2",
  "quote",
- "uuhelp_parser",
+ "uuhelp_parser 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "uucore_procs"
+version = "0.0.24"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
 ]
 
 [[package]]
@@ -6268,6 +6313,11 @@ name = "uuhelp_parser"
 version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d841f8408028085ca65896cdd60b9925d4e407cb69989a64889f2bebbb51147b"
+
+[[package]]
+name = "uuhelp_parser"
+version = "0.0.24"
+source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
 
 [[package]]
 name = "uuid"
