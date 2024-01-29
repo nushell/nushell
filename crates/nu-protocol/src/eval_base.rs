@@ -277,7 +277,7 @@ pub trait Eval {
             Expr::StringInterpolation(exprs) => {
                 let mut parts = vec![];
                 for expr in exprs {
-                    parts.push(Self::eval(state, mut_state, expr)?);
+                    parts.push(Self::eval(state, mut_state, expr, debug_context, debugger)?);
                 }
 
                 let config = Self::get_config(state, mut_state);
@@ -388,23 +388,7 @@ pub trait Eval {
         span: Span,
     ) -> Result<Value, ShellError>;
 
-    fn eval_string_interpolation(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        exprs: &[Expression],
-        span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
-    ) -> Result<Value, ShellError>;
-
     fn eval_overlay(state: Self::State<'_>, span: Span) -> Result<Value, ShellError>;
-
-    fn eval_glob_pattern(
-        state: Self::State<'_>,
-        mut_state: &mut Self::MutState,
-        pattern: String,
-        span: Span,
-    ) -> Result<Value, ShellError>;
 
     /// For expressions that should never actually be evaluated
     fn unreachable(expr: &Expression) -> Result<Value, ShellError>;

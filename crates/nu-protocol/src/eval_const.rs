@@ -391,27 +391,7 @@ impl Eval for EvalConst {
         Err(ShellError::NotAConstant { span })
     }
 
-    fn eval_string_interpolation(
-        _: &StateWorkingSet,
-        _: &mut (),
-        _: &[Expression],
-        span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
-    ) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span })
-    }
-
     fn eval_overlay(_: &StateWorkingSet, span: Span) -> Result<Value, ShellError> {
-        Err(ShellError::NotAConstant { span })
-    }
-
-    fn eval_glob_pattern(
-        _: &StateWorkingSet,
-        _: &mut (),
-        _: String,
-        span: Span,
-    ) -> Result<Value, ShellError> {
         Err(ShellError::NotAConstant { span })
     }
 

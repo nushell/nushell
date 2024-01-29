@@ -1,4 +1,4 @@
-use crate::{current_dir_str, get_full_help};
+use crate::{current_dir_str, get_config, get_full_help};
 use log::debug;
 use nu_path::expand_path_with;
 use nu_protocol::debugger::{DebugContext, Debugger, Profiler, WithDebug, WithoutDebug};
@@ -1286,50 +1286,10 @@ impl Eval for EvalRuntime {
         Ok(Value::closure(Closure { block_id, captures }, span))
     }
 
-    fn eval_string_interpolation(
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        exprs: &[Expression],
-        span: Span,
-        debug_context: impl DebugContext,
-        debugger: &Option<Arc<Mutex<dyn Debugger>>>,
-    ) -> Result<Value, ShellError> {
-        let mut parts = vec![];
-        for expr in exprs {
-            parts.push(eval_expression(
-                engine_state,
-                stack,
-                expr,
-                debug_context,
-                debugger,
-            )?);
-        }
-
-        let config = engine_state.get_config();
-
-        parts
-            .into_iter()
-            .into_pipeline_data(None)
-            .collect_string("", config)
-            .map(|x| Value::string(x, span))
-    }
-
     fn eval_overlay(engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
         let name = String::from_utf8_lossy(engine_state.get_span_contents(span)).to_string();
 
         Ok(Value::string(name, span))
-    }
-
-    fn eval_glob_pattern(
-        engine_state: Self::State<'_>,
-        stack: &mut Self::MutState,
-        pattern: String,
-        span: Span,
-    ) -> Result<Value, ShellError> {
-        let cwd = current_dir_str(engine_state, stack)?;
-        let path = expand_path_with(pattern, cwd);
-
-        Ok(Value::string(path.to_string_lossy(), span))
     }
 
     fn unreachable(expr: &Expression) -> Result<Value, ShellError> {
