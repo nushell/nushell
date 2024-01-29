@@ -632,7 +632,9 @@ fn try_convert_to_local_date_time(t: SystemTime) -> Option<DateTime<Local>> {
         }
     };
 
-    if sec < 0 {
+    const NEG_UNIX_EPOCH: i64 = -11644473600; // t was invalid 0, UNIX_EPOCH subtracted above.
+    if sec == NEG_UNIX_EPOCH {
+        // do not tz lookup invalid SystemTime
         return None;
     }
     match Utc.timestamp_opt(sec, nsec) {
@@ -680,14 +682,10 @@ mod windows_helper {
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
             Err(e) => {
-                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.')
+                // Sometimes this happens when the file name is not allowed on Windows (ex: ends with a '.', pipes)
                 // For now, we just log it and give up on returning metadata columns
                 // TODO: find another way to get this data (like cmd.exe, pwsh, and MINGW bash can)
-                // eprintln!(
-                //     "Failed to read metadata for '{}'. It may have an illegal filename",
-                //     filename.to_string_lossy()
-                // );
-                log::error!("ls: {e}");
+                log::error!("ls: '{}' {}", filename.to_string_lossy(), e);
                 return Value::record(record, span);
             }
         };
