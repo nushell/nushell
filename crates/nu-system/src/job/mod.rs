@@ -154,9 +154,6 @@ impl Jobs {
             // it is possible for an attacker to continuously send bytes without ever sending a newline or EOF.
             // You can use `take` to limit the maximum number of bytes read.
 
-            // TODO: BufReader needs to be full (8KiB) or reach EOF before it's read succeeeds,
-            // and its lines are printed. This adds unnecessary delay in viewing command output.
-
             // All lines need to be read to prevent the child process
             // from being blocking on write, so we `flatten()` to skip over errors.
             let lines = BufReader::new(stdout).lines().flatten();
