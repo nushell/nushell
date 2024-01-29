@@ -286,6 +286,7 @@ $env.config = {
                 max_description_width: 50
                 max_description_height: 10
                 description_offset: 1
+                correct_cursor_pos: false
             }
             style: {
                 text: green

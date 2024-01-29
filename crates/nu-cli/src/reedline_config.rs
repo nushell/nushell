@@ -236,6 +236,22 @@ pub(crate) fn add_columnar_menu(
             columnar_menu,
             ColumnarMenu::with_description_text_style
         );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            columnar_menu,
+            ColumnarMenu::with_selected_match_text_style
+        );
     }
 
     let marker = menu.marker.into_string("", config);
@@ -492,6 +508,14 @@ pub(crate) fn add_ide_menu(
             }
             Err(_) => ide_menu,
         };
+
+        ide_menu = match extract_value("correct_cursor_pos", val, span) {
+            Ok(correct_cursor_pos) => {
+                let correct_cursor_pos = correct_cursor_pos.as_bool()?;
+                ide_menu.with_correct_cursor_pos(correct_cursor_pos)
+            }
+            Err(_) => ide_menu,
+        };
     }
 
     let span = menu.style.span();
@@ -519,6 +543,22 @@ pub(crate) fn add_ide_menu(
             config,
             ide_menu,
             IdeMenu::with_description_text_style
+        );
+        add_style!(
+            "match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_match_text_style
+        );
+        add_style!(
+            "selected_match_text",
+            val,
+            span,
+            config,
+            ide_menu,
+            IdeMenu::with_selected_match_text_style
         );
     }
 
