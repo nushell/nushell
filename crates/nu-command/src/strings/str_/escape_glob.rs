@@ -68,7 +68,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example> {
         vec![Example {
             description: "escape glob pattern before list",
-            example: r#"let f = test[a]; ls ($f | str escape-glob)"#,
+            example: r#"let f = 'test[a]'; ls ($f | str escape-glob)"#,
             result: None,
         }]
     }
