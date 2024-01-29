@@ -7,6 +7,7 @@ use nu_protocol::{
 };
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct UpdateCells;
@@ -222,6 +223,9 @@ fn process_cell(
         val.into_pipeline_data(),
         redirect_stdout,
         redirect_stderr,
+        // TODO: DEBUG
+        WithoutDebug,
+        &None
     ) {
         Ok(pd) => pd.into_value(span),
         Err(e) => Value::error(e, span),

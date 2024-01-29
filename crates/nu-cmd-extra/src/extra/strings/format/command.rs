@@ -8,6 +8,7 @@ use nu_protocol::{
     Category, Example, ListStream, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
 };
+use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -296,7 +297,11 @@ fn format_record(
                 let exp = parse_expression(working_set, &[*span], false);
                 match working_set.parse_errors.first() {
                     None => {
-                        let parsed_result = eval_expression(engine_state, stack, &exp);
+                        let parsed_result = eval_expression(engine_state, stack, &exp,
+                                                            // TODO: DEBUG
+                                                            WithoutDebug,
+                                                            &None
+                        );
                         if let Ok(val) = parsed_result {
                             output.push_str(&val.into_abbreviated_string(config))
                         }

@@ -9,6 +9,8 @@ use nu_protocol::{
 };
 use nu_test_support::fs;
 use reedline::Suggestion;
+use nu_protocol::debugger::WithoutDebug;
+
 const SEP: char = std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
@@ -200,7 +202,10 @@ pub fn merge_input(
         &block,
         PipelineData::Value(Value::nothing(Span::unknown(),), None),
         false,
-        false
+        false,
+        // TODO: DEBUG
+        WithoutDebug,
+        &None,
     )
     .is_ok());
 

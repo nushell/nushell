@@ -5,6 +5,7 @@ use nu_protocol::{
     Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError,
     Signature, Span, SyntaxShape, Type, Value,
 };
+use nu_protocol::debugger::WithoutDebug;
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -111,6 +112,9 @@ impl Command for EachWhile {
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        // TODO: Debug
+                        WithoutDebug,
+                        &None,
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -155,6 +159,9 @@ impl Command for EachWhile {
                         x.into_pipeline_data(),
                         redirect_stdout,
                         redirect_stderr,
+                        // TODO: DEBUG
+                        WithoutDebug,
+                        &None
                     ) {
                         Ok(v) => {
                             let value = v.into_value(span);
@@ -185,6 +192,9 @@ impl Command for EachWhile {
                     x.into_pipeline_data(),
                     redirect_stdout,
                     redirect_stderr,
+                    // TODO: DEBUG
+                    WithoutDebug,
+                    &None
                 )
             }
         }
