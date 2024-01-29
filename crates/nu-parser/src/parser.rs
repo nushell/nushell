@@ -1700,16 +1700,18 @@ pub fn parse_brace_expr(
         parse_closure_expression(working_set, shape, span)
     } else if matches!(third_token, Some(b":")) {
         parse_full_cell_path(working_set, None, span)
-    } else if second_token.is_some_and(|c| {
-        c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
-    }) {
-        parse_record(working_set, span)
-    } else if matches!(shape, SyntaxShape::Closure(_)) || matches!(shape, SyntaxShape::Any) {
+    } else if matches!(shape, SyntaxShape::Closure(_)) {
         parse_closure_expression(working_set, shape, span)
     } else if matches!(shape, SyntaxShape::Block) {
         parse_block_expression(working_set, span)
     } else if matches!(shape, SyntaxShape::MatchBlock) {
         parse_match_block_expression(working_set, span)
+    } else if second_token.is_some_and(|c| {
+        c.len() > 3 && c.starts_with(b"...") && (c[3] == b'$' || c[3] == b'{' || c[3] == b'(')
+    }) {
+        parse_record(working_set, span)
+    } else if matches!(shape, SyntaxShape::Any) {
+        parse_closure_expression(working_set, shape, span)
     } else {
         working_set.error(ParseError::ExpectedWithStringMsg(
             format!("non-block value: {shape}"),

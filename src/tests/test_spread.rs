@@ -190,3 +190,15 @@ fn deprecate_implicit_spread_for_externals() {
         .contains("Automatically spreading lists is deprecated"));
     assert_eq!(result.out, "1 2");
 }
+
+#[test]
+fn respect_shape() -> TestResult {
+    fail_test(
+        "def foo [...rest] { ...$rest }; foo bar baz",
+        "executable was not found",
+    )
+    .unwrap();
+    fail_test("module foo { ...$bar }", "expected_keyword").unwrap();
+    run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2").unwrap();
+    run_test(r#"match "...$foo" { ...$foo => 5 }"#, "5")
+}
