@@ -106,6 +106,16 @@ fn not_contains() -> TestResult {
 }
 
 #[test]
+fn not_precedence() -> TestResult {
+    run_test("not false and false", "false")
+}
+
+#[test]
+fn not_precedence2() -> TestResult {
+    run_test("(not false) and false", "false")
+}
+
+#[test]
 fn floating_add() -> TestResult {
     run_test("10.1 + 0.8", "10.9")
 }
