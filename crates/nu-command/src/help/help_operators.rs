@@ -195,7 +195,7 @@ fn generate_operator_info() -> Vec<OperatorInfo> {
             operator: "not".into(),
             name: "UnaryNot".into(),
             description: "Negates a value or expression.".into(),
-            precedence: 0,
+            precedence: 80,
         },
         OperatorInfo {
             op_type: "Math".into(),
