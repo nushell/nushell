@@ -147,15 +147,14 @@ impl Jobs {
 
         let _ = {
             // TODO: `lines()` will error on invalid utf-8.
-            // This needs to be fixed in reedline first, which currently only allows sending `String`s.
 
             // TODO: the `BufRead::read_line` docs say:
             // `read_line` is blocking and should be used carefully:
             // it is possible for an attacker to continuously send bytes without ever sending a newline or EOF.
             // You can use `take` to limit the maximum number of bytes read.
 
-            // All lines need to be read to prevent the child process
-            // from being blocking on write, so we `flatten()` to skip over errors.
+            // All lines need to be read to prevent the child process from being blocking on write,
+            // so we use `flatten()` to skip over errors instead of exiting early.
             let lines = BufReader::new(stdout).lines().flatten();
             if let Some(printer) = self.printer.as_ref() {
                 let out = printer.clone();
