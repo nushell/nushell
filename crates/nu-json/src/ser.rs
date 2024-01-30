@@ -4,7 +4,6 @@
 
 use std::fmt::{Display, LowerExp};
 use std::io;
-use std::io::{BufRead, BufReader};
 use std::num::FpCategory;
 
 use super::error::{Error, ErrorCode, Result};
@@ -1034,20 +1033,7 @@ where
     T: ser::Serialize,
 {
     let vec = to_vec(value)?;
-    let string = remove_json_whitespace(vec);
-    Ok(string)
-}
-
-fn remove_json_whitespace(v: Vec<u8>) -> String {
-    let reader = BufReader::new(&v[..]);
-    let mut output = String::new();
-    for line in reader.lines() {
-        match line {
-            Ok(line) => output.push_str(line.trim().trim_end()),
-            _ => {
-                eprintln!("Error removing JSON whitespace");
-            }
-        }
-    }
-    output
+    let string = String::from_utf8(vec)?;
+    let output = string.lines().map(str::trim).collect();
+    Ok(output)
 }
