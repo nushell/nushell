@@ -634,7 +634,12 @@ Operating system commands:
             },
             Example {
                 description: "Use structured escape codes",
-                example: r#"$"(ansi --escape {fg: '#0000ff' bg: '#ff0000' attr: b})Hello, Nu World!(ansi reset)""#,
+                example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: b
+    }
+    $"(ansi --escape $bold_blue_on_red)Hello, Nu World!(ansi reset)""#,
                 result: Some(Value::test_string(
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
                 )),
