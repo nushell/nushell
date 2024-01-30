@@ -97,11 +97,7 @@ impl Command for Lines {
                 stdout: Some(stream),
                 ..
             } => Ok(RawStreamLinesAdapter::new(stream, head, skip_empty)
-                .enumerate()
-                .map(move |(_idx, x)| match x {
-                    Ok(x) => x,
-                    Err(err) => Value::error(err, head),
-                })
+                .map(move |x| x.unwrap_or_else(|err| Value::error(err, head)))
                 .into_pipeline_data(ctrlc)),
         }
     }
