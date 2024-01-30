@@ -140,30 +140,30 @@ pub fn run_seq(
     if !contains_decimals {
         // integers only
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream {
-                stream: Box::new(IntSeq {
+            nu_protocol::ListStream::from_stream(
+                IntSeq {
                     count: first as i64,
                     step: step as i64,
                     last: last as i64,
                     span,
-                }),
-                ctrlc: engine_state.ctrlc.clone(),
-            },
+                },
+                engine_state.ctrlc.clone(),
+            ),
             None,
         ))
     } else {
         // floats
         Ok(PipelineData::ListStream(
-            nu_protocol::ListStream {
-                stream: Box::new(FloatSeq {
+            nu_protocol::ListStream::from_stream(
+                FloatSeq {
                     first,
                     step,
                     last,
                     index: 0,
                     span,
-                }),
-                ctrlc: engine_state.ctrlc.clone(),
-            },
+                },
+                engine_state.ctrlc.clone(),
+            ),
             None,
         ))
     }

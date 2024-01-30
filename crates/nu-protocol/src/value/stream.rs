@@ -184,6 +184,7 @@ impl Iterator for RawStream {
 pub struct ListStream {
     pub stream: Box<dyn Iterator<Item = Value> + Send + 'static>,
     pub ctrlc: Option<Arc<AtomicBool>>,
+    first_guard: bool,
 }
 
 impl ListStream {
@@ -209,6 +210,7 @@ impl ListStream {
         ListStream {
             stream: Box::new(input),
             ctrlc,
+            first_guard: true,
         }
     }
 }
@@ -223,6 +225,17 @@ impl Iterator for ListStream {
     type Item = Value;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // We need to check `first_guard` to guarantee that it always have something to return in
+        // underlying stream.
+        //
+        // A realworld example is running an external commands, which have an `exit_code`
+        // ListStream.
+        // When we press ctrl-c, the external command receives the signal too, if we don't have
+        // `first_guard`, the `exit_code` ListStream will return Nothing, which is not expected
+        if self.first_guard {
+            self.first_guard = false;
+            return self.stream.next();
+        }
         if nu_utils::ctrl_c::was_pressed(&self.ctrlc) {
             None
         } else {

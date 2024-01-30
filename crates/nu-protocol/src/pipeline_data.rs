@@ -270,25 +270,19 @@ impl PipelineData {
         match self {
             PipelineData::Value(val, metadata) => match val {
                 Value::List { vals, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(vals.into_iter()),
-                        ctrlc: None,
-                    },
+                    ListStream::from_stream(vals.into_iter(), None),
                     metadata,
                 ))),
                 Value::Binary { val, .. } => Ok(PipelineIterator(PipelineData::ListStream(
-                    ListStream {
-                        stream: Box::new(val.into_iter().map(move |x| Value::int(x as i64, span))),
-                        ctrlc: None,
-                    },
+                    ListStream::from_stream(
+                        val.into_iter().map(move |x| Value::int(x as i64, span)),
+                        None,
+                    ),
                     metadata,
                 ))),
                 Value::Range { val, .. } => match val.into_range_iter(None) {
                     Ok(iter) => Ok(PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(iter),
-                            ctrlc: None,
-                        },
+                        ListStream::from_stream(iter, None),
                         metadata,
                     ))),
                     Err(error) => Err(error),
@@ -822,25 +816,19 @@ impl IntoIterator for PipelineData {
                 let span = v.span();
                 match v {
                     Value::List { vals, .. } => PipelineIterator(PipelineData::ListStream(
-                        ListStream {
-                            stream: Box::new(vals.into_iter()),
-                            ctrlc: None,
-                        },
+                        ListStream::from_stream(vals.into_iter(), None),
                         metadata,
                     )),
                     Value::Range { val, .. } => match val.into_range_iter(None) {
                         Ok(iter) => PipelineIterator(PipelineData::ListStream(
-                            ListStream {
-                                stream: Box::new(iter),
-                                ctrlc: None,
-                            },
+                            ListStream::from_stream(iter, None),
                             metadata,
                         )),
                         Err(error) => PipelineIterator(PipelineData::ListStream(
-                            ListStream {
-                                stream: Box::new(std::iter::once(Value::error(error, span))),
-                                ctrlc: None,
-                            },
+                            ListStream::from_stream(
+                                std::iter::once(Value::error(error, span)),
+                                None,
+                            ),
                             metadata,
                         )),
                     },
@@ -965,10 +953,7 @@ where
 {
     fn into_pipeline_data(self, ctrlc: Option<Arc<AtomicBool>>) -> PipelineData {
         PipelineData::ListStream(
-            ListStream {
-                stream: Box::new(self.into_iter().map(Into::into)),
-                ctrlc,
-            },
+            ListStream::from_stream(self.into_iter().map(Into::into), ctrlc),
             None,
         )
     }
@@ -979,10 +964,7 @@ where
         ctrlc: Option<Arc<AtomicBool>>,
     ) -> PipelineData {
         PipelineData::ListStream(
-            ListStream {
-                stream: Box::new(self.into_iter().map(Into::into)),
-                ctrlc,
-            },
+            ListStream::from_stream(self.into_iter().map(Into::into), ctrlc),
             metadata.into(),
         )
     }
