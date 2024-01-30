@@ -2,8 +2,8 @@ use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
-    Category, Example, IntoInterruptiblePipelineData, PipelineData, RawStream, ShellError,
-    Signature, Span, Type, Value,
+    Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, RawStream,
+    ShellError, Signature, Span, Type, Value,
 };
 
 #[derive(Clone)]
@@ -38,25 +38,21 @@ impl Command for Lines {
         let span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::Value(Value::String { val, .. }, ..) => {
-                let mut lines = val.lines().map(String::from).collect::<Vec<_>>();
+                let lines = if skip_empty {
+                    val.lines()
+                        .filter_map(|s| {
+                            if s.trim().is_empty() {
+                                None
+                            } else {
+                                Some(Value::string(s, span))
+                            }
+                        })
+                        .collect()
+                } else {
+                    val.lines().map(|s| Value::string(s, span)).collect()
+                };
 
-                // if the last one is empty, remove it, as it was just
-                // a newline at the end of the input we got
-                if let Some(last) = lines.last() {
-                    if last.is_empty() {
-                        lines.pop();
-                    }
-                }
-
-                let iter = lines.into_iter().filter_map(move |s| {
-                    if skip_empty && s.trim().is_empty() {
-                        None
-                    } else {
-                        Some(Value::string(s, span))
-                    }
-                });
-
-                Ok(iter.into_pipeline_data(engine_state.ctrlc.clone()))
+                Ok(Value::list(lines, span).into_pipeline_data())
             }
             PipelineData::Empty => Ok(PipelineData::Empty),
             PipelineData::ListStream(stream, ..) => {
@@ -65,26 +61,17 @@ impl Command for Lines {
                     .filter_map(move |value| {
                         let span = value.span();
                         if let Value::String { val, .. } = value {
-                            let mut lines = val
-                                .lines()
-                                .filter_map(|s| {
-                                    if skip_empty && s.trim().is_empty() {
-                                        None
-                                    } else {
-                                        Some(s.to_string())
-                                    }
-                                })
-                                .collect::<Vec<_>>();
-
-                            // if the last one is empty, remove it, as it was just
-                            // a newline at the end of the input we got
-                            if let Some(last) = lines.last() {
-                                if last.is_empty() {
-                                    lines.pop();
-                                }
-                            }
-
-                            Some(lines.into_iter().map(move |x| Value::string(x, span)))
+                            Some(
+                                val.lines()
+                                    .filter_map(|s| {
+                                        if skip_empty && s.trim().is_empty() {
+                                            None
+                                        } else {
+                                            Some(Value::string(s, span))
+                                        }
+                                    })
+                                    .collect::<Vec<_>>(),
+                            )
                         } else {
                             None
                         }
@@ -193,16 +180,12 @@ impl Iterator for RawStreamLinesAdapter {
                                         }
                                     }
 
-                                    // store incomplete line from current
-                                    if let Some(last) = lines.last() {
-                                        if last.is_empty() {
-                                            // we ended on a line ending
-                                            lines.pop();
-                                        } else {
-                                            // incomplete line, save for next time
-                                            if let Some(s) = lines.pop() {
-                                                self.incomplete_line = s;
-                                            }
+                                    if !val.ends_with('\n') {
+                                        // incomplete line, save for next time
+                                        // if `val` and `incomplete_line` were empty,
+                                        // then pop will return none
+                                        if let Some(s) = lines.pop() {
+                                            self.incomplete_line = s;
                                         }
                                     }
 
