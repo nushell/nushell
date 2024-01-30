@@ -26,15 +26,6 @@ pub struct Deserializer<Iter: Iterator<Item = u8>> {
     state: State,
 }
 
-// macro_rules! try_or_invalid {
-//     ($self_:expr, $e:expr) => {
-//         match $e {
-//             Some(v) => v,
-//             None => { return Err($self_.error(ErrorCode::InvalidNumber)); }
-//         }
-//     }
-// }
-
 impl<Iter> Deserializer<Iter>
 where
     Iter: Iterator<Item = u8>,
