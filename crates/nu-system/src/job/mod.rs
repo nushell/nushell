@@ -109,12 +109,12 @@ impl Jobs {
     pub fn spawn_background(&self, mut command: Command, interactive: bool) -> io::Result<JobId> {
         Self::platform_pre_spawn(&mut command, interactive);
 
-        // stdin(Stdio::null()) ?
-        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         let mut child = command.spawn()?;
-        let stdout = child.stdout.take().expect("child stdout");
-        let stderr = child.stderr.take().expect("child stderr");
 
         let mut state = self.state.lock().expect("unpoisoned");
         let job = Job {
@@ -124,6 +124,51 @@ impl Jobs {
             exit_status: None,
         };
         let id = job.id;
+
+        if let Some(stdout) = child.stdout.take() {
+            // TODO: `lines()` will error on invalid utf-8.
+
+            // TODO: the `BufRead::read_line` docs say:
+            // `read_line` is blocking and should be used carefully:
+            // it is possible for an attacker to continuously send bytes without ever sending a newline or EOF.
+            // You can use `take` to limit the maximum number of bytes read.
+
+            // All lines need to be read to prevent the child process from being blocking on write,
+            // so we use `flatten()` to skip over errors instead of exiting early.
+            let lines = BufReader::new(stdout).lines().flatten();
+            let _ = if let Some(printer) = self.printer.as_ref() {
+                let out = printer.clone();
+                thread::Builder::new().spawn(move || {
+                    for line in lines {
+                        let _ = out.print(line);
+                    }
+                })
+            } else {
+                thread::Builder::new().spawn(move || {
+                    for line in lines {
+                        println!("{line}");
+                    }
+                })
+            };
+        }
+
+        if let Some(stderr) = child.stderr.take() {
+            let lines = BufReader::new(stderr).lines().flatten();
+            let _ = if let Some(printer) = self.printer.as_ref() {
+                let err = printer.clone();
+                thread::Builder::new().spawn(move || {
+                    for line in lines {
+                        let _ = err.print(line);
+                    }
+                })
+            } else {
+                thread::Builder::new().spawn(move || {
+                    for line in lines {
+                        eprintln!("{line}");
+                    }
+                })
+            };
+        }
 
         // Other commands/libraries can spawn processes outside of job control,
         // so we cannot use waitpid(-1) without potentially messing with that.
@@ -143,51 +188,6 @@ impl Jobs {
                     debug_assert!(false, "did not find job with id {id}")
                 }
             })
-        };
-
-        let _ = {
-            // TODO: `lines()` will error on invalid utf-8.
-
-            // TODO: the `BufRead::read_line` docs say:
-            // `read_line` is blocking and should be used carefully:
-            // it is possible for an attacker to continuously send bytes without ever sending a newline or EOF.
-            // You can use `take` to limit the maximum number of bytes read.
-
-            // All lines need to be read to prevent the child process from being blocking on write,
-            // so we use `flatten()` to skip over errors instead of exiting early.
-            let lines = BufReader::new(stdout).lines().flatten();
-            if let Some(printer) = self.printer.as_ref() {
-                let out = printer.clone();
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        let _ = out.print(line);
-                    }
-                })
-            } else {
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        println!("{line}");
-                    }
-                })
-            }
-        };
-
-        let _ = {
-            let lines = BufReader::new(stderr).lines().flatten();
-            if let Some(printer) = self.printer.as_ref() {
-                let err = printer.clone();
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        let _ = err.print(line);
-                    }
-                })
-            } else {
-                thread::Builder::new().spawn(move || {
-                    for line in lines {
-                        eprintln!("{line}");
-                    }
-                })
-            }
         };
 
         if let Err(err) = wait_thread {
