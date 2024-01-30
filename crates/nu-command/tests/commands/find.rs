@@ -4,14 +4,17 @@ use nu_test_support::nu;
 fn find_with_list_search_with_string() {
     let actual = nu!("[moe larry curly] | find moe | get 0");
 
-    assert_eq!(actual.out, "moe");
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37m\u{1b}[0m\u{1b}[41;37mmoe\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+    );
 }
 
 #[test]
 fn find_with_list_search_with_char() {
     let actual = nu!("[moe larry curly] | find l | to json -r");
 
-    assert_eq!(actual.out, r#"["larry","curly"]"#);
+    assert_eq!(actual.out, "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m\",\"\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m\"]");
 }
 
 #[test]
@@ -25,7 +28,10 @@ fn find_with_list_search_with_number() {
 fn find_with_string_search_with_string() {
     let actual = nu!("echo Cargo.toml | find toml");
 
-    assert_eq!(actual.out, "Cargo.toml");
+    assert_eq!(
+        actual.out,
+        "\u{1b}[37mCargo.\u{1b}[0m\u{1b}[41;37mtoml\u{1b}[0m\u{1b}[37m\u{1b}[0m"
+    );
 }
 
 #[test]
@@ -40,7 +46,10 @@ fn find_with_filepath_search_with_string() {
     let actual =
         nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep | to json -r"#);
 
-    assert_eq!(actual.out, r#"["arepas.clu"]"#);
+    assert_eq!(
+        actual.out,
+        "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37marep\u{1b}[0m\u{1b}[37mas.clu\u{1b}[0m\"]"
+    );
 }
 
 #[test]
@@ -48,7 +57,7 @@ fn find_with_filepath_search_with_multiple_patterns() {
     let actual =
         nu!(r#"["amigos.txt","arepas.clu","los.txt","tres.txt"] | find arep ami | to json -r"#);
 
-    assert_eq!(actual.out, r#"["amigos.txt","arepas.clu"]"#);
+    assert_eq!(actual.out, "[\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37mami\u{1b}[0m\u{1b}[37mgos.txt\u{1b}[0m\",\"\u{1b}[37m\u{1b}[0m\u{1b}[41;37marep\u{1b}[0m\u{1b}[37mas.clu\u{1b}[0m\"]");
 }
 
 #[test]
