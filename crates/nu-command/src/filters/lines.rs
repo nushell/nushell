@@ -139,16 +139,14 @@ impl Iterator for RawStreamLinesAdapter {
             } else {
                 // inner is complete, feed out remaining state
                 if self.inner_complete {
-                    if !self.incomplete_line.is_empty() {
-                        let r = Some(Ok(Value::string(
-                            self.incomplete_line.to_string(),
+                    return if self.incomplete_line.is_empty() {
+                        None
+                    } else {
+                        Some(Ok(Value::string(
+                            std::mem::take(&mut self.incomplete_line),
                             self.span,
-                        )));
-                        self.incomplete_line = String::new();
-                        return r;
-                    }
-
-                    return None;
+                        )))
+                    };
                 }
 
                 // pull more data from inner
