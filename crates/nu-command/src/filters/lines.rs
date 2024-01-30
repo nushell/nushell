@@ -164,10 +164,10 @@ impl Iterator for RawStreamLinesAdapter {
                                     // handle incomplete line from previous
                                     if !self.incomplete_line.is_empty() {
                                         if let Some(first) = lines.next() {
-                                            let mut incomplete_line =
-                                                std::mem::take(&mut self.incomplete_line);
-                                            incomplete_line.push_str(first);
-                                            self.queue.push_back(incomplete_line);
+                                            self.incomplete_line.push_str(first);
+                                            self.queue.push_back(std::mem::take(
+                                                &mut self.incomplete_line,
+                                            ));
                                         }
                                     }
 

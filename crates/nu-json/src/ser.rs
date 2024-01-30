@@ -1034,6 +1034,6 @@ where
 {
     let vec = to_vec(value)?;
     let string = String::from_utf8(vec)?;
-    let output = string.lines().map(|line| line.trim()).collect();
+    let output = string.lines().map(str::trim).collect();
     Ok(output)
 }
