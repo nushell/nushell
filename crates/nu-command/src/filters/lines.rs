@@ -161,31 +161,29 @@ impl Iterator for RawStreamLinesAdapter {
                                 Value::String { val, .. } => {
                                     self.span = span;
 
-                                    let mut lines =
-                                        val.lines().map(String::from).collect::<Vec<_>>();
+                                    let mut lines = val.lines();
 
                                     // handle incomplete line from previous
                                     if !self.incomplete_line.is_empty() {
-                                        if let Some(first) = lines.first_mut() {
-                                            let incomplete_line =
+                                        if let Some(first) = lines.next() {
+                                            let mut incomplete_line =
                                                 std::mem::take(&mut self.incomplete_line);
-                                            let append_first =
-                                                std::mem::replace(first, incomplete_line);
-                                            first.push_str(&append_first);
+                                            incomplete_line.push_str(first);
+                                            self.queue.push_back(incomplete_line);
                                         }
                                     }
+
+                                    // save completed lines
+                                    self.queue.extend(lines.map(String::from));
 
                                     if !val.ends_with('\n') {
                                         // incomplete line, save for next time
                                         // if `val` and `incomplete_line` were empty,
                                         // then pop will return none
-                                        if let Some(s) = lines.pop() {
+                                        if let Some(s) = self.queue.pop_back() {
                                             self.incomplete_line = s;
                                         }
                                     }
-
-                                    // save completed lines
-                                    self.queue.extend(lines);
                                 }
                                 // Propagate errors by explicitly matching them before the final case.
                                 Value::Error { error, .. } => return Some(Err(*error)),
