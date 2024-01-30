@@ -3,8 +3,9 @@ use nu_engine::CallExt;
 use nu_protocol::engine::{EngineState, Stack};
 use nu_protocol::record;
 use nu_protocol::{
-    ast::Call, engine::Command, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData,
-    PipelineData, ShellError, Signature, Span, SyntaxShape, Type, Value,
+    ast::Call, engine::Command, engine::StateWorkingSet, Category, Example,
+    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature, Span,
+    SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
@@ -529,6 +530,10 @@ impl Command for AnsiCommand {
             .category(Category::Platform)
     }
 
+    fn is_const(&self) -> bool {
+        true
+    }
+
     fn usage(&self) -> &str {
         "Output ANSI codes to change color and style of text."
     }
@@ -627,14 +632,9 @@ Operating system commands:
             },
             Example {
                 description: "Use structured escape codes",
-                example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
-        fg: '#0000ff'
-        bg: '#ff0000'
-        attr: b
-    }
-    $"(ansi --escape $bold_blue_on_red)Hello Nu World(ansi reset)""#,
+                example: r#"$"(ansi --escape {fg: '#0000ff' bg: '#ff0000' attr: b})Hello, Nu World!(ansi reset)""#,
                 result: Some(Value::test_string(
-                    "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello Nu World\u{1b}[0m",
+                    "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
                 )),
             },
         ]
@@ -647,23 +647,33 @@ Operating system commands:
     fn run(
         &self,
         engine_state: &EngineState,
-        stack: &mut Stack,
+        _stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let list: bool = call.has_flag(engine_state, stack, "list")?;
-        let escape: bool = call.has_flag(engine_state, stack, "escape")?;
-        let osc: bool = call.has_flag(engine_state, stack, "osc")?;
-        let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
+        let working_set = StateWorkingSet::new(&engine_state);
+        self.run_const(&working_set, call, _input)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let list: bool = call.has_flag_const(working_set, "list")?;
+        let escape: bool = call.has_flag_const(working_set, "escape")?;
+        let osc: bool = call.has_flag_const(working_set, "osc")?;
+        let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
 
         if list {
-            return generate_ansi_code_list(engine_state, call.head, use_ansi_coloring);
+            return generate_ansi_code_list(working_set, call.head, use_ansi_coloring);
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
         // or it can be a record like this: { fg: "#ff0000" bg: "#00ff00" attr: bli }
         // this record is defined in nu-color-config crate
-        let code: Value = match call.opt(engine_state, stack, 0)? {
+        let code: Value = match call.opt_const(working_set, 0)? {
             Some(c) => c,
             None => {
                 return Err(ShellError::MissingParameter {
@@ -792,7 +802,7 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    engine_state: &EngineState,
+    working_set: &StateWorkingSet,
     call_span: Span,
     use_ansi_coloring: bool,
 ) -> Result<PipelineData, ShellError> {
@@ -827,7 +837,7 @@ fn generate_ansi_code_list(
 
             Value::record(record, call_span)
         })
-        .into_pipeline_data(engine_state.ctrlc.clone()));
+        .into_pipeline_data(working_set.permanent().ctrlc.clone()));
 }
 
 fn build_ansi_hashmap(v: &[AnsiCode]) -> HashMap<&str, &str> {
