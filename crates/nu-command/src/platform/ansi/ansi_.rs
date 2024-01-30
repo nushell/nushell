@@ -1,14 +1,16 @@
 use nu_ansi_term::*;
 use nu_engine::CallExt;
-use nu_protocol::engine::{EngineState, Stack};
-use nu_protocol::record;
 use nu_protocol::{
-    ast::Call, engine::Command, engine::StateWorkingSet, Category, Example,
-    IntoInterruptiblePipelineData, IntoPipelineData, PipelineData, ShellError, Signature, Span,
-    SyntaxShape, Type, Value,
+    ast::Call,
+    engine::Command,
+    engine::StateWorkingSet,
+    engine::{EngineState, Stack},
+    record, Category, Example, IntoInterruptiblePipelineData, IntoPipelineData, PipelineData,
+    ShellError, Signature, Span, SyntaxShape, Type, Value,
 };
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
+use std::sync::{atomic::AtomicBool, Arc};
 
 #[derive(Clone)]
 pub struct AnsiCommand;
@@ -655,9 +657,10 @@ Operating system commands:
         let escape: bool = call.has_flag(engine_state, stack, "escape")?;
         let osc: bool = call.has_flag(engine_state, stack, "osc")?;
         let use_ansi_coloring = engine_state.get_config().use_ansi_coloring;
+        let ctrlc = engine_state.ctrlc.clone();
 
         if list {
-            return generate_ansi_code_list(Some(engine_state), None, call.head, use_ansi_coloring);
+            return generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring);
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -688,9 +691,10 @@ Operating system commands:
         let escape: bool = call.has_flag_const(working_set, "escape")?;
         let osc: bool = call.has_flag_const(working_set, "osc")?;
         let use_ansi_coloring = working_set.get_config().use_ansi_coloring;
+        let ctrlc = working_set.permanent().ctrlc.clone();
 
         if list {
-            return generate_ansi_code_list(None, Some(working_set), call.head, use_ansi_coloring);
+            return generate_ansi_code_list(ctrlc, call.head, use_ansi_coloring);
         }
 
         // The code can now be one of the ansi abbreviations like green_bold
@@ -825,26 +829,10 @@ pub fn str_to_ansi(s: &str) -> Option<String> {
 }
 
 fn generate_ansi_code_list(
-    engine_state: Option<&EngineState>,
-    working_set: Option<&StateWorkingSet>,
+    ctrlc: Option<Arc<AtomicBool>>,
     call_span: Span,
     use_ansi_coloring: bool,
 ) -> Result<PipelineData, ShellError> {
-    // Figure out where to get the ctrlc from
-    let ctrlc = match (engine_state, working_set) {
-        (Some(engine_state), None) => engine_state.ctrlc.clone(),
-        (None, Some(working_set)) => working_set.permanent().ctrlc.clone(),
-        _ => {
-            return Err(ShellError::GenericError {
-                error: "Error finding engine_state or working_set".into(),
-                msg: "Error finding engine_state or working_set".to_string(),
-                span: Some(call_span),
-                help: None,
-                inner: vec![],
-            })
-        }
-    };
-
     return Ok(CODE_LIST
         .iter()
         .enumerate()
