@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use nu_engine::CallExt;
 use nu_protocol::ast::Call;
 use nu_protocol::engine::{Command, EngineState, Stack};
@@ -121,7 +123,7 @@ struct RawStreamLinesAdapter {
     skip_empty: bool,
     span: Span,
     incomplete_line: String,
-    queue: Vec<String>,
+    queue: VecDeque<String>,
 }
 
 impl Iterator for RawStreamLinesAdapter {
@@ -129,13 +131,10 @@ impl Iterator for RawStreamLinesAdapter {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if !self.queue.is_empty() {
-                let s = self.queue.remove(0usize);
-
+            if let Some(s) = self.queue.pop_front() {
                 if self.skip_empty && s.trim().is_empty() {
                     continue;
                 }
-
                 return Some(Ok(Value::string(s, self.span)));
             } else {
                 // inner is complete, feed out remaining state
@@ -217,7 +216,7 @@ impl RawStreamLinesAdapter {
             span,
             skip_empty,
             incomplete_line: String::new(),
-            queue: Vec::<String>::new(),
+            queue: VecDeque::new(),
             inner_complete: false,
         }
     }
