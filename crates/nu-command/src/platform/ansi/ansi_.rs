@@ -651,7 +651,7 @@ Operating system commands:
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let working_set = StateWorkingSet::new(&engine_state);
+        let working_set = StateWorkingSet::new(engine_state);
         self.run_const(&working_set, call, _input)
     }
 
