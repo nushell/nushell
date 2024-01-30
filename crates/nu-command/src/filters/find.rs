@@ -96,7 +96,7 @@ impl Command for Find {
                 description: "Search a char in a list of string",
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::list(
-                    vec![Value::test_string("larry"), Value::test_string("curly")],
+                    vec![Value::test_string("["\u{1b}[37m\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37marry\u{1b}[0m"), Value::test_string("\u{1b}[37mcur\u{1b}[0m\u{1b}[41;37ml\u{1b}[0m\u{1b}[37my\u{1b}[0m"]")],
                     Span::test_data(),
                 )),
             },
