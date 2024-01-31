@@ -1,3 +1,6 @@
+use std::io::IsTerminal;
+
+use nu_engine::CallExt;
 use nu_protocol::{
     ast::Call,
     engine::{Command, EngineState, Stack},
@@ -22,6 +25,11 @@ impl Command for JobStart {
                 SyntaxShape::String,
                 "the external command to run",
             )
+            .switch(
+                "inherit",
+                "make the background job inherit stdin, stdout, and stderr from the terminal",
+                Some('i'),
+            )
             .rest(
                 "args",
                 SyntaxShape::Any,
@@ -36,7 +44,8 @@ impl Command for JobStart {
     }
 
     fn extra_usage(&self) -> &str {
-        ""
+        r"In non-interactive mode or when the --inherit flag is provided, the background job will inherit stdin, stdout, and stderr.
+Otherwise, the background job will have separate input and output channels disconnected from the terminal."
     }
 
     fn run(
@@ -46,6 +55,9 @@ impl Command for JobStart {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let interactive = engine_state.is_interactive && std::io::stdin().is_terminal();
+        let inherit_io = call.has_flag(engine_state, stack, "inherit")?;
+
         let external = ExternalCommand::new(engine_state, stack, call, false, false, false, false)?;
 
         let head = external.name.span;
@@ -54,7 +66,7 @@ impl Command for JobStart {
         #[cfg(not(unix))]
         match engine_state
             .jobs
-            .spawn_background(command, engine_state.is_interactive)
+            .spawn_background(command, interactive, inherit_io)
         {
             Ok(id) => Ok(id),
             Err(err) => {
@@ -70,7 +82,7 @@ impl Command for JobStart {
                     {
                         engine_state
                             .jobs
-                            .spawn_background(command, engine_state.is_interactive)
+                            .spawn_background(command, interactive, inherit_io)
                     } else {
                         Err(err)
                     }
@@ -81,7 +93,7 @@ impl Command for JobStart {
         #[cfg(unix)]
         engine_state
             .jobs
-            .spawn_background(command, engine_state.is_interactive)?;
+            .spawn_background(command, interactive, inherit_io)?;
 
         Ok(PipelineData::Empty)
     }

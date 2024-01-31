@@ -106,13 +106,20 @@ impl Jobs {
         self.printer = Some(printer);
     }
 
-    pub fn spawn_background(&self, mut command: Command, interactive: bool) -> io::Result<JobId> {
+    pub fn spawn_background(
+        &self,
+        mut command: Command,
+        interactive: bool,
+        inherit_io: bool,
+    ) -> io::Result<JobId> {
         Self::platform_pre_spawn(&mut command, interactive);
 
-        command
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
+        if interactive && !inherit_io {
+            command
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped());
+        }
 
         let mut child = command.spawn()?;
 
