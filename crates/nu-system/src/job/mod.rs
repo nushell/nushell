@@ -195,13 +195,13 @@ impl Jobs {
             // On unix, this will leave the child as a zombie process until nushell exits.
             Err(err)
         } else {
-            // At this point, the job has succesfully launched, so we can add it.
+            // At this point, the job has successfully launched, so we can add it.
             state.jobs.push(job);
             Ok(id)
         }
     }
 
-    /// Returns information about each job (runnning and completed).
+    /// Returns information about each job (running and completed).
     /// Note that any completed jobs are removed from the job list.
     pub fn info(&self) -> Vec<JobInfo> {
         let mut state = self.state.lock().expect("unpoisoned");
