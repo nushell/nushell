@@ -317,13 +317,11 @@ impl UrlComponents {
     }
 
     pub fn to_url(&self, span: Span) -> Result<String, ShellError> {
-        let mut user_and_pwd: String = String::from("");
-
-        if let Some(usr) = &self.username {
-            if let Some(pwd) = &self.password {
-                user_and_pwd = format!("{usr}:{pwd}@");
-            }
-        }
+        let user_and_pwd = match (&self.username, &self.password) {
+            (Some(usr), Some(pwd)) => format!("{usr}:{pwd}@"),
+            (Some(usr), None) => format!("{usr}@"),
+            _ => String::from(""),
+        };
 
         let scheme_result = match &self.scheme {
             Some(s) => Ok(s),
