@@ -6234,11 +6234,10 @@ dependencies = [
 [[package]]
 name = "uu_uname"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
 dependencies = [
  "clap",
  "platform-info",
- "uucore 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
+ "uucore 0.0.24",
 ]
 
 [[package]]
@@ -6251,6 +6250,19 @@ dependencies = [
  "libc",
  "uucore 0.0.24 (registry+https://github.com/rust-lang/crates.io-index)",
  "windows-sys 0.48.0",
+]
+
+[[package]]
+name = "uucore"
+version = "0.0.24"
+dependencies = [
+ "clap",
+ "glob",
+ "nix 0.27.1",
+ "once_cell",
+ "os_display",
+ "uucore_procs 0.0.24",
+ "wild",
 ]
 
 [[package]]
@@ -6274,17 +6286,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "uucore"
+name = "uucore_procs"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
 dependencies = [
- "clap",
- "glob",
- "nix 0.27.1",
- "once_cell",
- "os_display",
- "uucore_procs 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
- "wild",
+ "proc-macro2",
+ "quote",
+ "uuhelp_parser 0.0.24",
 ]
 
 [[package]]
@@ -6299,25 +6306,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "uucore_procs"
+name = "uuhelp_parser"
 version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
-dependencies = [
- "proc-macro2",
- "quote",
- "uuhelp_parser 0.0.24 (git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname)",
-]
 
 [[package]]
 name = "uuhelp_parser"
 version = "0.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d841f8408028085ca65896cdd60b9925d4e407cb69989a64889f2bebbb51147b"
-
-[[package]]
-name = "uuhelp_parser"
-version = "0.0.24"
-source = "git+https://github.com/dmatos2012/coreutils.git?branch=refactor_and_make_public_uname#d2913ec27f9b6f74e1f21e47dcf65385330bb772"
 
 [[package]]
 name = "uuid"
