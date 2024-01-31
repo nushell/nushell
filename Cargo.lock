@@ -3219,6 +3219,7 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
+ "reedline",
  "sysinfo",
  "windows 0.52.0",
 ]
