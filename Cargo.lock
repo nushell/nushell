@@ -3219,7 +3219,6 @@ dependencies = [
  "ntapi",
  "once_cell",
  "procfs",
- "reedline",
  "sysinfo",
  "windows 0.52.0",
 ]
@@ -4656,6 +4655,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.28.0"
+source = "git+https://github.com/nushell/reedline?branch=main#9f0095f1509e5753ed3a6bd4672e5697a4681156"
 dependencies = [
  "arboard",
  "chrono",
@@ -6925,8 +6925,3 @@ dependencies = [
  "cc",
  "pkg-config",
 ]
-
-[[patch.unused]]
-name = "reedline"
-version = "0.28.0"
-source = "git+https://github.com/nushell/reedline?branch=main#9f0095f1509e5753ed3a6bd4672e5697a4681156"
