@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    panic::{catch_unwind, AssertUnwindSafe},
+    path::Path,
+};
 
 use crate::{ast::Call, Alias, BlockId, Example, PipelineData, ShellError, Signature};
 
@@ -147,5 +150,24 @@ where
 impl Clone for Box<dyn Command> {
     fn clone(&self) -> Box<dyn Command> {
         self.clone_box()
+    }
+}
+
+/// Provides a wrapper around run that handles panics in commands
+pub fn run_command(
+    command: &dyn AsRef<dyn Command>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    match catch_unwind(AssertUnwindSafe(|| {
+        command.as_ref().run(engine_state, stack, call, input)
+    })) {
+        Ok(result) => result,
+        Err(e) => Err(ShellError::CommandPanic {
+            msg: format!("Command Panicked: {:?}", e),
+            span: call.head,
+        }),
     }
 }

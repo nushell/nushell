@@ -2,6 +2,7 @@ use nu_engine::current_dir;
 use nu_engine::CallExt;
 use nu_path::expand_path_with;
 use nu_protocol::ast::{Call, Expr, Expression};
+use nu_protocol::engine::run_command;
 use nu_protocol::engine::{Command, EngineState, Stack};
 use nu_protocol::{
     Category, DataSource, Example, PipelineData, PipelineMetadata, RawStream, ShellError,
@@ -307,7 +308,8 @@ fn convert_to_extension(
 
     let output = match converter {
         Some(converter_id) => {
-            let output = engine_state.get_decl(converter_id).run(
+            let output = run_command(
+                engine_state.get_decl(converter_id),
                 engine_state,
                 stack,
                 &Call::new(span),

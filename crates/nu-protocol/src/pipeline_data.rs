@@ -1,6 +1,6 @@
 use crate::{
     ast::{Call, PathMember},
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{run_command, EngineState, Stack, StateWorkingSet},
     format_error, Config, ListStream, RawStream, ShellError, Span, Value,
 };
 use nu_utils::{stderr_write_all_and_flush, stdout_write_all_and_flush};
@@ -738,7 +738,7 @@ impl PipelineData {
 
             let mut call = Call::new(Span::new(0, 0));
             call.redirect_stdout = false;
-            let table = command.run(engine_state, stack, &call, self)?;
+            let table = run_command(command, engine_state, stack, &call, self)?;
 
             table.write_all_and_flush(engine_state, config, no_newline, to_stderr)?;
         } else {

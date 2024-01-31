@@ -1,4 +1,4 @@
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{run_command, EngineState, Stack};
 use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     engine::Command,
@@ -132,6 +132,6 @@ impl Command for KnownExternal {
             ))
         }
 
-        command.run(engine_state, stack, &extern_call, input)
+        run_command(command, engine_state, stack, &extern_call, input)
     }
 }

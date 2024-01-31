@@ -3,7 +3,7 @@ use base64::engine::general_purpose::PAD;
 use base64::engine::GeneralPurpose;
 use base64::{alphabet, Engine};
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{EngineState, Stack};
+use nu_protocol::engine::{run_command, EngineState, Stack};
 use nu_protocol::{
     record, BufferedReader, IntoPipelineData, PipelineData, RawStream, ShellError, Span, Spanned,
     Value,
@@ -468,7 +468,8 @@ fn transform_response_using_content_type(
         return Ok(output);
     } else if let Some(ext) = ext {
         return match engine_state.find_decl(format!("from {ext}").as_bytes(), &[]) {
-            Some(converter_id) => engine_state.get_decl(converter_id).run(
+            Some(converter_id) => run_command(
+                engine_state.get_decl(converter_id),
                 engine_state,
                 stack,
                 &Call::new(span),

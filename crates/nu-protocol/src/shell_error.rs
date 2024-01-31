@@ -1309,6 +1309,11 @@ This is an internal Nushell error, please file an issue https://github.com/nushe
         #[label = "byte index is not a char boundary or is out of bounds of the input"]
         span: Span,
     },
+
+    /// The executed command panicked.
+    #[error("Command Panicked")]
+    #[diagnostic(code(nu::shell::command_panicked))]
+    CommandPanic { msg: String, span: Span },
 }
 
 // TODO: Implement as From trait

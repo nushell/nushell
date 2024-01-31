@@ -6,6 +6,7 @@ use nu_engine::eval_block;
 use nu_engine::{convert_env_values, current_dir};
 use nu_parser::parse;
 use nu_path::canonicalize_with;
+use nu_protocol::engine::run_command;
 use nu_protocol::report_error;
 use nu_protocol::{
     ast::Call,
@@ -215,7 +216,7 @@ pub(crate) fn print_table_or_error(
             // The final call on table command, it's ok to set redirect_output to false.
             let mut call = Call::new(Span::new(0, 0));
             call.redirect_stdout = false;
-            let table = command.run(engine_state, stack, &call, pipeline_data);
+            let table = run_command(command, engine_state, stack, &call, pipeline_data);
 
             match table {
                 Ok(table) => {

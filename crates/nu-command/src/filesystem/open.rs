@@ -1,7 +1,7 @@
 use nu_engine::{current_dir, eval_block, CallExt};
 use nu_path::expand_to_real_path;
 use nu_protocol::ast::Call;
-use nu_protocol::engine::{Command, EngineState, Stack};
+use nu_protocol::engine::{run_command, Command, EngineState, Stack};
 use nu_protocol::util::BufferedReader;
 use nu_protocol::{
     Category, DataSource, Example, IntoInterruptiblePipelineData, NuPath, PipelineData,
@@ -202,7 +202,13 @@ impl Command for Open {
                                 let block = engine_state.get_block(block_id);
                                 eval_block(engine_state, stack, block, file_contents, false, false)
                             } else {
-                                decl.run(engine_state, stack, &Call::new(call_span), file_contents)
+                                run_command(
+                                    decl,
+                                    engine_state,
+                                    stack,
+                                    &Call::new(call_span),
+                                    file_contents,
+                                )
                             };
                             output.push(command_output.map_err(|inner| {
                                     ShellError::GenericError{

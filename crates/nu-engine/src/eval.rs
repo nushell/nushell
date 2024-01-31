@@ -5,7 +5,7 @@ use nu_protocol::{
         Argument, Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember,
         PipelineElement, Redirection,
     },
-    engine::{Closure, EngineState, Stack},
+    engine::{run_command, Closure, EngineState, Stack},
     eval_base::Eval,
     Config, DeclId, IntoPipelineData, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
     ENV_VARIABLE_ID,
@@ -175,7 +175,7 @@ pub fn eval_call(
         // We pass caller_stack here with the knowledge that internal commands
         // are going to be specifically looking for global state in the stack
         // rather than any local state.
-        decl.run(engine_state, caller_stack, call, input)
+        run_command(decl, engine_state, caller_stack, call, input)
     }
 }
 
@@ -274,8 +274,7 @@ fn eval_external(
             None,
         ))
     }
-
-    command.run(engine_state, stack, &call, input)
+    run_command(command, engine_state, stack, &call, input)
 }
 
 pub fn eval_expression(

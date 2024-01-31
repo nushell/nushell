@@ -1,4 +1,5 @@
 use nu_protocol::ast::{Argument, Expr, Expression, RecordItem};
+use nu_protocol::engine::run_command;
 use nu_protocol::{
     ast::Call,
     engine::{EngineState, Stack},
@@ -44,7 +45,8 @@ fn nu_highlight_string(code_string: &str, engine_state: &EngineState, stack: &mu
     if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
         let decl = engine_state.get_decl(highlighter);
 
-        if let Ok(output) = decl.run(
+        if let Ok(output) = run_command(
+            decl,
             engine_state,
             stack,
             &Call::new(Span::unknown()),
@@ -272,7 +274,8 @@ fn get_documentation(
         } else if let Some(highlighter) = engine_state.find_decl(b"nu-highlight", &[]) {
             let decl = engine_state.get_decl(highlighter);
 
-            match decl.run(
+            match run_command(
+                decl,
                 engine_state,
                 stack,
                 &Call::new(Span::unknown()),
@@ -301,15 +304,14 @@ fn get_documentation(
             let table = engine_state
                 .find_decl("table".as_bytes(), &[])
                 .and_then(|decl_id| {
-                    engine_state
-                        .get_decl(decl_id)
-                        .run(
-                            engine_state,
-                            stack,
-                            &Call::new(Span::new(0, 0)),
-                            PipelineData::Value(result.clone(), None),
-                        )
-                        .ok()
+                    run_command(
+                        engine_state.get_decl(decl_id),
+                        engine_state,
+                        stack,
+                        &Call::new(Span::new(0, 0)),
+                        PipelineData::Value(result.clone(), None),
+                    )
+                    .ok()
                 });
 
             for item in table.into_iter().flatten() {
