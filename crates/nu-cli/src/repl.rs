@@ -44,6 +44,9 @@ const PRE_EXECUTE_MARKER: &str = "\x1b]133;C\x1b\\";
 // const CMD_FINISHED_MARKER: &str = "\x1b]133;D;{}\x1b\\";
 const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
+///
+/// The main REPL loop, including spinning up the prompt itself.
+///
 pub fn evaluate_repl(
     engine_state: &mut EngineState,
     stack: &mut Stack,
@@ -381,13 +384,9 @@ pub fn evaluate_repl(
                     Some(HistoryFileFormat::Sqlite)
                 );
 
-                do_history_meta_pre_execution(
-                    &s,
-                    &hostname,
-                    engine_state,
-                    history_supports_meta,
-                    &mut line_editor,
-                )?;
+                if history_supports_meta {
+                    prepare_history_metadata(&s, &hostname, engine_state, &mut line_editor)?;
+                }
 
                 // Right before we start running the code the user gave us, fire the `pre_execution`
                 // hook
@@ -441,20 +440,21 @@ pub fn evaluate_repl(
                     Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
                 );
 
-                do_history_meta_post_execution(
-                    &s,
-                    engine_state,
-                    cmd_duration,
-                    stack,
-                    history_supports_meta,
-                    &mut line_editor,
-                )?;
+                if history_supports_meta {
+                    fill_in_result_related_history_metadata(
+                        &s,
+                        engine_state,
+                        cmd_duration,
+                        stack,
+                        &mut line_editor,
+                    )?;
+                }
 
                 if shell_integration {
                     do_shell_integration_finalize_command(hostname, engine_state, stack)?;
                 }
 
-                sync_line_editor_and_engine_state_repl(engine_state, &mut line_editor);
+                flush_engine_state_repl_buffer(engine_state, &mut line_editor);
             }
             Ok(Signal::CtrlC) => {
                 // `Reedline` clears the line content. New prompt is shown
@@ -506,14 +506,16 @@ pub fn evaluate_repl(
     Ok(())
 }
 
-fn do_history_meta_pre_execution(
+///
+/// Put in history metadata not related to the result of running the command
+///
+fn prepare_history_metadata(
     s: &str,
     hostname: &Option<String>,
     engine_state: &EngineState,
-    history_supports_meta: bool,
     line_editor: &mut Reedline,
 ) -> Result<()> {
-    if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context() {
+    if !s.is_empty() && line_editor.has_last_command_context() {
         line_editor
             .update_last_command_context(&|mut c| {
                 c.start_timestamp = Some(chrono::Utc::now());
@@ -527,15 +529,17 @@ fn do_history_meta_pre_execution(
     Ok(())
 }
 
-fn do_history_meta_post_execution(
+///
+/// Fills in history item metadata based on the execution result (notably duration and exit code)
+///
+fn fill_in_result_related_history_metadata(
     s: &str,
     engine_state: &EngineState,
     cmd_duration: Duration,
     stack: &mut Stack,
-    history_supports_meta: bool,
     line_editor: &mut Reedline,
 ) -> Result<()> {
-    if history_supports_meta && !s.is_empty() && line_editor.has_last_command_context() {
+    if !s.is_empty() && line_editor.has_last_command_context() {
         line_editor
             .update_last_command_context(&|mut c| {
                 c.duration = Some(cmd_duration);
@@ -566,6 +570,13 @@ enum ReplOperation {
     DoNothing,
 }
 
+///
+/// Parses one "REPL line" of input, to try and derive intent.
+/// Notably, this is where we detect whether the user is attempting an
+/// "auto-cd" (writing a relative path directly instead of `cd path`)
+///
+/// Returns the ReplOperation we believe the user wants to do
+///
 fn parse_operation(
     s: String,
     engine_state: &EngineState,
@@ -593,6 +604,9 @@ fn parse_operation(
     }
 }
 
+///
+/// Execute an "auto-cd" operation, changing the current working directory.
+///
 fn do_auto_cd(
     path: PathBuf,
     cwd: String,
@@ -654,6 +668,10 @@ fn do_auto_cd(
     );
 }
 
+///
+/// Run a command as received from reedline. This is where we are actually
+/// running a thing!
+///
 fn do_run_cmd(
     s: &str,
     stack: &mut Stack,
@@ -717,6 +735,10 @@ fn do_run_cmd(
     Ok(line_editor)
 }
 
+///
+/// Output some things and set environment variables so shells with the right integration
+/// can have more information about what is going on (after we have run a command)
+///
 fn do_shell_integration_finalize_command(
     hostname: Option<String>,
     engine_state: &EngineState,
@@ -763,10 +785,10 @@ fn do_shell_integration_finalize_command(
     Ok(())
 }
 
-fn sync_line_editor_and_engine_state_repl(
-    engine_state: &mut EngineState,
-    line_editor: &mut Reedline,
-) {
+///
+/// Clear the screen and output anything remaining in the EngineState buffer.
+///
+fn flush_engine_state_repl_buffer(engine_state: &mut EngineState, line_editor: &mut Reedline) {
     let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
     line_editor.run_edit_commands(&[
         EditCommand::Clear,
@@ -780,6 +802,9 @@ fn sync_line_editor_and_engine_state_repl(
     repl.cursor_pos = 0;
 }
 
+///
+/// Setup history management for Reedline
+///
 fn setup_history(
     nushell_path: &str,
     engine_state: &mut EngineState,
@@ -805,6 +830,9 @@ fn setup_history(
     Ok(line_editor)
 }
 
+///
+/// Setup Reedline keybindingds based on the provided config
+///
 fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedline {
     return match create_keybindings(engine_state.get_config()) {
         Ok(keybindings) => match keybindings {
@@ -827,6 +855,9 @@ fn setup_keybindings(engine_state: &EngineState, line_editor: Reedline) -> Reedl
     };
 }
 
+///
+/// Make sure that the terminal supports the kitty protocol if the config is asking for it
+///
 fn kitty_protocol_healthcheck(engine_state: &EngineState) {
     if engine_state.get_config().use_kitty_protocol && !reedline::kitty_protocol_available() {
         warn!("Terminal doesn't support use_kitty_protocol config");
