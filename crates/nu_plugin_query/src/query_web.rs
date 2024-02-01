@@ -248,10 +248,11 @@ fn execute_selector_query(
         false => doc
             .select(&css(query_string, inspect))
             .map(|selection| {
-                Value::string(
+                Value::list(
                     selection
                         .text()
-                        .fold("".to_string(), |acc, x| format!("{acc}{x}")),
+                        .map(|text| Value::string(text, span))
+                        .collect(),
                     span,
                 )
             })
