@@ -92,8 +92,8 @@ uu_cp = "0.0.23"
 uu_whoami = "0.0.23"
 uu_mkdir = "0.0.23"
 uu_mktemp = "0.0.23"
-uu_uname = {"path" = "/home/david/Documents/oss/coreutils/src/uu/uname/"}
-# uu_uname = {"git" =  "https://github.com/dmatos2012/coreutils.git", branch="refactor_and_make_public_uname"}
+# uu_uname = {"path" = "/home/david/Documents/oss/coreutils/src/uu/uname/"}
+uu_uname = {"git" =  "https://github.com/dmatos2012/coreutils.git", branch="refactor_and_make_public_uname"}
 uuid = { version = "1.6", features = ["v4"] }
 v_htmlescape = "0.15.0"
 wax = { version = "0.6" }
