@@ -305,6 +305,6 @@ mod tests {
         );
         let config = nu_protocol::Config::default();
         let out = item.into_string("\n", &config);
-        assert_eq!("[Coffee]".to_string(), out)
+        assert_eq!("[[Coffee]]".to_string(), out)
     }
 }
