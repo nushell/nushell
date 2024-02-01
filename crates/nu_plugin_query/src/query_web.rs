@@ -282,6 +282,8 @@ mod tests {
          </ul>
      "#;
 
+    const NESTED_TEXT: &str = r#"<p>Hello there, <span style="color: red;">World</span></p>"#;
+
     #[test]
     fn test_first_child_is_not_empty() {
         assert!(!execute_selector_query(
@@ -306,5 +308,34 @@ mod tests {
         let config = nu_protocol::Config::default();
         let out = item.into_string("\n", &config);
         assert_eq!("[[Coffee]]".to_string(), out)
+    }
+
+    #[test]
+    fn test_nested_text_nodes() {
+        let item = execute_selector_query(
+            NESTED_TEXT,
+            "p:first-child",
+            false,
+            false,
+            Span::test_data(),
+        );
+        let out = item
+            .as_list()
+            .unwrap()
+            .iter()
+            .map(|matches| {
+                matches
+                    .as_list()
+                    .unwrap()
+                    .iter()
+                    .map(|text_nodes| text_nodes.as_string().unwrap())
+                    .collect::<Vec<String>>()
+            })
+            .collect::<Vec<Vec<String>>>();
+
+        assert_eq!(
+            out,
+            vec![vec!["Hello there, ".to_string(), "World".to_string()]],
+        );
     }
 }
