@@ -172,6 +172,8 @@ impl Command for UCp {
         let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
             target.item.to_string(),
         ));
+        let cwd = current_dir(engine_state, stack)?;
+        let target_path = nu_path::expand_path_with(&target_path, &cwd);
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
                 error: "is not a directory".into(),
@@ -184,7 +186,6 @@ impl Command for UCp {
 
         // paths now contains the sources
 
-        let cwd = current_dir(engine_state, stack)?;
         let mut sources: Vec<PathBuf> = Vec::new();
 
         for mut p in paths {
@@ -226,8 +227,6 @@ impl Command for UCp {
                 *src = nu_path::expand_path_with(&src, &cwd);
             }
         }
-
-        let target_path = nu_path::expand_path_with(&target_path, &cwd);
 
         let attributes = make_attributes(preserve)?;
 
