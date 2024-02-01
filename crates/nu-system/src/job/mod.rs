@@ -2,11 +2,9 @@ use std::{
     fmt::Display,
     io::{self, BufRead, BufReader},
     process::{Command, Stdio},
-    sync::{Arc, Mutex},
+    sync::{mpsc::SyncSender, Arc, Mutex},
     thread,
 };
-
-use reedline::ExternalPrinter;
 
 pub type JobId = usize;
 
@@ -94,7 +92,7 @@ struct JobState {
 #[derive(Debug, Clone, Default)]
 pub struct Jobs {
     state: Arc<Mutex<JobState>>,
-    printer: Option<ExternalPrinter>,
+    sender: Option<SyncSender<Vec<u8>>>,
 }
 
 impl Jobs {
@@ -102,8 +100,8 @@ impl Jobs {
         Self::default()
     }
 
-    pub fn set_printer(&mut self, printer: ExternalPrinter) {
-        self.printer = Some(printer);
+    pub fn set_message_sender(&mut self, sender: SyncSender<Vec<u8>>) {
+        self.sender = Some(sender);
     }
 
     pub fn spawn_background(
@@ -143,11 +141,11 @@ impl Jobs {
             // All lines need to be read to prevent the child process from being blocking on write,
             // so we use `flatten()` to skip over errors instead of exiting early.
             let lines = BufReader::new(stdout).lines().flatten();
-            let _ = if let Some(printer) = self.printer.as_ref() {
+            let _ = if let Some(printer) = self.sender.as_ref() {
                 let out = printer.clone();
                 thread::Builder::new().spawn(move || {
                     for line in lines {
-                        let _ = out.print(line);
+                        let _ = out.send(line.into());
                     }
                 })
             } else {
@@ -161,11 +159,11 @@ impl Jobs {
 
         if let Some(stderr) = child.stderr.take() {
             let lines = BufReader::new(stderr).lines().flatten();
-            let _ = if let Some(printer) = self.printer.as_ref() {
+            let _ = if let Some(printer) = self.sender.as_ref() {
                 let err = printer.clone();
                 thread::Builder::new().spawn(move || {
                     for line in lines {
-                        let _ = err.print(line);
+                        let _ = err.send(line.into());
                     }
                 })
             } else {
