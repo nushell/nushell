@@ -104,16 +104,6 @@ pub enum Value {
         // please use .span() instead of matching this span value
         internal_span: Span,
     },
-    QuotedString {
-        val: String,
-        // note: spans are being refactored out of Value
-        // please use .span() instead of matching this span value
-        internal_span: Span,
-    },
-    RawString {
-        val: String,
-        internal_span: Span,
-    },
     Record {
         val: Record,
         // note: spans are being refactored out of Value
@@ -203,9 +193,9 @@ impl Clone for Value {
                 val: val.clone(),
                 internal_span: *internal_span,
             },
-            Value::RawString { val, span } => Value::String {
+            Value::RawString { val, internal_span } => Value::String {
                 val: val.clone(),
-                span: *span,
+                internal_span: *internal_span,
             },
             Value::QuotedString { val, internal_span } => Value::QuotedString {
                 val: val.clone(),
@@ -1801,6 +1791,12 @@ impl Value {
         }
     }
 
+    pub fn raw_string(val: impl Into<String>, span: Span) -> Value {
+        Value::RawString {
+            val: val.into(),
+            internal_span: span,
+        }
+    }
     pub fn record(val: Record, span: Span) -> Value {
         Value::Record {
             val,
@@ -2172,7 +2168,6 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
-                Value::MatchPattern { .. } => Some(Ordering::Less),
             },
             (Value::RawString { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2194,6 +2189,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::QuotedString { val: rhs, .. } => lhs.partial_cmp(rhs),
             },
             (Value::QuotedString { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),
@@ -2215,6 +2211,7 @@ impl PartialOrd for Value {
                 Value::Binary { .. } => Some(Ordering::Less),
                 Value::CellPath { .. } => Some(Ordering::Less),
                 Value::CustomValue { .. } => Some(Ordering::Less),
+                Value::RawString { val: rhs, .. } => lhs.partial_cmp(rhs),
             },
             (Value::Record { val: lhs, .. }, rhs) => match rhs {
                 Value::Bool { .. } => Some(Ordering::Greater),

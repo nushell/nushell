@@ -361,7 +361,7 @@ fn convert_to_value(
             span: expr.span,
         }),
         Expr::String(s) => Ok(Value::string(s, span)),
-        Expr::RawString(s) => Ok(Value::RawString { val: s, span }),
+        Expr::RawString(s) => Ok(Value::raw_string(s, span)),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

@@ -287,6 +287,15 @@ fn insert_value(
     }
 }
 
+fn values_to_sql(
+    values: impl IntoIterator<Item = Value>,
+) -> Result<Vec<Box<dyn rusqlite::ToSql>>, ShellError> {
+    values
+        .into_iter()
+        .map(value_to_sql)
+        .collect::<Result<Vec<_>, _>>()
+}
+
 // This is taken from to text local_into_string but tweaks it a bit so that certain formatting does not happen
 fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
     Ok(match value {
@@ -296,40 +305,24 @@ fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
         Value::Filesize { val, .. } => Box::new(val),
         Value::Duration { val, .. } => Box::new(val),
         Value::Date { val, .. } => Box::new(val),
-        Value::String { val, .. } => {
+        Value::String { val, .. }
+        | Value::RawString { val, .. }
+        | Value::QuotedString { val, .. } => {
             // don't store ansi escape sequences in the database
             // escape single quotes
             Box::new(nu_utils::strip_ansi_unlikely(&val).into_owned())
         }
-        Value::RawString { val, .. } => {
-            // don't store ansi escape sequences in the database
-            // escape single quotes
-            nu_utils::strip_ansi_unlikely(&val).replace('\'', "''")
+        Value::Binary { val, .. } => Box::new(val),
+        val => {
+            return Err(ShellError::OnlySupportsThisInputType {
+                exp_input_type: "bool, int, float, filesize, duration, date string, nothing binary"
+                    .into(),
+                wrong_type: val.get_type().to_string(),
+                dst_span: Span::unknown(),
+                src_span: val.span(),
+            })
         }
-        Value::List { vals: val, .. } => val
-            .iter()
-            .map(|x| nu_value_to_string(x.clone(), ", "))
-            .collect::<Vec<_>>()
-            .join(separator),
-        Value::Record { cols, vals, .. } => cols
-            .iter()
-            .zip(vals.iter())
-            .map(|(x, y)| format!("{}: {}", x, nu_value_to_string(y.clone(), ", ")))
-            .collect::<Vec<_>>()
-            .join(separator),
-        Value::LazyRecord { val, .. } => match val.collect() {
-            Ok(val) => nu_value_to_string(val, separator),
-            Err(error) => format!("{error:?}"),
-        },
-        Value::Block { val, .. } => format!("<Block {val}>"),
-        Value::Closure { val, .. } => format!("<Closure {val}>"),
-        Value::Nothing { .. } => String::new(),
-        Value::Error { error } => format!("{error:?}"),
-        Value::Binary { val, .. } => format!("{val:?}"),
-        Value::CellPath { val, .. } => val.into_string(),
-        Value::CustomValue { val, .. } => val.value_string(),
-        Value::MatchPattern { val, .. } => format!("{:?}", val),
-    }
+    })
 }
 
 // Each value stored in an SQLite database (or manipulated by the database engine) has one of the following storage classes:
@@ -341,6 +334,7 @@ fn value_to_sql(value: Value) -> Result<Box<dyn rusqlite::ToSql>, ShellError> {
 fn nu_value_to_sqlite_type(val: &Value) -> Result<&'static str, ShellError> {
     match val.get_type() {
         Type::String => Ok("TEXT"),
+        Type::RawString => Ok("TEXT"),
         Type::Int => Ok("INTEGER"),
         Type::Float => Ok("REAL"),
         Type::Number => Ok("REAL"),

@@ -306,6 +306,7 @@ fn describe_value(
         | Value::Range { .. }
         | Value::String { .. }
         | Value::QuotedString { .. }
+        | Value::RawString { .. }
         | Value::Nothing { .. } => Value::record(
             record!(
                 "type" => Value::string(value.get_type().to_string(), head),
