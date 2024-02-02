@@ -376,6 +376,7 @@ fn might_consume_external_result(input: PipelineData) -> (PipelineData, bool) {
     input.is_external_failed()
 }
 
+#[allow(clippy::too_many_arguments)]
 fn eval_element_with_input(
     engine_state: &EngineState,
     stack: &mut Stack,
