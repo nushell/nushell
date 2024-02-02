@@ -1749,7 +1749,7 @@ pub fn parse_module_block(
     for pipeline in output.block.iter() {
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
-                LiteElement::Command(_, command) => {
+                LiteElement::Command(_, command) | LiteElement::ErrPipedCommand(_, command) => {
                     let name = working_set.get_span_contents(command.parts[0]);
 
                     match name {

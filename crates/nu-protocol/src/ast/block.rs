@@ -71,6 +71,7 @@ impl Block {
             if let Some(last) = last.elements.last() {
                 match last {
                     PipelineElement::Expression(_, expr) => expr.ty.clone(),
+                    PipelineElement::ErrPipedExpression(_, expr) => expr.ty.clone(),
                     PipelineElement::Redirection(_, _, _, _) => Type::Any,
                     PipelineElement::SeparateRedirection { .. } => Type::Any,
                     PipelineElement::SameTargetRedirection { .. } => Type::Any,

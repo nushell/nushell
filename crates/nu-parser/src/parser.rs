@@ -1299,6 +1299,7 @@ fn parse_binary_with_base(
                     }
                     TokenContents::Pipe
                     | TokenContents::PipePipe
+                    | TokenContents::ErrGreaterPipe
                     | TokenContents::OutGreaterThan
                     | TokenContents::OutGreaterGreaterThan
                     | TokenContents::ErrGreaterThan
@@ -5584,6 +5585,12 @@ pub fn parse_pipeline(
 
                     PipelineElement::Expression(*span, expr)
                 }
+                LiteElement::ErrPipedCommand(span, command) => {
+                    trace!("parsing: pipeline element: err piped command");
+                    let expr = parse_expression(working_set, &command.parts, is_subexpression);
+
+                    PipelineElement::ErrPipedExpression(*span, expr)
+                }
                 LiteElement::Redirection(span, redirection, command, is_append_mode) => {
                     let expr = parse_value(working_set, command.parts[0], &SyntaxShape::Any);
 
@@ -5639,6 +5646,7 @@ pub fn parse_pipeline(
     } else {
         match &pipeline.commands[0] {
             LiteElement::Command(_, command)
+            | LiteElement::ErrPipedCommand(_, command)
             | LiteElement::Redirection(_, _, command, _)
             | LiteElement::SeparateRedirection {
                 out: (_, command, _),
@@ -5743,6 +5751,7 @@ pub fn parse_block(
         if pipeline.commands.len() == 1 {
             match &pipeline.commands[0] {
                 LiteElement::Command(_, command)
+                | LiteElement::ErrPipedCommand(_, command)
                 | LiteElement::Redirection(_, _, command, _)
                 | LiteElement::SeparateRedirection {
                     out: (_, command, _),
@@ -5836,6 +5845,7 @@ pub fn discover_captures_in_pipeline_element(
 ) -> Result<(), ParseError> {
     match element {
         PipelineElement::Expression(_, expression)
+        | PipelineElement::ErrPipedExpression(_, expression)
         | PipelineElement::Redirection(_, _, expression, _)
         | PipelineElement::And(_, expression)
         | PipelineElement::Or(_, expression) => {
@@ -6180,6 +6190,12 @@ fn wrap_element_with_collect(
     match element {
         PipelineElement::Expression(span, expression) => {
             PipelineElement::Expression(*span, wrap_expr_with_collect(working_set, expression))
+        }
+        PipelineElement::ErrPipedExpression(span, expression) => {
+            PipelineElement::ErrPipedExpression(
+                *span,
+                wrap_expr_with_collect(working_set, expression),
+            )
         }
         PipelineElement::Redirection(span, redirection, expression, is_append_mode) => {
             PipelineElement::Redirection(

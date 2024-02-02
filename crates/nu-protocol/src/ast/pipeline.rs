@@ -13,6 +13,7 @@ pub enum Redirection {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PipelineElement {
     Expression(Option<Span>, Expression),
+    ErrPipedExpression(Option<Span>, Expression),
     // final field indicates if it's in append mode
     Redirection(Span, Redirection, Expression, bool),
     // final bool field indicates if it's in append mode
@@ -32,7 +33,8 @@ pub enum PipelineElement {
 impl PipelineElement {
     pub fn expression(&self) -> &Expression {
         match self {
-            PipelineElement::Expression(_, expression) => expression,
+            PipelineElement::Expression(_, expression)
+            | PipelineElement::ErrPipedExpression(_, expression) => expression,
             PipelineElement::Redirection(_, _, expression, _) => expression,
             PipelineElement::SeparateRedirection {
                 out: (_, expression, _),
@@ -50,11 +52,13 @@ impl PipelineElement {
     pub fn span(&self) -> Span {
         match self {
             PipelineElement::Expression(None, expression)
+            | PipelineElement::ErrPipedExpression(None, expression)
             | PipelineElement::SameTargetRedirection {
                 cmd: (None, expression),
                 ..
             } => expression.span,
             PipelineElement::Expression(Some(span), expression)
+            | PipelineElement::ErrPipedExpression(Some(span), expression)
             | PipelineElement::Redirection(span, _, expression, _)
             | PipelineElement::SeparateRedirection {
                 out: (span, expression, _),
@@ -74,6 +78,7 @@ impl PipelineElement {
     pub fn has_in_variable(&self, working_set: &StateWorkingSet) -> bool {
         match self {
             PipelineElement::Expression(_, expression)
+            | PipelineElement::ErrPipedExpression(_, expression)
             | PipelineElement::Redirection(_, _, expression, _)
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression)
@@ -96,6 +101,7 @@ impl PipelineElement {
     ) {
         match self {
             PipelineElement::Expression(_, expression)
+            | PipelineElement::ErrPipedExpression(_, expression)
             | PipelineElement::Redirection(_, _, expression, _)
             | PipelineElement::And(_, expression)
             | PipelineElement::Or(_, expression)

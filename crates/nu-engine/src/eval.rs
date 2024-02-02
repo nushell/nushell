@@ -394,6 +394,34 @@ fn eval_element_with_input(
             redirect_stdout,
             redirect_stderr,
         ),
+        PipelineElement::ErrPipedExpression(_, expr) => {
+            let input = match input {
+                PipelineData::ExternalStream {
+                    stdout,
+                    stderr,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                } => PipelineData::ExternalStream {
+                    stdout: stderr, // swap stderr and stdout to get stderr piped feature.
+                    stderr: stdout,
+                    exit_code,
+                    span,
+                    metadata,
+                    trim_end_newline,
+                },
+                other => other,
+            };
+            eval_expression_with_input(
+                engine_state,
+                stack,
+                expr,
+                input,
+                redirect_stdout,
+                redirect_stderr,
+            )
+        }
         PipelineElement::Redirection(span, redirection, expr, is_append_mode) => {
             match &expr.expr {
                 Expr::String(_)
@@ -667,6 +695,7 @@ pub fn eval_block(
                     PipelineElement::Redirection(_, Redirection::Stderr, _, _)
                         | PipelineElement::Redirection(_, Redirection::StdoutAndStderr, _, _)
                         | PipelineElement::SeparateRedirection { .. }
+                        | PipelineElement::ErrPipedExpression(..)
                 ) {
                     redirect_stderr = true;
                 }
@@ -692,12 +721,19 @@ pub fn eval_block(
                         if idx < elements_length - 2 {
                             let next_2nd_element = &elements[idx + 2];
                             if matches!(next_2nd_element, PipelineElement::Expression(..)) {
-                                redirect_stdout = true
+                                redirect_stdout = true;
                             }
                         }
                     }
                     _ => {}
                 }
+            }
+
+            if redirect_stdout
+                && idx < elements_length - 1
+                && matches!(&elements[idx + 1], PipelineElement::ErrPipedExpression(..))
+            {
+                redirect_stdout = false;
             }
 
             // if eval internal command failed, it can just make early return with `Err(ShellError)`.

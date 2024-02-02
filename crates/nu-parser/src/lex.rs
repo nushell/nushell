@@ -6,6 +6,7 @@ pub enum TokenContents {
     Comment,
     Pipe,
     PipePipe,
+    ErrGreaterPipe,
     Semicolon,
     OutGreaterThan,
     OutGreaterGreaterThan,
@@ -486,6 +487,21 @@ fn lex_internal(
             curr_offset += 1;
         } else {
             // Otherwise, try to consume an unclassified token.
+            if c == b'e' {
+                // expect `e>|`
+                if (curr_offset + 2 < input.len())
+                    && (&input[curr_offset..curr_offset + 3] == b"e>|")
+                {
+                    let idx = curr_offset;
+                    curr_offset += 3;
+                    output.push(Token::new(
+                        TokenContents::ErrGreaterPipe,
+                        Span::new(span_offset + idx, span_offset + idx + 3),
+                    ));
+                    is_complete = false;
+                    continue;
+                }
+            }
 
             let (token, err) = lex_item(
                 input,
